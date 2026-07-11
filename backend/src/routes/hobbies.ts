@@ -33,4 +33,25 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     const { hobbyId } = req.params as any;
     return query(`SELECT * FROM hobby_logs WHERE hobby_id = $1 ORDER BY logged_at DESC LIMIT 100`, [hobbyId]);
   });
+
+  app.get("/:id/stats", async (req) => {
+    const { id } = req.params as any;
+    const [thisWeek] = await query<any>(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM hobby_logs
+       WHERE hobby_id = $1 AND logged_at >= date_trunc('week', now())`,
+      [id]
+    );
+    const [lastWeek] = await query<any>(
+      `SELECT COALESCE(SUM(amount), 0) as total FROM hobby_logs
+       WHERE hobby_id = $1
+         AND logged_at >= date_trunc('week', now()) - interval '7 days'
+         AND logged_at < date_trunc('week', now())`,
+      [id]
+    );
+    return {
+      this_week_total: Number(thisWeek.total),
+      last_week_total: Number(lastWeek.total),
+      change: Number(thisWeek.total) - Number(lastWeek.total),
+    };
+  });
 }
