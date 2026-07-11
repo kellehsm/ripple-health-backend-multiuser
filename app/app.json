@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Wellness",
+    "slug": "wellness-app",
+    "scheme": "wellness",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["android", "web"],
+    "android": {
+      "package": "com.kelly.wellness",
+      "permissions": ["android.permission.health.READ_STEPS", "android.permission.health.READ_SLEEP", "android.permission.health.READ_HEART_RATE"]
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
