@@ -105,7 +105,9 @@ CREATE TABLE books (
     status TEXT DEFAULT 'reading',   -- 'reading' | 'finished' | 'dropped' | 'want_to_read'
     rating SMALLINT,                 -- 1-5, set on finish
     started_at DATE,
-    finished_at DATE
+    finished_at DATE,
+    total_chapters INT,
+    current_chapter INT
 );
 
 CREATE TABLE reading_logs (
