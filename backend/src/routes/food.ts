@@ -42,12 +42,23 @@ export default async function foodRoutes(app: FastifyInstance) {
     if (data.status !== 1) return { error: "product not found" };
 
     const p = data.product;
+    const n = p.nutriments ?? {};
+
+    const hasServing =
+      n["energy-kcal_serving"] != null ||
+      n["carbohydrates_serving"] != null ||
+      n["sugars_serving"] != null;
+
+    const basis = hasServing ? "per_serving" : "per_100g";
+
     return {
       source_food_id: code,
       name: p.product_name || p.generic_name || "Unknown product",
-      calories: p.nutriments?.["energy-kcal_100g"] ?? null,
-      carbs_g: p.nutriments?.carbohydrates_100g ?? null,
-      sugar_g: p.nutriments?.sugars_100g ?? null,
+      calories: n["energy-kcal_serving"] ?? n["energy-kcal_100g"] ?? null,
+      carbs_g: n["carbohydrates_serving"] ?? n["carbohydrates_100g"] ?? null,
+      sugar_g: n["sugars_serving"] ?? n["sugars_100g"] ?? null,
+      serving_size: p.serving_size ?? null,
+      basis,
       image_url: p.image_front_small_url ?? null,
     };
   });
