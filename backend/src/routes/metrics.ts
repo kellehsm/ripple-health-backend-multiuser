@@ -3,9 +3,15 @@ import { query } from "../db.js";
 
 // Generic metric engine: water, screen time, meds, workouts, etc.
 export default async function metricsRoutes(app: FastifyInstance) {
-  // List all defined metric types (e.g. "water", "screen_time")
-  app.get("/", async () => {
-    return query("SELECT * FROM metrics ORDER BY name");
+  // List metric types; supports ?user_id= and/or ?name= filters
+  app.get("/", async (req) => {
+    const { user_id, name } = req.query as any;
+    const conditions: string[] = [];
+    const params: any[] = [];
+    if (user_id) { params.push(user_id); conditions.push("user_id = $" + params.length); }
+    if (name) { params.push(name); conditions.push("name = $" + params.length); }
+    const where = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
+    return query("SELECT * FROM metrics" + where + " ORDER BY name", params);
   });
 
   // Create a new metric type (e.g. adding "meditation" later)
