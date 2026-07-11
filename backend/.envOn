@@ -1,0 +1,82 @@
+import { query } from "../db.js";
+
+const REGION = process.env.DEXCOM_SHARE_REGION === "ous" ? "shareous1" : "share2";
+const BASE_URL = `https://${REGION}.dexcom.com/ShareWebServices/Services`;
+const APPLICATION_ID = "d8665ade-9673-4e27-9ff6-92db4ce13d13";
+
+const HEADERS = {
+  "Content-Type": "application/json",
+  "User-Agent": "Dexcom Share/3.0.2.11 CFNetwork/711.2.23 Darwin/14.0.0",
+  "Accept": "application/json",
+  "Accept-Language": "en-us",
+};
+
+async function login(): Promise<string> {
+  const username = process.env.DEXCOM_SHARE_USERNAME;
+  const password = process.env.DEXCOM_SHARE_PASSWORD;
+  if (!username || !password) {
+    throw new Error("DEXCOM_SHARE_USERNAME / DEXCOM_SHARE_PASSWORD not set in .env");
+  }
+
+  const res = await fetch(`${BASE_URL}/General/LoginPublisherAccountByName`, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify({
+      accountName: username,
+      password,
+      applicationId: APPLICATION_ID,
+    }),
+  });
+
+  const text = await res.text();
+
+  if (!res.ok || !text || text.trim().length === 0) {
+    throw new Error(
+      `Dexcom Share login problem - status ${res.status}, body: "${text}"`
+    );
+  }
+
+  let sessionId: string;
+  try {
+    sessionId = JSON.parse(text);
+  } catch {
+    throw new Error(`Dexcom Share login returned non-JSON body: "${text}"`);
+  }
+
+  if (!sessionId || sessionId === "00000000-0000-0000-0000-000000000000") {
+    throw new Error("Dexcom Share login rejected - check username/password/region");
+  }
+
+  return sessionId;
+}
+
+export async function syncDexcomShareGlucose(userId: string) {
+  const sessionId = await login();
+
+  const res = await fetch(
+    `${BASE_URL}/Publisher/ReadPublisherLatestGlucoseValues?sessionId=${sessionId}&minutes=1440&maxCount=288`,
+    { method: "POST", headers: HEADERS }
+  );
+
+  const text = await res.text();
+  if (!res.ok) return { error: `Dexcom Share glucose fetch failed: ${res.status} - ${text}` };
+  if (!text || text.trim().length === 0) return { error: "Dexcom returned an empty reading list - is Share turned on?" };
+
+  const readings = JSON.parse(text);
+
+  let inserted = 0;
+  for (const r of readings) {
+    const match = /\/Date\((\d+)\)\//.exec(r.WT);
+    const recordedAt = match ? new Date(Number(match[1])) : new Date();
+
+    await query(
+      `INSERT INTO glucose_readings (user_id, recorded_at, mg_dl, trend, source)
+       VALUES ($1,$2,$3,$4,'dexcom_share')`,
+      [userId, recordedAt.toISOString(), r.Value, r.Trend]
+    );
+    inserted++;
+  }
+
+  return { ok: true, inserted };
+}
+
