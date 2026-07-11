@@ -13,13 +13,22 @@ export default async function booksRoutes(app: FastifyInstance) {
   app.get("/:bookId/progress", async (req) => {
     const { bookId } = req.params as any;
     const [bookRows, logRows] = await Promise.all([
-      query(`SELECT total_pages FROM books WHERE id = $1`, [bookId]),
+      query(`SELECT total_pages, total_chapters FROM books WHERE id = $1`, [bookId]),
       query(`SELECT COALESCE(SUM(pages_read), 0) AS pages_read_total FROM reading_logs WHERE book_id = $1`, [bookId]),
     ]);
     const total_pages: number | null = bookRows[0]?.total_pages ?? null;
+    const total_chapters: number | null = bookRows[0]?.total_chapters ?? null;
     const pages_read_total = Number(logRows[0]?.pages_read_total ?? 0);
     const percent_complete = total_pages ? Math.round((pages_read_total / total_pages) * 100) : null;
-    return { pages_read_total, total_pages, percent_complete };
+    let estimated_chapter: number | null = null;
+    if (total_pages && total_chapters) {
+      const pagesPerChapter = total_pages / total_chapters;
+      estimated_chapter = Math.min(
+        total_chapters,
+        Math.max(1, Math.ceil(pages_read_total / pagesPerChapter))
+      );
+    }
+    return { pages_read_total, total_pages, percent_complete, estimated_chapter };
   });
 
   app.post("/", async (req) => {
