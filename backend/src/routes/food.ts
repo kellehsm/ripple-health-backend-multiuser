@@ -33,7 +33,56 @@ export default async function foodRoutes(app: FastifyInstance) {
 
   app.get("/barcode/:code", async (req) => {
     const { code } = req.params as any;
+    const apiKey = process.env.USDA_FDC_API_KEY;
 
+    // Try USDA Branded Foods first — label data with reliable serving sizes
+    if (apiKey) {
+      try {
+        const searchRes = await fetch(
+          `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: code, dataType: ["Branded"] }),
+          }
+        );
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          const match = (searchData.foods ?? []).find(
+            (f: any) => f.gtinUpc === code
+          );
+          if (match) {
+            // labelNutrients is only available on the individual food endpoint
+            const detailRes = await fetch(
+              `https://api.nal.usda.gov/fdc/v1/food/${match.fdcId}?api_key=${apiKey}`
+            );
+            if (detailRes.ok) {
+              const detail = await detailRes.json();
+              const lbl = detail.labelNutrients ?? {};
+              const servingSize =
+                detail.servingSize != null && detail.servingSizeUnit
+                  ? `${detail.servingSize}${detail.servingSizeUnit}`
+                  : null;
+              return {
+                source_food_id: String(detail.fdcId),
+                name: detail.description,
+                calories: lbl.calories?.value ?? null,
+                carbs_g: lbl.carbohydrates?.value ?? null,
+                sugar_g: lbl.sugars?.value ?? null,
+                serving_size: servingSize,
+                basis: "per_serving",
+                image_url: null,
+                source_db: "usda_branded",
+              };
+            }
+          }
+        }
+      } catch {
+        // fall through to Open Food Facts
+      }
+    }
+
+    // Fall back to Open Food Facts
     const url = `https://world.openfoodfacts.org/api/v2/product/${code}.json`;
     const res = await fetch(url);
     if (!res.ok) return { error: `Open Food Facts API error ${res.status}` };
@@ -60,6 +109,7 @@ export default async function foodRoutes(app: FastifyInstance) {
       serving_size: p.serving_size ?? null,
       basis,
       image_url: p.image_front_small_url ?? null,
+      source_db: "openfoodfacts",
     };
   });
 }

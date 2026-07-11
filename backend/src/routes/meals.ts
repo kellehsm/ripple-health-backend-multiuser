@@ -25,6 +25,22 @@ export default async function mealsRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
+  app.patch("/:id", async (req) => {
+    const { id } = req.params as any;
+    const { name, meal_type, carbs_g, sugar_g, calories } = req.body as any;
+    const rows = await query(
+      `UPDATE meals SET
+         name = COALESCE($2, name),
+         meal_type = COALESCE($3, meal_type),
+         carbs_g = COALESCE($4, carbs_g),
+         sugar_g = COALESCE($5, sugar_g),
+         calories = COALESCE($6, calories)
+       WHERE id = $1 RETURNING *`,
+      [id, name, meal_type, carbs_g, sugar_g, calories]
+    );
+    return rows[0];
+  });
+
   app.delete("/:mealId", async (req) => {
     const { mealId } = req.params as any;
     await query(`DELETE FROM meals WHERE id = $1`, [mealId]);
