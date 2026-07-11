@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 
-type ColorKey = "teal" | "blue" | "amber" | "coral" | "pink" | "green";
+type ColorKey = "teal" | "blue" | "amber" | "coral" | "pink" | "green" | "red";
 
 type Props = {
   label: string;
