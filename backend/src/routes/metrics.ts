@@ -66,6 +66,58 @@ export default async function metricsRoutes(app: FastifyInstance) {
     return { yesterday_total: Number(yesterday.total), seven_day_average: Number(weekAvg.avg) };
   });
 
+  // Per-day totals for the current week, respecting week_start_day.
+  // agg=max (default) is correct for step counts (cumulative syncs); agg=sum for water/discrete logs.
+  // Returns only days from week-start through today — no future-day placeholders.
+  app.get("/:metricId/daily-breakdown", async (req) => {
+    const { metricId } = req.params as any;
+    const { week_start_day = "1", agg = "max" } = req.query as any;
+    const startDay = Math.max(0, Math.min(6, parseInt(week_start_day, 10) || 1));
+    const aggFn = agg === "sum" ? "SUM" : "MAX";
+
+    // Identical week-start formula used by weekly-total so dates always agree
+    const [ws] = await query<any>(
+      `SELECT (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $1 + 7) % 7) * INTERVAL '1 day')::date AS week_start`,
+      [startDay]
+    );
+
+    const rows = await query<any>(
+      `SELECT
+         d::date AS date,
+         TRIM(TO_CHAR(d, 'Dy')) AS day_label,
+         COALESCE(
+           (SELECT ${aggFn}(value) FROM metric_logs WHERE metric_id = $1 AND logged_at::date = d::date),
+           0
+         ) AS total,
+         (d::date = current_date) AS is_today
+       FROM generate_series($2::date, current_date, INTERVAL '1 day') AS d
+       ORDER BY d`,
+      [metricId, ws.week_start]
+    );
+
+    const [lastWeekRow] = await query<any>(
+      `SELECT COALESCE(SUM(day_val), 0) AS total FROM (
+         SELECT logged_at::date, ${aggFn}(value) AS day_val
+         FROM metric_logs
+         WHERE metric_id = $1
+           AND logged_at::date >= $2::date - 7
+           AND logged_at::date < $2::date
+         GROUP BY logged_at::date
+       ) t`,
+      [metricId, ws.week_start]
+    );
+
+    return {
+      days: rows.map((r: any) => ({
+        date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+        day_label: String(r.day_label),
+        total: Number(r.total),
+        is_today: r.is_today === true || r.is_today === "t",
+      })),
+      last_week_total: Number(lastWeekRow.total),
+    };
+  });
+
   // Weekly total, respecting a configurable week-start day (0=Sun, 1=Mon default)
   app.get("/:metricId/weekly-total", async (req) => {
     const { metricId } = req.params as any;
