@@ -34,6 +34,13 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     return query(`SELECT * FROM hobby_logs WHERE hobby_id = $1 ORDER BY logged_at DESC LIMIT 100`, [hobbyId]);
   });
 
+  app.delete("/:id", async (req) => {
+    const { id } = req.params as any;
+    await query(`DELETE FROM hobby_logs WHERE hobby_id = $1`, [id]);
+    await query(`DELETE FROM hobbies WHERE id = $1`, [id]);
+    return { ok: true };
+  });
+
   app.get("/:id/stats", async (req) => {
     const { id } = req.params as any;
     const [thisWeek] = await query<any>(

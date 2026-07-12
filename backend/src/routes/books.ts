@@ -43,6 +43,13 @@ export default async function booksRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
+  app.delete("/:id", async (req) => {
+    const { id } = req.params as any;
+    await query(`DELETE FROM reading_logs WHERE book_id = $1`, [id]);
+    await query(`DELETE FROM books WHERE id = $1`, [id]);
+    return { ok: true };
+  });
+
   app.patch("/:bookId", async (req) => {
     const { bookId } = req.params as any;
     const { status, rating, current_chapter, total_chapters } = req.body as any;
