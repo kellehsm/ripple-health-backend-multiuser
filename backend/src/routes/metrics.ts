@@ -45,4 +45,39 @@ export default async function metricsRoutes(app: FastifyInstance) {
       [metricId]
     );
   });
+
+  // Yesterday total + 7-day average
+  app.get("/:metricId/stats", async (req) => {
+    const { metricId } = req.params as any;
+    const [yesterday] = await query<any>(
+      `SELECT COALESCE(SUM(value), 0) as total FROM metric_logs
+       WHERE metric_id = $1 AND logged_at::date = current_date - interval '1 day'`,
+      [metricId]
+    );
+    const [weekAvg] = await query<any>(
+      `SELECT COALESCE(AVG(daily_total), 0) as avg FROM (
+         SELECT logged_at::date as day, SUM(value) as daily_total
+         FROM metric_logs
+         WHERE metric_id = $1 AND logged_at >= current_date - interval '7 days'
+         GROUP BY logged_at::date
+       ) sub`,
+      [metricId]
+    );
+    return { yesterday_total: Number(yesterday.total), seven_day_average: Number(weekAvg.avg) };
+  });
+
+  // Weekly total, respecting a configurable week-start day (0=Sun, 1=Mon default)
+  app.get("/:metricId/weekly-total", async (req) => {
+    const { metricId } = req.params as any;
+    const { week_start_day = "1" } = req.query as any;
+    const startDay = Math.max(0, Math.min(6, parseInt(week_start_day, 10) || 1));
+    const [result] = await query<any>(
+      `SELECT COALESCE(SUM(value), 0) as total FROM metric_logs
+       WHERE metric_id = $1
+         AND logged_at >= date_trunc('day', now()) -
+           ((EXTRACT(DOW FROM now())::int - $2 + 7) % 7) * INTERVAL '1 day'`,
+      [metricId, startDay]
+    );
+    return { week_total: Number(result.total) };
+  });
 }

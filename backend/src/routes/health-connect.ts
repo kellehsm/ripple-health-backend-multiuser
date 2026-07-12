@@ -48,6 +48,30 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
     return { ok: true, inserted };
   });
 
+  app.get("/sleep/stats", async (req) => {
+    const { user_id } = req.query as any;
+    const [yesterday] = await query<any>(
+      `SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time))), 0) as seconds
+       FROM sleep_sessions
+       WHERE user_id = $1 AND start_time::date = current_date - interval '1 day'`,
+      [user_id]
+    );
+    const [weekAvg] = await query<any>(
+      `SELECT COALESCE(AVG(daily_seconds), 0) as avg_seconds FROM (
+         SELECT start_time::date as day,
+                SUM(EXTRACT(EPOCH FROM (end_time - start_time))) as daily_seconds
+         FROM sleep_sessions
+         WHERE user_id = $1 AND start_time >= current_date - interval '7 days'
+         GROUP BY start_time::date
+       ) sub`,
+      [user_id]
+    );
+    return {
+      yesterday_seconds: Number(yesterday.seconds),
+      seven_day_average_seconds: Number(weekAvg.avg_seconds),
+    };
+  });
+
   app.post("/steps", async (req) => {
     const { user_id, date, count } = req.body as any;
     let [metric] = await query<any>(`SELECT * FROM metrics WHERE user_id = $1 AND name = 'steps'`, [user_id]);

@@ -15,6 +15,7 @@ import spendingRoutes from "./routes/spending.js";
 import journalRoutes from "./routes/journal.js";
 import summaryRoutes from "./routes/summary.js";
 import healthConnectRoutes from "./routes/health-connect.js";
+import settingsRoutes from "./routes/settings.js";
 import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
 
 dotenv.config();
@@ -39,6 +40,7 @@ async function main() {
   await app.register(journalRoutes, { prefix: "/api/journal" });
   await app.register(summaryRoutes, { prefix: "/api/summary" });
   await app.register(healthConnectRoutes, { prefix: "/api/health-connect" });
+  await app.register(settingsRoutes, { prefix: "/api/settings" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });

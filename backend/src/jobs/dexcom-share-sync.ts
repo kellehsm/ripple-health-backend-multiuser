@@ -1,7 +1,5 @@
 import { pool, query } from "../db.js";
 
-const REGION = process.env.DEXCOM_SHARE_REGION === "ous" ? "shareous1" : "share2";
-const BASE_URL = `https://${REGION}.dexcom.com/ShareWebServices/Services`;
 const APPLICATION_ID = "d8665ade-9673-4e27-9ff6-92db4ce13d13";
 
 const HEADERS = {
@@ -11,11 +9,28 @@ const HEADERS = {
   "Accept-Language": "en-us",
 };
 
-async function login() {
-  const accountId = process.env.DEXCOM_SHARE_ACCOUNT_ID;
-  const password = process.env.DEXCOM_SHARE_PASSWORD;
+async function login(userId?: string) {
+  let accountId = process.env.DEXCOM_SHARE_ACCOUNT_ID;
+  let password = process.env.DEXCOM_SHARE_PASSWORD;
+  let region = process.env.DEXCOM_SHARE_REGION === "ous" ? "shareous1" : "share2";
+
+  if (userId) {
+    try {
+      const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [userId]);
+      const dexcom = rows[0]?.settings?.dexcom;
+      if (dexcom?.share_account_id) accountId = dexcom.share_account_id;
+      if (dexcom?.share_password) password = dexcom.share_password;
+      if (dexcom?.share_region === "ous") region = "shareous1";
+      else if (dexcom?.share_region === "us") region = "share2";
+    } catch (_) {
+      // fall through to env vars
+    }
+  }
+
+  const BASE_URL = `https://${region}.dexcom.com/ShareWebServices/Services`;
+
   if (!accountId || !password) {
-    throw new Error("DEXCOM_SHARE_ACCOUNT_ID / DEXCOM_SHARE_PASSWORD not set in .env");
+    throw new Error("Dexcom credentials not configured (set in Settings or .env)");
   }
 
   const res = await fetch(BASE_URL + "/General/LoginPublisherAccountById", {
@@ -45,7 +60,7 @@ async function login() {
     throw new Error("Dexcom Share login rejected - check account ID/password/region");
   }
 
-  return sessionId;
+  return { sessionId, BASE_URL };
 }
 
 function parseDexcomDate(dateStr) {
@@ -56,7 +71,7 @@ function parseDexcomDate(dateStr) {
 }
 
 export async function syncDexcomShareGlucose(userId) {
-  const sessionId = await login();
+  const { sessionId, BASE_URL } = await login(userId);
 
   const res = await fetch(
     BASE_URL + "/Publisher/ReadPublisherLatestGlucoseValues?sessionId=" + sessionId + "&minutes=1440&maxCount=288",
