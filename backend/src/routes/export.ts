@@ -260,4 +260,44 @@ export default async function exportRoutes(app: FastifyInstance) {
       .header("Content-Disposition", `attachment; filename="ripple-health-report-${startDate.toISOString().slice(0, 10)}.pdf"`)
       .send(pdf);
   });
+
+  app.get("/all", async (req, reply: FastifyReply) => {
+    const { user_id } = req.query as any;
+
+    const [glucose, meals, journal, spending, books, hobbies, hobbiesLogs, sleep, heartRate, metrics, metricLogs] = await Promise.all([
+      query<any>(`SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at`, [user_id]),
+      query<any>(`SELECT * FROM meals WHERE user_id = $1 ORDER BY logged_at`, [user_id]),
+      query<any>(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at`, [user_id]),
+      query<any>(`SELECT * FROM spending_entries WHERE user_id = $1 ORDER BY logged_at`, [user_id]),
+      query<any>(`SELECT * FROM books WHERE user_id = $1`, [user_id]),
+      query<any>(`SELECT * FROM hobbies WHERE user_id = $1`, [user_id]),
+      query<any>(`SELECT hl.* FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE h.user_id = $1 ORDER BY hl.logged_at`, [user_id]),
+      query<any>(`SELECT * FROM sleep_sessions WHERE user_id = $1 ORDER BY start_time`, [user_id]),
+      query<any>(`SELECT * FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at`, [user_id]),
+      query<any>(`SELECT * FROM metrics WHERE user_id = $1`, [user_id]),
+      query<any>(`SELECT ml.* FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id WHERE m.user_id = $1 ORDER BY ml.logged_at`, [user_id]),
+    ]);
+
+    const payload = JSON.stringify({
+      exported_at: new Date().toISOString(),
+      user_id,
+      glucose,
+      meals,
+      journal,
+      spending,
+      books,
+      hobbies,
+      hobby_logs: hobbiesLogs,
+      sleep_sessions: sleep,
+      heart_rate: heartRate,
+      metrics,
+      metric_logs: metricLogs,
+    }, null, 2);
+
+    const date = new Date().toISOString().slice(0, 10);
+    reply
+      .header("Content-Type", "application/json")
+      .header("Content-Disposition", `attachment; filename="ripple-backup-${date}.json"`)
+      .send(payload);
+  });
 }

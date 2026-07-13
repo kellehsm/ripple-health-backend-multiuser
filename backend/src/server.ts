@@ -18,6 +18,7 @@ import healthConnectRoutes from "./routes/health-connect.js";
 import heartRateRoutes from "./routes/heart-rate.js";
 import settingsRoutes from "./routes/settings.js";
 import exportRoutes from "./routes/export.js";
+import searchRoutes from "./routes/search.js";
 import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
 
 dotenv.config();
@@ -45,6 +46,7 @@ async function main() {
   await app.register(heartRateRoutes, { prefix: "/api/heart-rate" });
   await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(exportRoutes, { prefix: "/api/export" });
+  await app.register(searchRoutes, { prefix: "/api/search" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
