@@ -19,7 +19,11 @@ import heartRateRoutes from "./routes/heart-rate.js";
 import settingsRoutes from "./routes/settings.js";
 import exportRoutes from "./routes/export.js";
 import searchRoutes from "./routes/search.js";
+import googleAuthRoutes from "./routes/google-auth.js";
+import googleDriveRoutes from "./routes/google-drive.js";
 import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
+import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
+import cron from "node-cron";
 
 dotenv.config();
 
@@ -47,6 +51,8 @@ async function main() {
   await app.register(settingsRoutes, { prefix: "/api/settings" });
   await app.register(exportRoutes, { prefix: "/api/export" });
   await app.register(searchRoutes, { prefix: "/api/search" });
+  await app.register(googleAuthRoutes, { prefix: "/auth/google" });
+  await app.register(googleDriveRoutes, { prefix: "/api/settings/google-drive" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
@@ -66,6 +72,19 @@ async function main() {
     app.log.info("Dexcom auto-sync scheduled every 5 minutes");
   } else {
     app.log.warn("DEFAULT_USER_ID not set - Dexcom auto-sync disabled");
+  }
+
+  // Nightly Google Drive backup at 2:00 AM
+  if (userId && process.env.GOOGLE_CLIENT_ID) {
+    cron.schedule("0 2 * * *", async () => {
+      try {
+        const filename = await backupToGoogleDrive(userId);
+        app.log.info({ filename }, "Nightly Drive backup completed");
+      } catch (err: any) {
+        app.log.error({ err: err?.message }, "Nightly Drive backup failed");
+      }
+    });
+    app.log.info("Nightly Google Drive backup scheduled at 2:00 AM");
   }
 }
 
