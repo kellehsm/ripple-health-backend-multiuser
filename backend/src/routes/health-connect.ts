@@ -83,7 +83,10 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
       );
     }
     const rows = await query(
-      `INSERT INTO metric_logs (metric_id, value, logged_at) VALUES ($1,$2,$3) RETURNING *`,
+      `INSERT INTO metric_logs (metric_id, value, logged_at)
+       VALUES ($1, $2, $3::date)
+       ON CONFLICT (metric_id, logged_at) DO UPDATE SET value = EXCLUDED.value
+       RETURNING *`,
       [metric.id, count, date]
     );
     return rows[0];

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "worker": "tsx src/workers/dexcom-share-worker.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "migrate": "psql \"$DATABASE_URL\" -f schema.sql"
@@ -25,6 +26,6 @@
     "@types/node": "^20.14.10",
     "@types/pg": "^8.11.6",
     "tsx": "^4.16.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.9.3"
   }
 }

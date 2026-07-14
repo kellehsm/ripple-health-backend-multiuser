@@ -21,7 +21,6 @@ import exportRoutes from "./routes/export.js";
 import searchRoutes from "./routes/search.js";
 import googleAuthRoutes from "./routes/google-auth.js";
 import googleDriveRoutes from "./routes/google-drive.js";
-import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import cron from "node-cron";
 
@@ -58,21 +57,9 @@ async function main() {
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`Wellness API running on port ${port}`);
 
+  // Glucose sync is handled by the dedicated dexcom-share-worker systemd service.
+
   const userId = process.env.DEFAULT_USER_ID;
-  if (userId) {
-    const FIVE_MINUTES = 5 * 60 * 1000;
-    setInterval(async () => {
-      try {
-        const result = await syncDexcomShareGlucose(userId);
-        app.log.info({ result }, "Dexcom auto-sync completed");
-      } catch (err) {
-        app.log.error({ err }, "Dexcom auto-sync failed");
-      }
-    }, FIVE_MINUTES);
-    app.log.info("Dexcom auto-sync scheduled every 5 minutes");
-  } else {
-    app.log.warn("DEFAULT_USER_ID not set - Dexcom auto-sync disabled");
-  }
 
   // Nightly Google Drive backup at 2:00 AM
   if (userId && process.env.GOOGLE_CLIENT_ID) {

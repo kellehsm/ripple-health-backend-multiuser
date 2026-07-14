@@ -3,8 +3,11 @@ import { query } from "../db.js";
 
 export default async function searchRoutes(app: FastifyInstance) {
   app.get("/glucose", async (req) => {
-    const { user_id, threshold = "180", bucket, start, end } = req.query as any;
-    const thresh = Math.max(50, Math.min(400, parseInt(threshold, 10) || 180));
+    const { user_id, threshold, bucket, start, end } = req.query as any;
+    // threshold=0 means "all days" (no HAVING filter); default is 180 for "high days" search
+    const threshRaw = threshold !== undefined ? parseInt(threshold, 10) : 180;
+    const thresh = isNaN(threshRaw) ? 180 : Math.max(0, Math.min(400, threshRaw));
+    const applyThreshold = thresh > 0;
 
     const bucketFilter = bucket
       ? `AND (
@@ -19,6 +22,7 @@ export default async function searchRoutes(app: FastifyInstance) {
 
     const params: any[] = [user_id, start || "2000-01-01", end || new Date().toISOString()];
     if (bucket) params.push(bucket);
+    if (applyThreshold) params.push(thresh);
 
     const rows = await query<any>(
       `SELECT recorded_at::date AS date,
@@ -31,10 +35,10 @@ export default async function searchRoutes(app: FastifyInstance) {
          AND recorded_at <= $3
          ${bucketFilter}
        GROUP BY recorded_at::date
-       HAVING AVG(mg_dl) > $${params.length + 1}
+       ${applyThreshold ? `HAVING AVG(mg_dl) > $${params.length}` : ""}
        ORDER BY recorded_at::date DESC
        LIMIT 60`,
-      [...params, thresh]
+      params
     );
 
     return rows.map((r: any) => ({

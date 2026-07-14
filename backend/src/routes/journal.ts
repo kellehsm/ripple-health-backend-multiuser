@@ -7,12 +7,33 @@ export default async function journalRoutes(app: FastifyInstance) {
     return query(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 50`, [user_id]);
   });
 
+  // Upsert a period check-in (one per period per day) or insert an off-cycle moment.
   app.post("/", async (req) => {
-    const { user_id, mood_score, entry_text, logged_at } = req.body as any;
+    const { user_id, mood_score, entry_text, logged_at, mood_label, period, entry_type } = req.body as any;
+    const type = entry_type ?? "period";
+
+    if (type === "period" && period) {
+      // Upsert: update existing entry for this user+period+today, or insert
+      const existing = await query<any>(
+        `SELECT id FROM journal_entries
+         WHERE user_id = $1 AND period = $2 AND logged_at::date = CURRENT_DATE`,
+        [user_id, period]
+      );
+      if (existing.length > 0) {
+        const rows = await query(
+          `UPDATE journal_entries
+           SET mood_score = $1, mood_label = $2, entry_text = $3, logged_at = COALESCE($4, now())
+           WHERE id = $5 RETURNING *`,
+          [mood_score, mood_label ?? null, entry_text ?? null, logged_at ?? null, existing[0].id]
+        );
+        return rows[0];
+      }
+    }
+
     const rows = await query(
-      `INSERT INTO journal_entries (user_id, mood_score, entry_text, logged_at)
-       VALUES ($1,$2,$3, COALESCE($4, now())) RETURNING *`,
-      [user_id, mood_score, entry_text, logged_at]
+      `INSERT INTO journal_entries (user_id, mood_score, mood_label, entry_text, period, entry_type, logged_at)
+       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now())) RETURNING *`,
+      [user_id, mood_score, mood_label ?? null, entry_text ?? null, period ?? null, type, logged_at ?? null]
     );
     return rows[0];
   });
@@ -27,16 +48,17 @@ export default async function journalRoutes(app: FastifyInstance) {
     );
   });
 
-  // 7-day daily summary: avg mood + sleep hours + total spending per day.
-  // Used for the correlation view on the Overview screen.
+  // Daily summary: avg mood (period check-ins only) + sleep hours + total spending per day.
+  // ?days=N controls window size (default 7, max 90).
   app.get("/weekly-summary", async (req) => {
-    const { user_id } = req.query as any;
+    const { user_id, days: daysStr } = req.query as any;
+    const days = Math.min(Math.max(parseInt(daysStr ?? "7", 10) || 7, 7), 90);
     const rows = await query<any>(
       `SELECT
          d::date AS date,
          (SELECT AVG(mood_score)
           FROM journal_entries
-          WHERE user_id = $1 AND logged_at::date = d::date) AS avg_mood,
+          WHERE user_id = $1 AND logged_at::date = d::date AND entry_type != 'moment') AS avg_mood,
          (SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time))) / 3600.0, 0)
           FROM sleep_sessions
           WHERE user_id = $1 AND start_time::date = d::date) AS sleep_hours,
@@ -44,12 +66,12 @@ export default async function journalRoutes(app: FastifyInstance) {
           FROM spending_entries
           WHERE user_id = $1 AND logged_at::date = d::date) AS total_spent
        FROM generate_series(
-         current_date - interval '6 days',
+         current_date - ($2 - 1) * interval '1 day',
          current_date,
          interval '1 day'
        ) AS d
        ORDER BY d`,
-      [user_id]
+      [user_id, days]
     );
     return rows.map((r: any) => ({
       date: r.date,
