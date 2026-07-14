@@ -1,194 +1,104 @@
-# Ripple Health — Backend
+<div align="center">
 
-The API server for **[Ripple Health](https://github.com/kellehsm/ripple-health)** — a personal wellness app built around understanding how food, stress, sleep, mood, movement, hobbies, and spending all interact with blood sugar and overall wellbeing.
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=2&height=180&section=header&text=Ripple%20Health%20API&fontColor=FFFFFF&fontSize=48&fontAlignY=38&desc=Fastify%20%C2%B7%20PostgreSQL%20%C2%B7%20TypeScript&descSize=16&descAlignY=60" width="100%" />
 
-This backend is the data layer that makes cross-domain analysis possible. It ingests from multiple sources (Dexcom CGM, Android Health Connect, manual logging), stores everything in a unified PostgreSQL database, and exposes the endpoints the mobile app uses to surface connections that siloed trackers can't see.
+[![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)](.)
+[![Fastify](https://img.shields.io/badge/Fastify-000000?style=flat-square&logo=fastify&logoColor=white)](.)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](.)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)](.)
+[![Self-hosted](https://img.shields.io/badge/Self--hosted-FF6B35?style=flat-square&logo=homeassistant&logoColor=white)](.)
+
+</div>
+
+## What it is
+
+The REST API backend for [Ripple Health](https://github.com/kellehsm/ripple-health). Handles all data storage, external integrations, and aggregation queries for a personal health tracking Android app. Runs on a self-hosted VPS behind a Caddy reverse proxy with automatic HTTPS.
 
 ---
 
-## What This Server Does
+## API Surface
 
-- **Polls Dexcom every 5 minutes** for continuous glucose readings and writes them to the database
-- **Receives Health Connect syncs** (steps, sleep, heart rate) pushed from the Android app
-- **Serves the cross-domain pattern and summary endpoints** — the core of what makes Ripple Health different from a single-purpose tracker
-- **Generates PDF doctor reports** with glucose stats, trend charts, and meal-glucose correlation tables
-- **Runs parameterized search** across glucose, meals, mood, and spending so the app can answer questions like "what were my highest glucose days?" or "which meals spiked me above 180?"
+| Route prefix | What it does |
+|---|---|
+| `/glucose` | Store and retrieve CGM readings; real-time status with trend arrows |
+| `/glucose/status` | Latest reading with staleness detection and alert flags |
+| `/meals` | CRUD meal logs; `/frequent` for top repeated meals; `/glucose-response` per meal |
+| `/food/search` | Federated USDA FoodData Central + Open Food Facts search |
+| `/food/barcode/:code` | Barcode → food data lookup |
+| `/journal` | Mood check-ins (period-based and off-schedule moments) |
+| `/summary/today` | Aggregated daily view for the Overview screen |
+| `/summary/day` | Full-day event feed with glucose overlay data |
+| `/summary/pattern` | Chronological event timeline (meals, mood, spending, glucose spikes) |
+| `/health-connect/steps` | Daily step totals by local date |
+| `/health-connect/sleep` | Sleep session storage and stats |
+| `/health-connect/heart-rate` | Heart rate time-range queries |
+| `/metrics` | Generic metric CRUD (water, custom) with weekly stats |
+| `/books` | Book library with reading progress logs |
+| `/hobbies` | Custom hobby tracking with time/unit logging and week-over-week stats |
+| `/spending` | Expense entry and weekly aggregations |
+| `/search/glucose` | Historical glucose search (avg threshold, time-of-day filter) |
+| `/search/meals` | Meal search by name or min carbs |
+| `/search/mood` | Mood history search by score range |
+| `/journal/weekly-summary` | Multi-day mood + sleep + spending rows for trend analysis |
+| `/settings` | User preferences (week start, HC toggles, Dexcom creds, smart notif config) |
+| `/report` | PDF health report generation |
+| `/export` | Full JSON data backup |
 
 ---
 
-## Architecture
+## Key Design Decisions
 
+**Steps are cumulative daily totals.** Health Connect reports steps as cumulative values within a day — the schema stores them that way and always uses `MAX(value)` per day to avoid double-counting. `GET /health-connect/steps/weekly-total` requires `agg=max` (the default).
+
+**Week-start is configurable per section.** Steps, sleep, water, and hobbies each read `user_settings.settings.week_start.[section]` (0 = Sunday … 6 = Saturday) for all "this week" calculations. There is no hardcoded Monday boundary anywhere.
+
+**Dexcom login uses `LoginPublisherAccountById`.** The Dexcom Share API has a username-based and an account-ID-based login path. Only the ID-based path works reliably — do not change this.
+
+**`WT` timestamps have no leading slash.** Dexcom returns timestamps as `Date(1691455258000)` — parsing expects no leading `/`. A regex that expects a slash will silently fall back to `new Date()`, making all readings cluster at one timestamp.
+
+---
+
+## Tech Stack
+
+| | |
+|---|---|
+| **Runtime** | Node.js 22 |
+| **Framework** | Fastify |
+| **Language** | TypeScript (ESM, `tsx` for dev, compiled for prod) |
+| **Database** | PostgreSQL with `pg` driver |
+| **External APIs** | Dexcom Share, USDA FoodData Central, Open Food Facts |
+| **PDF generation** | PDFKit |
+| **Infrastructure** | Linux VPS, Caddy reverse proxy, Let's Encrypt |
+
+---
+
+## Database Schema (summary)
+
+```sql
+users               -- single user app; row holds DEFAULT_USER_ID
+glucose_readings    -- (user_id, recorded_at UNIQUE, mg_dl)
+meals               -- (user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id)
+journal_entries     -- (user_id, mood_score, mood_label, entry_text, period, entry_type)
+health_metrics      -- generic metric definitions (water, steps, custom)
+metric_logs         -- (metric_id, value, logged_at) — cumulative for steps, count for water
+sleep_sessions      -- (user_id, start_time, end_time)
+heart_rate_readings -- (user_id, bpm, recorded_at)
+books               -- (user_id, title, author, cover_url, total_pages, status)
+book_reading_logs   -- (book_id, pages_read, logged_at)
+hobbies             -- (user_id, name, unit_label, icon, color_key)
+hobby_logs          -- (hobby_id, amount, rating, note, logged_at)
+spending            -- (user_id, amount, category, note, logged_at)
+user_settings       -- (user_id, settings JSONB) — all preferences and credentials
 ```
-backend/
-  src/
-    routes/         One file per domain (see table below)
-    jobs/           Background jobs (Dexcom polling, sync)
-    server.ts       Fastify entry point, route registration
-    db.ts           PostgreSQL connection pool
-```
-
-**Runtime:** Node.js + Fastify + PostgreSQL, running on a VPS behind Caddy (auto TLS at `app.kels.gg`).
-
----
-
-## API Routes
-
-| Domain | File | Description |
-|---|---|---|
-| Summary | `summary.ts` | Daily rollup, pattern timeline, weekly digest, streaks |
-| Glucose | `glucose.ts` + `glucose-status.ts` | CGM readings, current trend arrow, time-in-range |
-| Meals | `meals.ts` + `food.ts` | Meal logging, USDA food search, barcode lookup, post-meal glucose response |
-| Health Connect | `health-connect.ts` | Steps (by local date), sleep sessions, heart rate readings |
-| Metrics | `metrics.ts` | Generic metric engine — water, steps weekly total, daily breakdown by week-start day |
-| Journal | `journal.ts` | Mood scores (1–5), time-of-day periods, free-text entries, weekly summary |
-| Books | `books.ts` + `books-search.ts` | Reading list, page logs, progress tracking |
-| Hobbies | `hobbies.ts` | Hobby time logs, ratings, weekly stats |
-| Spending | `spending.ts` | Expense logging with category breakdowns |
-| Search | `search.ts` | Parameterized cross-domain search (glucose, meals, mood, spending) |
-| Export | `export.ts` | PDF doctor report (pdfkit), full JSON data backup |
-| Settings | `settings.ts` | Per-user JSONB settings with one-level-deep merge on PATCH |
-| Dexcom auth | `dexcom-auth.ts` | OAuth flow + Share credential sync |
-
----
-
-## Background Jobs
-
-- **`dexcom-sync.ts`** — Polls the Dexcom API every 5 minutes, writes glucose readings with trend arrows into `glucose_readings`
-- **`dexcom-share-sync.ts`** — Alternative sync path using Dexcom Share credentials (email + password)
-
----
-
-## Key Technical Details
-
-**Steps aggregation** — Steps are stored as cumulative daily totals (each Health Connect sync inserts the running total for that day). All step queries use `MAX(value) per day` then `SUM`, never a raw `SUM` across all logs.
-
-**Week-start day** — Weekly totals and daily breakdowns respect a per-user configurable week-start day (0=Sun through 6=Sat). Stored in `user_settings.settings.week_start.steps`.
-
-**Meal-glucose correlation** — For each meal, the `/meals/:id/glucose-response` endpoint finds CGM readings in the 60–90 minute post-meal window and returns the average. This is how the app surfaces actual glycemic response vs. theoretical carb impact.
-
-**Pattern endpoint** — Joins glucose, steps, sleep, mood, meals, and spending across a date window into a unified timeline. This is what the Home screen uses to build the daily glance summary.
-
-**Search** — All four search endpoints (`/search/glucose`, `/search/meals`, `/search/mood`, `/search/spending`) use fully parameterized SQL — no string concatenation of user input.
-
-**PDF export** — Uses `pdfkit` to generate a doctor-ready report with a rendered glucose chart (polyline), time-in-range stats, and a meal-glucose table. Streamed directly to the response.
-
----
-
-## Setup
-
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Fill in: DATABASE_URL, DEXCOM_CLIENT_ID, DEXCOM_CLIENT_SECRET, USDA_API_KEY
-
-createdb wellness
-npm run migrate   # applies schema.sql
-
-npm run dev       # starts on http://localhost:4000, auto-reloads on change
-```
-
-Health check:
-```bash
-curl http://localhost:4000/health
-# → {"ok":true}
-```
-
----
-
-## Production
-
-Runs in a persistent `screen` session on the VPS:
-
-```bash
-screen -ls   # check if session exists before creating a new one
-screen -r wellness
-
-# If session doesn't exist:
-screen -dmS wellness bash -c 'cd /root/wellness-app/backend && npm run dev 2>&1 | tee /tmp/wellness-backend.log'
-```
-
-Proxied through Caddy at `https://app.kels.gg/api` with automatic TLS.
 
 ---
 
 ## Mobile App
 
-The Android app that consumes this API: **[kellehsm/ripple-health](https://github.com/kellehsm/ripple-health)**
+→ [ripple-health](https://github.com/kellehsm/ripple-health) — the React Native / Expo frontend
 
 ---
 
-## Architecture
-
-```
-backend/
-  src/
-    routes/       # One file per domain (see below)
-    jobs/         # Background sync jobs (Dexcom polling)
-    server.ts     # Fastify entry point
-    db.ts         # PostgreSQL connection pool
-```
-
-**Runtime:** Node.js + Fastify + PostgreSQL, running on a VPS behind Caddy (automatic TLS at `app.kels.gg`).
-
----
-
-## API routes
-
-| Domain | File | What it does |
-|---|---|---|
-| Summary | `summary.ts` | Daily rollup + pattern timeline across all domains |
-| Glucose | `glucose.ts` + `glucose-status.ts` | CGM readings, trend, time-in-range |
-| Meals | `meals.ts` + `food.ts` | Meal logging, food search, barcode lookup, post-meal glucose response |
-| Health Connect | `health-connect.ts` | Receives steps, sleep, and heart rate synced from the Android app |
-| Books | `books.ts` + `books-search.ts` | Reading list, page logs, progress tracking |
-| Hobbies | `hobbies.ts` | Hobby time logs and stats |
-| Spending | `spending.ts` | Expense logging with category breakdowns |
-| Journal | `journal.ts` | Mood scores and free-text entries |
-| Metrics | `metrics.ts` | Generic metric engine (water, screen time, medications, etc.) |
-| Dexcom auth | `dexcom-auth.ts` | OAuth flow for Dexcom API access |
-
----
-
-## Background jobs
-
-- **`dexcom-sync.ts`** — Polls the Dexcom API every 5 minutes and writes glucose readings into the database
-- **`dexcom-share-sync.ts`** — Alternative sync path using Dexcom Share credentials
-
----
-
-## Setup
-
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Fill in: DATABASE_URL, DEXCOM_CLIENT_ID, DEXCOM_CLIENT_SECRET, USDA_API_KEY
-
-createdb wellness
-npm run migrate   # runs schema.sql against DATABASE_URL
-
-npm run dev       # starts on http://localhost:4000, auto-reloads on save
-```
-
-Health check: `curl http://localhost:4000/health` → `{"ok":true}`
-
-In production the server runs inside a persistent `screen` session and is proxied through Caddy:
-
-```bash
-screen -r wellness
-# or to start a new session:
-screen -dmS wellness bash -c 'cd backend && npm run dev 2>&1 | tee /tmp/wellness-backend.log'
-```
-
----
-
-## The connection this backend enables
-
-The summary and pattern endpoints are the core of what makes Ripple Health different from a single-purpose tracker. They join glucose, steps, sleep, mood, meals, and spending across a time window so the mobile app can answer questions like:
-
-- Did glucose spike more on days with high-carb meals *and* poor sleep?
-- Does spending go up on days with low mood scores?
-- Is there a lag between stressful days (mood) and worse eating choices (meals)?
-
-The raw data lives in separate domain tables. The pattern endpoint stitches it together into a timeline the app can visualize.
+<div align="center">
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=2&height=80&section=footer" width="100%" />
+</div>
