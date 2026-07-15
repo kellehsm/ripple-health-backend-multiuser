@@ -4,8 +4,28 @@ import { query } from "../db.js";
 // Generalized version of the "books" pattern - works for any hobby.
 export default async function hobbiesRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id } = req.query as any;
-    return query(`SELECT * FROM hobbies WHERE user_id = $1 ORDER BY name`, [user_id]);
+    const { user_id, status } = req.query as any;
+    if (status) {
+      return query(`SELECT * FROM hobbies WHERE user_id = $1 AND status = $2 ORDER BY name`, [user_id, status]);
+    }
+    return query(`SELECT * FROM hobbies WHERE user_id = $1 AND (status IS NULL OR status = 'active') ORDER BY name`, [user_id]);
+  });
+
+  app.patch("/:id", async (req) => {
+    const { id } = req.params as any;
+    const { status, name, unit_label, icon, color_key } = req.body as any;
+    const rows = await query(
+      `UPDATE hobbies SET
+         status = COALESCE($2, status),
+         name = COALESCE($3, name),
+         unit_label = COALESCE($4, unit_label),
+         icon = COALESCE($5, icon),
+         color_key = COALESCE($6, color_key),
+         completed_at = CASE WHEN $2 = 'completed' THEN current_date ELSE completed_at END
+       WHERE id = $1 RETURNING *`,
+      [id, status ?? null, name ?? null, unit_label ?? null, icon ?? null, color_key ?? null]
+    );
+    return rows[0];
   });
 
   app.post("/", async (req) => {
