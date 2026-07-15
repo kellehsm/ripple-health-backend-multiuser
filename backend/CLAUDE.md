@@ -1,6 +1,6 @@
-# Ripple Health — Backend (CLAUDE.md)
+# Ripple Wellness — Backend (CLAUDE.md)
 
-Fastify/PostgreSQL backend for Ripple Health, a personal single-user wellness tracking app. Self-hosted on a Bluehost VPS.
+Fastify/PostgreSQL backend for Ripple Wellness, a personal single-user wellness tracking app. Self-hosted on a Bluehost VPS.
 
 ## Critical operational rules
 

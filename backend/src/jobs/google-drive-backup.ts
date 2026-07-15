@@ -54,7 +54,7 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
 
   // Multipart upload to Google Drive
   const timestamp = new Date().toISOString().slice(0, 10);
-  const filename = `ripple-health-backup-${timestamp}.sql.gz`;
+  const filename = `ripple-wellness-backup-${timestamp}.sql.gz`;
   const boundary = "ripple_boundary_" + Date.now();
   const metaPart = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({ name: filename, mimeType: "application/gzip" })}\r\n`;
   const dataPart = `--${boundary}\r\nContent-Type: application/gzip\r\n\r\n`;
@@ -78,7 +78,7 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
   const listRes = await fetch(
     "https://www.googleapis.com/drive/v3/files?" +
       new URLSearchParams({
-        q: "name contains 'ripple-health-backup-' and trashed=false",
+        q: "name contains 'ripple-wellness-backup-' and trashed=false",
         fields: "files(id,name,createdTime)",
         orderBy: "createdTime",
       }),

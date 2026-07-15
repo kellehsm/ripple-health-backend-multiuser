@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=2&height=180&section=header&text=Ripple%20Health%20API&fontColor=FFFFFF&fontSize=48&fontAlignY=38&desc=Fastify%20%C2%B7%20PostgreSQL%20%C2%B7%20TypeScript&descSize=16&descAlignY=60" width="100%" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=2&height=180&section=header&text=Ripple%20Wellness%20API&fontColor=FFFFFF&fontSize=48&fontAlignY=38&desc=Fastify%20%C2%B7%20PostgreSQL%20%C2%B7%20TypeScript&descSize=16&descAlignY=60" width="100%" />
 
 [![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white)](.)
 [![Fastify](https://img.shields.io/badge/Fastify-000000?style=flat-square&logo=fastify&logoColor=white)](.)
@@ -12,7 +12,7 @@
 
 ## What it is
 
-The REST API backend for [Ripple Health](https://github.com/kellehsm/ripple-health). Handles all data storage, external integrations, and aggregation queries for a personal health tracking Android app. Runs on a self-hosted VPS behind a Caddy reverse proxy with automatic HTTPS.
+The REST API backend for [Ripple Wellness](https://github.com/kellehsm/ripple-health). Handles all data storage, external integrations, and aggregation queries for a personal health tracking Android app. Runs on a self-hosted VPS behind a Caddy reverse proxy with automatic HTTPS.
 
 ---
 
