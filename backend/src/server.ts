@@ -23,6 +23,8 @@ import googleAuthRoutes from "./routes/google-auth.js";
 import googleDriveRoutes from "./routes/google-drive.js";
 import substancesRoutes from "./routes/substances.js";
 import completedRoutes from "./routes/completed.js";
+import syncRoutes from "./routes/sync.js";
+import analyticsRoutes from "./routes/analytics.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import cron from "node-cron";
 
@@ -56,6 +58,8 @@ async function main() {
   await app.register(googleDriveRoutes, { prefix: "/api/settings/google-drive" });
   await app.register(substancesRoutes, { prefix: "/api/substances" });
   await app.register(completedRoutes, { prefix: "/api/completed" });
+  await app.register(syncRoutes, { prefix: "/api/sync" });
+  await app.register(analyticsRoutes, { prefix: "/api/analytics" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });

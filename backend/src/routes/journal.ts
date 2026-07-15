@@ -9,8 +9,9 @@ export default async function journalRoutes(app: FastifyInstance) {
 
   // Upsert a period check-in (one per period per day) or insert an off-cycle moment.
   app.post("/", async (req) => {
-    const { user_id, mood_score, entry_text, logged_at, mood_label, period, entry_type } = req.body as any;
+    const { user_id, mood_score, entry_text, logged_at, mood_label, period, entry_type, context } = req.body as any;
     const type = entry_type ?? "period";
+    const contextJson = context ? JSON.stringify(context) : null;
 
     if (type === "period" && period) {
       // Upsert: update existing entry for this user+period+today, or insert
@@ -22,18 +23,20 @@ export default async function journalRoutes(app: FastifyInstance) {
       if (existing.length > 0) {
         const rows = await query(
           `UPDATE journal_entries
-           SET mood_score = $1, mood_label = $2, entry_text = $3, logged_at = COALESCE($4, now())
-           WHERE id = $5 RETURNING *`,
-          [mood_score, mood_label ?? null, entry_text ?? null, logged_at ?? null, existing[0].id]
+           SET mood_score = $1, mood_label = $2, entry_text = $3,
+               logged_at = COALESCE($4, now()),
+               context = CASE WHEN $5::jsonb IS NOT NULL THEN $5::jsonb ELSE context END
+           WHERE id = $6 RETURNING *`,
+          [mood_score, mood_label ?? null, entry_text ?? null, logged_at ?? null, contextJson, existing[0].id]
         );
         return rows[0];
       }
     }
 
     const rows = await query(
-      `INSERT INTO journal_entries (user_id, mood_score, mood_label, entry_text, period, entry_type, logged_at)
-       VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now())) RETURNING *`,
-      [user_id, mood_score, mood_label ?? null, entry_text ?? null, period ?? null, type, logged_at ?? null]
+      `INSERT INTO journal_entries (user_id, mood_score, mood_label, entry_text, period, entry_type, context, logged_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, COALESCE($8, now())) RETURNING *`,
+      [user_id, mood_score, mood_label ?? null, entry_text ?? null, period ?? null, type, contextJson, logged_at ?? null]
     );
     return rows[0];
   });

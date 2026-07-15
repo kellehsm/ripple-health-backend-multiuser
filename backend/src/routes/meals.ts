@@ -18,31 +18,34 @@ export default async function mealsRoutes(app: FastifyInstance) {
   // Quick-add a meal. carbs/sugar/calories are optional - fill in later
   // from a USDA FoodData Central or Open Food Facts lookup.
   app.post("/", async (req) => {
-    const { user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, logged_at } = req.body as any;
+    const { user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, logged_at, context } = req.body as any;
     const rows = await query(
-      `INSERT INTO meals (user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, logged_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8, COALESCE($9, now()))
-       RETURNING id, user_id, name, meal_type, source_db, source_food_id, logged_at,
+      `INSERT INTO meals (user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, context, logged_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb, COALESCE($10, now()))
+       RETURNING id, user_id, name, meal_type, source_db, source_food_id, context, logged_at,
          carbs_g::float AS carbs_g, sugar_g::float AS sugar_g, calories::float AS calories`,
-      [user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, logged_at]
+      [user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id,
+       context ? JSON.stringify(context) : null, logged_at]
     );
     return rows[0];
   });
 
   app.patch("/:id", async (req) => {
     const { id } = req.params as any;
-    const { name, meal_type, carbs_g, sugar_g, calories } = req.body as any;
+    const { name, meal_type, carbs_g, sugar_g, calories, context } = req.body as any;
     const rows = await query(
       `UPDATE meals SET
-         name = COALESCE($2, name),
+         name      = COALESCE($2, name),
          meal_type = COALESCE($3, meal_type),
-         carbs_g = COALESCE($4, carbs_g),
-         sugar_g = COALESCE($5, sugar_g),
-         calories = COALESCE($6, calories)
+         carbs_g   = COALESCE($4, carbs_g),
+         sugar_g   = COALESCE($5, sugar_g),
+         calories  = COALESCE($6, calories),
+         context   = CASE WHEN $7::jsonb IS NOT NULL THEN $7::jsonb ELSE context END
        WHERE id = $1
-       RETURNING id, user_id, name, meal_type, source_db, source_food_id, logged_at,
+       RETURNING id, user_id, name, meal_type, source_db, source_food_id, context, logged_at,
          carbs_g::float AS carbs_g, sugar_g::float AS sugar_g, calories::float AS calories`,
-      [id, name, meal_type, carbs_g, sugar_g, calories]
+      [id, name, meal_type, carbs_g, sugar_g, calories,
+       context ? JSON.stringify(context) : null]
     );
     return rows[0];
   });
