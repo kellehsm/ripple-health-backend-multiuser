@@ -33,6 +33,8 @@ export default async function foodRoutes(app: FastifyInstance) {
 
   app.get("/barcode/:code", async (req) => {
     const { code } = req.params as any;
+    const { type } = req.query as any; // "caffeine" | "alcohol" | undefined
+    const isSubstance = type === "caffeine" || type === "alcohol";
     const apiKey = process.env.USDA_FDC_API_KEY;
 
     // Try USDA Branded Foods first — label data with reliable serving sizes
@@ -52,28 +54,49 @@ export default async function foodRoutes(app: FastifyInstance) {
             (f: any) => f.gtinUpc === code
           );
           if (match) {
-            // labelNutrients is only available on the individual food endpoint
             const detailRes = await fetch(
               `https://api.nal.usda.gov/fdc/v1/food/${match.fdcId}?api_key=${apiKey}`
             );
             if (detailRes.ok) {
               const detail = await detailRes.json();
-              const lbl = detail.labelNutrients ?? {};
-              const servingSize =
-                detail.servingSize != null && detail.servingSizeUnit
-                  ? `${detail.servingSize}${detail.servingSizeUnit}`
-                  : null;
-              return {
-                source_food_id: String(detail.fdcId),
-                name: detail.description,
-                calories: lbl.calories?.value ?? null,
-                carbs_g: lbl.carbohydrates?.value ?? null,
-                sugar_g: lbl.sugars?.value ?? null,
-                serving_size: servingSize,
-                basis: "per_serving",
-                image_url: null,
-                source_db: "usda_branded",
-              };
+
+              if (isSubstance) {
+                // Individual food endpoint uses n.nutrient.name + n.amount (not n.nutrientName + n.value)
+                const nutrientName = type === "caffeine" ? "Caffeine" : "Alcohol, ethyl";
+                const hit = (detail.foodNutrients ?? []).find(
+                  (n: any) => (n.nutrient?.name ?? n.nutrientName) === nutrientName
+                );
+                const rawValue = hit?.amount ?? hit?.value ?? null;
+                if (rawValue != null) {
+                  return {
+                    source_food_id: String(detail.fdcId),
+                    name: detail.description,
+                    caffeine_mg: type === "caffeine" ? rawValue : undefined,
+                    abv_percent: type === "alcohol"
+                      ? Math.round((rawValue / 0.789) * 10) / 10
+                      : undefined,
+                    source_db: "usda_branded",
+                  };
+                }
+                // Product exists but has no caffeine/alcohol data — fall through to OFF
+              } else {
+                const lbl = detail.labelNutrients ?? {};
+                const servingSize =
+                  detail.servingSize != null && detail.servingSizeUnit
+                    ? `${detail.servingSize}${detail.servingSizeUnit}`
+                    : null;
+                return {
+                  source_food_id: String(detail.fdcId),
+                  name: detail.description,
+                  calories: lbl.calories?.value ?? null,
+                  carbs_g: lbl.carbohydrates?.value ?? null,
+                  sugar_g: lbl.sugars?.value ?? null,
+                  serving_size: servingSize,
+                  basis: "per_serving",
+                  image_url: null,
+                  source_db: "usda_branded",
+                };
+              }
             }
           }
         }
@@ -92,6 +115,28 @@ export default async function foodRoutes(app: FastifyInstance) {
 
     const p = data.product;
     const n = p.nutriments ?? {};
+
+    if (isSubstance) {
+      if (type === "caffeine") {
+        const mg = n["caffeine_serving"] ?? n["caffeine_100g"] ?? null;
+        if (mg == null) return { error: "product not found" };
+        return {
+          source_food_id: code,
+          name: p.product_name || p.generic_name || "Unknown product",
+          caffeine_mg: mg,
+          source_db: "openfoodfacts",
+        };
+      } else {
+        const abv = n["alcohol_serving"] ?? n["alcohol_100g"] ?? null;
+        if (abv == null) return { error: "product not found" };
+        return {
+          source_food_id: code,
+          name: p.product_name || p.generic_name || "Unknown product",
+          abv_percent: abv,
+          source_db: "openfoodfacts",
+        };
+      }
+    }
 
     const hasServing =
       n["energy-kcal_serving"] != null ||
