@@ -21,6 +21,7 @@ import exportRoutes from "./routes/export.js";
 import searchRoutes from "./routes/search.js";
 import googleAuthRoutes from "./routes/google-auth.js";
 import googleDriveRoutes from "./routes/google-drive.js";
+import substancesRoutes from "./routes/substances.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import cron from "node-cron";
 
@@ -52,6 +53,7 @@ async function main() {
   await app.register(searchRoutes, { prefix: "/api/search" });
   await app.register(googleAuthRoutes, { prefix: "/auth/google" });
   await app.register(googleDriveRoutes, { prefix: "/api/settings/google-drive" });
+  await app.register(substancesRoutes, { prefix: "/api/substances" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
