@@ -3,7 +3,8 @@ import { query } from "../db.js";
 
 export default async function mealsRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id, date } = req.query as any;
+    const user_id = req.user_id;
+    const { date } = req.query as any;
     const cols = `id, user_id, name, meal_type, source_db, source_food_id, logged_at,
       carbs_g::float AS carbs_g, sugar_g::float AS sugar_g, calories::float AS calories`;
     if (date) {
@@ -18,7 +19,8 @@ export default async function mealsRoutes(app: FastifyInstance) {
   // Quick-add a meal. carbs/sugar/calories are optional - fill in later
   // from a USDA FoodData Central or Open Food Facts lookup.
   app.post("/", async (req) => {
-    const { user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, logged_at, context } = req.body as any;
+    const user_id = req.user_id;
+    const { name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, logged_at, context } = req.body as any;
     const rows = await query(
       `INSERT INTO meals (user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, context, logged_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb, COALESCE($10, now()))
@@ -59,7 +61,7 @@ export default async function mealsRoutes(app: FastifyInstance) {
   // Top 8 most-frequently logged meals, computed on the fly from history.
   // Registered before /:mealId routes to avoid Fastify treating "frequent" as a param.
   app.get("/frequent", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
     return query(
       `SELECT
          name,

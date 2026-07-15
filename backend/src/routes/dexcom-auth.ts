@@ -1,11 +1,12 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const API_BASE = process.env.DEXCOM_API_BASE ?? "https://sandbox-api.dexcom.com";
 
 export default async function dexcomAuthRoutes(app: FastifyInstance) {
-  app.get("/login", async (req, reply) => {
-    const { user_id } = req.query as any;
+  app.get("/login", { preHandler: [requireAuth] }, async (req, reply) => {
+    const user_id = req.user_id;
     const params = new URLSearchParams({
       client_id: process.env.DEXCOM_CLIENT_ID!,
       redirect_uri: process.env.DEXCOM_REDIRECT_URI!,

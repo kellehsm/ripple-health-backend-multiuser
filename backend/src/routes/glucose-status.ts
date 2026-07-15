@@ -19,7 +19,7 @@ const STALE_MINUTES = 20;
 
 export default async function glucoseStatusRoutes(app: FastifyInstance) {
   app.get("/status", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
 
     const readings = await query<any>(
       `SELECT recorded_at, mg_dl, trend FROM glucose_readings

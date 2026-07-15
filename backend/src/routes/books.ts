@@ -3,7 +3,8 @@ import { query } from "../db.js";
 
 export default async function booksRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id, status } = req.query as any;
+    const user_id = req.user_id;
+    const { status } = req.query as any;
     if (status) {
       return query(`SELECT * FROM books WHERE user_id = $1 AND status = $2 ORDER BY started_at DESC`, [user_id, status]);
     }
@@ -23,7 +24,8 @@ export default async function booksRoutes(app: FastifyInstance) {
   });
 
   app.post("/", async (req) => {
-    const { user_id, title, author, cover_url, total_pages, total_chapters } = req.body as any;
+    const user_id = req.user_id;
+    const { title, author, cover_url, total_pages, total_chapters } = req.body as any;
     const rows = await query(
       `INSERT INTO books (user_id, title, author, cover_url, total_pages, total_chapters, started_at)
        VALUES ($1,$2,$3,$4,$5,$6, current_date) RETURNING *`,

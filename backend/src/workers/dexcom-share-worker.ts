@@ -1,18 +1,14 @@
 /**
- * Headless Dexcom Share sync worker.
+ * Headless Dexcom Share sync worker — multi-user edition.
  *
- * Runs every 5 minutes, fetches the 3 most recent CGM readings from the
- * Dexcom Share API, and upserts them into glucose_readings.
- *
- * Session caching: a fresh login is only performed when the cached session
- * has expired (4-hour TTL) or Dexcom rejects the session mid-run.
+ * Runs every 5 minutes, queries all users with Dexcom Share credentials
+ * in their user_settings, and fetches the 3 most recent CGM readings for each.
  *
  * Required env vars (in .env or shell):
  *   DATABASE_URL
- *   DEFAULT_USER_ID
- *   DEXCOM_SHARE_ACCOUNT_ID
- *   DEXCOM_SHARE_PASSWORD
- *   DEXCOM_SHARE_REGION   "us" (default) | "ous"
+ *
+ * Per-user Dexcom credentials are stored in user_settings.settings.dexcom:
+ *   share_account_id, share_password, share_region ("us" | "ous")
  */
 
 import dotenv from "dotenv";
@@ -31,26 +27,14 @@ const DEXCOM_HEADERS: Record<string, string> = {
   "Accept-Language": "en-us",
 };
 
-/** How often to poll.  Keep at 5 min to match CGM reading cadence. */
 const SYNC_INTERVAL_MS = 5 * 60 * 1000;
-
-/**
- * How long to trust a cached session before proactively re-authenticating.
- * Dexcom sessions last ~6 h in practice; 4 h gives comfortable headroom.
- */
 const SESSION_TTL_MS = 4 * 60 * 60 * 1000;
-
-/** Only ask for readings from the last 15 minutes (covers one missed poll). */
 const FETCH_WINDOW_MINUTES = 15;
-
-/** Maximum readings to fetch per poll cycle. */
 const MAX_READINGS = 3;
 
 // ─── Database ─────────────────────────────────────────────────────────────────
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-
-const USER_ID = process.env.DEFAULT_USER_ID;
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 
@@ -66,50 +50,32 @@ function log(level: LogLevel, msg: string, meta?: Record<string, unknown>): void
   }
 }
 
-// ─── Session cache ────────────────────────────────────────────────────────────
+// ─── Session cache (per user) ─────────────────────────────────────────────────
 
 interface Session {
   sessionId: string;
   baseUrl: string;
-  expiresAt: number; // epoch ms
+  expiresAt: number;
 }
 
-let cachedSession: Session | null = null;
+const sessionCache = new Map<string, Session>();
 
-function buildBaseUrl(): string {
-  const subdomain =
-    process.env.DEXCOM_SHARE_REGION === "ous" ? "shareous1" : "share2";
+function buildBaseUrl(region?: string): string {
+  const subdomain = region === "ous" ? "shareous1" : "share2";
   return `https://${subdomain}.dexcom.com/ShareWebServices/Services`;
 }
 
-async function login(): Promise<Session> {
-  const accountId = process.env.DEXCOM_SHARE_ACCOUNT_ID;
-  const password = process.env.DEXCOM_SHARE_PASSWORD;
+async function login(userId: string, accountId: string, password: string, region?: string): Promise<Session> {
+  const baseUrl = buildBaseUrl(region);
+  log("INFO", "Authenticating with Dexcom Share", { userId });
 
-  if (!accountId || !password) {
-    throw new Error(
-      "Missing credentials: set DEXCOM_SHARE_ACCOUNT_ID and DEXCOM_SHARE_PASSWORD in .env"
-    );
-  }
-
-  const baseUrl = buildBaseUrl();
-  log("INFO", "Authenticating with Dexcom Share...");
-
-  const res = await fetch(
-    `${baseUrl}/General/LoginPublisherAccountById`,
-    {
-      method: "POST",
-      headers: DEXCOM_HEADERS,
-      body: JSON.stringify({
-        accountId,
-        password,
-        applicationId: APPLICATION_ID,
-      }),
-    }
-  );
+  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountById`, {
+    method: "POST",
+    headers: DEXCOM_HEADERS,
+    body: JSON.stringify({ accountId, password, applicationId: APPLICATION_ID }),
+  });
 
   const text = await res.text();
-
   if (!res.ok || !text.trim()) {
     throw new Error(`Dexcom login HTTP ${res.status}: "${text}"`);
   }
@@ -122,43 +88,33 @@ async function login(): Promise<Session> {
   }
 
   if (!sessionId || sessionId === "00000000-0000-0000-0000-000000000000") {
-    throw new Error(
-      "Dexcom login rejected — verify DEXCOM_SHARE_ACCOUNT_ID, DEXCOM_SHARE_PASSWORD, and DEXCOM_SHARE_REGION"
-    );
+    throw new Error("Dexcom login rejected — verify account ID, password, and region");
   }
 
-  log("INFO", "Session acquired", { region: process.env.DEXCOM_SHARE_REGION ?? "us" });
-  return { sessionId, baseUrl, expiresAt: Date.now() + SESSION_TTL_MS };
+  const session: Session = { sessionId, baseUrl, expiresAt: Date.now() + SESSION_TTL_MS };
+  sessionCache.set(userId, session);
+  log("INFO", "Session acquired", { userId, region: region ?? "us" });
+  return session;
 }
 
-/** Returns a valid session, logging in only when necessary. */
-async function getSession(): Promise<Session> {
-  if (cachedSession && Date.now() < cachedSession.expiresAt) {
-    return cachedSession;
-  }
-  cachedSession = await login();
-  return cachedSession;
-}
-
-function invalidateSession(): void {
-  log("WARN", "Invalidating cached session");
-  cachedSession = null;
+async function getSession(userId: string, accountId: string, password: string, region?: string): Promise<Session> {
+  const cached = sessionCache.get(userId);
+  if (cached && Date.now() < cached.expiresAt) return cached;
+  return login(userId, accountId, password, region);
 }
 
 // ─── Dexcom Share API ─────────────────────────────────────────────────────────
 
 interface RawReading {
-  WT: string;   // "Date(1691455258000)" — no leading slash
+  WT: string;
   Value: number;
   Trend: string;
 }
 
-/** Thrown when Dexcom signals the current session ID is no longer valid. */
 class SessionExpiredError extends Error {}
 
 function parseDexcomDate(wt: string | undefined): Date | null {
   if (!wt) return null;
-  // Format: Date(epochMs) — the regex intentionally has no leading slash
   const m = /Date\((\d+)/.exec(wt);
   if (!m) return null;
   return new Date(Number(m[1]));
@@ -167,41 +123,29 @@ function parseDexcomDate(wt: string | undefined): Date | null {
 async function fetchReadings(session: Session): Promise<RawReading[]> {
   const url =
     `${session.baseUrl}/Publisher/ReadPublisherLatestGlucoseValues` +
-    `?sessionId=${session.sessionId}` +
-    `&minutes=${FETCH_WINDOW_MINUTES}` +
-    `&maxCount=${MAX_READINGS}`;
+    `?sessionId=${session.sessionId}&minutes=${FETCH_WINDOW_MINUTES}&maxCount=${MAX_READINGS}`;
 
   const res = await fetch(url, { method: "POST", headers: DEXCOM_HEADERS });
   const text = await res.text();
 
-  // Dexcom returns HTTP 500 with a message like "SessionNotValid" when the
-  // session has been revoked server-side before our TTL expires.
   if (res.status === 500 && /SessionNotValid|SessionIdNotFound/i.test(text)) {
     throw new SessionExpiredError(`Dexcom rejected session: "${text}"`);
   }
-
-  if (!res.ok) {
-    throw new Error(`Dexcom readings HTTP ${res.status}: "${text}"`);
-  }
-
-  if (!text.trim()) {
-    return [];
-  }
-
+  if (!res.ok) throw new Error(`Dexcom readings HTTP ${res.status}: "${text}"`);
+  if (!text.trim()) return [];
   return JSON.parse(text) as RawReading[];
 }
 
 // ─── Database write ───────────────────────────────────────────────────────────
 
-async function insertReadings(readings: RawReading[]): Promise<{ inserted: number; skipped: number }> {
+async function insertReadings(userId: string, readings: RawReading[]): Promise<{ inserted: number; skipped: number }> {
   let inserted = 0;
   let skipped = 0;
 
   for (const r of readings) {
     const recordedAt = parseDexcomDate(r.WT);
-
     if (!recordedAt) {
-      log("WARN", `Skipping reading with unparseable WT timestamp`, { wt: r.WT });
+      log("WARN", "Skipping reading with unparseable WT timestamp", { userId, wt: r.WT });
       skipped++;
       continue;
     }
@@ -210,7 +154,7 @@ async function insertReadings(readings: RawReading[]): Promise<{ inserted: numbe
       `INSERT INTO glucose_readings (user_id, recorded_at, mg_dl, trend, source)
        VALUES ($1, $2, $3, $4, 'dexcom_share')
        ON CONFLICT (user_id, recorded_at) DO NOTHING`,
-      [USER_ID, recordedAt.toISOString(), r.Value, r.Trend]
+      [userId, recordedAt.toISOString(), r.Value, r.Trend]
     );
 
     inserted += result.rowCount ?? 0;
@@ -220,57 +164,78 @@ async function insertReadings(readings: RawReading[]): Promise<{ inserted: numbe
   return { inserted, skipped };
 }
 
-// ─── Sync cycle ───────────────────────────────────────────────────────────────
+// ─── Per-user sync ────────────────────────────────────────────────────────────
 
-async function syncOnce(): Promise<void> {
-  if (!USER_ID) {
-    log("ERROR", "DEFAULT_USER_ID is not set — skipping sync");
+async function syncUser(userId: string, dexcomSettings: Record<string, any>): Promise<void> {
+  const accountId: string = dexcomSettings.share_account_id ?? "";
+  const password: string = dexcomSettings.share_password ?? "";
+  const region: string | undefined = dexcomSettings.share_region;
+
+  if (!accountId || !password) {
+    log("WARN", "Skipping user — missing share_account_id or share_password", { userId });
     return;
   }
 
   let session: Session;
   let readings: RawReading[];
 
-  // Fetch — with one automatic re-auth on session expiry
   try {
-    session = await getSession();
+    session = await getSession(userId, accountId, password, region);
     readings = await fetchReadings(session);
   } catch (err) {
     if (err instanceof SessionExpiredError) {
-      log("WARN", "Session expired mid-run, re-authenticating once...");
-      invalidateSession();
+      log("WARN", "Session expired mid-run, re-authenticating", { userId });
+      sessionCache.delete(userId);
       try {
-        session = await getSession();
+        session = await getSession(userId, accountId, password, region);
         readings = await fetchReadings(session);
       } catch (retryErr: unknown) {
-        log("ERROR", "Sync failed after re-auth", {
-          error: (retryErr as Error)?.message,
-        });
+        log("ERROR", "Sync failed after re-auth", { userId, error: (retryErr as Error)?.message });
         return;
       }
     } else {
-      log("ERROR", "Sync failed (auth/fetch)", {
-        error: (err as Error)?.message,
-      });
+      log("ERROR", "Sync failed (auth/fetch)", { userId, error: (err as Error)?.message });
       return;
     }
   }
 
   if (!readings.length) {
-    log("INFO", "No readings returned for this window");
+    log("INFO", "No readings for this window", { userId });
     return;
   }
 
-  // Write to DB
   try {
-    const { inserted, skipped } = await insertReadings(readings);
-    log("INFO", "Sync complete", {
-      fetched: readings.length,
-      inserted,
-      skipped,
-    });
+    const { inserted, skipped } = await insertReadings(userId, readings);
+    log("INFO", "Sync complete", { userId, fetched: readings.length, inserted, skipped });
   } catch (err: unknown) {
-    log("ERROR", "DB insert failed", { error: (err as Error)?.message });
+    log("ERROR", "DB insert failed", { userId, error: (err as Error)?.message });
+  }
+}
+
+// ─── Sync cycle ───────────────────────────────────────────────────────────────
+
+async function syncAll(): Promise<void> {
+  let users: Array<{ user_id: string; settings: Record<string, any> }>;
+  try {
+    const result = await pool.query<{ user_id: string; settings: Record<string, any> }>(
+      `SELECT user_id, settings FROM user_settings
+       WHERE settings->'dexcom'->>'share_account_id' IS NOT NULL
+         AND settings->'dexcom'->>'share_password' IS NOT NULL`
+    );
+    users = result.rows;
+  } catch (err: unknown) {
+    log("ERROR", "Failed to query users with Dexcom credentials", { error: (err as Error)?.message });
+    return;
+  }
+
+  if (users.length === 0) {
+    log("INFO", "No users with Dexcom Share credentials configured");
+    return;
+  }
+
+  log("INFO", `Syncing ${users.length} user(s)`);
+  for (const { user_id, settings } of users) {
+    await syncUser(user_id, settings.dexcom ?? {});
   }
 }
 
@@ -278,10 +243,9 @@ async function syncOnce(): Promise<void> {
 
 log("INFO", `Worker starting — polling every ${SYNC_INTERVAL_MS / 1000}s`);
 
-// Fire immediately so we don't wait 5 minutes on first start
-void syncOnce();
+void syncAll();
 
-const timer = setInterval(() => void syncOnce(), SYNC_INTERVAL_MS);
+const timer = setInterval(() => void syncAll(), SYNC_INTERVAL_MS);
 
 function shutdown(signal: string): void {
   log("INFO", `${signal} received — shutting down`);

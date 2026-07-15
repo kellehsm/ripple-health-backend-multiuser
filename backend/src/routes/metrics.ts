@@ -5,7 +5,8 @@ import { query } from "../db.js";
 export default async function metricsRoutes(app: FastifyInstance) {
   // List metric types; supports ?user_id= and/or ?name= filters
   app.get("/", async (req) => {
-    const { user_id, name } = req.query as any;
+    const user_id = req.user_id;
+    const { name } = req.query as any;
     const conditions: string[] = [];
     const params: any[] = [];
     if (user_id) { params.push(user_id); conditions.push("user_id = $" + params.length); }
@@ -16,7 +17,8 @@ export default async function metricsRoutes(app: FastifyInstance) {
 
   // Create a new metric type (e.g. adding "meditation" later)
   app.post("/", async (req) => {
-    const { user_id, name, value_type, unit, icon, color_key } = req.body as any;
+    const user_id = req.user_id;
+    const { name, value_type, unit, icon, color_key } = req.body as any;
     const rows = await query(
       `INSERT INTO metrics (user_id, name, value_type, unit, icon, color_key)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,

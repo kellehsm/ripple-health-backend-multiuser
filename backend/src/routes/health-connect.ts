@@ -3,7 +3,8 @@ import { query } from "../db.js";
 
 export default async function healthConnectRoutes(app: FastifyInstance) {
   app.get("/steps", async (req) => {
-    const { user_id, date } = req.query as any;
+    const user_id = req.user_id;
+    const { date } = req.query as any;
     const [metric] = await query<any>(`SELECT id FROM metrics WHERE user_id = $1 AND name = 'steps'`, [user_id]);
     if (!metric) return { steps: null };
     const [row] = await query<any>(
@@ -14,7 +15,8 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
   });
 
   app.get("/sleep", async (req) => {
-    const { user_id, date } = req.query as any;
+    const user_id = req.user_id;
+    const { date } = req.query as any;
     const rows = await query<any>(
       `SELECT * FROM sleep_sessions WHERE user_id = $1 AND end_time::date = $2 ORDER BY end_time DESC LIMIT 1`,
       [user_id, date]
@@ -23,7 +25,8 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
   });
 
   app.post("/heart-rate", async (req) => {
-    const { user_id, readings } = req.body as any;
+    const user_id = req.user_id;
+    const { readings } = req.body as any;
     let inserted = 0;
     for (const r of readings) {
       await query(
@@ -36,7 +39,8 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
   });
 
   app.post("/sleep", async (req) => {
-    const { user_id, sessions } = req.body as any;
+    const user_id = req.user_id;
+    const { sessions } = req.body as any;
     let inserted = 0;
     for (const s of sessions) {
       await query(
@@ -49,7 +53,7 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
   });
 
   app.get("/sleep/stats", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
     const [yesterday] = await query<any>(
       `SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time))), 0) as seconds
        FROM sleep_sessions
@@ -73,7 +77,8 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
   });
 
   app.post("/steps", async (req) => {
-    const { user_id, date, count } = req.body as any;
+    const user_id = req.user_id;
+    const { date, count } = req.body as any;
     let [metric] = await query<any>(`SELECT * FROM metrics WHERE user_id = $1 AND name = 'steps'`, [user_id]);
     if (!metric) {
       [metric] = await query<any>(

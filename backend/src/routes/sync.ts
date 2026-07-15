@@ -46,7 +46,7 @@ export default async function syncRoutes(app: FastifyInstance) {
         }
 
         try {
-          await processItem(client, item);
+          await processItem(client, item, req.user_id);
           await client.query(
             "INSERT INTO sync_log (sync_id) VALUES ($1) ON CONFLICT DO NOTHING",
             [item.sync_id]
@@ -82,7 +82,7 @@ export default async function syncRoutes(app: FastifyInstance) {
   });
 }
 
-async function processItem(client: any, item: BatchItem): Promise<void> {
+async function processItem(client: any, item: BatchItem, user_id: string): Promise<void> {
   const { endpoint, payload: p } = item;
 
   if (endpoint === "/meals") {
@@ -91,7 +91,7 @@ async function processItem(client: any, item: BatchItem): Promise<void> {
          (user_id, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, context, logged_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,COALESCE($10::timestamptz, now()))`,
       [
-        p.user_id, p.name, p.meal_type ?? null,
+        user_id, p.name, p.meal_type ?? null,
         p.carbs_g ?? null, p.sugar_g ?? null, p.calories ?? null,
         p.source_db ?? null, p.source_food_id ?? null,
         p.context ? JSON.stringify(p.context) : null,
@@ -106,7 +106,7 @@ async function processItem(client: any, item: BatchItem): Promise<void> {
     if (type === "period" && p.period) {
       const { rows: existing } = await client.query(
         `SELECT id FROM journal_entries WHERE user_id = $1 AND period = $2 AND logged_at::date = CURRENT_DATE`,
-        [p.user_id, p.period]
+        [user_id, p.period]
       );
       if (existing.length > 0) {
         await client.query(
@@ -128,7 +128,7 @@ async function processItem(client: any, item: BatchItem): Promise<void> {
          (user_id, mood_score, mood_label, entry_text, period, entry_type, context, logged_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,COALESCE($8::timestamptz, now()))`,
       [
-        p.user_id, p.mood_score, p.mood_label ?? null, p.entry_text ?? null,
+        user_id, p.mood_score, p.mood_label ?? null, p.entry_text ?? null,
         p.period ?? null, type,
         p.context ? JSON.stringify(p.context) : null,
         p.logged_at ?? null,
@@ -141,7 +141,7 @@ async function processItem(client: any, item: BatchItem): Promise<void> {
     await client.query(
       `INSERT INTO spending_entries (user_id, amount, category, source, logged_at)
        VALUES ($1,$2,$3,COALESCE($4,'manual'),COALESCE($5::timestamptz, now()))`,
-      [p.user_id, p.amount, p.category ?? null, p.source ?? null, p.logged_at ?? null]
+      [user_id, p.amount, p.category ?? null, p.source ?? null, p.logged_at ?? null]
     );
     return;
   }
@@ -163,7 +163,7 @@ async function processItem(client: any, item: BatchItem): Promise<void> {
          (user_id, substance_type, name, caffeine_mg, abv_percent, volume_ml, source_db, logged_at)
        VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7,'manual'),COALESCE($8::timestamptz, now()))`,
       [
-        p.user_id, p.substance_type, p.name,
+        user_id, p.substance_type, p.name,
         p.caffeine_mg ?? null, p.abv_percent ?? null, p.volume_ml ?? null,
         p.source_db ?? null, p.logged_at ?? null,
       ]

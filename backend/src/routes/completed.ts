@@ -3,7 +3,7 @@ import { query } from "../db.js";
 
 export default async function completedRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
     const books = await query<any>(
       `SELECT id, title AS name, 'book' AS kind, finished_at AS completed_at, author, cover_url, rating
        FROM books WHERE user_id = $1 AND status = 'finished' AND finished_at IS NOT NULL

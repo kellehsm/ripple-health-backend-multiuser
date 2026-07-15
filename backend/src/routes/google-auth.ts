@@ -5,12 +5,18 @@ const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const APP_REDIRECT = "wellnessfresh://oauth";
 
 export default async function googleAuthRoutes(app: FastifyInstance) {
-  // Called by Google after user authorizes — exchanges code, stores refresh token, redirects back to app
+  // Called by Google after user authorizes — exchanges code, stores refresh token, redirects back to app.
+  // The frontend must pass state=<user_id> when initiating the Google OAuth URL so we know which user to save to.
   app.get("/callback", async (req, reply) => {
-    const { code, error } = req.query as any;
+    const { code, error, state } = req.query as any;
 
     if (error || !code) {
       return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=${encodeURIComponent(error ?? "no_code")}`);
+    }
+
+    const userId = state as string | undefined;
+    if (!userId) {
+      return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=missing_state`);
     }
 
     try {
@@ -33,7 +39,6 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
         return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=no_refresh_token`);
       }
 
-      const userId = process.env.DEFAULT_USER_ID!;
       const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [userId]);
       const existing = rows[0]?.settings ?? {};
       const merged = {

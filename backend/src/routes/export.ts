@@ -70,7 +70,8 @@ function drawGlucoseChart(
 
 export default async function exportRoutes(app: FastifyInstance) {
   app.get("/doctor-report", async (req, reply: FastifyReply) => {
-    const { user_id, start, end } = req.query as any;
+    const user_id = req.user_id;
+    const { start, end } = req.query as any;
     const startDate = start ? new Date(start) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const endDate = end ? new Date(end) : new Date();
     const startIso = startDate.toISOString();
@@ -262,7 +263,7 @@ export default async function exportRoutes(app: FastifyInstance) {
   });
 
   app.get("/all", async (req, reply: FastifyReply) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
 
     const [glucose, meals, journal, spending, books, hobbies, hobbiesLogs, sleep, heartRate, metrics, metricLogs] = await Promise.all([
       query<any>(`SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at`, [user_id]),

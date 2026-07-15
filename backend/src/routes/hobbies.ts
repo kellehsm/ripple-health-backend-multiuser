@@ -4,7 +4,8 @@ import { query } from "../db.js";
 // Generalized version of the "books" pattern - works for any hobby.
 export default async function hobbiesRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id, status } = req.query as any;
+    const user_id = req.user_id;
+    const { status } = req.query as any;
     if (status) {
       return query(`SELECT * FROM hobbies WHERE user_id = $1 AND status = $2 ORDER BY name`, [user_id, status]);
     }
@@ -29,7 +30,8 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
   });
 
   app.post("/", async (req) => {
-    const { user_id, name, unit_label, icon, color_key } = req.body as any;
+    const user_id = req.user_id;
+    const { name, unit_label, icon, color_key } = req.body as any;
     const rows = await query(
       `INSERT INTO hobbies (user_id, name, unit_label, icon, color_key)
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,

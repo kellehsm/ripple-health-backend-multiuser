@@ -3,7 +3,7 @@ import { query } from "../db.js";
 
 export default async function settingsRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
     const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);
     const settings = rows[0]?.settings ?? {};
     // Mask Dexcom password: return a boolean instead of the value
@@ -15,7 +15,8 @@ export default async function settingsRoutes(app: FastifyInstance) {
   });
 
   app.patch("/", async (req) => {
-    const { user_id, ...patch } = req.body as any;
+    const user_id = req.user_id;
+    const patch = req.body as any;
     const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);
     const existing = rows[0]?.settings ?? {};
 

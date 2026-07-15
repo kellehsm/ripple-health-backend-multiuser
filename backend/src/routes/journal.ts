@@ -3,13 +3,14 @@ import { query } from "../db.js";
 
 export default async function journalRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
     return query(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 50`, [user_id]);
   });
 
   // Upsert a period check-in (one per period per day) or insert an off-cycle moment.
   app.post("/", async (req) => {
-    const { user_id, mood_score, entry_text, logged_at, mood_label, period, entry_type, context } = req.body as any;
+    const user_id = req.user_id;
+    const { mood_score, entry_text, logged_at, mood_label, period, entry_type, context } = req.body as any;
     const type = entry_type ?? "period";
     const contextJson = context ? JSON.stringify(context) : null;
 
@@ -42,7 +43,7 @@ export default async function journalRoutes(app: FastifyInstance) {
   });
 
   app.get("/today", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
     return query(
       `SELECT * FROM journal_entries
        WHERE user_id = $1 AND logged_at::date = current_date
@@ -54,7 +55,8 @@ export default async function journalRoutes(app: FastifyInstance) {
   // Daily summary: avg mood (period check-ins only) + sleep hours + total spending per day.
   // ?days=N controls window size (default 7, max 90).
   app.get("/weekly-summary", async (req) => {
-    const { user_id, days: daysStr } = req.query as any;
+    const user_id = req.user_id;
+    const { days: daysStr } = req.query as any;
     const days = Math.min(Math.max(parseInt(daysStr ?? "7", 10) || 7, 7), 90);
     const rows = await query<any>(
       `SELECT

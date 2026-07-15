@@ -4,7 +4,8 @@ import { syncDexcomShareGlucose } from "../jobs/dexcom-share-sync.js";
 
 export default async function glucoseRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id, date, start, end } = req.query as any;
+    const user_id = req.user_id;
+    const { date, start, end } = req.query as any;
 
     if (start && end) {
       return query(
@@ -25,7 +26,8 @@ export default async function glucoseRoutes(app: FastifyInstance) {
   });
 
   app.post("/", async (req) => {
-    const { user_id, recorded_at, mg_dl, trend } = req.body as any;
+    const user_id = req.user_id;
+    const { recorded_at, mg_dl, trend } = req.body as any;
     const rows = await query(
       `INSERT INTO glucose_readings (user_id, recorded_at, mg_dl, trend)
        VALUES ($1,$2,$3,$4) RETURNING *`,
@@ -35,7 +37,6 @@ export default async function glucoseRoutes(app: FastifyInstance) {
   });
 
   app.post("/sync-share", async (req) => {
-    const { user_id } = req.body as any;
-    return syncDexcomShareGlucose(user_id);
+    return syncDexcomShareGlucose(req.user_id);
   });
 }

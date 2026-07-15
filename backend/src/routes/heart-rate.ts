@@ -3,7 +3,8 @@ import { query } from "../db.js";
 
 export default async function heartRateRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
-    const { user_id, start, end } = req.query as any;
+    const user_id = req.user_id;
+    const { start, end } = req.query as any;
     if (start && end) {
       return query(
         `SELECT recorded_at, bpm FROM heart_rate_readings
@@ -20,7 +21,8 @@ export default async function heartRateRoutes(app: FastifyInstance) {
   });
 
   app.get("/daily", async (req) => {
-    const { user_id, days = "7" } = req.query as any;
+    const user_id = req.user_id;
+    const { days = "7" } = req.query as any;
     const n = Math.min(Math.max(parseInt(days, 10) || 7, 1), 30);
     return query<any>(
       `SELECT

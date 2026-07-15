@@ -1,8 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { pool, query } from "../db.js";
 
-const DEFAULT_USER_ID = process.env.DEFAULT_USER_ID;
-
 // ── USDA nutrient field names ─────────────────────────────────────────────────
 const CAFFEINE_NUTRIENT = "Caffeine";
 const ALCOHOL_NUTRIENT  = "Alcohol, ethyl"; // g per 100g
@@ -137,8 +135,8 @@ export default async function substancesRoutes(app: FastifyInstance) {
 
   // POST /api/substances — log an entry
   app.post<{ Body: any }>("/", async (req) => {
+    const user_id = req.user_id;
     const {
-      user_id = DEFAULT_USER_ID,
       substance_type,
       name,
       caffeine_mg = null,
@@ -148,7 +146,6 @@ export default async function substancesRoutes(app: FastifyInstance) {
       logged_at = null,
     } = req.body;
 
-    if (!user_id) return { error: "user_id required" };
     if (!substance_type) return { error: "substance_type required" };
 
     const [row] = await query<any>(
@@ -161,10 +158,10 @@ export default async function substancesRoutes(app: FastifyInstance) {
     return row;
   });
 
-  // GET /api/substances?user_id=X&date=YYYY-MM-DD
+  // GET /api/substances?date=YYYY-MM-DD
   app.get<{ Querystring: any }>("/", async (req) => {
-    const { user_id = DEFAULT_USER_ID, date } = req.query;
-    if (!user_id) return { error: "user_id required" };
+    const user_id = req.user_id;
+    const { date } = req.query;
 
     const rows = date
       ? await query<any>(
@@ -196,10 +193,10 @@ export default async function substancesRoutes(app: FastifyInstance) {
     };
   });
 
-  // GET /api/substances/summary?user_id=X&start=D1&end=D2
+  // GET /api/substances/summary?start=D1&end=D2
   app.get<{ Querystring: any }>("/summary", async (req) => {
-    const { user_id = DEFAULT_USER_ID, start, end } = req.query;
-    if (!user_id) return { error: "user_id required" };
+    const user_id = req.user_id;
+    const { start, end } = req.query;
 
     const rows = await query<any>(
       `SELECT

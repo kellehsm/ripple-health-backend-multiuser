@@ -12,14 +12,15 @@ import { query } from "../db.js";
  *   &days=30                     (lookback window, default 30, max 90)
  */
 export default async function analyticsRoutes(app: FastifyInstance) {
-  app.get<{ Querystring: { user_id: string; key: string; compare_to: string; days?: string } }>(
+  app.get<{ Querystring: { key: string; compare_to: string; days?: string } }>(
     "/context-correlation",
     async (req) => {
-      const { user_id, key, compare_to } = req.query;
+      const user_id = req.user_id;
+      const { key, compare_to } = req.query;
       const days = Math.min(Math.max(parseInt(req.query.days ?? "30", 10) || 30, 7), 90);
 
-      if (!user_id || !key || !compare_to) {
-        return { error: "user_id, key, and compare_to are required" };
+      if (!key || !compare_to) {
+        return { error: "key and compare_to are required" };
       }
       if (!["mood", "glucose"].includes(compare_to)) {
         return { error: "compare_to must be 'mood' or 'glucose'" };

@@ -3,7 +3,8 @@ import { query } from "../db.js";
 
 export default async function searchRoutes(app: FastifyInstance) {
   app.get("/glucose", async (req) => {
-    const { user_id, threshold, bucket, start, end } = req.query as any;
+    const user_id = req.user_id;
+    const { threshold, bucket, start, end } = req.query as any;
     // threshold=0 means "all days" (no HAVING filter); default is 180 for "high days" search
     const threshRaw = threshold !== undefined ? parseInt(threshold, 10) : 180;
     const thresh = isNaN(threshRaw) ? 180 : Math.max(0, Math.min(400, threshRaw));
@@ -50,7 +51,8 @@ export default async function searchRoutes(app: FastifyInstance) {
   });
 
   app.get("/meals", async (req) => {
-    const { user_id, q, min_carbs, start, end } = req.query as any;
+    const user_id = req.user_id;
+    const { q, min_carbs, start, end } = req.query as any;
     const params: any[] = [user_id, start || "2000-01-01", end || new Date().toISOString()];
     const conditions: string[] = ["user_id = $1", "logged_at >= $2", "logged_at <= $3"];
 
@@ -66,7 +68,8 @@ export default async function searchRoutes(app: FastifyInstance) {
   });
 
   app.get("/mood", async (req) => {
-    const { user_id, min_score, max_score, start, end } = req.query as any;
+    const user_id = req.user_id;
+    const { min_score, max_score, start, end } = req.query as any;
     const params: any[] = [user_id, start || "2000-01-01", end || new Date().toISOString()];
     const conditions: string[] = ["user_id = $1", "logged_at >= $2", "logged_at <= $3", "entry_type != 'moment'"];
 
@@ -82,7 +85,8 @@ export default async function searchRoutes(app: FastifyInstance) {
   });
 
   app.get("/spending", async (req) => {
-    const { user_id, min_amount, category, start, end } = req.query as any;
+    const user_id = req.user_id;
+    const { min_amount, category, start, end } = req.query as any;
     const params: any[] = [user_id, start || "2000-01-01", end || new Date().toISOString()];
     const conditions: string[] = ["user_id = $1", "logged_at >= $2", "logged_at <= $3"];
 

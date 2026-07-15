@@ -4,7 +4,7 @@ import { backupToGoogleDrive } from "../jobs/google-drive-backup.js";
 
 export default async function googleDriveRoutes(app: FastifyInstance) {
   app.get("/status", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
     const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);
     const gd = rows[0]?.settings?.google_drive ?? {};
     return {
@@ -16,13 +16,14 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
   });
 
   app.post("/backup", async (req) => {
-    const { user_id } = req.body as any;
+    const user_id = req.user_id;
     const filename = await backupToGoogleDrive(user_id);
     return { ok: true, filename };
   });
 
   app.patch("/auto-backup", async (req) => {
-    const { user_id, enabled } = req.body as any;
+    const user_id = req.user_id;
+    const { enabled } = req.body as any;
     const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);
     const existing = rows[0]?.settings ?? {};
     const merged = {
@@ -38,7 +39,7 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
   });
 
   app.post("/disconnect", async (req) => {
-    const { user_id } = req.body as any;
+    const user_id = req.user_id;
     const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);
     const existing = rows[0]?.settings ?? {};
     const { google_drive: _removed, ...rest } = existing;

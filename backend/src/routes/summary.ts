@@ -5,7 +5,7 @@ const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default async function summaryRoutes(app: FastifyInstance) {
   app.get("/weekly-digest", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
 
     const [glucoseRows, highCarbRows, missingDayRows, spendingRows, hrRows, stepsRows, hobbiesRows] = await Promise.all([
       query<any>(`
@@ -142,7 +142,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
   // Powers the Overview tab's top stat row.
   app.get("/today", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
     const rows = await query(
       `SELECT * FROM daily_summary WHERE user_id = $1 AND date = current_date`,
       [user_id]
@@ -152,7 +152,8 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
   // Today's pattern timeline with entry_type on mood events.
   app.get("/pattern", async (req) => {
-    const { user_id, date } = req.query as any;
+    const user_id = req.user_id;
+    const { date } = req.query as any;
     const day = date ?? new Date().toISOString().slice(0, 10);
 
     const [mood, spend, meals, glucoseSpikes] = await Promise.all([
@@ -188,7 +189,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
   });
 
   app.get("/streaks", async (req) => {
-    const { user_id } = req.query as any;
+    const user_id = req.user_id;
 
     const mealDays = await query<any>(
       `SELECT DISTINCT logged_at::date AS day FROM meals
@@ -224,7 +225,8 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
   // Combined day view: glucose readings + all events for the glucose overlay chart.
   app.get("/day", async (req) => {
-    const { user_id, date } = req.query as any;
+    const user_id = req.user_id;
+    const { date } = req.query as any;
     const day = date ?? new Date().toISOString().slice(0, 10);
 
     const [glucose, mood, meals, spend] = await Promise.all([
