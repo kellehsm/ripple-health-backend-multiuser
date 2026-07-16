@@ -32,7 +32,8 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
     if (!readings?.length) return { ok: true, inserted: 0 };
     await query(
       `INSERT INTO heart_rate_readings (user_id, recorded_at, bpm)
-       SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::int[])`,
+       SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::int[])
+       ON CONFLICT (user_id, recorded_at) DO NOTHING`,
       [user_id, readings.map((r: any) => r.recorded_at), readings.map((r: any) => r.bpm)]
     );
     return { ok: true, inserted: readings.length };
@@ -44,7 +45,8 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
     if (!sessions?.length) return { ok: true, inserted: 0 };
     await query(
       `INSERT INTO sleep_sessions (user_id, start_time, end_time, quality_score)
-       SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::timestamptz[]), unnest($4::float8[])`,
+       SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::timestamptz[]), unnest($4::float8[])
+       ON CONFLICT (user_id, start_time) DO NOTHING`,
       [
         user_id,
         sessions.map((s: any) => s.start_time),
