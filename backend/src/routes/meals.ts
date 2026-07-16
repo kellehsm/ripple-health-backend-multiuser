@@ -32,7 +32,8 @@ export default async function mealsRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
-  app.patch("/:id", async (req) => {
+  app.patch("/:id", async (req, reply) => {
+    const user_id = req.user_id;
     const { id } = req.params as any;
     const { name, meal_type, carbs_g, sugar_g, calories, context } = req.body as any;
     const rows = await query(
@@ -43,18 +44,24 @@ export default async function mealsRoutes(app: FastifyInstance) {
          sugar_g   = COALESCE($5, sugar_g),
          calories  = COALESCE($6, calories),
          context   = CASE WHEN $7::jsonb IS NOT NULL THEN $7::jsonb ELSE context END
-       WHERE id = $1
+       WHERE id = $1 AND user_id = $8
        RETURNING id, user_id, name, meal_type, source_db, source_food_id, context, logged_at,
          carbs_g::float AS carbs_g, sugar_g::float AS sugar_g, calories::float AS calories`,
       [id, name, meal_type, carbs_g, sugar_g, calories,
-       context ? JSON.stringify(context) : null]
+       context ? JSON.stringify(context) : null, user_id]
     );
+    if (!rows[0]) return reply.status(404).send({ error: "not found" });
     return rows[0];
   });
 
-  app.delete("/:mealId", async (req) => {
+  app.delete("/:mealId", async (req, reply) => {
+    const user_id = req.user_id;
     const { mealId } = req.params as any;
-    await query(`DELETE FROM meals WHERE id = $1`, [mealId]);
+    const rows = await query(
+      `DELETE FROM meals WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [mealId, user_id]
+    );
+    if (!rows[0]) return reply.status(404).send({ error: "not found" });
     return { ok: true };
   });
 
@@ -81,10 +88,11 @@ export default async function mealsRoutes(app: FastifyInstance) {
   });
 
   // Glucose response window for one meal - the core correlation query.
-  app.get("/:mealId/glucose-response", async (req) => {
+  app.get("/:mealId/glucose-response", async (req, reply) => {
+    const user_id = req.user_id;
     const { mealId } = req.params as any;
-    const [meal] = await query(`SELECT * FROM meals WHERE id = $1`, [mealId]);
-    if (!meal) return { error: "meal not found" };
+    const [meal] = await query(`SELECT * FROM meals WHERE id = $1 AND user_id = $2`, [mealId, user_id]);
+    if (!meal) return reply.status(404).send({ error: "not found" });
     return query(
       `SELECT * FROM glucose_readings
        WHERE user_id = $1

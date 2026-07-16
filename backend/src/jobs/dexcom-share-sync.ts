@@ -184,30 +184,40 @@ export async function syncDexcomShareGlucose(
     }
   }
 
-  const result: SyncResult = { inserted: 0, duplicate: 0, unparseable: 0 };
+  // Pre-filter: separate parseable readings from bad timestamps in one pass
+  type Parseable = { recordedAt: Date; mg_dl: number; trend: string };
+  const parseable: Parseable[] = [];
+  let unparseable = 0;
 
   for (const r of readings) {
     const recordedAt = parseDexcomDate(r.WT);
     if (!recordedAt) {
       // Skip readings with unparseable timestamps — never fabricate a fallback date.
-      result.unparseable++;
+      unparseable++;
       log?.warn({ raw: r.WT }, "Could not parse Dexcom timestamp — skipping reading");
       continue;
     }
-
-    const { rowCount } = await pool.query(
-      `INSERT INTO glucose_readings (user_id, recorded_at, mg_dl, trend, source)
-       VALUES ($1, $2, $3, $4, 'dexcom_share')
-       ON CONFLICT (user_id, recorded_at) DO NOTHING`,
-      [userId, recordedAt.toISOString(), r.Value, r.Trend]
-    );
-
-    if ((rowCount ?? 0) > 0) {
-      result.inserted++;
-    } else {
-      result.duplicate++;
-    }
+    parseable.push({ recordedAt, mg_dl: r.Value, trend: r.Trend });
   }
 
-  return result;
+  let inserted = 0;
+  let duplicate = 0;
+
+  if (parseable.length > 0) {
+    const { rowCount } = await pool.query(
+      `INSERT INTO glucose_readings (user_id, recorded_at, mg_dl, trend, source)
+       SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::int[]), unnest($4::text[]), 'dexcom_share'
+       ON CONFLICT (user_id, recorded_at) DO NOTHING`,
+      [
+        userId,
+        parseable.map(r => r.recordedAt.toISOString()),
+        parseable.map(r => r.mg_dl),
+        parseable.map(r => r.trend),
+      ]
+    );
+    inserted = rowCount ?? 0;
+    duplicate = parseable.length - inserted;
+  }
+
+  return { inserted, duplicate, unparseable };
 }

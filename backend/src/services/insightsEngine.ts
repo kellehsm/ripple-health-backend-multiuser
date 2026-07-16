@@ -1,0 +1,125 @@
+import { query } from "../db.js";
+import type { InsightRule, InsightResult } from "../rules/types.js";
+import { SleepVsMoodRule } from "../rules/sleepVsMood.js";
+import { ActivityVsGlucoseRule } from "../rules/activityVsGlucose.js";
+import { ReadingVsMoodRule } from "../rules/readingVsMood.js";
+import { HobbyVsMoodRule } from "../rules/hobbyVsMood.js";
+import { WaterConsistencyRule } from "../rules/waterConsistency.js";
+import { WeekendSpendingRule } from "../rules/weekendSpending.js";
+import { MealGlucoseTypeRule } from "../rules/mealGlucoseType.js";
+import { GlucoseTimeOfDayRule } from "../rules/glucoseTimeOfDay.js";
+import { SpendingVsMoodRule } from "../rules/spendingVsMood.js";
+import { MealStreakRule, WaterStreakRule, StepGoalStreakRule } from "../rules/streaks.js";
+
+// Registry — add new rules here, nothing else changes
+export const ALL_RULES: InsightRule[] = [
+  SleepVsMoodRule,
+  ActivityVsGlucoseRule,
+  ReadingVsMoodRule,
+  HobbyVsMoodRule,
+  WaterConsistencyRule,
+  WeekendSpendingRule,
+  MealGlucoseTypeRule,
+  GlucoseTimeOfDayRule,
+  SpendingVsMoodRule,
+  MealStreakRule,
+  WaterStreakRule,
+  StepGoalStreakRule,
+];
+
+export interface StoredInsight {
+  id: string;
+  user_id: string;
+  rule_id: string;
+  type: string;
+  title: string;
+  description: string;
+  confidence: string;
+  confidence_score: number;
+  supporting_data: Record<string, unknown>;
+  first_detected: string;
+  last_confirmed: string;
+  times_observed: number;
+  status: string;
+  dismissed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+async function upsertInsight(userId: string, ruleId: string, type: string, result: InsightResult): Promise<void> {
+  await query(
+    `INSERT INTO user_insights
+       (user_id, rule_id, type, title, description, confidence, confidence_score,
+        supporting_data, last_confirmed, times_observed, status, dismissed)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, 'active', FALSE)
+     ON CONFLICT (user_id, rule_id) DO UPDATE SET
+       title            = EXCLUDED.title,
+       description      = EXCLUDED.description,
+       confidence       = EXCLUDED.confidence,
+       confidence_score = EXCLUDED.confidence_score,
+       supporting_data  = EXCLUDED.supporting_data,
+       last_confirmed   = NOW(),
+       times_observed   = EXCLUDED.times_observed,
+       status           = 'active',
+       updated_at       = NOW()`,
+    [userId, ruleId, type, result.title, result.description,
+     result.confidence, result.confidenceScore,
+     JSON.stringify(result.supportingData), result.timesObserved]
+  );
+}
+
+async function markStale(userId: string, activeRuleIds: string[]): Promise<void> {
+  // Any rule that didn't produce a result this run gets marked stale (not enough data yet)
+  if (activeRuleIds.length === 0) return;
+  await query(
+    `UPDATE user_insights SET status = 'stale', updated_at = NOW()
+     WHERE user_id = $1
+       AND dismissed = FALSE
+       AND status = 'active'
+       AND rule_id NOT IN (${activeRuleIds.map((_, i) => `$${i + 2}`).join(",")})`,
+    [userId, ...activeRuleIds]
+  );
+}
+
+// Run all rules for one user and upsert results
+export async function runInsightsForUser(userId: string): Promise<{ ran: number; found: number; errors: string[] }> {
+  const errors: string[] = [];
+  const foundRuleIds: string[] = [];
+
+  await Promise.allSettled(
+    ALL_RULES.map(async (rule) => {
+      try {
+        const result = await rule.run(userId);
+        if (result) {
+          await upsertInsight(userId, rule.id, rule.type, result);
+          foundRuleIds.push(rule.id);
+        }
+      } catch (err: any) {
+        errors.push(`${rule.id}: ${err?.message ?? "unknown error"}`);
+      }
+    })
+  );
+
+  await markStale(userId, foundRuleIds);
+
+  return { ran: ALL_RULES.length, found: foundRuleIds.length, errors };
+}
+
+export async function getActiveInsights(userId: string): Promise<StoredInsight[]> {
+  return query<StoredInsight>(
+    `SELECT * FROM user_insights
+     WHERE user_id = $1 AND dismissed = FALSE AND status = 'active'
+     ORDER BY confidence_score DESC, last_confirmed DESC`,
+    [userId]
+  );
+}
+
+export async function getInsightHistory(userId: string): Promise<StoredInsight[]> {
+  return query<StoredInsight>(
+    `SELECT * FROM user_insights
+     WHERE user_id = $1
+     ORDER BY last_confirmed DESC
+     LIMIT 100`,
+    [userId]
+  );
+}

@@ -29,8 +29,8 @@ const DEXCOM_HEADERS: Record<string, string> = {
 
 const SYNC_INTERVAL_MS = 5 * 60 * 1000;
 const SESSION_TTL_MS = 4 * 60 * 60 * 1000;
-const FETCH_WINDOW_MINUTES = 15;
-const MAX_READINGS = 3;
+const FETCH_WINDOW_MINUTES = 1440; // 24h — survives gaps longer than one missed poll
+const MAX_READINGS = 288;          // 24h × 12 readings/hr
 
 // ─── Database ─────────────────────────────────────────────────────────────────
 

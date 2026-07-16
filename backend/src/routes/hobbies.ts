@@ -12,7 +12,8 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     return query(`SELECT * FROM hobbies WHERE user_id = $1 AND (status IS NULL OR status = 'active') ORDER BY name`, [user_id]);
   });
 
-  app.patch("/:id", async (req) => {
+  app.patch("/:id", async (req, reply) => {
+    const user_id = req.user_id;
     const { id } = req.params as any;
     const { status, name, unit_label, icon, color_key } = req.body as any;
     const rows = await query(
@@ -23,9 +24,10 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
          icon = COALESCE($5, icon),
          color_key = COALESCE($6, color_key),
          completed_at = CASE WHEN $2 = 'completed' THEN current_date ELSE completed_at END
-       WHERE id = $1 RETURNING *`,
-      [id, status ?? null, name ?? null, unit_label ?? null, icon ?? null, color_key ?? null]
+       WHERE id = $1 AND user_id = $7 RETURNING *`,
+      [id, status ?? null, name ?? null, unit_label ?? null, icon ?? null, color_key ?? null, user_id]
     );
+    if (!rows[0]) return reply.status(404).send({ error: "not found" });
     return rows[0];
   });
 
@@ -40,31 +42,44 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
-  app.post("/:hobbyId/logs", async (req) => {
+  app.post("/:hobbyId/logs", async (req, reply) => {
+    const user_id = req.user_id;
     const { hobbyId } = req.params as any;
     const { amount, rating, note, logged_at } = req.body as any;
     const rows = await query(
       `INSERT INTO hobby_logs (hobby_id, amount, rating, note, logged_at)
-       VALUES ($1,$2,$3,$4, COALESCE($5, now())) RETURNING *`,
-      [hobbyId, amount, rating, note, logged_at]
+       SELECT $1, $2, $3, $4, COALESCE($5, now())
+       WHERE EXISTS (SELECT 1 FROM hobbies WHERE id = $1 AND user_id = $6)
+       RETURNING *`,
+      [hobbyId, amount, rating, note, logged_at, user_id]
     );
+    if (!rows[0]) return reply.status(404).send({ error: "not found" });
     return rows[0];
   });
 
-  app.get("/:hobbyId/logs", async (req) => {
+  app.get("/:hobbyId/logs", async (req, reply) => {
+    const user_id = req.user_id;
     const { hobbyId } = req.params as any;
+    const owned = await query(`SELECT id FROM hobbies WHERE id = $1 AND user_id = $2`, [hobbyId, user_id]);
+    if (!owned[0]) return reply.status(404).send({ error: "not found" });
     return query(`SELECT * FROM hobby_logs WHERE hobby_id = $1 ORDER BY logged_at DESC LIMIT 100`, [hobbyId]);
   });
 
-  app.delete("/:id", async (req) => {
+  app.delete("/:id", async (req, reply) => {
+    const user_id = req.user_id;
     const { id } = req.params as any;
+    const owned = await query(`SELECT id FROM hobbies WHERE id = $1 AND user_id = $2`, [id, user_id]);
+    if (!owned[0]) return reply.status(404).send({ error: "not found" });
     await query(`DELETE FROM hobby_logs WHERE hobby_id = $1`, [id]);
     await query(`DELETE FROM hobbies WHERE id = $1`, [id]);
     return { ok: true };
   });
 
-  app.get("/:id/stats", async (req) => {
+  app.get("/:id/stats", async (req, reply) => {
+    const user_id = req.user_id;
     const { id } = req.params as any;
+    const owned = await query(`SELECT id FROM hobbies WHERE id = $1 AND user_id = $2`, [id, user_id]);
+    if (!owned[0]) return reply.status(404).send({ error: "not found" });
     const { week_start_day = "1" } = req.query as any;
     const parsed = parseInt(week_start_day, 10);
     const startDay = Math.max(0, Math.min(6, isNaN(parsed) ? 1 : parsed));

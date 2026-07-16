@@ -18,7 +18,9 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
     const user_id = req.user_id;
     const { date } = req.query as any;
     const rows = await query<any>(
-      `SELECT * FROM sleep_sessions WHERE user_id = $1 AND end_time::date = $2 ORDER BY end_time DESC LIMIT 1`,
+      `SELECT * FROM sleep_sessions
+       WHERE user_id = $1 AND end_time >= $2::date AND end_time < $2::date + interval '1 day'
+       ORDER BY end_time DESC LIMIT 1`,
       [user_id, date]
     );
     return rows[0] ?? null;
@@ -27,29 +29,30 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
   app.post("/heart-rate", async (req) => {
     const user_id = req.user_id;
     const { readings } = req.body as any;
-    let inserted = 0;
-    for (const r of readings) {
-      await query(
-        `INSERT INTO heart_rate_readings (user_id, recorded_at, bpm) VALUES ($1,$2,$3)`,
-        [user_id, r.recorded_at, r.bpm]
-      );
-      inserted++;
-    }
-    return { ok: true, inserted };
+    if (!readings?.length) return { ok: true, inserted: 0 };
+    await query(
+      `INSERT INTO heart_rate_readings (user_id, recorded_at, bpm)
+       SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::int[])`,
+      [user_id, readings.map((r: any) => r.recorded_at), readings.map((r: any) => r.bpm)]
+    );
+    return { ok: true, inserted: readings.length };
   });
 
   app.post("/sleep", async (req) => {
     const user_id = req.user_id;
     const { sessions } = req.body as any;
-    let inserted = 0;
-    for (const s of sessions) {
-      await query(
-        `INSERT INTO sleep_sessions (user_id, start_time, end_time, quality_score) VALUES ($1,$2,$3,$4)`,
-        [user_id, s.start_time, s.end_time, s.quality_score ?? null]
-      );
-      inserted++;
-    }
-    return { ok: true, inserted };
+    if (!sessions?.length) return { ok: true, inserted: 0 };
+    await query(
+      `INSERT INTO sleep_sessions (user_id, start_time, end_time, quality_score)
+       SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::timestamptz[]), unnest($4::float8[])`,
+      [
+        user_id,
+        sessions.map((s: any) => s.start_time),
+        sessions.map((s: any) => s.end_time),
+        sessions.map((s: any) => s.quality_score ?? null),
+      ]
+    );
+    return { ok: true, inserted: sessions.length };
   });
 
   app.get("/sleep/stats", async (req) => {

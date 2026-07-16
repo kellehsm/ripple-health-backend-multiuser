@@ -1,4 +1,4 @@
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 
 const API_BASE = process.env.DEXCOM_API_BASE ?? "https://sandbox-api.dexcom.com";
 
@@ -48,16 +48,19 @@ export async function syncDexcomGlucose(userId: string) {
   const data = await res.json();
   const readings = data.records ?? [];
 
-  let inserted = 0;
-  for (const r of readings) {
-    await query(
-      `INSERT INTO glucose_readings (user_id, recorded_at, mg_dl, trend, source)
-       VALUES ($1,$2,$3,$4,'dexcom')`,
-      [userId, r.systemTime, r.value, r.trend]
-    );
-    inserted++;
-  }
+  if (!readings.length) return { ok: true, inserted: 0 };
 
-  return { ok: true, inserted };
+  const result = await pool.query(
+    `INSERT INTO glucose_readings (user_id, recorded_at, mg_dl, trend, source)
+     SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::int[]), unnest($4::text[]), 'dexcom'
+     ON CONFLICT (user_id, recorded_at) DO NOTHING`,
+    [
+      userId,
+      readings.map((r: any) => r.systemTime),
+      readings.map((r: any) => r.value),
+      readings.map((r: any) => r.trend),
+    ]
+  );
+  return { ok: true, inserted: result.rowCount ?? 0 };
 }
 

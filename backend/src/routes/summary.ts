@@ -1,7 +1,31 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { getDailySummary, generateDailySummary } from "../services/dailySummaryService.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function formatSummaryResponse(row: any) {
+  const dateStr = row.date instanceof Date
+    ? row.date.toISOString().slice(0, 10)
+    : String(row.date).slice(0, 10);
+  return {
+    date: dateStr,
+    scores: {
+      sleep: row.sleep_score,
+      glucose: row.glucose_score,
+      activity: row.activity_score,
+      hydration: row.hydration_score,
+      nutrition: row.nutrition_score,
+      mood: row.mood_score,
+      productivity: row.productivity_score,
+      stress: row.stress_score,
+      overall: row.overall_score,
+    },
+    summaryData: row.summary_data ?? {},
+    insights: row.insights ?? [],
+    generatedAt: row.updated_at ?? null,
+  };
+}
 
 export default async function summaryRoutes(app: FastifyInstance) {
   app.get("/weekly-digest", async (req) => {
@@ -140,14 +164,29 @@ export default async function summaryRoutes(app: FastifyInstance) {
     };
   });
 
-  // Powers the Overview tab's top stat row.
+  // Powers the Overview tab's top stat row — reads from precomputed daily_summaries.
   app.get("/today", async (req) => {
     const user_id = req.user_id;
-    const rows = await query(
-      `SELECT * FROM daily_summary WHERE user_id = $1 AND date = current_date`,
-      [user_id]
-    );
-    return rows[0] ?? { user_id, date: new Date().toISOString().slice(0, 10) };
+    const today = new Date().toISOString().slice(0, 10);
+    const row = await getDailySummary(user_id, today);
+    if (!row) return { user_id, date: today };
+    return formatSummaryResponse(row);
+  });
+
+  // GET /summary/daily/:date — fetch or generate a specific day's summary.
+  app.get("/daily/:date", async (req, reply) => {
+    const user_id = req.user_id;
+    const { date } = req.params as { date: string };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return reply.code(400).send({ error: "Invalid date format — expected YYYY-MM-DD" });
+    }
+
+    let row = await getDailySummary(user_id, date);
+    if (!row) {
+      row = await generateDailySummary(user_id, date);
+    }
+    if (!row) return { date, scores: null, summaryData: null, insights: [], generatedAt: null };
+    return formatSummaryResponse(row);
   });
 
   // Today's pattern timeline with entry_type on mood events.
@@ -156,7 +195,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
     const { date } = req.query as any;
     const day = date ?? new Date().toISOString().slice(0, 10);
 
-    const [mood, spend, meals, glucoseSpikes] = await Promise.all([
+    const [mood, spend, meals, glucoseSpikes, water, hobbyEvts] = await Promise.all([
       query(
         `SELECT logged_at AS time, 'mood' AS type,
                 COALESCE(mood_label, mood_score::text) AS label,
@@ -180,9 +219,26 @@ export default async function summaryRoutes(app: FastifyInstance) {
          WHERE user_id = $1 AND recorded_at::date = $2 AND mg_dl > 140`,
         [user_id, day]
       ),
+      query(
+        `SELECT ml.logged_at AS time, 'water' AS type, 'Water' AS label
+         FROM metric_logs ml
+         JOIN metrics m ON m.id = ml.metric_id
+         WHERE m.user_id = $1 AND m.name = 'water' AND ml.logged_at::date = $2`,
+        [user_id, day]
+      ),
+      query(
+        `SELECT hl.logged_at AS time, 'hobby' AS type,
+                CASE WHEN hl.amount > 0
+                     THEN h.name || ': ' || ROUND(hl.amount::numeric) || ' ' || h.unit_label
+                     ELSE h.name END AS label
+         FROM hobby_logs hl
+         JOIN hobbies h ON h.id = hl.hobby_id
+         WHERE h.user_id = $1 AND hl.logged_at::date = $2`,
+        [user_id, day]
+      ),
     ]);
 
-    const events = [...mood, ...spend, ...meals, ...glucoseSpikes].sort(
+    const events = [...mood, ...spend, ...meals, ...glucoseSpikes, ...water, ...hobbyEvts].sort(
       (a: any, b: any) => new Date(a.time).getTime() - new Date(b.time).getTime()
     );
     return events;

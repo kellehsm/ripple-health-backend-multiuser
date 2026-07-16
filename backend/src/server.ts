@@ -25,9 +25,12 @@ import substancesRoutes from "./routes/substances.js";
 import completedRoutes from "./routes/completed.js";
 import syncRoutes from "./routes/sync.js";
 import analyticsRoutes from "./routes/analytics.js";
+import insightsRoutes from "./routes/insights.js";
 import authRoutes from "./routes/auth.js";
 import { requireAuth } from "./middleware/auth.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
+import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
+import { runInsightsJob } from "./jobs/insightsJob.js";
 import cron from "node-cron";
 import { query } from "./db.js";
 
@@ -79,10 +82,25 @@ async function main() {
   await app.register(completedRoutes, { prefix: "/api/completed" });
   await app.register(syncRoutes, { prefix: "/api/sync" });
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });
+  await app.register(insightsRoutes, { prefix: "/api/insights" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`Wellness multi-user API running on port ${port}`);
+
+  // Daily Summary Engine — refresh today every 30 min; finalize yesterday at 1 AM
+  cron.schedule("*/30 * * * *", () => void runDailySummaryJob());
+  cron.schedule("0 1 * * *", () => {
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    void runDailySummaryJob(yesterday);
+  });
+  void runDailySummaryJob(); // seed on startup
+  app.log.info("Daily Summary Engine scheduled (every 30 min + startup)");
+
+  // Insights Engine — nightly at 3 AM + on startup (low priority, after summaries)
+  cron.schedule("0 3 * * *", () => void runInsightsJob());
+  setTimeout(() => void runInsightsJob(), 15000); // 15s after boot so summaries seed first
+  app.log.info("Insights Engine scheduled (nightly 3 AM + startup)");
 
   // Nightly Google Drive backup — iterate over all users with Drive connected
   if (process.env.GOOGLE_CLIENT_ID) {
