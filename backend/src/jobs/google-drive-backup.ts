@@ -1,25 +1,4 @@
-import { exec } from "child_process";
-import zlib from "zlib";
-import { promisify } from "util";
 import { query } from "../db.js";
-
-const execAsync = promisify(exec);
-const gzipAsync = promisify(zlib.gzip);
-
-function parseDatabaseUrl(url: string) {
-  const withoutProto = url.replace(/^postgres(ql)?:\/\//, "");
-  const atIdx = withoutProto.lastIndexOf("@");
-  const hostPart = withoutProto.slice(atIdx + 1);
-  const userPart = withoutProto.slice(0, atIdx);
-  const colonIdx = userPart.indexOf(":");
-  const user = userPart.slice(0, colonIdx);
-  const pass = userPart.slice(colonIdx + 1);
-  const slashIdx = hostPart.indexOf("/");
-  const hostPort = hostPart.slice(0, slashIdx);
-  const database = hostPart.slice(slashIdx + 1);
-  const [host, port] = hostPort.split(":");
-  return { user, pass, host, port: port ?? "5432", database };
-}
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -44,22 +23,46 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
 
   const accessToken = await refreshAccessToken(gd.refresh_token);
 
-  // Dump database to SQL text
-  const db = parseDatabaseUrl(process.env.DATABASE_URL!);
-  const { stdout: dumpSql } = await execAsync(
-    `pg_dump -h ${db.host} -p ${db.port} -U ${db.user} -d ${db.database}`,
-    { env: { ...process.env, PGPASSWORD: db.pass }, maxBuffer: 100 * 1024 * 1024 }
-  );
-  const gzipped = await gzipAsync(Buffer.from(dumpSql));
+  // Export all user data as JSON (same format as GET /export/all)
+  const [glucose, meals, journal, spending, books, hobbies, hobbiesLogs, sleep, heartRate, metrics, metricLogs] =
+    await Promise.all([
+      query<any>(`SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at`, [userId]),
+      query<any>(`SELECT * FROM meals WHERE user_id = $1 ORDER BY logged_at`, [userId]),
+      query<any>(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at`, [userId]),
+      query<any>(`SELECT * FROM spending_entries WHERE user_id = $1 ORDER BY logged_at`, [userId]),
+      query<any>(`SELECT * FROM books WHERE user_id = $1`, [userId]),
+      query<any>(`SELECT * FROM hobbies WHERE user_id = $1`, [userId]),
+      query<any>(`SELECT hl.* FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE h.user_id = $1 ORDER BY hl.logged_at`, [userId]),
+      query<any>(`SELECT * FROM sleep_sessions WHERE user_id = $1 ORDER BY start_time`, [userId]),
+      query<any>(`SELECT * FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at`, [userId]),
+      query<any>(`SELECT * FROM metrics WHERE user_id = $1`, [userId]),
+      query<any>(`SELECT ml.* FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id WHERE m.user_id = $1 ORDER BY ml.logged_at`, [userId]),
+    ]);
+
+  const payload = JSON.stringify({
+    exported_at: new Date().toISOString(),
+    user_id: userId,
+    glucose,
+    meals,
+    journal,
+    spending,
+    books,
+    hobbies,
+    hobby_logs: hobbiesLogs,
+    sleep_sessions: sleep,
+    heart_rate: heartRate,
+    metrics,
+    metric_logs: metricLogs,
+  });
 
   // Multipart upload to Google Drive
   const timestamp = new Date().toISOString().slice(0, 10);
-  const filename = `ripple-wellness-backup-${timestamp}.sql.gz`;
+  const filename = `ripple-backup-${timestamp}.json`;
   const boundary = "ripple_boundary_" + Date.now();
-  const metaPart = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({ name: filename, mimeType: "application/gzip" })}\r\n`;
-  const dataPart = `--${boundary}\r\nContent-Type: application/gzip\r\n\r\n`;
+  const metaPart = `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({ name: filename, mimeType: "application/json" })}\r\n`;
+  const dataPart = `--${boundary}\r\nContent-Type: application/json\r\n\r\n`;
   const tail = `\r\n--${boundary}--`;
-  const body = Buffer.concat([Buffer.from(metaPart), Buffer.from(dataPart), gzipped, Buffer.from(tail)]);
+  const body = Buffer.concat([Buffer.from(metaPart), Buffer.from(dataPart), Buffer.from(payload), Buffer.from(tail)]);
 
   const uploadRes = await fetch(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
@@ -78,7 +81,7 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
   const listRes = await fetch(
     "https://www.googleapis.com/drive/v3/files?" +
       new URLSearchParams({
-        q: "name contains 'ripple-wellness-backup-' and trashed=false",
+        q: "name contains 'ripple-backup-' and trashed=false",
         fields: "files(id,name,createdTime)",
         orderBy: "createdTime",
       }),
