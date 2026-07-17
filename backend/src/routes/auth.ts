@@ -62,6 +62,43 @@ export default async function authRoutes(app: FastifyInstance) {
     }
   );
 
+  // POST /api/auth/signup — public self-serve account creation
+  app.post<{ Body: { email: string; password: string; name?: string } }>(
+    "/signup",
+    async (req, reply) => {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return reply.status(400).send({ error: "email and password required" });
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return reply.status(400).send({ error: "Invalid email address." });
+      }
+      if (password.length < 8) {
+        return reply.status(400).send({ error: "Password must be at least 8 characters." });
+      }
+
+      const hash = await bcrypt.hash(password, 12);
+      try {
+        const rows = await query<{ id: string }>(
+          "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id",
+          [email.toLowerCase().trim(), hash]
+        );
+        const user = rows[0];
+        await query(
+          "INSERT INTO user_settings (user_id, settings) VALUES ($1, $2::jsonb) ON CONFLICT DO NOTHING",
+          [user.id, JSON.stringify({})]
+        );
+        const token = signToken(user.id);
+        return { token, user_id: user.id };
+      } catch (err: any) {
+        if (err?.code === "23505") {
+          return reply.status(409).send({ error: "An account with this email already exists." });
+        }
+        throw err;
+      }
+    }
+  );
+
   // POST /api/auth/create-user — admin-only, protected by ADMIN_SECRET header
   // Use this to onboard each person: curl -X POST .../api/auth/create-user \
   //   -H "x-admin-secret: <secret>" -d '{"email":"...","password":"..."}'

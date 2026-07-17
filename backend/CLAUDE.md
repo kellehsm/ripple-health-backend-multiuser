@@ -42,6 +42,8 @@ curl http://localhost:4002/health
   sudo -u postgres psql wellness_multiuser_dev -c "GRANT ALL ON SCHEMA public TO wellness_user;"
   sudo -u postgres psql wellness_multiuser_dev < /root/wellness-app-multiuser-dev/backend/schema.sql
   sudo -u postgres psql wellness_multiuser_dev < /root/wellness-app-multiuser-dev/backend/migrations/003_jsonb_context_and_sync_log.sql
+  sudo -u postgres psql wellness_multiuser_dev < /root/wellness-app-multiuser-dev/backend/migrations/004_unique_constraints_for_restore.sql
+  sudo -u postgres psql wellness_multiuser_dev < /root/wellness-app-multiuser-dev/backend/migrations/005_users_auth_columns.sql
   sudo -u postgres psql wellness_multiuser_dev -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO wellness_user; GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO wellness_user;"
   ```
 

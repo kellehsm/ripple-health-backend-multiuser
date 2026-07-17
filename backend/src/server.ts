@@ -27,6 +27,7 @@ import syncRoutes from "./routes/sync.js";
 import analyticsRoutes from "./routes/analytics.js";
 import insightsRoutes from "./routes/insights.js";
 import authRoutes from "./routes/auth.js";
+import dexcomVerifyRoutes from "./routes/dexcom-verify.js";
 import { requireAuth } from "./middleware/auth.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
@@ -57,6 +58,7 @@ async function main() {
   // Public routes
   app.get("/health", async () => ({ ok: true }));
   await app.register(authRoutes, { prefix: "/api/auth" });
+  await app.register(dexcomVerifyRoutes, { prefix: "/api/dexcom" });
   await app.register(dexcomAuthRoutes, { prefix: "/auth/dexcom" });
   await app.register(googleAuthRoutes, { prefix: "/auth/google" });
   await app.register(booksSearchRoutes, { prefix: "/api/books-search" });
