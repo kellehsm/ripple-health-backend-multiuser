@@ -97,9 +97,32 @@ async function login(userId: string, accountId: string, password: string, region
   return session;
 }
 
-async function getSession(userId: string, accountId: string, password: string, region?: string): Promise<Session> {
+async function loginByName(userId: string, accountName: string, password: string, region?: string): Promise<Session> {
+  const baseUrl = buildBaseUrl(region);
+  log("INFO", "Authenticating with Dexcom Share (name-based)", { userId });
+  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountByName`, {
+    method: "POST",
+    headers: DEXCOM_HEADERS,
+    body: JSON.stringify({ accountName, password, applicationId: APPLICATION_ID }),
+  });
+  const text = await res.text();
+  if (!res.ok || !text.trim()) throw new Error(`Dexcom name login HTTP ${res.status}: "${text}"`);
+  let sessionId: string;
+  try { sessionId = JSON.parse(text) as string; } catch { throw new Error(`Dexcom name login non-JSON: "${text}"`); }
+  if (!sessionId || sessionId === "00000000-0000-0000-0000-000000000000") throw new Error("Dexcom name login rejected");
+  const session: Session = { sessionId, baseUrl, expiresAt: Date.now() + SESSION_TTL_MS };
+  sessionCache.set(userId, session);
+  return session;
+}
+
+async function getSession(userId: string, dexcom: Record<string, any>): Promise<Session> {
   const cached = sessionCache.get(userId);
   if (cached && Date.now() < cached.expiresAt) return cached;
+  const accountName: string = dexcom.share_account_name ?? "";
+  const accountId: string = dexcom.share_account_id ?? "";
+  const password: string = dexcom.share_password ?? "";
+  const region: string | undefined = dexcom.share_region;
+  if (accountName) return loginByName(userId, accountName, password, region);
   return login(userId, accountId, password, region);
 }
 
@@ -168,11 +191,11 @@ async function insertReadings(userId: string, readings: RawReading[]): Promise<{
 
 async function syncUser(userId: string, dexcomSettings: Record<string, any>): Promise<void> {
   const accountId: string = dexcomSettings.share_account_id ?? "";
+  const accountName: string = dexcomSettings.share_account_name ?? "";
   const password: string = dexcomSettings.share_password ?? "";
-  const region: string | undefined = dexcomSettings.share_region;
 
-  if (!accountId || !password) {
-    log("WARN", "Skipping user — missing share_account_id or share_password", { userId });
+  if ((!accountId && !accountName) || !password) {
+    log("WARN", "Skipping user — missing credentials", { userId });
     return;
   }
 
@@ -180,14 +203,14 @@ async function syncUser(userId: string, dexcomSettings: Record<string, any>): Pr
   let readings: RawReading[];
 
   try {
-    session = await getSession(userId, accountId, password, region);
+    session = await getSession(userId, dexcomSettings);
     readings = await fetchReadings(session);
   } catch (err) {
     if (err instanceof SessionExpiredError) {
       log("WARN", "Session expired mid-run, re-authenticating", { userId });
       sessionCache.delete(userId);
       try {
-        session = await getSession(userId, accountId, password, region);
+        session = await getSession(userId, dexcomSettings);
         readings = await fetchReadings(session);
       } catch (retryErr: unknown) {
         log("ERROR", "Sync failed after re-auth", { userId, error: (retryErr as Error)?.message });
@@ -219,7 +242,10 @@ async function syncAll(): Promise<void> {
   try {
     const result = await pool.query<{ user_id: string; settings: Record<string, any> }>(
       `SELECT user_id, settings FROM user_settings
-       WHERE settings->'dexcom'->>'share_account_id' IS NOT NULL
+       WHERE (
+         settings->'dexcom'->>'share_account_id' IS NOT NULL
+         OR settings->'dexcom'->>'share_account_name' IS NOT NULL
+       )
          AND settings->'dexcom'->>'share_password' IS NOT NULL`
     );
     users = result.rows;

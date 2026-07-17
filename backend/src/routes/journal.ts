@@ -66,7 +66,7 @@ export default async function journalRoutes(app: FastifyInstance) {
           WHERE user_id = $1 AND logged_at::date = d::date AND entry_type != 'moment') AS avg_mood,
          (SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time))) / 3600.0, 0)
           FROM sleep_sessions
-          WHERE user_id = $1 AND start_time::date = d::date) AS sleep_hours,
+          WHERE user_id = $1 AND end_time::date = d::date) AS sleep_hours,
          (SELECT COALESCE(SUM(amount), 0)
           FROM spending_entries
           WHERE user_id = $1 AND logged_at::date = d::date) AS total_spent
