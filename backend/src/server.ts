@@ -26,6 +26,7 @@ import completedRoutes from "./routes/completed.js";
 import syncRoutes from "./routes/sync.js";
 import analyticsRoutes from "./routes/analytics.js";
 import insightsRoutes from "./routes/insights.js";
+import recipesRoutes from "./routes/recipes.js";
 import authRoutes from "./routes/auth.js";
 import dexcomVerifyRoutes from "./routes/dexcom-verify.js";
 import { requireAuth } from "./middleware/auth.js";
@@ -85,6 +86,7 @@ async function main() {
   await app.register(syncRoutes, { prefix: "/api/sync" });
   await app.register(analyticsRoutes, { prefix: "/api/analytics" });
   await app.register(insightsRoutes, { prefix: "/api/insights" });
+  await app.register(recipesRoutes, { prefix: "/api/recipes" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });

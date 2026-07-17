@@ -48,4 +48,43 @@ export default async function settingsRoutes(app: FastifyInstance) {
     );
     return { ok: true };
   });
+
+  // Returns the most-recent successful sync timestamps for each integration.
+  // The frontend uses these to detect when a data source has gone stale.
+  app.get("/sync-status", async (req) => {
+    const user_id = req.user_id;
+
+    const [dexcomRow, stepsRow, sleepRow, hrRow] = await Promise.all([
+      // Dexcom / CGM: most recent glucose reading regardless of source
+      query<any>(
+        `SELECT recorded_at FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 1`,
+        [user_id]
+      ),
+      // Health Connect steps: most recent daily log
+      query<any>(
+        `SELECT ml.logged_at FROM metric_logs ml
+         JOIN metrics m ON m.id = ml.metric_id
+         WHERE m.user_id = $1 AND m.name = 'steps'
+         ORDER BY ml.logged_at DESC LIMIT 1`,
+        [user_id]
+      ),
+      // Health Connect sleep: most recent session end
+      query<any>(
+        `SELECT end_time AS logged_at FROM sleep_sessions WHERE user_id = $1 ORDER BY end_time DESC LIMIT 1`,
+        [user_id]
+      ),
+      // Health Connect heart rate: most recent reading
+      query<any>(
+        `SELECT recorded_at FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 1`,
+        [user_id]
+      ),
+    ]);
+
+    return {
+      dexcom_last_at:  dexcomRow[0]?.recorded_at ?? null,
+      hc_steps_last_at: stepsRow[0]?.logged_at    ?? null,
+      hc_sleep_last_at: sleepRow[0]?.logged_at    ?? null,
+      hc_hr_last_at:   hrRow[0]?.recorded_at      ?? null,
+    };
+  });
 }
