@@ -216,7 +216,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
       query(
         `SELECT recorded_at AS time, 'glucose_spike' AS type, (mg_dl || ' mg/dL') AS label
          FROM glucose_readings
-         WHERE user_id = $1 AND recorded_at::date = $2 AND mg_dl > 140`,
+         WHERE user_id = $1 AND recorded_at::date = $2 AND mg_dl > 180`,
         [user_id, day]
       ),
       query(

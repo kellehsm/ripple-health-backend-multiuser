@@ -98,7 +98,7 @@ async function getNutritionData(userId: string, date: string) {
 
 async function getMoodData(userId: string, date: string) {
   const rows = await query<{ mood_score: string }>(
-    `SELECT mood_score FROM journal_entries WHERE user_id = $1 AND logged_at::date = $2`,
+    `SELECT mood_score FROM journal_entries WHERE user_id = $1 AND logged_at::date = $2 AND entry_type != 'moment'`,
     [userId, date]
   );
   if (rows.length === 0) return null;
@@ -207,9 +207,9 @@ function scoreSleep(d: SleepData, baselineMinutes: number | null): number {
   const m = d.minutes;
   let durationPts = 0;
   if (m >= 480 && m <= 540) durationPts = 60;
+  else if (m > 540) durationPts = 50;
   else if (m >= 360) durationPts = Math.round(40 + ((m - 360) / 120) * 20);
   else if (m >= 240) durationPts = Math.round(((m - 240) / 120) * 40);
-  else if (m > 540) durationPts = 50;
 
   // vs baseline 0-40
   let baselinePts = 30;
