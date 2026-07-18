@@ -94,7 +94,7 @@ export default async function searchRoutes(app: FastifyInstance) {
     if (category) { params.push("%" + category + "%"); conditions.push("category ILIKE $" + params.length); }
 
     return query(
-      `SELECT id, logged_at, amount::float, category, note
+      `SELECT id, logged_at, amount::float, category
        FROM spending_entries WHERE ${conditions.join(" AND ")}
        ORDER BY logged_at DESC LIMIT 60`,
       params
