@@ -94,7 +94,8 @@ export default async function exportRoutes(app: FastifyInstance) {
       query<any>(`SELECT * FROM users WHERE id = $1`, [user_id]),
     ]);
 
-    const firstName = (userRow[0] as any)?.display_name?.split(" ")[0] ?? "Patient";
+    const email = (userRow[0] as any)?.email ?? "";
+    const firstName = email.split("@")[0] || "Patient";
 
     // Glucose stats
     const mgValues = glucoseRows.map((r: any) => Number(r.mg_dl));

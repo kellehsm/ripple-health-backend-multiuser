@@ -135,15 +135,15 @@ export default async function searchRoutes(app: FastifyInstance) {
         [user_id, term]
       ),
       query<any>(
-        `SELECT id, title, author, status, current_page, total_pages
+        `SELECT id, title, author, status, total_pages
          FROM books WHERE user_id = $1 AND (title ILIKE $2 OR author ILIKE $2)
-         ORDER BY updated_at DESC LIMIT 20`,
+         ORDER BY started_at DESC NULLS LAST LIMIT 20`,
         [user_id, term]
       ),
       query<any>(
-        `SELECT id, name, category, status
+        `SELECT id, name, status
          FROM hobbies WHERE user_id = $1 AND name ILIKE $2
-         ORDER BY updated_at DESC LIMIT 20`,
+         ORDER BY id DESC LIMIT 20`,
         [user_id, term]
       ),
     ]);

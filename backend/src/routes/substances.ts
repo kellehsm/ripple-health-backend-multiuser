@@ -220,8 +220,12 @@ export default async function substancesRoutes(app: FastifyInstance) {
   });
 
   // DELETE /api/substances/:id
-  app.delete<{ Params: { id: string } }>("/:id", async (req) => {
-    await pool.query(`DELETE FROM substance_logs WHERE id = $1`, [req.params.id]);
+  app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
+    const result = await query<any>(
+      `DELETE FROM substance_logs WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [req.params.id, req.user_id]
+    );
+    if (!result.length) return reply.code(404).send({ error: "not found" });
     return { ok: true };
   });
 }

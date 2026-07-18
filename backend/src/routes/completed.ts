@@ -11,9 +11,11 @@ export default async function completedRoutes(app: FastifyInstance) {
       [user_id]
     );
     const hobbies = await query<any>(
-      `SELECT id, name, 'hobby' AS kind, completed_at, icon, color_key, unit_label
-       FROM hobbies WHERE user_id = $1 AND status = 'completed' AND completed_at IS NOT NULL
-       ORDER BY completed_at DESC`,
+      `SELECT h.id, h.name, 'hobby' AS kind, h.icon, h.color_key, h.unit_label,
+              (SELECT MAX(logged_at) FROM hobby_logs WHERE hobby_id = h.id) AS completed_at
+       FROM hobbies h
+       WHERE h.user_id = $1 AND h.status = 'completed'
+       ORDER BY completed_at DESC NULLS LAST`,
       [user_id]
     );
     const merged = [...books, ...hobbies].sort((a, b) => {
