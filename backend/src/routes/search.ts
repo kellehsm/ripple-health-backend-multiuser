@@ -100,4 +100,54 @@ export default async function searchRoutes(app: FastifyInstance) {
       params
     );
   });
+
+  // ── Global search ──────────────────────────────────────────────────────────
+  // Single query across meals, journal entries, books, and hobbies. Returns
+  // results grouped by type, max 20 per type.
+
+  app.get("/global", async (req) => {
+    const user_id = req.user_id;
+    const { q } = req.query as any;
+    if (!q || String(q).trim().length < 2) return { meals: [], mood: [], journal: [], books: [], hobbies: [] };
+
+    const term = "%" + String(q).trim() + "%";
+
+    const [meals, mood, journal, books, hobbies] = await Promise.all([
+      query<any>(
+        `SELECT id, logged_at, name, meal_type, carbs_g::float, calories::float
+         FROM meals WHERE user_id = $1 AND name ILIKE $2
+         ORDER BY logged_at DESC LIMIT 20`,
+        [user_id, term]
+      ),
+      query<any>(
+        `SELECT id, logged_at, mood_score, mood_label, period, entry_text
+         FROM journal_entries
+         WHERE user_id = $1 AND entry_type != 'moment'
+           AND (mood_label ILIKE $2 OR entry_text ILIKE $2)
+         ORDER BY logged_at DESC LIMIT 20`,
+        [user_id, term]
+      ),
+      query<any>(
+        `SELECT id, logged_at, mood_score, entry_text, entry_type
+         FROM journal_entries
+         WHERE user_id = $1 AND entry_type = 'moment' AND entry_text ILIKE $2
+         ORDER BY logged_at DESC LIMIT 20`,
+        [user_id, term]
+      ),
+      query<any>(
+        `SELECT id, title, author, status, current_page, total_pages
+         FROM books WHERE user_id = $1 AND (title ILIKE $2 OR author ILIKE $2)
+         ORDER BY updated_at DESC LIMIT 20`,
+        [user_id, term]
+      ),
+      query<any>(
+        `SELECT id, name, category, status
+         FROM hobbies WHERE user_id = $1 AND name ILIKE $2
+         ORDER BY updated_at DESC LIMIT 20`,
+        [user_id, term]
+      ),
+    ]);
+
+    return { meals, mood, journal, books, hobbies };
+  });
 }
