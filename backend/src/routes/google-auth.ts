@@ -34,17 +34,22 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
       });
       const tokens: any = await tokenRes.json();
 
-      if (!tokens.refresh_token) {
-        app.log.error({ tokens }, "No refresh_token in Google response");
+      // Load existing settings first — needed for fallback refresh token logic below.
+      const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [userId]);
+      const existing = rows[0]?.settings ?? {};
+
+      // Google only returns a refresh_token on the first authorization per user+client.
+      // On re-authorizations (e.g. reinstall), fall back to the one we already have stored.
+      const refreshToken = tokens.refresh_token ?? existing.google_drive?.refresh_token;
+      if (!refreshToken) {
+        app.log.error({ tokens }, "No refresh_token in Google response and none stored");
         return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=no_refresh_token`);
       }
 
-      const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [userId]);
-      const existing = rows[0]?.settings ?? {};
       const merged = {
         ...existing,
         google_drive: {
-          refresh_token: tokens.refresh_token,
+          refresh_token: refreshToken,
           auto_backup: existing.google_drive?.auto_backup ?? true,
           connected_at: new Date().toISOString(),
           last_backup: existing.google_drive?.last_backup ?? null,

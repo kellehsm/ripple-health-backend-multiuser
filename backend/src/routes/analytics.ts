@@ -127,4 +127,43 @@ export default async function analyticsRoutes(app: FastifyInstance) {
       };
     }
   );
+
+  app.get("/journey", async (req) => {
+    const user_id = req.user_id;
+
+    const [meals, mood, active, user] = await Promise.all([
+      query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM meals WHERE user_id = $1`,
+        [user_id]
+      ),
+      query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM journal_entries WHERE user_id = $1`,
+        [user_id]
+      ),
+      query<{ count: string }>(
+        `SELECT COUNT(DISTINCT day)::text AS count FROM (
+           SELECT logged_at::date AS day FROM meals WHERE user_id = $1
+           UNION
+           SELECT logged_at::date FROM journal_entries WHERE user_id = $1
+           UNION
+           SELECT ml.logged_at::date FROM metric_logs ml
+             JOIN metrics m ON m.id = ml.metric_id WHERE m.user_id = $1
+           UNION
+           SELECT logged_at::date FROM spending_entries WHERE user_id = $1
+         ) all_days`,
+        [user_id]
+      ),
+      query<{ created_at: string }>(
+        `SELECT created_at FROM users WHERE id = $1`,
+        [user_id]
+      ),
+    ]);
+
+    return {
+      total_meals: parseInt(meals[0]?.count ?? "0", 10),
+      total_mood_checkins: parseInt(mood[0]?.count ?? "0", 10),
+      total_active_days: parseInt(active[0]?.count ?? "0", 10),
+      member_since: user[0]?.created_at ?? null,
+    };
+  });
 }
