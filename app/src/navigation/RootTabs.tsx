@@ -1,8 +1,9 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import { OverviewScreen } from "../screens/OverviewScreen";
 import { HealthScreen } from "../screens/HealthScreen";
@@ -10,6 +11,7 @@ import { FinanceScreen } from "../screens/FinanceScreen";
 import { LifeScreen } from "../screens/LifeScreen";
 import { MealsScreen } from "../screens/MealsScreen";
 import { useTheme } from "../theme/ThemeContext";
+import { RootStackParamList } from "./types";
 
 const Tab = createBottomTabNavigator();
 
@@ -117,25 +119,37 @@ function CustomTabBar({ state, navigation, insets }: BottomTabBarProps) {
   );
 }
 
+function SettingsHeaderButton() {
+  const { theme } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  return (
+    <Pressable onPress={() => navigation.navigate("Settings")} style={{ marginRight: 4 }}>
+      <Ionicons name="settings-outline" size={20} color={theme.textSoft} />
+    </Pressable>
+  );
+}
+
 export function RootTabs() {
   const { theme } = useTheme();
 
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        tabBar={(props) => <CustomTabBar {...props} />}
-        screenOptions={{
-          headerStyle: { backgroundColor: theme.page },
-          headerTitleStyle: { color: theme.textStrong },
-          headerShadowVisible: false,
-        }}
-      >
-        <Tab.Screen name="Health" component={HealthScreen} />
-        <Tab.Screen name="Meals" component={MealsScreen} />
-        <Tab.Screen name="Home" component={OverviewScreen} />
-        <Tab.Screen name="Life" component={LifeScreen} options={{ title: "Reading & Habits" }} />
-        <Tab.Screen name="Finance" component={FinanceScreen} />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{
+        headerStyle: { backgroundColor: theme.page },
+        headerTitleStyle: { color: theme.textStrong },
+        headerShadowVisible: false,
+      }}
+    >
+      <Tab.Screen name="Health" component={HealthScreen} />
+      <Tab.Screen name="Meals" component={MealsScreen} />
+      <Tab.Screen
+        name="Home"
+        component={OverviewScreen}
+        options={{ headerRight: () => <SettingsHeaderButton /> }}
+      />
+      <Tab.Screen name="Life" component={LifeScreen} options={{ title: "Reading & Habits" }} />
+      <Tab.Screen name="Finance" component={FinanceScreen} />
+    </Tab.Navigator>
   );
 }
