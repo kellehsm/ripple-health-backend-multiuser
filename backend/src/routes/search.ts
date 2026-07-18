@@ -94,7 +94,7 @@ export default async function searchRoutes(app: FastifyInstance) {
     if (category) { params.push("%" + category + "%"); conditions.push("category ILIKE $" + params.length); }
 
     return query(
-      `SELECT id, logged_at, amount::float, category, note
+      `SELECT id, logged_at, amount::float, category
        FROM spending_entries WHERE ${conditions.join(" AND ")}
        ORDER BY logged_at DESC LIMIT 60`,
       params
@@ -135,15 +135,15 @@ export default async function searchRoutes(app: FastifyInstance) {
         [user_id, term]
       ),
       query<any>(
-        `SELECT id, title, author, status, current_page, total_pages
+        `SELECT id, title, author, status, total_pages
          FROM books WHERE user_id = $1 AND (title ILIKE $2 OR author ILIKE $2)
-         ORDER BY updated_at DESC LIMIT 20`,
+         ORDER BY started_at DESC NULLS LAST LIMIT 20`,
         [user_id, term]
       ),
       query<any>(
-        `SELECT id, name, category, status
+        `SELECT id, name, status
          FROM hobbies WHERE user_id = $1 AND name ILIKE $2
-         ORDER BY updated_at DESC LIMIT 20`,
+         ORDER BY id DESC LIMIT 20`,
         [user_id, term]
       ),
     ]);

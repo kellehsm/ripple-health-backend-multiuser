@@ -3,6 +3,13 @@ import { query } from "../db.js";
 
 // Generic metric engine: water, screen time, meds, workouts, etc.
 export default async function metricsRoutes(app: FastifyInstance) {
+  async function verifyOwner(metricId: string, userId: string): Promise<boolean> {
+    const [row] = await query<any>(
+      `SELECT id FROM metrics WHERE id = $1 AND user_id = $2`,
+      [metricId, userId]
+    );
+    return !!row;
+  }
   // List metric types; supports ?user_id= and/or ?name= filters
   app.get("/", async (req) => {
     const user_id = req.user_id;
@@ -28,8 +35,9 @@ export default async function metricsRoutes(app: FastifyInstance) {
   });
 
   // Log a value for a metric (e.g. "8 glasses of water")
-  app.post("/:metricId/logs", async (req) => {
+  app.post("/:metricId/logs", async (req, reply) => {
     const { metricId } = req.params as any;
+    if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { value, note, logged_at } = req.body as any;
     const rows = await query(
       `INSERT INTO metric_logs (metric_id, value, note, logged_at)
@@ -40,8 +48,9 @@ export default async function metricsRoutes(app: FastifyInstance) {
   });
 
   // Get recent logs for one metric
-  app.get("/:metricId/logs", async (req) => {
+  app.get("/:metricId/logs", async (req, reply) => {
     const { metricId } = req.params as any;
+    if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     return query(
       `SELECT * FROM metric_logs WHERE metric_id = $1 ORDER BY logged_at DESC LIMIT 100`,
       [metricId]
@@ -49,8 +58,9 @@ export default async function metricsRoutes(app: FastifyInstance) {
   });
 
   // Yesterday total + 7-day average
-  app.get("/:metricId/stats", async (req) => {
+  app.get("/:metricId/stats", async (req, reply) => {
     const { metricId } = req.params as any;
+    if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const [yesterday] = await query<any>(
       `SELECT COALESCE(SUM(value), 0) as total FROM metric_logs
        WHERE metric_id = $1 AND logged_at::date = current_date - interval '1 day'`,
@@ -72,8 +82,9 @@ export default async function metricsRoutes(app: FastifyInstance) {
   // agg=max (default) for cumulative metrics (steps); agg=sum for discrete logs (water).
   // this_week has 7 slots from week_start; future slots carry is_future=true and total=0.
   // Identical week-boundary formula to weekly-total so they never disagree.
-  app.get("/:metricId/daily-breakdown", async (req) => {
+  app.get("/:metricId/daily-breakdown", async (req, reply) => {
     const { metricId } = req.params as any;
+    if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { week_start_day = "1", agg = "max" } = req.query as any;
     const parsedWsd = parseInt(week_start_day, 10);
     const startDay = Math.max(0, Math.min(6, isNaN(parsedWsd) ? 1 : parsedWsd));
@@ -148,8 +159,9 @@ export default async function metricsRoutes(app: FastifyInstance) {
 
   // 4-week vs prior-4-week comparison. Each element pairs one recent week with the
   // same week offset 4 weeks prior, so users can compare "this month" to "last month".
-  app.get("/:metricId/monthly-breakdown", async (req) => {
+  app.get("/:metricId/monthly-breakdown", async (req, reply) => {
     const { metricId } = req.params as any;
+    if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { week_start_day = "1", agg = "max" } = req.query as any;
     const parsedWsd = parseInt(week_start_day, 10);
     const startDay = Math.max(0, Math.min(6, isNaN(parsedWsd) ? 1 : parsedWsd));
@@ -227,8 +239,9 @@ export default async function metricsRoutes(app: FastifyInstance) {
 
   // Weekly total, respecting a configurable week-start day (0=Sun, 1=Mon default).
   // Uses MAX per day then SUM — steps are stored as cumulative daily totals per sync.
-  app.get("/:metricId/weekly-total", async (req) => {
+  app.get("/:metricId/weekly-total", async (req, reply) => {
     const { metricId } = req.params as any;
+    if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { week_start_day = "1", agg = "max" } = req.query as any;
     const parsed = parseInt(week_start_day, 10);
     const startDay = Math.max(0, Math.min(6, isNaN(parsed) ? 1 : parsed));

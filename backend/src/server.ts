@@ -34,6 +34,7 @@ import { requireAuth } from "./middleware/auth.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
 import { runInsightsJob } from "./jobs/insightsJob.js";
+import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
 import cron from "node-cron";
 import { query } from "./db.js";
 
@@ -107,6 +108,32 @@ async function main() {
   cron.schedule("0 3 * * *", () => void runInsightsJob());
   setTimeout(() => void runInsightsJob(), 15000); // 15s after boot so summaries seed first
   app.log.info("Insights Engine scheduled (nightly 3 AM + startup)");
+
+  // Dexcom Share auto-sync — poll every 5 min for all users with Share configured
+  const runDexcomShareSync = async () => {
+    try {
+      const users = await query<{ user_id: string }>(
+        `SELECT user_id FROM user_settings
+         WHERE settings->'dexcom'->>'share_account_id' IS NOT NULL
+           AND settings->'dexcom'->>'share_account_id' != ''`
+      );
+      for (const { user_id } of users) {
+        try {
+          const result = await syncDexcomShareGlucose(user_id, app.log);
+          if (result.inserted > 0) {
+            app.log.info({ user_id, ...result }, "Dexcom Share sync: new readings");
+          }
+        } catch (err: any) {
+          app.log.error({ err: err?.message, user_id }, "Dexcom Share sync failed for user");
+        }
+      }
+    } catch (err: any) {
+      app.log.error({ err: err?.message }, "Dexcom Share sync: failed to query users");
+    }
+  };
+  cron.schedule("*/5 * * * *", () => void runDexcomShareSync());
+  void runDexcomShareSync(); // run once on startup to catch any missed readings
+  app.log.info("Dexcom Share sync scheduled (every 5 min + startup)");
 
   // Nightly Google Drive backup — iterate over all users with Drive connected
   if (process.env.GOOGLE_CLIENT_ID) {
