@@ -17,12 +17,14 @@ const rxCache = new Map<string, { results: string[]; expiresAt: number }>();
 // ── Import helpers ─────────────────────────────────────────────────────────────
 
 const FIELD_SYNONYMS: Record<string, string[]> = {
-  name:       ["medication", "medication name", "drug", "drug name", "name", "med name", "medicine"],
-  dosage:     ["dose", "dosage", "strength", "dose strength"],
-  schedule:   ["frequency", "schedule", "times", "time of day", "time_of_day", "timing"],
-  prescriber: ["doctor", "prescriber", "physician", "provider", "doctor name"],
-  pharmacy:   ["pharmacy", "pharmacist", "pharmacy name"],
-  notes:      ["notes", "comments", "comment", "additional notes"],
+  name:         ["medication", "medication name", "drug", "drug name", "name", "med name", "medicine"],
+  dosage:       ["dose", "dosage", "strength", "dose strength"],
+  schedule:     ["frequency", "schedule", "times", "time of day", "time_of_day", "timing"],
+  prescriber:   ["doctor", "prescriber", "physician", "provider", "doctor name"],
+  pharmacy:     ["pharmacy", "pharmacist", "pharmacy name"],
+  notes:        ["notes", "comments", "comment", "additional notes"],
+  brand_name:   ["brand name", "brand"],
+  generic_name: ["generic name", "generic"],
 };
 
 function normalizeHeader(h: string): string {
@@ -90,6 +92,7 @@ function normalizeSchedule(scheduleStr: string): Array<{ time_of_day: string; sp
 
 const MED_SELECT = `
   SELECT m.id, m.name, m.dosage, m.active, m.notes, m.purpose, m.refill_date, m.created_at,
+    m.generic_name, m.brand_name, m.drug_class, m.rxcui, m.alternative_brand_names,
     p.id AS prescriber_id, p.name AS prescriber_name,
     c.id AS cat_id, c.label AS cat_label, c.color_hex AS cat_color,
     COALESCE(json_agg(
@@ -113,6 +116,11 @@ function shapeMed(r: any) {
   return {
     id: r.id, name: r.name, dosage: r.dosage, active: r.active,
     notes: r.notes, purpose: r.purpose, refill_date: r.refill_date, created_at: r.created_at,
+    generic_name: r.generic_name ?? null,
+    brand_name: r.brand_name ?? null,
+    drug_class: r.drug_class ?? null,
+    rxcui: r.rxcui ?? null,
+    alternative_brand_names: r.alternative_brand_names ?? null,
     prescriber: r.prescriber_id ? { id: r.prescriber_id, name: r.prescriber_name } : null,
     color_category: r.cat_id ? { id: r.cat_id, label: r.cat_label, color_hex: r.cat_color } : null,
     slots: r.slots,
@@ -193,7 +201,8 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     const user_id = req.user_id;
     const { id } = req.params as any;
     const { name, dosage, notes, purpose, refill_date, active, slots,
-            color_category_id, prescriber_id, reason, changed_by } = req.body as any;
+            color_category_id, prescriber_id, reason, changed_by,
+            generic_name, brand_name, drug_class, rxcui, alternative_brand_names } = req.body as any;
 
     // Fetch current state for history diff
     const [current] = await query<any>(
@@ -213,10 +222,17 @@ export default async function medicationsRoutes(app: FastifyInstance) {
            notes = COALESCE($3, notes), purpose = COALESCE($4, purpose),
            refill_date = COALESCE($5, refill_date), active = COALESCE($6, active),
            color_category_id = COALESCE($7, color_category_id),
-           prescriber_id = COALESCE($8, prescriber_id)
+           prescriber_id = COALESCE($8, prescriber_id),
+           generic_name = COALESCE($11, generic_name),
+           brand_name = COALESCE($12, brand_name),
+           drug_class = COALESCE($13, drug_class),
+           rxcui = COALESCE($14, rxcui),
+           alternative_brand_names = COALESCE($15, alternative_brand_names)
        WHERE id = $9 AND user_id = $10`,
       [name ?? null, dosage ?? null, notes ?? null, purpose ?? null, refill_date ?? null,
-       active ?? null, color_category_id ?? null, prescriber_id ?? null, id, user_id]
+       active ?? null, color_category_id ?? null, prescriber_id ?? null, id, user_id,
+       generic_name ?? null, brand_name ?? null, drug_class ?? null, rxcui ?? null,
+       alternative_brand_names ?? null]
     );
 
     // Write history entries for changed fields
@@ -298,6 +314,113 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       return results;
     } catch {
       return [];
+    }
+  });
+
+  // ── RxNorm brand/generic lookup ──────────────────────────────────────────────
+  app.post("/:id/rxnorm", async (req) => {
+    const user_id = req.user_id;
+    const { id } = req.params as any;
+    const [med] = await query<any>(
+      `SELECT id, name, rxcui FROM medications WHERE id = $1 AND user_id = $2`,
+      [id, user_id]
+    );
+    if (!med) throw { statusCode: 404, message: "Not found" };
+
+    // If rxcui already cached, skip the name lookup step
+    let rxcui: string | null = med.rxcui ?? null;
+    if (!rxcui) {
+      try {
+        const r1 = await fetch(`https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${encodeURIComponent(med.name)}`);
+        const d1: any = await r1.json();
+        rxcui = d1?.idGroup?.rxnormId?.[0] ?? null;
+      } catch { /* network error — return null */ }
+    }
+
+    if (!rxcui) return { rxcui: null, brand_name: null, generic_name: null };
+
+    let brandNames: string[] = [];
+    let genericNames: string[] = [];
+    try {
+      const [rBN, rIN] = await Promise.all([
+        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=BN`),
+        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=IN`),
+      ]);
+      const [dBN, dIN]: [any, any] = await Promise.all([rBN.json(), rIN.json()]);
+      brandNames = dBN?.relatedGroup?.conceptGroup
+        ?.find((g: any) => g.tty === "BN")?.conceptProperties
+        ?.map((p: any) => p.name as string) ?? [];
+      genericNames = dIN?.relatedGroup?.conceptGroup
+        ?.find((g: any) => g.tty === "IN")?.conceptProperties
+        ?.map((p: any) => p.name as string) ?? [];
+    } catch { /* network error — continue with what we have */ }
+
+    const brand_name = brandNames[0] ?? null;
+    const generic_name = genericNames[0] ?? null;
+    const alternative_brand_names = brandNames.length > 1 ? brandNames.slice(1) : null;
+
+    await query(
+      `UPDATE medications SET rxcui = $1, brand_name = $2, generic_name = $3, alternative_brand_names = $4
+       WHERE id = $5 AND user_id = $6`,
+      [rxcui, brand_name, generic_name, alternative_brand_names, id, user_id]
+    );
+
+    const [result] = await query<any>(`${MED_SELECT} WHERE m.id = $1 GROUP BY m.id, p.id, c.id`, [id]);
+    return shapeMed(result);
+  });
+
+  // ── openFDA drug label ───────────────────────────────────────────────────────
+  app.get("/:id/label", async (req) => {
+    const user_id = req.user_id;
+    const { id } = req.params as any;
+    const [med] = await query<any>(
+      `SELECT id, name, rxcui, generic_name FROM medications WHERE id = $1 AND user_id = $2`,
+      [id, user_id]
+    );
+    if (!med) throw { statusCode: 404, message: "Not found" };
+
+    const rxcui: string | null = med.rxcui ?? null;
+    if (!rxcui) return { found: false };
+
+    // Check cache (30-day TTL)
+    const [cached] = await query<any>(
+      `SELECT label_json FROM drug_label_cache WHERE rxcui = $1 AND fetched_at > NOW() - INTERVAL '30 days'`,
+      [rxcui]
+    );
+    if (cached) return { found: true, label: cached.label_json };
+
+    // Fetch from openFDA
+    const DISCLAIMER = "Per the FDA-approved drug label. Talk to your prescriber about any questions.";
+    try {
+      let url = `https://api.fda.gov/drug/label.json?search=openfda.rxcui:%22${encodeURIComponent(rxcui)}%22&limit=1`;
+      let res = await fetch(url);
+      if (res.status === 404 && med.generic_name) {
+        url = `https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22${encodeURIComponent(med.generic_name)}%22&limit=1`;
+        res = await fetch(url);
+      }
+      if (!res.ok) return { found: false };
+
+      const data: any = await res.json();
+      const r = data?.results?.[0];
+      if (!r) return { found: false };
+
+      const label = {
+        indications: r.indications_and_usage?.[0] ?? null,
+        dosage: r.dosage_and_administration?.[0] ?? null,
+        warnings: r.warnings?.[0] ?? null,
+        adverse_reactions: r.adverse_reactions?.[0] ?? null,
+        disclaimer: DISCLAIMER,
+      };
+
+      await query(
+        `INSERT INTO drug_label_cache (rxcui, label_json) VALUES ($1, $2)
+         ON CONFLICT (rxcui) DO UPDATE SET label_json = $2, fetched_at = NOW()`,
+        [rxcui, JSON.stringify(label)]
+      );
+
+      return { found: true, label };
+    } catch {
+      return { found: false };
     }
   });
 
