@@ -95,6 +95,8 @@ export default async function exerciseRoutes(app: FastifyInstance) {
       query<any>(
         `SELECT
            e.id, e.sets, e.reps, e.duration_seconds, e.logged_at, e.sort_order,
+           e.weight_used, e.target_rep_range_min, e.target_rep_range_max,
+           e.actual_reps_per_set, e.all_sets_maxed,
            lib.id AS exercise_id, lib.name, lib.category, lib.equipment,
            lib.primary_muscles, lib.images
          FROM exercise_log_entries e
@@ -116,6 +118,11 @@ export default async function exerciseRoutes(app: FastifyInstance) {
       duration_seconds: r.duration_seconds,
       logged_at: r.logged_at,
       sort_order: r.sort_order,
+      weight_used: r.weight_used,
+      target_rep_range_min: r.target_rep_range_min,
+      target_rep_range_max: r.target_rep_range_max,
+      actual_reps_per_set: r.actual_reps_per_set,
+      all_sets_maxed: r.all_sets_maxed,
       exercise: {
         id: r.exercise_id,
         name: r.name,
@@ -170,7 +177,10 @@ export default async function exerciseRoutes(app: FastifyInstance) {
   app.post("/sessions/:id/entries", async (req) => {
     const user_id = req.user_id;
     const { id: session_id } = req.params as any;
-    const { exercise_id, sets, reps, duration_seconds } = req.body as any;
+    const {
+      exercise_id, sets, reps, duration_seconds,
+      weight_used, target_rep_range_min, target_rep_range_max, actual_reps_per_set,
+    } = req.body as any;
 
     // Verify session belongs to this user and is still open
     const sessionRows = await query<any>(
@@ -186,11 +196,29 @@ export default async function exerciseRoutes(app: FastifyInstance) {
     );
     const sort_order = (countRows[0]?.max_order ?? -1) + 1;
 
+    // Derive sets from actual_reps_per_set if not explicit
+    const resolved_sets = sets ?? (Array.isArray(actual_reps_per_set) ? actual_reps_per_set.length : null);
+
+    // all_sets_maxed: every set hit or exceeded the top of the rep range
+    const all_sets_maxed =
+      Array.isArray(actual_reps_per_set) && actual_reps_per_set.length > 0 && target_rep_range_max != null
+        ? actual_reps_per_set.every((r: number) => r >= target_rep_range_max)
+        : null;
+
     const rows = await query<any>(
-      `INSERT INTO exercise_log_entries (session_id, exercise_id, sets, reps, duration_seconds, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, session_id, exercise_id, sets, reps, duration_seconds, logged_at, sort_order`,
-      [session_id, exercise_id, sets ?? null, reps ?? null, duration_seconds ?? null, sort_order]
+      `INSERT INTO exercise_log_entries
+         (session_id, exercise_id, sets, reps, duration_seconds, sort_order,
+          weight_used, target_rep_range_min, target_rep_range_max, actual_reps_per_set, all_sets_maxed)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, session_id, exercise_id, sets, reps, duration_seconds, logged_at, sort_order,
+                 weight_used, target_rep_range_min, target_rep_range_max, actual_reps_per_set, all_sets_maxed`,
+      [
+        session_id, exercise_id, resolved_sets ?? null, reps ?? null,
+        duration_seconds ?? null, sort_order,
+        weight_used ?? null, target_rep_range_min ?? null, target_rep_range_max ?? null,
+        Array.isArray(actual_reps_per_set) && actual_reps_per_set.length > 0 ? actual_reps_per_set : null,
+        all_sets_maxed,
+      ]
     );
     return rows[0];
   });
