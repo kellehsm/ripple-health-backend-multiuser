@@ -295,6 +295,73 @@ export default async function exerciseRoutes(app: FastifyInstance) {
     return { type: "generic", title: "Keep it going", body: `You've finished ${completed} workout${completed !== 1 ? "s" : ""}. Every session counts.`, cta: null, data: null };
   });
 
+  // ── Double progression (deterministic weight advice) ─────────────────────────
+  app.get("/progression/:exercise_id", async (req) => {
+    const user_id = req.user_id;
+    const { exercise_id } = req.params as any;
+
+    // Most recent entry for this exercise that has weight tracking
+    const rows = await query<any>(
+      `SELECT e.weight_used, e.target_rep_range_min, e.target_rep_range_max,
+              e.actual_reps_per_set, e.all_sets_maxed, e.sets, e.reps, e.logged_at,
+              lib.primary_muscles
+       FROM exercise_log_entries e
+       JOIN exercise_sessions s ON s.id = e.session_id
+       JOIN exercise_library lib ON lib.id = e.exercise_id
+       WHERE s.user_id = $1 AND e.exercise_id = $2 AND e.weight_used IS NOT NULL
+       ORDER BY e.logged_at DESC
+       LIMIT 1`,
+      [user_id, exercise_id]
+    );
+
+    if (!rows[0]) {
+      return { exercise_id, recommendation: "no_data", message: "No weighted history yet." };
+    }
+
+    const last = rows[0];
+    const SMALL_MUSCLES = new Set(["biceps","triceps","calves","forearms","neck","abductors","adductors"]);
+    const isIsolation = (last.primary_muscles as string[]).some((m) => SMALL_MUSCLES.has(m));
+    const increment = isIsolation ? 2.5 : 5;
+    const current = Number(last.weight_used);
+
+    if (last.all_sets_maxed === true) {
+      const suggested = current + increment;
+      return {
+        exercise_id,
+        last_logged_at: last.logged_at,
+        current_weight: current,
+        target_rep_range_min: last.target_rep_range_min,
+        target_rep_range_max: last.target_rep_range_max,
+        all_sets_maxed: true,
+        recommendation: "increase_weight",
+        suggested_weight: suggested,
+        increment,
+        message: `All sets maxed at ${current} lbs — add ${increment} lbs next time (try ${suggested} lbs).`,
+      };
+    }
+
+    // Not all maxed — find how many reps short of target on the worst set
+    const worstReps = Array.isArray(last.actual_reps_per_set) && last.actual_reps_per_set.length > 0
+      ? Math.min(...last.actual_reps_per_set)
+      : null;
+    const gapMsg = worstReps !== null && last.target_rep_range_max != null
+      ? ` (got ${worstReps} on your hardest set, targeting ${last.target_rep_range_max})`
+      : "";
+
+    return {
+      exercise_id,
+      last_logged_at: last.logged_at,
+      current_weight: current,
+      target_rep_range_min: last.target_rep_range_min,
+      target_rep_range_max: last.target_rep_range_max,
+      all_sets_maxed: false,
+      recommendation: "maintain",
+      suggested_weight: current,
+      increment,
+      message: `Stick with ${current} lbs${gapMsg} — hit all sets at the top of your range before adding weight.`,
+    };
+  });
+
   // ── Preferences (8 pure-SQL aggregates for Phase 5 suggestion engine) ────────
   app.get("/preferences", async (req) => {
     const user_id = req.user_id;
