@@ -33,6 +33,8 @@ import exerciseRoutes from "./routes/exercise.js";
 import programRoutes from "./routes/programs.js";
 import medicationsRoutes from "./routes/medications.js";
 import medicationDosesRoutes from "./routes/medication-doses.js";
+import medicationCategoriesRoutes from "./routes/medication-categories.js";
+import medicationPrescribersRoutes from "./routes/medication-prescribers.js";
 import cycleRoutes from "./routes/cycle.js";
 import authRoutes from "./routes/auth.js";
 import dexcomVerifyRoutes from "./routes/dexcom-verify.js";
@@ -101,6 +103,8 @@ async function main() {
   await app.register(programRoutes, { prefix: "/api/exercise" });
   await app.register(medicationsRoutes, { prefix: "/api/medications" });
   await app.register(medicationDosesRoutes, { prefix: "/api/medication-doses" });
+  await app.register(medicationCategoriesRoutes, { prefix: "/api/medications/categories" });
+  await app.register(medicationPrescribersRoutes, { prefix: "/api/medications/prescribers" });
   await app.register(cycleRoutes, { prefix: "/api/cycle" });
 
   const port = Number(process.env.PORT) || 4000;
