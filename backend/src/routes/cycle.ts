@@ -29,18 +29,19 @@ function detectPeriods(flowDays: string[]): Array<{ start: string; end: string }
 export default async function cycleRoutes(app: FastifyInstance) {
   app.post("/logs", async (req) => {
     const user_id = req.user_id;
-    const { log_date, flow_intensity, symptoms, mood_label, notes } = req.body as any;
+    const { log_date, flow_intensity, symptoms, mood_label, notes, energy_level } = req.body as any;
     const [row] = await query<any>(
-      `INSERT INTO cycle_day_logs (user_id, log_date, flow_intensity, symptoms, mood_label, notes)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO cycle_day_logs (user_id, log_date, flow_intensity, symptoms, mood_label, notes, energy_level)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (user_id, log_date) DO UPDATE SET
          flow_intensity = EXCLUDED.flow_intensity,
          symptoms = EXCLUDED.symptoms,
          mood_label = EXCLUDED.mood_label,
          notes = EXCLUDED.notes,
+         energy_level = EXCLUDED.energy_level,
          updated_at = now()
        RETURNING *`,
-      [user_id, log_date, flow_intensity ?? null, symptoms ?? null, mood_label ?? null, notes ?? null]
+      [user_id, log_date, flow_intensity ?? null, symptoms ?? null, mood_label ?? null, notes ?? null, energy_level ?? null]
     );
     if (mood_label) {
       await query(
@@ -192,14 +193,41 @@ export default async function cycleRoutes(app: FastifyInstance) {
     const currentCycleDay = Math.round((today.getTime() - lastPeriodDate.getTime()) / 86400000) + 1;
     const confidence = recent.length >= 5 ? "moderate" : "low";
 
+    // Average period length: mean days with flow per detected period (end - start + 1)
+    const periodLengths = periods.map((p) => {
+      const s = new Date(p.start).getTime();
+      const e = new Date(p.end).getTime();
+      return Math.round((e - s) / 86400000) + 1;
+    });
+    const avgPeriodLength = Math.round(periodLengths.reduce((a, b) => a + b, 0) / periodLengths.length);
+
     return {
       predictedNextStart,
       avgCycleLength: avg,
+      avgPeriodLength,
       cycleLengthsUsed: recent.length,
       confidence,
       lastPeriodStart,
       currentCycleDay,
     };
+  });
+
+  app.get("/instruction-card", async (req) => {
+    const user_id = req.user_id;
+    const [row] = await query<any>(
+      `SELECT cycle_instruction_card_dismissed FROM users WHERE id = $1`,
+      [user_id]
+    );
+    return { dismissed: row?.cycle_instruction_card_dismissed ?? false };
+  });
+
+  app.post("/instruction-card/dismiss", async (req) => {
+    const user_id = req.user_id;
+    await query(
+      `UPDATE users SET cycle_instruction_card_dismissed = true WHERE id = $1`,
+      [user_id]
+    );
+    return { ok: true };
   });
 
   app.get("/history", async (req) => {

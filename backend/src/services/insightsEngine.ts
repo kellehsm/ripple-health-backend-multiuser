@@ -10,6 +10,12 @@ import { MealGlucoseTypeRule } from "../rules/mealGlucoseType.js";
 import { GlucoseTimeOfDayRule } from "../rules/glucoseTimeOfDay.js";
 import { SpendingVsMoodRule } from "../rules/spendingVsMood.js";
 import { MealStreakRule, WaterStreakRule, StepGoalStreakRule } from "../rules/streaks.js";
+import { MedicationAdherenceRule } from "../rules/medicationAdherence.js";
+import { MissedSlotRule } from "../rules/missedSlot.js";
+import { ExerciseConsistencyRule } from "../rules/exerciseConsistency.js";
+import { UndertrainedMuscleRule } from "../rules/undertrainedMuscle.js";
+import { ExerciseCycleCorrelationRule } from "../rules/exerciseCycleCorrelation.js";
+import { MedicationGlucoseCorrelationRule } from "../rules/medicationGlucoseCorrelation.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -25,6 +31,12 @@ export const ALL_RULES: InsightRule[] = [
   MealStreakRule,
   WaterStreakRule,
   StepGoalStreakRule,
+  MedicationAdherenceRule,
+  MissedSlotRule,
+  ExerciseConsistencyRule,
+  UndertrainedMuscleRule,
+  ExerciseCycleCorrelationRule,
+  MedicationGlucoseCorrelationRule,
 ];
 
 export interface StoredInsight {
