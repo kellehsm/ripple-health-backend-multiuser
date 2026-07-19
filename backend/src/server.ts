@@ -29,6 +29,7 @@ import insightsRoutes from "./routes/insights.js";
 import recipesRoutes from "./routes/recipes.js";
 import annotationsRoutes from "./routes/annotations.js";
 import tabPreferencesRoutes from "./routes/tab-preferences.js";
+import exerciseRoutes from "./routes/exercise.js";
 import authRoutes from "./routes/auth.js";
 import dexcomVerifyRoutes from "./routes/dexcom-verify.js";
 import { requireAuth } from "./middleware/auth.js";
@@ -92,6 +93,7 @@ async function main() {
   await app.register(recipesRoutes, { prefix: "/api/recipes" });
   await app.register(annotationsRoutes, { prefix: "/api/annotations" });
   await app.register(tabPreferencesRoutes, { prefix: "/api/user/tab-preferences" });
+  await app.register(exerciseRoutes, { prefix: "/api/exercise" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
