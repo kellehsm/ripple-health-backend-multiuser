@@ -40,6 +40,7 @@ import hintsRoutes from "./routes/hints.js";
 import mindfulnessRoutes from "./routes/mindfulness.js";
 import authRoutes from "./routes/auth.js";
 import dexcomVerifyRoutes from "./routes/dexcom-verify.js";
+import plaidRoutes from "./routes/plaid.js";
 import { requireAuth } from "./middleware/auth.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
@@ -85,6 +86,7 @@ async function main() {
   await app.register(glucoseRoutes, { prefix: "/api/glucose" });
   await app.register(glucoseStatusRoutes, { prefix: "/api/glucose" });
   await app.register(spendingRoutes, { prefix: "/api/spending" });
+  await app.register(plaidRoutes, { prefix: "/api/plaid" });
   await app.register(journalRoutes, { prefix: "/api/journal" });
   await app.register(summaryRoutes, { prefix: "/api/summary" });
   await app.register(healthConnectRoutes, { prefix: "/api/health-connect" });
