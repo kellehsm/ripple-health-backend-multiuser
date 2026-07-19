@@ -98,8 +98,15 @@ export async function runInsightsForUser(userId: string): Promise<{ ran: number;
   const errors: string[] = [];
   const foundRuleIds: string[] = [];
 
+  const [userRow] = await query<{ created_at: string }>(`SELECT created_at FROM users WHERE id = $1`, [userId]);
+  const accountAgeDays = userRow
+    ? (Date.now() - new Date(userRow.created_at).getTime()) / (1000 * 86400)
+    : 0;
+
+  const eligibleRules = ALL_RULES.filter(rule => !rule.minDays || accountAgeDays >= rule.minDays);
+
   await Promise.allSettled(
-    ALL_RULES.map(async (rule) => {
+    eligibleRules.map(async (rule) => {
       try {
         const result = await rule.run(userId);
         if (result) {
@@ -114,7 +121,7 @@ export async function runInsightsForUser(userId: string): Promise<{ ran: number;
 
   await markStale(userId, foundRuleIds);
 
-  return { ran: ALL_RULES.length, found: foundRuleIds.length, errors };
+  return { ran: eligibleRules.length, found: foundRuleIds.length, errors };
 }
 
 export async function getActiveInsights(userId: string): Promise<StoredInsight[]> {

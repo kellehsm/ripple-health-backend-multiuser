@@ -94,7 +94,7 @@ export const WaterStreakRule: InsightRule = {
       "water tracking",
       streak,
       "day",
-      `You've logged water every day for ${streak} consecutive days. Staying consistent with hydration tracking often leads to better actual intake over time.`
+      `You've logged water every day for ${streak} consecutive days. Staying consistent with hydration tracking is often associated with better actual intake over time.`
     );
   },
 };

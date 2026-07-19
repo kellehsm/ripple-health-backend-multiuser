@@ -297,6 +297,35 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // ── RxNorm lookup by name (for add-medication pre-fill) ──────────────────────
+  app.get("/rxnorm-by-name", async (req) => {
+    const { name } = req.query as any;
+    if (!name) return { rxcui: null, brand_name: null, generic_name: null, drug_class: null };
+    try {
+      const r1 = await fetch(`https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${encodeURIComponent(name)}`);
+      const d1: any = await r1.json();
+      const rxcui: string | null = d1?.idGroup?.rxnormId?.[0] ?? null;
+      if (!rxcui) return { rxcui: null, brand_name: null, generic_name: null, drug_class: null };
+      const [rBN, rIN] = await Promise.all([
+        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=BN`),
+        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=IN`),
+      ]);
+      const [dBN, dIN]: [any, any] = await Promise.all([rBN.json(), rIN.json()]);
+      const brandNames: string[] = (dBN?.relatedGroup?.conceptGroup ?? [])
+        .flatMap((g: any) => g.conceptProperties ?? []).map((p: any) => p.name).filter(Boolean);
+      const genericNames: string[] = (dIN?.relatedGroup?.conceptGroup ?? [])
+        .flatMap((g: any) => g.conceptProperties ?? []).map((p: any) => p.name).filter(Boolean);
+      return {
+        rxcui,
+        brand_name: brandNames[0] ?? null,
+        generic_name: genericNames[0] ?? null,
+        drug_class: null,
+      };
+    } catch {
+      return { rxcui: null, brand_name: null, generic_name: null, drug_class: null };
+    }
+  });
+
   // ── RxTerms search ───────────────────────────────────────────────────────────
   app.get("/search", async (req) => {
     const { q } = req.query as any;

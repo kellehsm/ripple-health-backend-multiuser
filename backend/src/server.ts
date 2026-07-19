@@ -37,6 +37,7 @@ import medicationCategoriesRoutes from "./routes/medication-categories.js";
 import medicationPrescribersRoutes from "./routes/medication-prescribers.js";
 import cycleRoutes from "./routes/cycle.js";
 import hintsRoutes from "./routes/hints.js";
+import mindfulnessRoutes from "./routes/mindfulness.js";
 import authRoutes from "./routes/auth.js";
 import dexcomVerifyRoutes from "./routes/dexcom-verify.js";
 import { requireAuth } from "./middleware/auth.js";
@@ -108,6 +109,7 @@ async function main() {
   await app.register(medicationPrescribersRoutes, { prefix: "/api/medications/prescribers" });
   await app.register(cycleRoutes, { prefix: "/api/cycle" });
   await app.register(hintsRoutes, { prefix: "/api/hints" });
+  await app.register(mindfulnessRoutes, { prefix: "/api/mindfulness" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
