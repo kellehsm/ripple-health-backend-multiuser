@@ -173,6 +173,132 @@ export default async function exerciseRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
+  // ── Preferences (8 pure-SQL aggregates for Phase 5 suggestion engine) ────────
+  app.get("/preferences", async (req) => {
+    const user_id = req.user_id;
+
+    const [
+      favoriteRows,
+      neverLoggedRows,
+      durationRow,
+      preferredDayRows,
+      muscleRows,
+      equipmentRows,
+      completionRow,
+      daysSinceMuscleRows,
+    ] = await Promise.all([
+      // 1. Top exercises by log frequency
+      query<any>(
+        `SELECT lib.id, lib.name, lib.primary_muscles, COUNT(*)::int AS times_logged
+         FROM exercise_log_entries e
+         JOIN exercise_sessions s ON s.id = e.session_id
+         JOIN exercise_library lib ON lib.id = e.exercise_id
+         WHERE s.user_id = $1
+         GROUP BY lib.id, lib.name, lib.primary_muscles
+         ORDER BY times_logged DESC
+         LIMIT 10`,
+        [user_id]
+      ),
+
+      // 2. Exercises in active program that have never been logged
+      query<any>(
+        `SELECT DISTINCT lib.id, lib.name, lib.primary_muscles
+         FROM workout_programs wp
+         JOIN workout_program_days wpd ON wpd.program_id = wp.id
+         JOIN workout_program_exercises wpe ON wpe.day_id = wpd.id
+         JOIN exercise_library lib ON lib.id = wpe.exercise_id
+         WHERE wp.user_id = $1 AND wp.is_active = true
+           AND lib.id NOT IN (
+             SELECT e.exercise_id
+             FROM exercise_log_entries e
+             JOIN exercise_sessions s ON s.id = e.session_id
+             WHERE s.user_id = $1
+           )
+         ORDER BY lib.name`,
+        [user_id]
+      ),
+
+      // 3. Average completed session duration
+      query<any>(
+        `SELECT AVG(EXTRACT(EPOCH FROM (ended_at - started_at)))::int AS avg_seconds
+         FROM exercise_sessions
+         WHERE user_id = $1 AND ended_at IS NOT NULL`,
+        [user_id]
+      ),
+
+      // 4. Preferred days of week (0 = Sun … 6 = Sat)
+      query<any>(
+        `SELECT EXTRACT(DOW FROM started_at)::int AS day_of_week, COUNT(*)::int AS session_count
+         FROM exercise_sessions
+         WHERE user_id = $1 AND ended_at IS NOT NULL
+         GROUP BY day_of_week
+         ORDER BY session_count DESC`,
+        [user_id]
+      ),
+
+      // 5. Most-targeted primary muscles
+      query<any>(
+        `SELECT muscle, COUNT(*)::int AS count
+         FROM exercise_sessions s
+         JOIN exercise_log_entries e ON e.session_id = s.id
+         JOIN exercise_library lib ON lib.id = e.exercise_id
+         JOIN LATERAL unnest(lib.primary_muscles) AS muscle ON true
+         WHERE s.user_id = $1
+         GROUP BY muscle
+         ORDER BY count DESC
+         LIMIT 10`,
+        [user_id]
+      ),
+
+      // 6. Equipment actually used
+      query<any>(
+        `SELECT lib.equipment, COUNT(*)::int AS count
+         FROM exercise_sessions s
+         JOIN exercise_log_entries e ON e.session_id = s.id
+         JOIN exercise_library lib ON lib.id = e.exercise_id
+         WHERE s.user_id = $1 AND lib.equipment IS NOT NULL
+         GROUP BY lib.equipment
+         ORDER BY count DESC`,
+        [user_id]
+      ),
+
+      // 7. Session completion rate
+      query<any>(
+        `SELECT
+           COUNT(*)::int AS total,
+           COUNT(ended_at)::int AS completed,
+           ROUND(COUNT(ended_at)::numeric / NULLIF(COUNT(*), 0) * 100)::int AS rate_pct
+         FROM exercise_sessions
+         WHERE user_id = $1`,
+        [user_id]
+      ),
+
+      // 8. Days since each primary muscle was last trained
+      query<any>(
+        `SELECT muscle, EXTRACT(DAY FROM (now() - MAX(s.started_at)))::int AS days_since
+         FROM exercise_sessions s
+         JOIN exercise_log_entries e ON e.session_id = s.id
+         JOIN exercise_library lib ON lib.id = e.exercise_id
+         JOIN LATERAL unnest(lib.primary_muscles) AS muscle ON true
+         WHERE s.user_id = $1
+         GROUP BY muscle
+         ORDER BY days_since ASC`,
+        [user_id]
+      ),
+    ]);
+
+    return {
+      favorite_exercises: favoriteRows,
+      never_logged_program_exercises: neverLoggedRows,
+      avg_session_duration_seconds: durationRow[0]?.avg_seconds ?? null,
+      preferred_days: preferredDayRows,
+      favorite_muscles: muscleRows,
+      equipment_used: equipmentRows,
+      completion_rate: completionRow[0] ?? { total: 0, completed: 0, rate_pct: null },
+      days_since_muscle: daysSinceMuscleRows,
+    };
+  });
+
   // ── Log entries ───────────────────────────────────────────────────────────────
   app.post("/sessions/:id/entries", async (req) => {
     const user_id = req.user_id;
