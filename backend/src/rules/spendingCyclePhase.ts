@@ -15,7 +15,7 @@ const FIXED_CATEGORIES = [
 
 export const SpendingCyclePhaseRule: InsightRule = {
   id: "spending_cycle_phase",
-  type: "spending",
+  type: "cycle",
   minDays: 35,
 
   async run(userId: string): Promise<InsightResult | null> {

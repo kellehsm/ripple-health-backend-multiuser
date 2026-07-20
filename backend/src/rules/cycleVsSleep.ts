@@ -3,7 +3,7 @@ import { InsightRule, InsightResult, calcConfidence } from "./types.js";
 
 export const CycleVsSleepRule: InsightRule = {
   id: "cycle_vs_sleep",
-  type: "combined",
+  type: "cycle",
   minDays: 35,
 
   async run(userId: string): Promise<InsightResult | null> {

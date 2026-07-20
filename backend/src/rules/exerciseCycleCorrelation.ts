@@ -24,7 +24,7 @@ function detectPeriods(flowDays: string[]): Array<{ start: string; end: string }
 
 export const ExerciseCycleCorrelationRule: InsightRule = {
   id: "exercise_cycle_correlation",
-  type: "combined",
+  type: "cycle",
   minDays: 90,
 
   async run(userId: string): Promise<InsightResult | null> {
