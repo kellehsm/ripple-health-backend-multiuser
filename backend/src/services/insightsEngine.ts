@@ -19,6 +19,26 @@ import { MedicationGlucoseCorrelationRule } from "../rules/medicationGlucoseCorr
 import { SpendingVsExerciseRule } from "../rules/spendingVsExercise.js";
 import { SpendingVsGlucoseRule } from "../rules/spendingVsGlucose.js";
 import { SpendingCyclePhaseRule } from "../rules/spendingCyclePhase.js";
+import { CycleVsSleepRule } from "../rules/cycleVsSleep.js";
+import { CycleVsMoodRule } from "../rules/cycleVsMood.js";
+import { CycleVsGlucoseRule } from "../rules/cycleVsGlucose.js";
+import { MedicationVsMoodRule } from "../rules/medicationVsMood.js";
+import { MoodVariabilityRule } from "../rules/moodVariabilityRule.js";
+import { SleepConsistencyRule } from "../rules/sleepConsistencyRule.js";
+import { SleepVsGlucoseRule } from "../rules/sleepVsGlucose.js";
+import { SleepVsStepsRule } from "../rules/sleepVsSteps.js";
+import { SleepVsSpendingRule } from "../rules/sleepVsSpending.js";
+import { CaffeineVsSleepRule } from "../rules/caffeineVsSleep.js";
+import { AlcoholVsSleepRule } from "../rules/alcoholVsSleep.js";
+import { AlcoholVsMoodRule } from "../rules/alcoholVsMood.js";
+import { CaffeineVsGlucoseRule } from "../rules/caffeineVsGlucose.js";
+import { ExerciseVsMoodRule } from "../rules/exerciseVsMood.js";
+import { StepsVsMoodRule } from "../rules/stepsVsMood.js";
+import { WaterVsMoodRule } from "../rules/waterVsMood.js";
+import { MealSkippingVsMoodRule } from "../rules/mealSkippingVsMood.js";
+import { LateMealsVsSleepRule } from "../rules/lateMealsVsSleep.js";
+import { RestingHRVsExerciseRule } from "../rules/restingHRVsExercise.js";
+import { HobbiesVsSpendingRule } from "../rules/hobbiesVsSpending.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -43,6 +63,26 @@ export const ALL_RULES: InsightRule[] = [
   SpendingVsExerciseRule,
   SpendingVsGlucoseRule,
   SpendingCyclePhaseRule,
+  CycleVsSleepRule,
+  CycleVsMoodRule,
+  CycleVsGlucoseRule,
+  MedicationVsMoodRule,
+  MoodVariabilityRule,
+  SleepConsistencyRule,
+  SleepVsGlucoseRule,
+  SleepVsStepsRule,
+  SleepVsSpendingRule,
+  CaffeineVsSleepRule,
+  AlcoholVsSleepRule,
+  AlcoholVsMoodRule,
+  CaffeineVsGlucoseRule,
+  ExerciseVsMoodRule,
+  StepsVsMoodRule,
+  WaterVsMoodRule,
+  MealSkippingVsMoodRule,
+  LateMealsVsSleepRule,
+  RestingHRVsExerciseRule,
+  HobbiesVsSpendingRule,
 ];
 
 export interface StoredInsight {
