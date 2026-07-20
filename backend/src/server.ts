@@ -54,7 +54,7 @@ dotenv.config();
 const app = Fastify({ logger: true });
 
 // Routes that don't need authentication (auth itself + OAuth callbacks)
-const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google"];
+const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google", "/api/plaid/webhook"];
 
 function isPublic(url: string): boolean {
   return PUBLIC_PREFIXES.some((p) => url === p || url.startsWith(p + "/") || url.startsWith(p + "?"));
