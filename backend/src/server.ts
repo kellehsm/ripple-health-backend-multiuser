@@ -54,7 +54,7 @@ dotenv.config();
 const app = Fastify({ logger: true });
 
 // Routes that don't need authentication (auth itself + OAuth callbacks)
-const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google"];
+const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google", "/api/plaid/webhook"];
 
 function isPublic(url: string): boolean {
   return PUBLIC_PREFIXES.some((p) => url === p || url.startsWith(p + "/") || url.startsWith(p + "?"));
@@ -86,6 +86,7 @@ async function main() {
   await app.register(glucoseRoutes, { prefix: "/api/glucose" });
   await app.register(glucoseStatusRoutes, { prefix: "/api/glucose" });
   await app.register(spendingRoutes, { prefix: "/api/spending" });
+  await app.register(plaidRoutes, { prefix: "/api/plaid" });
   await app.register(journalRoutes, { prefix: "/api/journal" });
   await app.register(summaryRoutes, { prefix: "/api/summary" });
   await app.register(healthConnectRoutes, { prefix: "/api/health-connect" });
@@ -111,7 +112,6 @@ async function main() {
   await app.register(cycleRoutes, { prefix: "/api/cycle" });
   await app.register(hintsRoutes, { prefix: "/api/hints" });
   await app.register(mindfulnessRoutes, { prefix: "/api/mindfulness" });
-  await app.register(plaidRoutes, { prefix: "/api/plaid" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });

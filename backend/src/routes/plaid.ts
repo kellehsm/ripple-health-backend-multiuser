@@ -6,6 +6,7 @@ import {
   Products,
   CountryCode,
   TransactionsSyncRequest,
+  SandboxItemFireWebhookRequestWebhookCodeEnum,
 } from "plaid";
 import { query } from "../db.js";
 
@@ -47,6 +48,8 @@ function mapPlaidCategory(personal_finance_category: any, name: string): string 
 }
 
 export default async function plaidRoutes(app: FastifyInstance) {
+  const WEBHOOK_URL = `${process.env.API_BASE_URL ?? "https://app.kels.gg/api"}/plaid/webhook`;
+
   // Create a Link token for this user — called before opening Plaid Link on the device
   app.post("/create-link-token", async (req, res) => {
     const user_id = req.user_id;
@@ -57,6 +60,7 @@ export default async function plaidRoutes(app: FastifyInstance) {
       country_codes: [CountryCode.Us],
       language: "en",
       android_package_name: process.env.PLAID_ANDROID_PACKAGE_NAME,
+      webhook: WEBHOOK_URL,
     });
     return tokenRes.data;
   });
@@ -173,6 +177,79 @@ export default async function plaidRoutes(app: FastifyInstance) {
        FROM plaid_items WHERE user_id = $1 ORDER BY connected_at DESC`,
       [user_id]
     );
+  });
+
+  // Public webhook receiver — Plaid calls this when transactions are ready
+  // Registered as public in server.ts PUBLIC_PREFIXES
+  app.post("/webhook", { config: { public: true } } as any, async (req, reply) => {
+    const body = req.body as any;
+    const { webhook_type, webhook_code, item_id } = body ?? {};
+
+    if (webhook_type !== "TRANSACTIONS") {
+      return reply.send({ ok: true });
+    }
+
+    // SYNC_UPDATES_AVAILABLE, INITIAL_UPDATE, HISTORICAL_UPDATE all mean: sync now
+    const syncCodes = ["SYNC_UPDATES_AVAILABLE", "INITIAL_UPDATE", "HISTORICAL_UPDATE", "DEFAULT_UPDATE"];
+    if (!syncCodes.includes(webhook_code)) {
+      return reply.send({ ok: true });
+    }
+
+    const rows = await query<{ user_id: string; access_token: string; cursor: string | null }>(
+      `SELECT user_id, access_token, cursor FROM plaid_items WHERE item_id = $1`,
+      [item_id]
+    );
+    if (!rows[0]) return reply.send({ ok: true });
+
+    const { user_id, access_token, cursor } = rows[0];
+    await syncTransactionsForItem(user_id, item_id, access_token, cursor).catch(() => {});
+
+    return reply.send({ ok: true });
+  });
+
+  // Sandbox-only: fire a TRANSACTIONS webhook on demand for testing
+  app.post("/sandbox/fire-webhook", async (req) => {
+    if (env !== "sandbox") return { ok: false, error: "Only available in sandbox mode" };
+    const user_id = req.user_id;
+    const rows = await query<{ item_id: string; access_token: string }>(
+      `SELECT item_id, access_token FROM plaid_items WHERE user_id = $1 ORDER BY connected_at DESC LIMIT 1`,
+      [user_id]
+    );
+    if (!rows[0]) return { ok: false, error: "No linked item found" };
+
+    await plaidClient.sandboxItemFireWebhook({
+      access_token: rows[0].access_token,
+      webhook_code: SandboxItemFireWebhookRequestWebhookCodeEnum.SyncUpdatesAvailable,
+    });
+
+    return { ok: true, item_id: rows[0].item_id };
+  });
+
+  // Sandbox-only: create a custom test transaction and sync it in
+  app.post("/sandbox/create-transaction", async (req) => {
+    if (env !== "sandbox") return { ok: false, error: "Only available in sandbox mode" };
+    const user_id = req.user_id;
+    const { amount, description, category_override } = req.body as any;
+
+    const rows = await query<{ item_id: string; access_token: string; cursor: string | null }>(
+      `SELECT item_id, access_token, cursor FROM plaid_items WHERE user_id = $1 ORDER BY connected_at DESC LIMIT 1`,
+      [user_id]
+    );
+    if (!rows[0]) return { ok: false, error: "No linked item found" };
+
+    // Plaid sandbox creates transactions organically via user_transactions_dynamic.
+    // We fire the webhook so the backend pulls whatever Plaid has generated.
+    await plaidClient.sandboxItemFireWebhook({
+      access_token: rows[0].access_token,
+      webhook_code: SandboxItemFireWebhookRequestWebhookCodeEnum.SyncUpdatesAvailable,
+    });
+
+    // Sync immediately so the caller sees the result right away
+    const { added } = await syncTransactionsForItem(
+      user_id, rows[0].item_id, rows[0].access_token, rows[0].cursor
+    );
+
+    return { ok: true, synced: added };
   });
 }
 
