@@ -16,7 +16,7 @@ export default async function booksRoutes(app: FastifyInstance) {
     const { bookId } = req.params as any;
     const [bookRows, logRows] = await Promise.all([
       query(`SELECT total_pages FROM books WHERE id = $1 AND user_id = $2`, [bookId, user_id]),
-      query(`SELECT COALESCE(SUM(pages_read), 0) AS pages_read_total FROM reading_logs WHERE book_id = $1`, [bookId]),
+      query(`SELECT COALESCE(SUM(rl.pages_read), 0) AS pages_read_total FROM reading_logs rl JOIN books b ON b.id = rl.book_id WHERE rl.book_id = $1 AND b.user_id = $2`, [bookId, user_id]),
     ]);
     if (!bookRows[0]) return reply.status(404).send({ error: "not found" });
     const total_pages: number | null = bookRows[0]?.total_pages ?? null;
@@ -41,8 +41,8 @@ export default async function booksRoutes(app: FastifyInstance) {
     const { bookId } = req.params as any;
     const { pages_read, logged_at } = req.body as any;
     const rows = await query(
-      `INSERT INTO reading_logs (book_id, pages_read, logged_at)
-       SELECT $1, $2, COALESCE($3, current_date)
+      `INSERT INTO reading_logs (book_id, user_id, pages_read, logged_at)
+       SELECT $1, $4, $2, COALESCE($3, current_date)
        WHERE EXISTS (SELECT 1 FROM books WHERE id = $1 AND user_id = $4)
        RETURNING *`,
       [bookId, pages_read, logged_at, user_id]
@@ -56,8 +56,8 @@ export default async function booksRoutes(app: FastifyInstance) {
     const { id } = req.params as any;
     const owned = await query(`SELECT id FROM books WHERE id = $1 AND user_id = $2`, [id, user_id]);
     if (!owned[0]) return reply.status(404).send({ error: "not found" });
-    await query(`DELETE FROM reading_logs WHERE book_id = $1`, [id]);
-    await query(`DELETE FROM books WHERE id = $1`, [id]);
+    await query(`DELETE FROM reading_logs WHERE book_id = $1 AND user_id = $2`, [id, user_id]);
+    await query(`DELETE FROM books WHERE id = $1 AND user_id = $2`, [id, user_id]);
     return { ok: true };
   });
 

@@ -47,8 +47,8 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     const { hobbyId } = req.params as any;
     const { amount, rating, note, logged_at } = req.body as any;
     const rows = await query(
-      `INSERT INTO hobby_logs (hobby_id, amount, rating, note, logged_at)
-       SELECT $1, $2, $3, $4, COALESCE($5, now())
+      `INSERT INTO hobby_logs (hobby_id, user_id, amount, rating, note, logged_at)
+       SELECT $1, $6, $2, $3, $4, COALESCE($5, now())
        WHERE EXISTS (SELECT 1 FROM hobbies WHERE id = $1 AND user_id = $6)
        RETURNING *`,
       [hobbyId, amount, rating, note, logged_at, user_id]
@@ -62,7 +62,7 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     const { hobbyId } = req.params as any;
     const owned = await query(`SELECT id FROM hobbies WHERE id = $1 AND user_id = $2`, [hobbyId, user_id]);
     if (!owned[0]) return reply.status(404).send({ error: "not found" });
-    return query(`SELECT * FROM hobby_logs WHERE hobby_id = $1 ORDER BY logged_at DESC LIMIT 100`, [hobbyId]);
+    return query(`SELECT hl.* FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE hl.hobby_id = $1 AND h.user_id = $2 ORDER BY hl.logged_at DESC LIMIT 100`, [hobbyId, user_id]);
   });
 
   app.delete("/:id", async (req, reply) => {
@@ -70,8 +70,8 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     const { id } = req.params as any;
     const owned = await query(`SELECT id FROM hobbies WHERE id = $1 AND user_id = $2`, [id, user_id]);
     if (!owned[0]) return reply.status(404).send({ error: "not found" });
-    await query(`DELETE FROM hobby_logs WHERE hobby_id = $1`, [id]);
-    await query(`DELETE FROM hobbies WHERE id = $1`, [id]);
+    await query(`DELETE FROM hobby_logs WHERE hobby_id = $1 AND user_id = $2`, [id, user_id]);
+    await query(`DELETE FROM hobbies WHERE id = $1 AND user_id = $2`, [id, user_id]);
     return { ok: true };
   });
 
@@ -91,16 +91,16 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     const weekStart = ws.week_start instanceof Date ? ws.week_start.toISOString().slice(0, 10) : String(ws.week_start).slice(0, 10);
 
     const [thisWeek] = await query<any>(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM hobby_logs
-       WHERE hobby_id = $1 AND logged_at::date >= $2::date`,
-      [id, weekStart]
+      `SELECT COALESCE(SUM(hl.amount), 0) as total FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id
+       WHERE hl.hobby_id = $1 AND h.user_id = $3 AND hl.logged_at::date >= $2::date`,
+      [id, weekStart, user_id]
     );
     const [lastWeek] = await query<any>(
-      `SELECT COALESCE(SUM(amount), 0) as total FROM hobby_logs
-       WHERE hobby_id = $1
-         AND logged_at::date >= $2::date - INTERVAL '7 days'
-         AND logged_at::date < $2::date`,
-      [id, weekStart]
+      `SELECT COALESCE(SUM(hl.amount), 0) as total FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id
+       WHERE hl.hobby_id = $1 AND h.user_id = $3
+         AND hl.logged_at::date >= $2::date - INTERVAL '7 days'
+         AND hl.logged_at::date < $2::date`,
+      [id, weekStart, user_id]
     );
     return {
       this_week_total: Number(thisWeek.total),

@@ -13,6 +13,14 @@ const DEFAULT_COLOR_CATEGORIES = [
 ];
 
 const rxCache = new Map<string, { results: string[]; expiresAt: number }>();
+const RX_CACHE_MAX = 500;
+function rxCacheSet(key: string, val: { results: string[]; expiresAt: number }) {
+  if (rxCache.size >= RX_CACHE_MAX) {
+    // Evict the oldest entry (first inserted)
+    rxCache.delete(rxCache.keys().next().value!);
+  }
+  rxCache.set(key, val);
+}
 
 // ── Import helpers ─────────────────────────────────────────────────────────────
 
@@ -297,6 +305,35 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // ── RxNorm lookup by name (for add-medication pre-fill) ──────────────────────
+  app.get("/rxnorm-by-name", async (req) => {
+    const { name } = req.query as any;
+    if (!name) return { rxcui: null, brand_name: null, generic_name: null, drug_class: null };
+    try {
+      const r1 = await fetch(`https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${encodeURIComponent(name)}`);
+      const d1: any = await r1.json();
+      const rxcui: string | null = d1?.idGroup?.rxnormId?.[0] ?? null;
+      if (!rxcui) return { rxcui: null, brand_name: null, generic_name: null, drug_class: null };
+      const [rBN, rIN] = await Promise.all([
+        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=BN`),
+        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=IN`),
+      ]);
+      const [dBN, dIN]: [any, any] = await Promise.all([rBN.json(), rIN.json()]);
+      const brandNames: string[] = (dBN?.relatedGroup?.conceptGroup ?? [])
+        .flatMap((g: any) => g.conceptProperties ?? []).map((p: any) => p.name).filter(Boolean);
+      const genericNames: string[] = (dIN?.relatedGroup?.conceptGroup ?? [])
+        .flatMap((g: any) => g.conceptProperties ?? []).map((p: any) => p.name).filter(Boolean);
+      return {
+        rxcui,
+        brand_name: brandNames[0] ?? null,
+        generic_name: genericNames[0] ?? null,
+        drug_class: null,
+      };
+    } catch {
+      return { rxcui: null, brand_name: null, generic_name: null, drug_class: null };
+    }
+  });
+
   // ── RxTerms search ───────────────────────────────────────────────────────────
   app.get("/search", async (req) => {
     const { q } = req.query as any;
@@ -310,7 +347,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       const data: any = await res.json();
       const displayStrings: string[][] = data[3] ?? [];
       const results = displayStrings.map((row) => row[0]).slice(0, 20);
-      rxCache.set(cacheKey, { results, expiresAt: Date.now() + 3600000 });
+      rxCacheSet(cacheKey, { results, expiresAt: Date.now() + 3600000 });
       return results;
     } catch {
       return [];
@@ -434,10 +471,11 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     );
     if (!med) throw { statusCode: 404, message: "Not found" };
     return query<any>(
-      `SELECT id, change_type, old_value, new_value, reason, changed_by, changed_at
-       FROM medication_history WHERE medication_id = $1
-       ORDER BY changed_at DESC`,
-      [id]
+      `SELECT mh.id, mh.change_type, mh.old_value, mh.new_value, mh.reason, mh.changed_by, mh.changed_at
+       FROM medication_history mh JOIN medications m ON m.id = mh.medication_id
+       WHERE mh.medication_id = $1 AND m.user_id = $2
+       ORDER BY mh.changed_at DESC`,
+      [id, user_id]
     );
   });
 
