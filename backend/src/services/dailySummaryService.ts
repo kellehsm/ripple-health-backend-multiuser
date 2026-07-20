@@ -114,6 +114,21 @@ async function getMoodData(userId: string, date: string) {
   };
 }
 
+async function getMindfulnessData(userId: string, date: string) {
+  const rows = await query<{ sessions: string }>(
+    `SELECT COUNT(*) AS sessions
+     FROM metric_logs ml
+     JOIN metrics m ON m.id = ml.metric_id
+     WHERE m.user_id = $1
+       AND m.name = 'mindfulness'
+       AND ml.logged_at::date = $2`,
+    [userId, date]
+  );
+  const sessions = Number(rows[0]?.sessions ?? 0);
+  if (sessions === 0) return null;
+  return { sessions };
+}
+
 async function getProductivityData(userId: string, date: string) {
   const [pagesRows, hobbyRows] = await Promise.all([
     query<{ pages: string }>(
@@ -358,7 +373,7 @@ export async function getDailySummary(userId: string, date: string): Promise<Dai
 
 export async function generateDailySummary(userId: string, date: string): Promise<DailySummaryRow | null> {
   try {
-    const [glucoseData, sleepData, activityData, hydrationData, nutritionData, moodData, productivityData] =
+    const [glucoseData, sleepData, activityData, hydrationData, nutritionData, moodData, productivityData, mindfulnessData] =
       await Promise.all([
         getGlucoseData(userId, date),
         getSleepData(userId, date),
@@ -367,6 +382,7 @@ export async function generateDailySummary(userId: string, date: string): Promis
         getNutritionData(userId, date),
         getMoodData(userId, date),
         getProductivityData(userId, date),
+        getMindfulnessData(userId, date),
       ]);
 
     const [sleepBaseline, stepsBaseline, waterGoal] = await Promise.all([
@@ -398,6 +414,7 @@ export async function generateDailySummary(userId: string, date: string): Promis
       nutrition: nutritionData,
       mood: moodData,
       productivity: productivityData,
+      mindfulness: mindfulnessData,
     };
 
     const insights = buildInsights({ glucoseData, sleepData, activityData, hydrationData, moodData, sleepBaseline, stepsBaseline });

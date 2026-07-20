@@ -41,6 +41,10 @@ import { RestingHRVsExerciseRule } from "../rules/restingHRVsExercise.js";
 import { HobbiesVsSpendingRule } from "../rules/hobbiesVsSpending.js";
 import { GlucoseVariabilityRule } from "../rules/glucoseVariability.js";
 import { MoodJournalingStreakRule } from "../rules/moodJournalingStreak.js";
+import { MindfulnessVsMoodRule } from "../rules/mindfulnessVsMood.js";
+import { MindfulnessVsGlucoseRule } from "../rules/mindfulnessVsGlucose.js";
+import { MindfulnessVsRestingHRRule } from "../rules/mindfulnessVsRestingHR.js";
+import { MindfulnessVsSpendingRule } from "../rules/mindfulnessVsSpending.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -87,6 +91,10 @@ export const ALL_RULES: InsightRule[] = [
   HobbiesVsSpendingRule,
   GlucoseVariabilityRule,
   MoodJournalingStreakRule,
+  MindfulnessVsMoodRule,
+  MindfulnessVsGlucoseRule,
+  MindfulnessVsRestingHRRule,
+  MindfulnessVsSpendingRule,
 ];
 
 export interface StoredInsight {
