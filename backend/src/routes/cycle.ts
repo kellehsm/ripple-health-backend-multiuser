@@ -170,8 +170,23 @@ export default async function cycleRoutes(app: FastifyInstance) {
     const flowDays = flowRows.map((r: any) => r.log_date);
     const periods = detectPeriods(flowDays);
 
+    // Need 3 period starts (= 2 complete cycles) before making predictions
     if (periods.length < 3) {
-      return { predictedNextStart: null, avgCycleLength: null, cycleLengthsUsed: 0, confidence: "none" };
+      const lastPeriod = periods[periods.length - 1] ?? null;
+      const currentCycleDay = lastPeriod
+        ? Math.round((Date.now() - new Date(lastPeriod.start).getTime()) / 86400000) + 1
+        : null;
+      const cyclesLogged = Math.max(0, periods.length - 1); // complete cycles measured so far
+      return {
+        predictedNextStart: null,
+        avgCycleLength: null,
+        cycleLengthsUsed: cyclesLogged,
+        cyclesLogged,
+        cyclesNeeded: 2,
+        confidence: "none",
+        lastPeriodStart: lastPeriod?.start ?? null,
+        currentCycleDay,
+      };
     }
 
     const starts = periods.map((p) => p.start);
