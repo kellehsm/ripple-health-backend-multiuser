@@ -16,6 +16,9 @@ import { ExerciseConsistencyRule } from "../rules/exerciseConsistency.js";
 import { UndertrainedMuscleRule } from "../rules/undertrainedMuscle.js";
 import { ExerciseCycleCorrelationRule } from "../rules/exerciseCycleCorrelation.js";
 import { MedicationGlucoseCorrelationRule } from "../rules/medicationGlucoseCorrelation.js";
+import { SpendingVsExerciseRule } from "../rules/spendingVsExercise.js";
+import { SpendingVsGlucoseRule } from "../rules/spendingVsGlucose.js";
+import { SpendingCyclePhaseRule } from "../rules/spendingCyclePhase.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -37,6 +40,9 @@ export const ALL_RULES: InsightRule[] = [
   UndertrainedMuscleRule,
   ExerciseCycleCorrelationRule,
   MedicationGlucoseCorrelationRule,
+  SpendingVsExerciseRule,
+  SpendingVsGlucoseRule,
+  SpendingCyclePhaseRule,
 ];
 
 export interface StoredInsight {
