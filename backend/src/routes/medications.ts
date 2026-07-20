@@ -13,6 +13,14 @@ const DEFAULT_COLOR_CATEGORIES = [
 ];
 
 const rxCache = new Map<string, { results: string[]; expiresAt: number }>();
+const RX_CACHE_MAX = 500;
+function rxCacheSet(key: string, val: { results: string[]; expiresAt: number }) {
+  if (rxCache.size >= RX_CACHE_MAX) {
+    // Evict the oldest entry (first inserted)
+    rxCache.delete(rxCache.keys().next().value!);
+  }
+  rxCache.set(key, val);
+}
 
 // ── Import helpers ─────────────────────────────────────────────────────────────
 
@@ -339,7 +347,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       const data: any = await res.json();
       const displayStrings: string[][] = data[3] ?? [];
       const results = displayStrings.map((row) => row[0]).slice(0, 20);
-      rxCache.set(cacheKey, { results, expiresAt: Date.now() + 3600000 });
+      rxCacheSet(cacheKey, { results, expiresAt: Date.now() + 3600000 });
       return results;
     } catch {
       return [];
@@ -463,10 +471,11 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     );
     if (!med) throw { statusCode: 404, message: "Not found" };
     return query<any>(
-      `SELECT id, change_type, old_value, new_value, reason, changed_by, changed_at
-       FROM medication_history WHERE medication_id = $1
-       ORDER BY changed_at DESC`,
-      [id]
+      `SELECT mh.id, mh.change_type, mh.old_value, mh.new_value, mh.reason, mh.changed_by, mh.changed_at
+       FROM medication_history mh JOIN medications m ON m.id = mh.medication_id
+       WHERE mh.medication_id = $1 AND m.user_id = $2
+       ORDER BY mh.changed_at DESC`,
+      [id, user_id]
     );
   });
 

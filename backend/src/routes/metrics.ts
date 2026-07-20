@@ -52,8 +52,9 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { metricId } = req.params as any;
     if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     return query(
-      `SELECT * FROM metric_logs WHERE metric_id = $1 ORDER BY logged_at DESC LIMIT 100`,
-      [metricId]
+      `SELECT ml.* FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
+       WHERE ml.metric_id = $1 AND m.user_id = $2 ORDER BY ml.logged_at DESC LIMIT 100`,
+      [metricId, req.user_id]
     );
   });
 
@@ -62,18 +63,18 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { metricId } = req.params as any;
     if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const [yesterday] = await query<any>(
-      `SELECT COALESCE(SUM(value), 0) as total FROM metric_logs
-       WHERE metric_id = $1 AND logged_at::date = current_date - interval '1 day'`,
-      [metricId]
+      `SELECT COALESCE(SUM(ml.value), 0) as total FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
+       WHERE ml.metric_id = $1 AND m.user_id = $2 AND ml.logged_at::date = current_date - interval '1 day'`,
+      [metricId, req.user_id]
     );
     const [weekAvg] = await query<any>(
       `SELECT COALESCE(AVG(daily_total), 0) as avg FROM (
-         SELECT logged_at::date as day, SUM(value) as daily_total
-         FROM metric_logs
-         WHERE metric_id = $1 AND logged_at >= current_date - interval '7 days'
-         GROUP BY logged_at::date
+         SELECT ml.logged_at::date as day, SUM(ml.value) as daily_total
+         FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
+         WHERE ml.metric_id = $1 AND m.user_id = $2 AND ml.logged_at >= current_date - interval '7 days'
+         GROUP BY ml.logged_at::date
        ) sub`,
-      [metricId]
+      [metricId, req.user_id]
     );
     return { yesterday_total: Number(yesterday.total), seven_day_average: Number(weekAvg.avg) };
   });
