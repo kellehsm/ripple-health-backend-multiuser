@@ -39,6 +39,8 @@ import { MealSkippingVsMoodRule } from "../rules/mealSkippingVsMood.js";
 import { LateMealsVsSleepRule } from "../rules/lateMealsVsSleep.js";
 import { RestingHRVsExerciseRule } from "../rules/restingHRVsExercise.js";
 import { HobbiesVsSpendingRule } from "../rules/hobbiesVsSpending.js";
+import { GlucoseVariabilityRule } from "../rules/glucoseVariability.js";
+import { MoodJournalingStreakRule } from "../rules/moodJournalingStreak.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -83,6 +85,8 @@ export const ALL_RULES: InsightRule[] = [
   LateMealsVsSleepRule,
   RestingHRVsExerciseRule,
   HobbiesVsSpendingRule,
+  GlucoseVariabilityRule,
+  MoodJournalingStreakRule,
 ];
 
 export interface StoredInsight {
@@ -127,8 +131,14 @@ async function upsertInsight(userId: string, ruleId: string, type: string, resul
 }
 
 async function markStale(userId: string, activeRuleIds: string[]): Promise<void> {
-  // Any rule that didn't produce a result this run gets marked stale (not enough data yet)
-  if (activeRuleIds.length === 0) return;
+  if (activeRuleIds.length === 0) {
+    await query(
+      `UPDATE user_insights SET status = 'stale', updated_at = NOW()
+       WHERE user_id = $1 AND dismissed = FALSE AND status = 'active'`,
+      [userId]
+    );
+    return;
+  }
   await query(
     `UPDATE user_insights SET status = 'stale', updated_at = NOW()
      WHERE user_id = $1
