@@ -28,6 +28,8 @@ export default async function foodRoutes(app: FastifyInstance) {
         calories: getNutrient("Energy"),
         carbs_g: getNutrient("Carbohydrate, by difference"),
         sugar_g: getNutrient("Sugars, total including NLEA"),
+        sodium_mg: getNutrient("Sodium, Na"),
+        caffeine_mg: getNutrient("Caffeine"),
       };
     });
 
@@ -137,6 +139,11 @@ export default async function foodRoutes(app: FastifyInstance) {
                 const usdaCalories = lbl.calories?.value ?? null;
                 const usdaCarbs = lbl.carbohydrates?.value ?? null;
                 const usdaSugar = lbl.sugars?.value ?? null;
+                const usdaSodium = lbl.sodium?.value ?? null;
+                const caffNutrient = (detail.foodNutrients ?? []).find(
+                  (n: any) => (n.nutrient?.name ?? n.nutrientName) === "Caffeine"
+                );
+                const usdaCaffeine = caffNutrient?.amount ?? caffNutrient?.value ?? null;
 
                 usdaResult = {
                   source_food_id: String(detail.fdcId),
@@ -144,6 +151,8 @@ export default async function foodRoutes(app: FastifyInstance) {
                   calories: usdaCalories,
                   carbs_g: usdaCarbs,
                   sugar_g: usdaSugar,
+                  sodium_mg: usdaSodium,
+                  caffeine_mg: usdaCaffeine,
                   serving_size: servingSize,
                   basis: "per_serving",
                   image_url: null,
@@ -219,6 +228,9 @@ export default async function foodRoutes(app: FastifyInstance) {
       const offCalories = n["energy-kcal_serving"] ?? n["energy-kcal_100g"] ?? null;
       const offCarbs = n["carbohydrates_serving"] ?? n["carbohydrates_100g"] ?? null;
       const offSugar = n["sugars_serving"] ?? n["sugars_100g"] ?? null;
+      const offSodiumG = n["sodium_serving"] ?? n["sodium_100g"] ?? null;
+      const offSodiumMg = offSodiumG != null ? Math.round(offSodiumG * 1000) : null;
+      const offCaffeine = n["caffeine_serving"] ?? n["caffeine_100g"] ?? null;
 
       if (usdaResult) {
         return {
@@ -227,6 +239,8 @@ export default async function foodRoutes(app: FastifyInstance) {
           calories: usdaResult.calories ?? offCalories,
           carbs_g: usdaResult.carbs_g ?? offCarbs,
           sugar_g: usdaResult.sugar_g ?? offSugar,
+          sodium_mg: usdaResult.sodium_mg ?? offSodiumMg,
+          caffeine_mg: usdaResult.caffeine_mg ?? offCaffeine,
           serving_size: usdaResult.serving_size ?? p.serving_size ?? null,
           basis: usdaResult.serving_size ? "per_serving" : basis,
           image_url: p.image_front_small_url ?? null,
@@ -240,6 +254,8 @@ export default async function foodRoutes(app: FastifyInstance) {
         calories: offCalories,
         carbs_g: offCarbs,
         sugar_g: offSugar,
+        sodium_mg: offSodiumMg,
+        caffeine_mg: offCaffeine,
         serving_size: p.serving_size ?? null,
         basis,
         image_url: p.image_front_small_url ?? null,
