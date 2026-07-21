@@ -23,7 +23,8 @@ interface SessionEntry {
 const sessionCache = new Map<string, SessionEntry>();
 
 interface Credentials {
-  accountId: string;
+  accountId?: string;
+  accountName?: string;
   password: string;
   baseUrl: string;
 }
@@ -31,6 +32,7 @@ interface Credentials {
 async function resolveCredentials(userId: string): Promise<Credentials> {
   // Start with env vars as the baseline; DB settings (from app Settings screen) override them.
   let accountId = process.env.DEXCOM_SHARE_ACCOUNT_ID ?? "";
+  let accountName = "";
   let password = process.env.DEXCOM_SHARE_PASSWORD ?? "";
   let region = process.env.DEXCOM_SHARE_REGION === "ous" ? "shareous1" : "share2";
 
@@ -41,6 +43,7 @@ async function resolveCredentials(userId: string): Promise<Credentials> {
     );
     const dexcom = rows[0]?.settings?.dexcom;
     if (dexcom?.share_account_id) accountId = dexcom.share_account_id;
+    if (dexcom?.share_account_name) accountName = dexcom.share_account_name;
     if (dexcom?.share_password) password = dexcom.share_password;
     if (dexcom?.share_region === "ous") region = "shareous1";
     else if (dexcom?.share_region === "us") region = "share2";
@@ -48,15 +51,48 @@ async function resolveCredentials(userId: string): Promise<Credentials> {
     // user_settings may not exist yet — fall through to env vars
   }
 
-  if (!accountId || !password) {
-    throw new Error("Dexcom credentials not configured (set via app Settings or DEXCOM_SHARE_ACCOUNT_ID / DEXCOM_SHARE_PASSWORD in .env)");
+  if ((!accountId && !accountName) || !password) {
+    throw new Error("Dexcom credentials not configured (set via app Settings → Dexcom)");
   }
 
   return {
-    accountId,
+    accountId: accountId || undefined,
+    accountName: accountName || undefined,
     password,
     baseUrl: `https://${region}.dexcom.com/ShareWebServices/Services`,
   };
+}
+
+async function loginWithId(baseUrl: string, accountId: string, password: string): Promise<string> {
+  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountById`, {
+    method: "POST",
+    headers: SHARE_HEADERS,
+    body: JSON.stringify({ accountId, password, applicationId: APPLICATION_ID }),
+  });
+  const text = await res.text();
+  if (!res.ok || !text.trim()) throw new Error(`Dexcom Share auth failed — HTTP ${res.status}: "${text}"`);
+  let sessionId: string;
+  try { sessionId = JSON.parse(text); } catch { throw new Error(`Dexcom Share auth returned non-JSON body: "${text}"`); }
+  if (!sessionId || sessionId === "00000000-0000-0000-0000-000000000000") {
+    throw new Error("Dexcom Share auth rejected — verify account ID, password, and region setting");
+  }
+  return sessionId;
+}
+
+async function loginWithName(baseUrl: string, accountName: string, password: string): Promise<string> {
+  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountByName`, {
+    method: "POST",
+    headers: SHARE_HEADERS,
+    body: JSON.stringify({ accountName, password, applicationId: APPLICATION_ID }),
+  });
+  const text = await res.text();
+  if (!res.ok || !text.trim()) throw new Error(`Dexcom Share auth failed — HTTP ${res.status}: "${text}"`);
+  let sessionId: string;
+  try { sessionId = JSON.parse(text); } catch { throw new Error(`Dexcom Share auth returned non-JSON body: "${text}"`); }
+  if (!sessionId || sessionId === "00000000-0000-0000-0000-000000000000") {
+    throw new Error("Dexcom Share auth rejected — verify username, password, and region setting");
+  }
+  return sessionId;
 }
 
 async function authenticate(userId: string): Promise<SessionEntry> {
@@ -65,31 +101,11 @@ async function authenticate(userId: string): Promise<SessionEntry> {
     return cached;
   }
 
-  const { accountId, password, baseUrl } = await resolveCredentials(userId);
+  const { accountId, accountName, password, baseUrl } = await resolveCredentials(userId);
 
-  // Must use LoginPublisherAccountById (account-ID-based), NOT email/username login.
-  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountById`, {
-    method: "POST",
-    headers: SHARE_HEADERS,
-    body: JSON.stringify({ accountId, password, applicationId: APPLICATION_ID }),
-  });
-
-  const text = await res.text();
-
-  if (!res.ok || !text.trim()) {
-    throw new Error(`Dexcom Share auth failed — HTTP ${res.status}: "${text}"`);
-  }
-
-  let sessionId: string;
-  try {
-    sessionId = JSON.parse(text);
-  } catch {
-    throw new Error(`Dexcom Share auth returned non-JSON body: "${text}"`);
-  }
-
-  if (!sessionId || sessionId === "00000000-0000-0000-0000-000000000000") {
-    throw new Error("Dexcom Share auth rejected — verify account ID, password, and region setting");
-  }
+  const sessionId = accountId
+    ? await loginWithId(baseUrl, accountId, password)
+    : await loginWithName(baseUrl, accountName!, password);
 
   const entry: SessionEntry = { sessionId, baseUrl, expiresAt: Date.now() + SESSION_TTL_MS };
   sessionCache.set(userId, entry);

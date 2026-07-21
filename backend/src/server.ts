@@ -136,8 +136,12 @@ async function main() {
     try {
       const users = await query<{ user_id: string }>(
         `SELECT user_id FROM user_settings
-         WHERE settings->'dexcom'->>'share_account_id' IS NOT NULL
-           AND settings->'dexcom'->>'share_account_id' != ''`
+         WHERE (
+           (settings->'dexcom'->>'share_account_id' IS NOT NULL AND settings->'dexcom'->>'share_account_id' != '')
+           OR (settings->'dexcom'->>'share_account_name' IS NOT NULL AND settings->'dexcom'->>'share_account_name' != '')
+         )
+           AND settings->'dexcom'->>'share_password' IS NOT NULL
+           AND settings->'dexcom'->>'share_password' != ''`
       );
       for (const { user_id } of users) {
         try {
