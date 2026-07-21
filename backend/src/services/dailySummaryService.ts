@@ -83,8 +83,8 @@ async function getHydrationData(userId: string, date: string) {
 }
 
 async function getNutritionData(userId: string, date: string) {
-  const rows = await query<{ calories: string | null; carbs_g: string | null }>(
-    `SELECT calories, carbs_g FROM meals WHERE user_id = $1 AND logged_at::date = $2`,
+  const rows = await query<{ calories: string | null; carbs_g: string | null; caffeine_mg: string | null; sodium_mg: string | null }>(
+    `SELECT calories, carbs_g, caffeine_mg, sodium_mg FROM meals WHERE user_id = $1 AND logged_at::date = $2`,
     [userId, date]
   );
   if (rows.length === 0) return null;
@@ -93,7 +93,17 @@ async function getNutritionData(userId: string, date: string) {
   const hasCalories = rows.some((r) => r.calories !== null && Number(r.calories) > 0);
   const hasCarbs = rows.some((r) => r.carbs_g !== null && Number(r.carbs_g) > 0);
 
-  return { mealCount: rows.length, totalCalories, hasCalories, hasCarbs };
+  const caffeineRows = rows.filter((r) => r.caffeine_mg !== null);
+  const totalCaffeine = caffeineRows.length > 0
+    ? Math.round(caffeineRows.reduce((s, r) => s + Number(r.caffeine_mg), 0))
+    : null;
+
+  const sodiumRows = rows.filter((r) => r.sodium_mg !== null);
+  const totalSodium = sodiumRows.length > 0
+    ? Math.round(sodiumRows.reduce((s, r) => s + Number(r.sodium_mg), 0))
+    : null;
+
+  return { mealCount: rows.length, totalCalories, hasCalories, hasCarbs, totalCaffeine, totalSodium };
 }
 
 async function getMoodData(userId: string, date: string) {
@@ -295,12 +305,13 @@ function buildInsights(params: {
   sleepData: SleepData | null;
   activityData: { steps: number } | null;
   hydrationData: { glasses: number } | null;
+  nutritionData: NutritionData | null;
   moodData: MoodData | null;
   sleepBaseline: number | null;
   stepsBaseline: number | null;
 }): Array<{ type: string; message: string }> {
   const out: Array<{ type: string; message: string }> = [];
-  const { glucoseData, sleepData, activityData, hydrationData, moodData, sleepBaseline, stepsBaseline } = params;
+  const { glucoseData, sleepData, activityData, hydrationData, nutritionData, moodData, sleepBaseline, stepsBaseline } = params;
 
   if (glucoseData && glucoseData.readingCount >= 6) {
     if (glucoseData.timeInRange >= 90) {
@@ -356,6 +367,14 @@ function buildInsights(params: {
     } else if (moodData.averageScore <= 2) {
       out.push({ type: "mood", message: `Today included some lower-mood moments — ${moodData.entryCount} journal ${moodData.entryCount === 1 ? "entry" : "entries"} recorded.` });
     }
+  }
+
+  if (nutritionData?.totalCaffeine != null && nutritionData.totalCaffeine > 400) {
+    out.push({ type: "nutrition", message: `${nutritionData.totalCaffeine} mg of caffeine logged today — above the typical 400 mg daily threshold.` });
+  }
+
+  if (nutritionData?.totalSodium != null && nutritionData.totalSodium > 2300) {
+    out.push({ type: "nutrition", message: `${nutritionData.totalSodium.toLocaleString()} mg of sodium logged today — above the 2,300 mg daily guideline.` });
   }
 
   return out.slice(0, 4);
@@ -417,7 +436,7 @@ export async function generateDailySummary(userId: string, date: string): Promis
       mindfulness: mindfulnessData,
     };
 
-    const insights = buildInsights({ glucoseData, sleepData, activityData, hydrationData, moodData, sleepBaseline, stepsBaseline });
+    const insights = buildInsights({ glucoseData, sleepData, activityData, hydrationData, nutritionData, moodData, sleepBaseline, stepsBaseline });
 
     const rows = await query<DailySummaryRow>(
       `INSERT INTO daily_summaries

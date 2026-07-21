@@ -15,10 +15,13 @@ export const CaffeineVsSleepRule: InsightRule = {
          s.avg_sleep_quality
        FROM (
          SELECT logged_at::date AS day, SUM(caffeine_mg) AS total_caffeine
-         FROM substance_logs
-         WHERE user_id = $1
-           AND substance_type = 'caffeine'
-           AND logged_at >= CURRENT_DATE - 60
+         FROM (
+           SELECT logged_at, caffeine_mg FROM meals
+           WHERE user_id = $1 AND caffeine_mg IS NOT NULL AND logged_at >= CURRENT_DATE - 60
+           UNION ALL
+           SELECT logged_at, caffeine_mg FROM substance_logs
+           WHERE user_id = $1 AND substance_type = 'caffeine' AND logged_at >= CURRENT_DATE - 60
+         ) combined
          GROUP BY logged_at::date
        ) c
        JOIN (
