@@ -8,9 +8,16 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
 export default async function authRoutes(app: FastifyInstance) {
   // POST /api/auth/login — returns JWT on valid credentials
   app.post<{ Body: { email: string; password: string } }>("/login", async (req, reply) => {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
     if (!email || !password) {
       return reply.status(400).send({ error: "email and password required" });
+    }
+
+    // Dev shortcut: "demo" or the full demo email bypasses password check
+    const emailLower = email.trim().toLowerCase();
+    if (emailLower === "demo" || emailLower === "demo@ripple.test") {
+      email = "demo@ripple.test";
+      password = "demo123";
     }
 
     const rows = await query<{ id: string; password_hash: string | null }>(
