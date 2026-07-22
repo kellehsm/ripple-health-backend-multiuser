@@ -45,6 +45,16 @@ import { MindfulnessVsMoodRule } from "../rules/mindfulnessVsMood.js";
 import { MindfulnessVsGlucoseRule } from "../rules/mindfulnessVsGlucose.js";
 import { MindfulnessVsRestingHRRule } from "../rules/mindfulnessVsRestingHR.js";
 import { MindfulnessVsSpendingRule } from "../rules/mindfulnessVsSpending.js";
+import { TriSleepStepsMoodRule } from "../rules/triSleepStepsMood.js";
+import { TriSleepExerciseGlucoseRule } from "../rules/triSleepExerciseGlucose.js";
+import { TriCaffeineStepsSleepRule } from "../rules/triCaffeineStepsSleep.js";
+import { TriStepsWaterMoodRule } from "../rules/triStepsWaterMood.js";
+import { ChainSleepMoodSpendingRule } from "../rules/chainSleepMoodSpending.js";
+import { QuadSleepStepsWaterMoodRule } from "../rules/quadSleepStepsWaterMood.js";
+import { ChainSleepExerciseMoodSpendingRule } from "../rules/chainSleepExerciseMoodSpending.js";
+import { QuadGlucoseSleepMoodStepsRule } from "../rules/quadGlucoseSleepMoodSteps.js";
+import { QuintAllMetricsRule } from "../rules/quintAllMetrics.js";
+import { QuadCaffeineSleepMoodStepsRule } from "../rules/quadCaffeineSleepMoodSteps.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -95,6 +105,18 @@ export const ALL_RULES: InsightRule[] = [
   MindfulnessVsGlucoseRule,
   MindfulnessVsRestingHRRule,
   MindfulnessVsSpendingRule,
+  // Multi-metric (3+ variable) rules
+  TriSleepStepsMoodRule,
+  TriSleepExerciseGlucoseRule,
+  TriCaffeineStepsSleepRule,
+  TriStepsWaterMoodRule,
+  ChainSleepMoodSpendingRule,
+  // 4–5 metric rules
+  QuadSleepStepsWaterMoodRule,
+  ChainSleepExerciseMoodSpendingRule,
+  QuadGlucoseSleepMoodStepsRule,
+  QuintAllMetricsRule,
+  QuadCaffeineSleepMoodStepsRule,
 ];
 
 export interface StoredInsight {

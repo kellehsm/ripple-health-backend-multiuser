@@ -554,4 +554,28 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     }
     return { imported };
   });
+
+  // ── Import: download blank template ─────────────────────────────────────────
+  // Public (no auth required) so it can be opened directly from a browser link.
+  app.get("/import/template", async (_req, reply) => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["Medication Name", "Dosage", "Schedule", "Prescriber", "Pharmacy", "Brand Name", "Generic Name", "Notes"],
+      // Three blank example rows so the sheet isn't completely empty
+      ["", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", ""],
+      ["", "", "", "", "", "", "", ""],
+    ]);
+    // Column widths
+    ws["!cols"] = [
+      { wch: 22 }, { wch: 14 }, { wch: 18 }, { wch: 20 },
+      { wch: 18 }, { wch: 18 }, { wch: 18 }, { wch: 24 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Medications");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    reply
+      .header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+      .header("Content-Disposition", 'attachment; filename="ripple-medications-template.xlsx"')
+      .send(buf);
+  });
 }
