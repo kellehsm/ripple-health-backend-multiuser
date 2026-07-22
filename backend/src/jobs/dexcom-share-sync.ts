@@ -153,11 +153,6 @@ async function fetchReadings(
 
   const readings: DexcomReading[] = JSON.parse(text);
 
-  // An empty array can also indicate a stale/invalid session in some firmware versions.
-  if (readings.length === 0) {
-    return null;
-  }
-
   return readings;
 }
 
@@ -186,7 +181,7 @@ export async function syncDexcomShareGlucose(
   let readings = await fetchReadings(session.sessionId, session.baseUrl);
 
   if (readings === null) {
-    // Session was rejected mid-flight (expired between our TTL check and the API call).
+    // Session was rejected mid-flight (HTTP 500 SessionNotValid/SessionIdNotFound).
     // Evict the cache, re-authenticate once, and retry.
     sessionCache.delete(userId);
     log?.warn("Dexcom Share session expired mid-flight — re-authenticating");
