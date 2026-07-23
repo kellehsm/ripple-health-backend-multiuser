@@ -5,6 +5,7 @@ import { ThemeProvider } from "./src/theme/ThemeContext";
 import { RootStack } from "./src/navigation/RootStack";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { logAppOpen } from "./src/services/adaptiveTimingService";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
 
 const ONBOARDING_KEY = "ripple:onboarding_complete";
 
@@ -27,13 +28,15 @@ export default function App() {
   if (loading) return null;
 
   return (
-    <ThemeProvider>
-      <StatusBar style="auto" />
-      {onboardingDone ? (
-        <RootStack />
-      ) : (
-        <OnboardingScreen onComplete={() => setOnboardingDone(true)} />
-      )}
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <StatusBar style="auto" />
+        {onboardingDone ? (
+          <RootStack />
+        ) : (
+          <OnboardingScreen onComplete={() => setOnboardingDone(true)} />
+        )}
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

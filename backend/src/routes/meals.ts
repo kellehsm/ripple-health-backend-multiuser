@@ -68,6 +68,40 @@ export default async function mealsRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  app.get("/impact-scores", async (req) => {
+    const user_id = req.user_id;
+    const rows = await query(
+      `WITH meal_windows AS (
+        SELECT
+          m.name,
+          m.logged_at,
+          (SELECT g.mg_dl FROM glucose_readings g
+           WHERE g.user_id = m.user_id
+             AND g.recorded_at BETWEEN m.logged_at - INTERVAL '30 min' AND m.logged_at
+           ORDER BY g.recorded_at DESC LIMIT 1) AS pre_glucose,
+          (SELECT MAX(g.mg_dl) FROM glucose_readings g
+           WHERE g.user_id = m.user_id
+             AND g.recorded_at BETWEEN m.logged_at + INTERVAL '45 min' AND m.logged_at + INTERVAL '105 min'
+          ) AS post_glucose
+        FROM meals m
+        WHERE m.user_id = $1 AND m.logged_at IS NOT NULL
+      ),
+      scored AS (
+        SELECT name, (post_glucose - pre_glucose) AS spike
+        FROM meal_windows
+        WHERE pre_glucose IS NOT NULL AND post_glucose IS NOT NULL
+          AND (post_glucose - pre_glucose) >= -10
+      )
+      SELECT name AS meal_name, ROUND(AVG(spike))::int AS avg_spike, COUNT(*)::int AS sample_count
+      FROM scored
+      GROUP BY name
+      HAVING COUNT(*) >= 2
+      ORDER BY AVG(spike) DESC`,
+      [user_id]
+    );
+    return { scores: rows };
+  });
+
   app.get("/frequent", async (req) => {
     const user_id = req.user_id;
     return query(
