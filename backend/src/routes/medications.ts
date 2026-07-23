@@ -92,8 +92,9 @@ function normalizeSchedule(scheduleStr: string): Array<{ time_of_day: string; sp
   if (s.includes("evening") || s.includes("night")) return [evening];
   if (s.includes("midday") || s.includes("noon") || s.includes("afternoon")) return [midday];
   if (s === "qd" || s === "once daily" || s === "daily") return [morning];
-  // Custom
-  return [{ time_of_day: "custom", specific_time: scheduleStr.trim() }];
+  // Custom — only store as specific_time if it parses as a time (HH:MM); otherwise null
+  const timelike = /^\d{1,2}:\d{2}(\s*(am|pm))?$/i.test(scheduleStr.trim());
+  return [{ time_of_day: "custom", specific_time: timelike ? scheduleStr.trim() : null }];
 }
 
 // ── Shared query helpers ───────────────────────────────────────────────────────
@@ -101,6 +102,7 @@ function normalizeSchedule(scheduleStr: string): Array<{ time_of_day: string; sp
 const MED_SELECT = `
   SELECT m.id, m.name, m.dosage, m.active, m.notes, m.purpose, m.refill_date, m.created_at,
     m.generic_name, m.brand_name, m.drug_class, m.rxcui, m.alternative_brand_names,
+    m.frequency, m.day_of_week, m.is_prn,
     p.id AS prescriber_id, p.name AS prescriber_name,
     c.id AS cat_id, c.label AS cat_label, c.color_hex AS cat_color,
     COALESCE(json_agg(
@@ -124,6 +126,9 @@ function shapeMed(r: any) {
   return {
     id: r.id, name: r.name, dosage: r.dosage, active: r.active,
     notes: r.notes, purpose: r.purpose, refill_date: r.refill_date, created_at: r.created_at,
+    frequency: r.frequency ?? "daily",
+    day_of_week: r.day_of_week ?? null,
+    is_prn: r.is_prn ?? false,
     generic_name: r.generic_name ?? null,
     brand_name: r.brand_name ?? null,
     drug_class: r.drug_class ?? null,
@@ -169,15 +174,17 @@ export default async function medicationsRoutes(app: FastifyInstance) {
   // ── Add medication ───────────────────────────────────────────────────────────
   app.post("/", async (req) => {
     const user_id = req.user_id;
-    const { name, dosage, notes, purpose, refill_date, slots, color_category_id, prescriber_id } = req.body as any;
+    const { name, dosage, notes, purpose, refill_date, slots, color_category_id, prescriber_id,
+            frequency, day_of_week, is_prn } = req.body as any;
 
     await ensureDefaultCategories(user_id);
 
     const [med] = await query<any>(
-      `INSERT INTO medications (user_id, name, dosage, notes, purpose, refill_date, color_category_id, prescriber_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO medications (user_id, name, dosage, notes, purpose, refill_date, color_category_id, prescriber_id, frequency, day_of_week, is_prn)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [user_id, name, dosage ?? null, notes ?? null, purpose ?? null,
-       refill_date ?? null, color_category_id ?? null, prescriber_id ?? null]
+       refill_date ?? null, color_category_id ?? null, prescriber_id ?? null,
+       frequency ?? "daily", day_of_week ?? null, is_prn ?? false]
     );
 
     if (Array.isArray(slots) && slots.length > 0) {
@@ -210,7 +217,8 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     const { id } = req.params as any;
     const { name, dosage, notes, purpose, refill_date, active, slots,
             color_category_id, prescriber_id, reason, changed_by,
-            generic_name, brand_name, drug_class, rxcui, alternative_brand_names } = req.body as any;
+            generic_name, brand_name, drug_class, rxcui, alternative_brand_names,
+            frequency, day_of_week, is_prn } = req.body as any;
 
     // Fetch current state for history diff
     const [current] = await query<any>(
@@ -235,12 +243,15 @@ export default async function medicationsRoutes(app: FastifyInstance) {
            brand_name = COALESCE($12, brand_name),
            drug_class = COALESCE($13, drug_class),
            rxcui = COALESCE($14, rxcui),
-           alternative_brand_names = COALESCE($15, alternative_brand_names)
+           alternative_brand_names = COALESCE($15, alternative_brand_names),
+           frequency = COALESCE($16, frequency),
+           day_of_week = CASE WHEN $17::smallint IS NOT NULL THEN $17::smallint ELSE day_of_week END,
+           is_prn = COALESCE($18, is_prn)
        WHERE id = $9 AND user_id = $10`,
       [name ?? null, dosage ?? null, notes ?? null, purpose ?? null, refill_date ?? null,
        active ?? null, color_category_id ?? null, prescriber_id ?? null, id, user_id,
        generic_name ?? null, brand_name ?? null, drug_class ?? null, rxcui ?? null,
-       alternative_brand_names ?? null]
+       alternative_brand_names ?? null, frequency ?? null, day_of_week ?? null, is_prn ?? null]
     );
 
     // Write history entries for changed fields
