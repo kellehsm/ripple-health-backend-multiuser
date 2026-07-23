@@ -2,7 +2,7 @@ import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const APP_REDIRECT = "wellnessfresh://oauth";
+const APP_REDIRECT = "ripple://oauth";
 
 export default async function googleAuthRoutes(app: FastifyInstance) {
   // Called by Google after user authorizes — exchanges code, stores refresh token, redirects back to app.
