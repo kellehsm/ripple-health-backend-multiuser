@@ -19,40 +19,35 @@ export const SpendingVsExerciseRule: InsightRule = {
   minDays: 21,
 
   async run(userId: string): Promise<InsightResult | null> {
-    // Get all impulse spending days (excluding fixed categories) in last 60 days
-    const spendRows = await query<{ date: string; total: number }>(
-      `SELECT
-         logged_at::date::text AS date,
-         SUM(amount) AS total
-       FROM spending_entries
-       WHERE user_id = $1
-         AND logged_at >= CURRENT_DATE - 60
-         AND category NOT IN (${FIXED_CATEGORIES.map((_, i) => `$${i + 2}`).join(", ")})
-       GROUP BY logged_at::date
-       ORDER BY date DESC`,
+    const rows = await query<{ date: string; total: number; exercised: boolean }>(
+      `WITH spend AS (
+         SELECT
+           logged_at::date AS day,
+           SUM(amount) AS total
+         FROM spending_entries
+         WHERE user_id = $1
+           AND logged_at >= CURRENT_DATE - 60
+           AND category NOT IN (${FIXED_CATEGORIES.map((_, i) => `$${i + 2}`).join(", ")})
+         GROUP BY logged_at::date
+       ),
+       ex_days AS (
+         SELECT DISTINCT started_at::date AS day
+         FROM exercise_sessions
+         WHERE user_id = $1
+           AND started_at >= CURRENT_DATE - 60
+           AND ended_at IS NOT NULL
+       )
+       SELECT
+         s.day::text AS date,
+         s.total,
+         (ex.day IS NOT NULL) AS exercised
+       FROM spend s
+       LEFT JOIN ex_days ex ON ex.day = s.day
+       ORDER BY s.day DESC`,
       [userId, ...FIXED_CATEGORIES]
     );
 
-    if (spendRows.length < 21) return null;
-
-    // For each spending day, check if a completed exercise session exists on that date
-    const rows: Array<{ date: string; total: number; exercised: boolean }> = [];
-
-    for (const row of spendRows) {
-      const [exRow] = await query<{ cnt: string }>(
-        `SELECT COUNT(*) AS cnt
-         FROM exercise_sessions
-         WHERE user_id = $1
-           AND started_at::date = $2::date
-           AND ended_at IS NOT NULL`,
-        [userId, row.date]
-      );
-      rows.push({
-        date: row.date,
-        total: Number(row.total),
-        exercised: parseInt(exRow?.cnt ?? "0") > 0,
-      });
-    }
+    if (rows.length < 21) return null;
 
     const exerciseDays  = rows.filter(r => r.exercised);
     const noExerciseDays = rows.filter(r => !r.exercised);

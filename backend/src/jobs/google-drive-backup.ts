@@ -89,22 +89,28 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
   );
   const listData: any = await listRes.json();
   const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
-  for (const file of listData.files ?? []) {
-    if (new Date(file.createdTime).getTime() < cutoff) {
-      await fetch(`https://www.googleapis.com/drive/v3/files/${file.id}`, {
+  const toDelete = (listData.files ?? []).filter(
+    (f: any) => new Date(f.createdTime).getTime() < cutoff
+  );
+  await Promise.all(
+    toDelete.map((f: any) =>
+      fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${accessToken}` },
-      });
-    }
-  }
+      })
+    )
+  );
 
-  // Update last_backup timestamp
-  const rows2 = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [userId]);
-  const existing = rows2[0]?.settings ?? {};
+  // Update last_backup timestamp using jsonb_set to avoid a second SELECT
   await query(
-    `INSERT INTO user_settings (user_id, settings) VALUES ($1, $2::jsonb)
-     ON CONFLICT (user_id) DO UPDATE SET settings = $2::jsonb`,
-    [userId, JSON.stringify({ ...existing, google_drive: { ...existing.google_drive, last_backup: new Date().toISOString() } })]
+    `INSERT INTO user_settings (user_id, settings)
+     VALUES ($1, jsonb_build_object('google_drive', jsonb_build_object('last_backup', $2::text)))
+     ON CONFLICT (user_id) DO UPDATE
+     SET settings = jsonb_set(
+       jsonb_set(user_settings.settings, '{google_drive}', COALESCE(user_settings.settings->'google_drive', '{}'::jsonb), true),
+       '{google_drive,last_backup}', to_jsonb($2::text), true
+     )`,
+    [userId, new Date().toISOString()]
   );
 
   return filename;

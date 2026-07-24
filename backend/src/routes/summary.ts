@@ -76,11 +76,11 @@ export default async function summaryRoutes(app: FastifyInstance) {
           FROM spending_entries
           WHERE user_id = $1 AND logged_at >= CURRENT_DATE - INTERVAL '6 days'
           GROUP BY logged_at::date
-        )
-        SELECT d.day, d.total,
-          (SELECT AVG(total) FROM daily) AS avg_daily
-        FROM daily d
-        WHERE d.total > (SELECT AVG(total) FROM daily) * 2
+        ),
+        avg_daily AS (SELECT COALESCE(AVG(total), 0) AS val FROM daily)
+        SELECT d.day, d.total, a.val AS avg_daily
+        FROM daily d, avg_daily a
+        WHERE d.total > a.val * 2
         ORDER BY d.total DESC LIMIT 3`, [user_id]),
 
       query<any>(`
@@ -89,24 +89,16 @@ export default async function summaryRoutes(app: FastifyInstance) {
         WHERE user_id = $1 AND recorded_at >= NOW() - INTERVAL '7 days'`, [user_id]),
 
       query<any>(`
-        WITH m AS (SELECT id FROM metrics WHERE user_id = $1 AND name = 'steps')
         SELECT
-          COALESCE((
-            SELECT SUM(dmax) FROM (
-              SELECT MAX(value) AS dmax FROM metric_logs
-              WHERE metric_id = (SELECT id FROM m) AND logged_at::date >= CURRENT_DATE - 6
-              GROUP BY logged_at::date
-            ) t
-          ), 0) AS this_week,
-          COALESCE((
-            SELECT SUM(dmax) FROM (
-              SELECT MAX(value) AS dmax FROM metric_logs
-              WHERE metric_id = (SELECT id FROM m)
-                AND logged_at::date >= CURRENT_DATE - 13
-                AND logged_at::date < CURRENT_DATE - 6
-              GROUP BY logged_at::date
-            ) t
-          ), 0) AS last_week`, [user_id]),
+          COALESCE(SUM(CASE WHEN logged_at::date >= CURRENT_DATE - 6 THEN max_val ELSE 0 END), 0) AS this_week,
+          COALESCE(SUM(CASE WHEN logged_at::date < CURRENT_DATE - 6 THEN max_val ELSE 0 END), 0) AS last_week
+        FROM (
+          SELECT logged_at::date, MAX(value) AS max_val
+          FROM metric_logs
+          WHERE metric_id = (SELECT id FROM metrics WHERE user_id = $1 AND name = 'steps')
+            AND logged_at::date >= CURRENT_DATE - 13
+          GROUP BY logged_at::date
+        ) daily`, [user_id]),
 
       query<any>(`
         SELECT
