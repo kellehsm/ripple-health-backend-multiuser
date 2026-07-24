@@ -239,26 +239,18 @@ export default async function summaryRoutes(app: FastifyInstance) {
   app.get("/streaks", async (req) => {
     const user_id = req.user_id;
 
-    const mealDays = await query<any>(
-      `SELECT DISTINCT logged_at::date AS day FROM meals
-       WHERE user_id = $1 AND logged_at >= current_date - 90
-       ORDER BY day DESC`,
-      [user_id]
-    );
-
-    const days = mealDays.map((r: any) =>
-      r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10)
-    );
-
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-
-    let mealStreak = 0;
-    if (days.length > 0 && (days[0] === today || days[0] === yesterday)) {
+    function calcStreak(rawDays: any[]): number {
+      const days = rawDays.map((r: any) =>
+        r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10)
+      );
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      if (days.length === 0 || (days[0] !== today && days[0] !== yesterday)) return 0;
+      let streak = 0;
       let expected = days[0];
       for (const day of days) {
         if (day === expected) {
-          mealStreak++;
+          streak++;
           const d = new Date(expected + "T12:00:00");
           d.setDate(d.getDate() - 1);
           expected = d.toISOString().slice(0, 10);
@@ -266,9 +258,52 @@ export default async function summaryRoutes(app: FastifyInstance) {
           break;
         }
       }
+      return streak;
     }
 
-    return { meal_streak: mealStreak };
+    const [mealDays, moodDays, stepsDays, exerciseDays, readingDays] = await Promise.all([
+      query<any>(
+        `SELECT DISTINCT logged_at::date AS day FROM meals
+         WHERE user_id = $1 AND logged_at >= current_date - 90
+         ORDER BY day DESC`,
+        [user_id]
+      ),
+      query<any>(
+        `SELECT DISTINCT logged_at::date AS day FROM journal_entries
+         WHERE user_id = $1 AND logged_at >= current_date - 90
+         ORDER BY day DESC`,
+        [user_id]
+      ),
+      query<any>(
+        `SELECT DISTINCT ml.logged_at::date AS day
+         FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
+         WHERE m.user_id = $1 AND m.name = 'steps' AND ml.value > 0
+           AND ml.logged_at >= current_date - 90
+         ORDER BY day DESC`,
+        [user_id]
+      ),
+      query<any>(
+        `SELECT DISTINCT started_at::date AS day FROM exercise_sessions
+         WHERE user_id = $1 AND ended_at IS NOT NULL
+           AND started_at >= current_date - 90
+         ORDER BY day DESC`,
+        [user_id]
+      ),
+      query<any>(
+        `SELECT DISTINCT logged_at::date AS day FROM reading_logs
+         WHERE user_id = $1 AND logged_at >= current_date - 90
+         ORDER BY day DESC`,
+        [user_id]
+      ),
+    ]);
+
+    return {
+      meal_streak:     calcStreak(mealDays),
+      mood_streak:     calcStreak(moodDays),
+      steps_streak:    calcStreak(stepsDays),
+      exercise_streak: calcStreak(exerciseDays),
+      reading_streak:  calcStreak(readingDays),
+    };
   });
 
   // Combined day view: glucose readings + all events for the glucose overlay chart.
