@@ -347,6 +347,112 @@ export default async function friendsRoutes(app: FastifyInstance) {
     return result;
   });
 
+  // POST /nudge/:friendId — poke a friend (24h rate-limit)
+  app.post("/nudge/:friendId", async (req, reply) => {
+    const me = req.user_id;
+    const { friendId } = req.params as any;
+
+    const friendship = await query<any>(
+      `SELECT id FROM friend_connections
+       WHERE (user_id_a = $1 AND user_id_b = $2) OR (user_id_a = $2 AND user_id_b = $1)
+         AND status = 'accepted'`,
+      [me, friendId]
+    );
+    if (!friendship[0]) {
+      return reply.status(403).send({ error: "Not friends" });
+    }
+
+    const recent = await query<any>(
+      `SELECT id FROM friend_nudges
+       WHERE sender_id = $1 AND recipient_id = $2 AND sent_at > NOW() - INTERVAL '24 hours'`,
+      [me, friendId]
+    );
+    if (recent[0]) {
+      return reply.status(429).send({ error: "Already nudged recently" });
+    }
+
+    await query(
+      `INSERT INTO friend_nudges (sender_id, recipient_id) VALUES ($1, $2)`,
+      [me, friendId]
+    );
+    return { ok: true };
+  });
+
+  // GET /nudges — nudges received in the last 7 days
+  app.get("/nudges", async (req) => {
+    const me = req.user_id;
+    const rows = await query<any>(
+      `SELECT fn.sender_id, u.username AS display_name, fn.sent_at
+       FROM friend_nudges fn
+       JOIN users u ON u.id = fn.sender_id
+       WHERE fn.recipient_id = $1 AND fn.sent_at > NOW() - INTERVAL '7 days'
+       ORDER BY fn.sent_at DESC`,
+      [me]
+    );
+    return rows;
+  });
+
+  // GET /reactions — reactions for a category + week scoped to friend group
+  app.get("/reactions", async (req, reply) => {
+    const me = req.user_id;
+    const { category, weekStart } = req.query as any;
+    if (!ALLOWED_CATEGORIES.has(category)) {
+      return reply.status(400).send({ error: "invalid category" });
+    }
+    if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+      return reply.status(400).send({ error: "weekStart must be YYYY-MM-DD" });
+    }
+
+    const friendIds = await query<any>(
+      `SELECT CASE WHEN fc.user_id_a = $1 THEN fc.user_id_b ELSE fc.user_id_a END AS friend_id
+       FROM friend_connections fc
+       WHERE (fc.user_id_a = $1 OR fc.user_id_b = $1) AND fc.status = 'accepted'`,
+      [me]
+    );
+    const eligibleIds = [me, ...friendIds.map((r: any) => r.friend_id)];
+
+    const rows = await query<any>(
+      `SELECT lr.from_user_id, lr.to_user_id, lr.emoji
+       FROM leaderboard_reactions lr
+       WHERE lr.category = $1 AND lr.week_start = $2
+         AND lr.from_user_id = ANY($3::uuid[])
+         AND lr.to_user_id = ANY($3::uuid[])`,
+      [category, weekStart, eligibleIds]
+    );
+    return rows;
+  });
+
+  // POST /reactions — upsert a reaction (one per from→to per category per week)
+  app.post("/reactions", async (req, reply) => {
+    const me = req.user_id;
+    const { to_user_id, category, emoji, week_start } = req.body as any;
+
+    if (!ALLOWED_CATEGORIES.has(category)) {
+      return reply.status(400).send({ error: "invalid category" });
+    }
+    if (to_user_id === me) {
+      return reply.status(400).send({ error: "Cannot react to yourself" });
+    }
+
+    const friendship = await query<any>(
+      `SELECT id FROM friend_connections
+       WHERE ((user_id_a = $1 AND user_id_b = $2) OR (user_id_a = $2 AND user_id_b = $1))
+         AND status = 'accepted'`,
+      [me, to_user_id]
+    );
+    if (!friendship[0]) {
+      return reply.status(403).send({ error: "Not friends" });
+    }
+
+    await query(
+      `INSERT INTO leaderboard_reactions (from_user_id, to_user_id, category, emoji, week_start)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (from_user_id, to_user_id, category, week_start) DO UPDATE SET emoji = $4`,
+      [me, to_user_id, category, emoji, week_start]
+    );
+    return { ok: true };
+  });
+
   // PATCH /username — set my username
   app.patch("/username", async (req, reply) => {
     const me = req.user_id;
