@@ -69,7 +69,14 @@ export default async function journalRoutes(app: FastifyInstance) {
           WHERE user_id = $1 AND end_time::date = d::date) AS sleep_hours,
          (SELECT COALESCE(SUM(amount), 0)
           FROM spending_entries
-          WHERE user_id = $1 AND logged_at::date = d::date) AS total_spent
+          WHERE user_id = $1 AND logged_at::date = d::date) AS total_spent,
+         (SELECT COALESCE(MAX(ml.value), 0)
+          FROM metric_logs ml
+          JOIN metrics m ON m.id = ml.metric_id
+          WHERE m.user_id = $1 AND m.name = 'steps' AND ml.logged_at::date = d::date) AS steps,
+         (SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60.0), 0)
+          FROM exercise_sessions
+          WHERE user_id = $1 AND ended_at IS NOT NULL AND started_at::date = d::date) AS exercise_minutes
        FROM generate_series(
          current_date - ($2 - 1) * interval '1 day',
          current_date,
@@ -83,6 +90,8 @@ export default async function journalRoutes(app: FastifyInstance) {
       avg_mood: r.avg_mood !== null ? Number(Number(r.avg_mood).toFixed(1)) : null,
       sleep_hours: Number(Number(r.sleep_hours).toFixed(1)),
       total_spent: Number(Number(r.total_spent).toFixed(2)),
+      steps: Number(r.steps),
+      exercise_minutes: Number(Number(r.exercise_minutes).toFixed(0)),
     }));
   });
 }

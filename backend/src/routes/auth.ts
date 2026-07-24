@@ -144,8 +144,8 @@ export default async function authRoutes(app: FastifyInstance) {
     "/me",
     { preHandler: [(req, reply) => import("../middleware/auth.js").then(m => m.requireAuth(req, reply))] },
     async (req) => {
-      const rows = await query<{ id: string; email: string; onboarding_completed: boolean }>(
-        "SELECT id, email, onboarding_completed FROM users WHERE id = $1",
+      const rows = await query<{ id: string; email: string; username: string | null; onboarding_completed: boolean }>(
+        "SELECT id, email, username, onboarding_completed FROM users WHERE id = $1",
         [req.user_id]
       );
       return rows[0] ?? null;

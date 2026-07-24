@@ -43,6 +43,9 @@ import errorReportsRoutes from "./routes/error-reports.js";
 import authRoutes from "./routes/auth.js";
 import dexcomVerifyRoutes from "./routes/dexcom-verify.js";
 import plaidRoutes from "./routes/plaid.js";
+import friendsRoutes from "./routes/friends.js";
+import challengesRoutes from "./routes/challenges.js";
+import socialNotificationsRoutes from "./routes/social-notifications.js";
 import { requireAuth } from "./middleware/auth.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
@@ -116,6 +119,9 @@ async function main() {
   await app.register(mindfulnessRoutes, { prefix: "/api/mindfulness" });
   await app.register(errorReportsRoutes, { prefix: "/api/errors" });
   await app.register(experimentsRoutes, { prefix: "/api/experiments" });
+  await app.register(friendsRoutes, { prefix: "/api/friends" });
+  await app.register(challengesRoutes, { prefix: "/api/challenges" });
+  await app.register(socialNotificationsRoutes, { prefix: "/api/social-notifications" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });

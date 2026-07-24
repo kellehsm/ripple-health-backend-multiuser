@@ -7,39 +7,28 @@ export const RestingHRVsExerciseRule: InsightRule = {
   minDays: 30,
 
   async run(userId: string): Promise<InsightResult | null> {
-    // Get daily resting HR proxy (MIN bpm per day) for last 60 days
-    const hrRows = await query<{ date: string; resting_hr: number }>(
-      `SELECT
-         DATE(recorded_at)::text AS date,
-         MIN(bpm) AS resting_hr
-       FROM heart_rate_readings
-       WHERE user_id = $1
-         AND recorded_at >= CURRENT_DATE - 60
-       GROUP BY DATE(recorded_at)
+    const rows = await query<{ date: string; resting_hr: number; exercised: boolean }>(
+      `WITH ex_days AS (
+         SELECT DISTINCT DATE(started_at) AS day
+         FROM exercise_sessions
+         WHERE user_id = $1
+           AND started_at >= CURRENT_DATE - 60
+           AND ended_at IS NOT NULL
+       )
+       SELECT
+         DATE(hr.recorded_at)::text AS date,
+         MIN(hr.bpm) AS resting_hr,
+         BOOL_OR(ex.day IS NOT NULL) AS exercised
+       FROM heart_rate_readings hr
+       LEFT JOIN ex_days ex ON ex.day = DATE(hr.recorded_at)
+       WHERE hr.user_id = $1
+         AND hr.recorded_at >= CURRENT_DATE - 60
+       GROUP BY DATE(hr.recorded_at)
        ORDER BY date DESC`,
       [userId]
     );
 
-    if (hrRows.length < 12) return null;
-
-    // For each HR day, check whether a completed exercise session exists on that date
-    const rows: Array<{ date: string; resting_hr: number; exercised: boolean }> = [];
-
-    for (const row of hrRows) {
-      const [exRow] = await query<{ cnt: string }>(
-        `SELECT COUNT(*) AS cnt
-         FROM exercise_sessions
-         WHERE user_id = $1
-           AND DATE(started_at) = $2::date
-           AND ended_at IS NOT NULL`,
-        [userId, row.date]
-      );
-      rows.push({
-        date: row.date,
-        resting_hr: Number(row.resting_hr),
-        exercised: parseInt(exRow?.cnt ?? "0") > 0,
-      });
-    }
+    if (rows.length < 12) return null;
 
     const exerciseDays   = rows.filter(r => r.exercised);
     const noExerciseDays = rows.filter(r => !r.exercised);

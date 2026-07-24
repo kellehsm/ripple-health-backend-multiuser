@@ -128,6 +128,85 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     }
   );
 
+  app.get("/cross-metric", async (req) => {
+    const user_id = req.user_id;
+
+    const rows = await query<{
+      d: string;
+      did_exercise: boolean;
+      sleep_secs: string | null;
+      avg_glucose: string | null;
+    }>(
+      `WITH date_range AS (
+         SELECT generate_series(
+           (CURRENT_DATE - INTERVAL '60 days')::date,
+           (CURRENT_DATE - INTERVAL '1 day')::date,
+           INTERVAL '1 day'
+         )::date AS d
+       ),
+       ex_days AS (
+         SELECT DISTINCT logged_at::date AS d
+         FROM exercise_log_entries
+         WHERE user_id = $1
+           AND logged_at >= NOW() - INTERVAL '60 days'
+       ),
+       sleep_by_day AS (
+         SELECT
+           start_time::date AS d,
+           EXTRACT(EPOCH FROM (end_time - start_time)) AS sleep_secs
+         FROM sleep_sessions
+         WHERE user_id = $1
+           AND start_time >= NOW() - INTERVAL '61 days'
+       ),
+       gluc_by_day AS (
+         SELECT
+           recorded_at::date AS d,
+           AVG(mg_dl) AS avg_glucose
+         FROM glucose_readings
+         WHERE user_id = $1
+           AND recorded_at >= NOW() - INTERVAL '60 days'
+         GROUP BY recorded_at::date
+       )
+       SELECT
+         dr.d,
+         ex.d IS NOT NULL AS did_exercise,
+         sl.sleep_secs,
+         g.avg_glucose
+       FROM date_range dr
+       LEFT JOIN ex_days ex ON ex.d = dr.d
+       LEFT JOIN sleep_by_day sl ON sl.d = dr.d
+       LEFT JOIN gluc_by_day g ON g.d = dr.d
+       WHERE g.avg_glucose IS NOT NULL`,
+      [user_id]
+    );
+
+    const avg = (arr: typeof rows) =>
+      arr.length
+        ? Math.round(arr.reduce((s, r) => s + Number(r.avg_glucose), 0) / arr.length)
+        : null;
+
+    const withEx    = rows.filter(r => r.did_exercise);
+    const noEx      = rows.filter(r => !r.did_exercise);
+    const goodSleep = rows.filter(r => r.sleep_secs != null && Number(r.sleep_secs) >= 7 * 3600);
+    const poorSleep = rows.filter(r => r.sleep_secs != null && Number(r.sleep_secs) > 0 && Number(r.sleep_secs) < 7 * 3600);
+
+    return {
+      exercise: {
+        with_avg: avg(withEx),
+        without_avg: avg(noEx),
+        with_count: withEx.length,
+        without_count: noEx.length,
+      },
+      sleep: {
+        good_avg: avg(goodSleep),
+        poor_avg: avg(poorSleep),
+        good_count: goodSleep.length,
+        poor_count: poorSleep.length,
+      },
+      total_days: rows.length,
+    };
+  });
+
   app.get("/journey", async (req) => {
     const user_id = req.user_id;
 
