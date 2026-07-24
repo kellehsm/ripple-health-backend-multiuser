@@ -31,7 +31,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
   app.get("/weekly-digest", async (req) => {
     const user_id = req.user_id;
 
-    const [glucoseRows, highCarbRows, missingDayRows, spendingRows, hrRows, stepsRows, hobbiesRows] = await Promise.all([
+    const [glucoseRows, highCarbRows, missingDayRows, spendingRows, hrRows, stepsRows, hobbiesRows, exerciseRows, booksRows, moodRows] = await Promise.all([
       query<any>(`
         SELECT
           CASE
@@ -107,6 +107,25 @@ export default async function summaryRoutes(app: FastifyInstance) {
         FROM hobby_logs hl
         JOIN hobbies h ON h.id = hl.hobby_id
         WHERE h.user_id = $1`, [user_id]),
+
+      query<any>(`
+        SELECT
+          COUNT(*) FILTER (WHERE ended_at IS NOT NULL) AS sessions_this_week,
+          COALESCE(SUM(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60.0) FILTER (WHERE ended_at IS NOT NULL), 0) AS total_minutes
+        FROM exercise_sessions
+        WHERE user_id = $1 AND started_at >= NOW() - INTERVAL '7 days'`, [user_id]),
+
+      query<any>(`
+        SELECT COUNT(*) AS finished_this_month
+        FROM books
+        WHERE user_id = $1 AND status = 'finished'
+          AND finished_at >= date_trunc('month', CURRENT_DATE)`, [user_id]),
+
+      query<any>(`
+        SELECT ROUND(AVG(mood_score), 1) AS avg_mood
+        FROM journal_entries
+        WHERE user_id = $1 AND logged_at >= NOW() - INTERVAL '7 days'
+          AND entry_type != 'moment'`, [user_id]),
     ]);
 
     const glucoseByTod: Record<string, { avg: number; count: number }> = {};
@@ -152,6 +171,16 @@ export default async function summaryRoutes(app: FastifyInstance) {
       hobbies: {
         this_week_sessions: Number(hobbiesRows[0]?.this_week_sessions ?? 0),
         last_week_sessions: Number(hobbiesRows[0]?.last_week_sessions ?? 0),
+      },
+      exercise: {
+        sessions_this_week: Number(exerciseRows[0]?.sessions_this_week ?? 0),
+        total_minutes_this_week: Math.round(Number(exerciseRows[0]?.total_minutes ?? 0)),
+      },
+      books: {
+        finished_this_month: Number(booksRows[0]?.finished_this_month ?? 0),
+      },
+      mood: {
+        avg_this_week: moodRows[0]?.avg_mood != null ? Number(moodRows[0].avg_mood) : null,
       },
     };
   });
