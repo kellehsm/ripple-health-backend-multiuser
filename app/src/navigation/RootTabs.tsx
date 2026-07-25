@@ -5,12 +5,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
+import { fonts } from "../theme/typography";
 import { OverviewScreen } from "../screens/OverviewScreen";
 import { HealthScreen } from "../screens/HealthScreen";
 import { FinanceScreen } from "../screens/FinanceScreen";
 import { LifeScreen } from "../screens/LifeScreen";
 import { MealsScreen } from "../screens/MealsScreen";
+import { MedCycleScreen } from "../screens/MedCycleScreen";
 import { useTheme } from "../theme/ThemeContext";
+import { useFeatures } from "../context/FeaturesContext";
 import { RootStackParamList } from "./types";
 
 const Tab = createBottomTabNavigator();
@@ -19,6 +22,8 @@ const TAB_HEIGHT = 58;
 const CIRCLE_SIZE = 52;
 const LIFT = 18;
 
+const PURPLE = "#9B59B6";
+
 type TabConfig = {
   icon: keyof typeof Ionicons.glyphMap;
   tint: (theme: ReturnType<typeof useTheme>["theme"]) => string;
@@ -26,16 +31,29 @@ type TabConfig = {
   isCenter?: boolean;
 };
 
-const TAB_CONFIGS: Record<string, TabConfig> = {
-  Health:  { icon: "heart",      tint: (t) => t.red.sub,   label: "Health" },
-  Meals:   { icon: "restaurant", tint: (t) => t.amber.sub, label: "Meals" },
-  Home:    { icon: "home",       tint: () => "#ffffff",     label: "Home", isCenter: true },
-  Life:    { icon: "book",       tint: (t) => t.teal.sub,  label: "Life" },
-  Finance: { icon: "wallet",     tint: (t) => t.brown.sub, label: "Finance" },
-};
+function useMedCycleConfig(medsEnabled: boolean, cycleEnabled: boolean): TabConfig {
+  if (medsEnabled && cycleEnabled) {
+    return { icon: "heart", tint: () => PURPLE, label: "Med/Cycle" };
+  }
+  if (medsEnabled) {
+    return { icon: "medical", tint: (t) => t.pink.sub, label: "Meds" };
+  }
+  return { icon: "sync-circle", tint: (t) => t.pink.sub, label: "Cycle" };
+}
 
 function CustomTabBar({ state, navigation, insets }: BottomTabBarProps) {
   const { theme, toggle, mode } = useTheme();
+  const { medsEnabled, cycleEnabled } = useFeatures();
+  const medCycleConfig = useMedCycleConfig(medsEnabled, cycleEnabled);
+
+  const TAB_CONFIGS: Record<string, TabConfig> = {
+    Health:   { icon: "heart",      tint: (t) => t.red.sub,   label: "Health" },
+    Meals:    { icon: "restaurant", tint: (t) => t.amber.sub, label: "Meals" },
+    Home:     { icon: "home",       tint: () => "#ffffff",     label: "Home", isCenter: true },
+    Life:     { icon: "book",       tint: (t) => t.teal.sub,  label: "Life" },
+    Finance:  { icon: "wallet",     tint: (t) => t.brown.sub, label: "Finance" },
+    MedCycle: medCycleConfig,
+  };
 
   return (
     <View
@@ -96,7 +114,7 @@ function CustomTabBar({ state, navigation, insets }: BottomTabBarProps) {
               ) : (
                 <>
                   <Ionicons name={cfg.icon} size={22} color={iconColor} />
-                  <Text style={{ fontSize: 10, color: iconColor, marginTop: 3 }}>{cfg.label}</Text>
+                  <Text style={{ fontSize: 10, color: iconColor, marginTop: 3, fontFamily: fonts.medium }}>{cfg.label}</Text>
                 </>
               )}
             </Pressable>
@@ -131,6 +149,12 @@ function SettingsHeaderButton() {
 
 export function RootTabs() {
   const { theme } = useTheme();
+  const { medsEnabled, cycleEnabled, featuresLoaded } = useFeatures();
+  const showMedCycle = featuresLoaded && (medsEnabled || cycleEnabled);
+
+  const medCycleTitle = medsEnabled && cycleEnabled ? "Med / Cycle"
+    : medsEnabled ? "Medications"
+    : "Cycle";
 
   return (
     <Tab.Navigator
@@ -150,6 +174,13 @@ export function RootTabs() {
       />
       <Tab.Screen name="Life" component={LifeScreen} options={{ title: "Reading & Habits" }} />
       <Tab.Screen name="Finance" component={FinanceScreen} />
+      {showMedCycle && (
+        <Tab.Screen
+          name="MedCycle"
+          component={MedCycleScreen}
+          options={{ title: medCycleTitle }}
+        />
+      )}
     </Tab.Navigator>
   );
 }

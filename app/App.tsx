@@ -1,16 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from "@expo-google-fonts/nunito";
 import { ThemeProvider } from "./src/theme/ThemeContext";
+import { FeaturesProvider } from "./src/context/FeaturesContext";
 import { RootStack } from "./src/navigation/RootStack";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
+import { LoadingScreen } from "./src/components/LoadingScreen";
 import { logAppOpen } from "./src/services/adaptiveTimingService";
 import { ErrorBoundary } from "./src/components/ErrorBoundary";
+import { useTheme } from "./src/theme/ThemeContext";
+import { useFeatures } from "./src/context/FeaturesContext";
 
 const ONBOARDING_KEY = "ripple:onboarding_complete";
 
-export default function App() {
-  const [loading, setLoading] = useState(true);
+function AppContent({ fontsLoaded }: { fontsLoaded: boolean }) {
+  const { themeReady } = useTheme();
+  const { featuresLoaded } = useFeatures();
+  const [appLoading, setAppLoading] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState(false);
 
   useEffect(() => {
@@ -20,22 +27,36 @@ export default function App() {
         logAppOpen(),
       ]);
       setOnboardingDone(done === "true");
-      setLoading(false);
+      setAppLoading(false);
     }
     init();
   }, []);
 
-  if (loading) return null;
+  if (!fontsLoaded || !themeReady || !featuresLoaded || appLoading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <>
+      <StatusBar style="auto" />
+      {onboardingDone ? (
+        <RootStack />
+      ) : (
+        <OnboardingScreen onComplete={() => setOnboardingDone(true)} />
+      )}
+    </>
+  );
+}
+
+export default function App() {
+  const [fontsLoaded] = useFonts({ Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold });
 
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <StatusBar style="auto" />
-        {onboardingDone ? (
-          <RootStack />
-        ) : (
-          <OnboardingScreen onComplete={() => setOnboardingDone(true)} />
-        )}
+        <FeaturesProvider>
+          <AppContent fontsLoaded={!!fontsLoaded} />
+        </FeaturesProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

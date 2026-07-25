@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/typography";
 import {
   requestNotificationPermission,
   getNotificationPermissionStatus,
@@ -242,8 +243,8 @@ export function NotificationsScreen() {
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 14 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: "600" },
+  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  sectionTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
   badge: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -251,14 +252,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
-  badgeText: { fontSize: 13, flex: 1 },
+  badgeText: { fontSize: 13, flex: 1, fontFamily: fonts.regular },
   btn: { borderRadius: 10, paddingVertical: 11, alignItems: "center" },
-  btnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  btnText: { color: "#fff", fontSize: 14, fontWeight: "600", fontFamily: fonts.semiBold },
   modeOption: { borderRadius: 12, borderWidth: 1.5, padding: 14, gap: 6 },
   modeHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-  modeTitle: { fontSize: 15, fontWeight: "600" },
-  modeBody: { fontSize: 13, lineHeight: 18, paddingLeft: 30 },
-  adaptiveNote: { fontSize: 12 },
+  modeTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
+  modeBody: { fontSize: 13, lineHeight: 18, paddingLeft: 30, fontFamily: fonts.regular },
+  adaptiveNote: { fontSize: 12, fontFamily: fonts.regular },
   timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   timeCell: {
     borderRadius: 10,
@@ -268,6 +269,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: 70,
   },
-  timeCellLabel: { fontSize: 11 },
-  timeCellValue: { fontSize: 15, fontWeight: "600" },
+  timeCellLabel: { fontSize: 11, fontFamily: fonts.regular },
+  timeCellValue: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
 });

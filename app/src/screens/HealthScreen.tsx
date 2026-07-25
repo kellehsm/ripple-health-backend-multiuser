@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import Svg, { Line, Polyline, Text as SvgText } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
+import { fonts } from "../theme/typography";
 import { MetricCard } from "../components/MetricCard";
 import { api } from "../api/client";
 
@@ -64,7 +65,7 @@ export function HealthScreen() {
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
       <View style={styles.grid}>
         <MetricCard label="Steps" value="8,412" icon="walk" colorKey="teal" />
-        <MetricCard label="Sleep" value="7h 12m" icon="moon" colorKey="amber" />
+        <MetricCard label="Sleep" value="7h 12m" icon="moon" colorKey="amber" sublabel="−48m debt" />
         <MetricCard label="Water" value="5 / 8" icon="water" colorKey="blue" />
         <MetricCard label="Heart rate" value="68 bpm" icon="pulse" colorKey="red" />
       </View>
@@ -170,8 +171,18 @@ export function HealthScreen() {
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, marginTop: 4 },
-  cardTitle: { fontSize: 14, fontWeight: "500", marginBottom: 10 },
+  card: {
+    borderRadius: 14,
+    borderWidth: 0.5,
+    padding: 16,
+    marginTop: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cardTitle: { fontSize: 14, fontWeight: "500", marginBottom: 10, fontFamily: fonts.medium },
 
   readingBox: {
     borderRadius: 14,
@@ -183,11 +194,11 @@ const styles = StyleSheet.create({
   },
   readingLeft: { flex: 1 },
   readingValueRow: { flexDirection: "row", alignItems: "baseline", gap: 2 },
-  readingValue: { fontSize: 28, fontWeight: "500" },
-  readingUnit: { fontSize: 13 },
-  trendArrow: { fontSize: 20, marginLeft: 4 },
-  readingAgo: { fontSize: 11, marginTop: 3 },
-  readingDelta: { fontSize: 13, fontWeight: "500" },
+  readingValue: { fontSize: 28, fontWeight: "500", fontFamily: fonts.medium },
+  readingUnit: { fontSize: 13, fontFamily: fonts.regular },
+  trendArrow: { fontSize: 20, marginLeft: 4, fontFamily: fonts.regular },
+  readingAgo: { fontSize: 11, marginTop: 5, fontFamily: fonts.regular },
+  readingDelta: { fontSize: 13, fontWeight: "500", fontFamily: fonts.medium },
 
   chartContainer: { width: "100%", marginTop: 4 },
 });

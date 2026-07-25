@@ -8,4 +8,5 @@ export type RootStackParamList = {
   SettingsDataBackup: undefined;
   SettingsPrivacySecurity: undefined;
   SettingsHelpAbout: undefined;
+  SettingsFeatures: undefined;
 };

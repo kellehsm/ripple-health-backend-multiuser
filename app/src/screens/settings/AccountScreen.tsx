@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/typography";
 
 const ONBOARDING_KEY = "ripple:onboarding_complete";
 
@@ -81,11 +82,11 @@ export function AccountScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 14 },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: "600" },
+  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  sectionTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
   infoRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  infoLabel: { fontSize: 14 },
-  infoValue: { fontSize: 14, fontWeight: "500" },
+  infoLabel: { fontSize: 14, fontFamily: fonts.regular },
+  infoValue: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
   actionBtn: { borderRadius: 10, borderWidth: 1, padding: 14, alignItems: "center" },
-  actionBtnText: { fontSize: 15, fontWeight: "500" },
+  actionBtnText: { fontSize: 15, fontWeight: "500", fontFamily: fonts.medium },
 });
