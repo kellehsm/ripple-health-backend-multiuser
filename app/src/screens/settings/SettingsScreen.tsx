@@ -134,5 +134,5 @@ const styles = StyleSheet.create({
   },
   rowText: { flex: 1 },
   rowLabel: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
-  rowSubtitle: { fontSize: 12, marginTop: 4, fontFamily: fonts.regular },
+  rowSubtitle: { fontSize: 12, marginTop: 4, lineHeight: 18, fontFamily: fonts.regular },
 });

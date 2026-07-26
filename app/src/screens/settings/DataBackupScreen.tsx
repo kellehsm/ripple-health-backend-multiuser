@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   },
   switchText: { flex: 1, paddingRight: 8 },
   switchLabel: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
-  switchSub: { fontSize: 12, marginTop: 2, fontFamily: fonts.regular },
+  switchSub: { fontSize: 12, marginTop: 2, lineHeight: 18, fontFamily: fonts.regular },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   btnText: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
-  note: { fontSize: 13, fontFamily: fonts.regular },
+  note: { fontSize: 13, lineHeight: 19, fontFamily: fonts.regular },
   weekRow: { flexDirection: "row", gap: 10 },
   weekOption: {
     borderRadius: 10,

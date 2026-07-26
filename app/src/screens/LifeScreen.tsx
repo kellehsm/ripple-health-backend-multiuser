@@ -9,6 +9,7 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
 import { fonts } from "../theme/typography";
 import { api } from "../api/client";
@@ -64,6 +65,7 @@ export function LifeScreen() {
 
   async function handleLogPages(bookId: string, pages: number) {
     if (pages <= 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await api.logPages(bookId, pages);
       const p: Progress = await api.bookProgress(bookId);
@@ -83,6 +85,7 @@ export function LifeScreen() {
 
   async function handleUpdateChapter(bookId: string, chapter: number) {
     if (chapter <= 0) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       const updated: Book = await api.updateBook(bookId, { current_chapter: chapter });
       setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, current_chapter: updated.current_chapter } : b)));
@@ -267,7 +270,10 @@ export function LifeScreen() {
             style={[styles.input, { borderColor: theme.cardBorder, color: theme.textStrong }]}
             placeholderTextColor={theme.textSoft}
           />
-          <Pressable style={[styles.addButton, { backgroundColor: theme.teal.bar }]}>
+          <Pressable
+            style={[styles.addButton, { backgroundColor: theme.teal.bar }]}
+            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
+          >
             <Text style={{ color: "#fff", fontWeight: "600", fontFamily: fonts.semiBold }}>Add</Text>
           </Pressable>
         </View>
