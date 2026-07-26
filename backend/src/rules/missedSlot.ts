@@ -39,8 +39,8 @@ export const MissedSlotRule: InsightRule = {
     const slot = top.tod;
 
     return {
-      title: `${slot.charAt(0).toUpperCase() + slot.slice(1)} dose missed ${count} of the last 7 days`,
-      description: `Your ${slot} dose has been missed ${count} of the last 7 days. Setting a reminder for that time may help.`,
+      title: `You've missed a dose`,
+      description: `Your ${slot === "custom" ? "scheduled" : slot} dose was skipped ${count} of the last 7 days. A reminder at that time might help.`,
       confidence: "moderate",
       confidenceScore: 50,
       timesObserved: count,

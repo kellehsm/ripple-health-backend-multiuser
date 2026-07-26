@@ -347,6 +347,223 @@ export default async function friendsRoutes(app: FastifyInstance) {
     return result;
   });
 
+  // GET /activity-feed — friends' recent streak milestones for shared categories
+  app.get("/activity-feed", async (req) => {
+    const me = req.user_id;
+
+    // Friends who share at least one category
+    const friendRows = await query<any>(
+      `SELECT
+         CASE WHEN fc.user_id_a = $1 THEN fc.user_id_b ELSE fc.user_id_a END AS friend_id,
+         u.username, u.email,
+         COALESCE(sp.share_steps,    false) AS share_steps,
+         COALESCE(sp.share_exercise, false) AS share_exercise,
+         COALESCE(sp.share_books,    false) AS share_books
+       FROM friend_connections fc
+       JOIN users u ON u.id = CASE WHEN fc.user_id_a = $1 THEN fc.user_id_b ELSE fc.user_id_a END
+       LEFT JOIN friend_sharing_prefs sp ON sp.user_id = u.id
+       WHERE (fc.user_id_a = $1 OR fc.user_id_b = $1) AND fc.status = 'accepted'`,
+      [me]
+    );
+
+    const eligible = friendRows.filter(
+      (r: any) => r.share_steps || r.share_exercise || r.share_books
+    );
+    if (eligible.length === 0) return [];
+
+    const friendIds = eligible.map((r: any) => r.friend_id);
+
+    function calcStreak(days: string[]): number {
+      if (days.length === 0) return 0;
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      if (days[0] !== today && days[0] !== yesterday) return 0;
+      let streak = 0;
+      let expected = days[0];
+      for (const day of days) {
+        if (day === expected) {
+          streak++;
+          const d = new Date(expected + "T12:00:00");
+          d.setDate(d.getDate() - 1);
+          expected = d.toISOString().slice(0, 10);
+        } else break;
+      }
+      return streak;
+    }
+
+    const [stepsDays, exerciseDays, readingDays] = await Promise.all([
+      query<any>(
+        `SELECT m.user_id, ml.logged_at::date AS day
+         FROM metrics m JOIN metric_logs ml ON ml.metric_id = m.id
+         WHERE m.name = 'steps' AND m.user_id = ANY($1::uuid[]) AND ml.value > 0
+           AND ml.logged_at >= current_date - 30
+         ORDER BY m.user_id, day DESC`,
+        [friendIds]
+      ),
+      query<any>(
+        `SELECT user_id, started_at::date AS day FROM exercise_sessions
+         WHERE user_id = ANY($1::uuid[]) AND ended_at IS NOT NULL
+           AND started_at >= current_date - 30
+         ORDER BY user_id, day DESC`,
+        [friendIds]
+      ),
+      query<any>(
+        `SELECT user_id, logged_at::date AS day FROM reading_logs
+         WHERE user_id = ANY($1::uuid[]) AND logged_at >= current_date - 30
+         ORDER BY user_id, day DESC`,
+        [friendIds]
+      ),
+    ]);
+
+    function groupByUser(rows: any[]): Map<string, string[]> {
+      const m = new Map<string, string[]>();
+      for (const r of rows) {
+        const uid = r.user_id;
+        const day = r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10);
+        if (!m.has(uid)) m.set(uid, []);
+        const arr = m.get(uid)!;
+        if (!arr.includes(day)) arr.push(day);
+      }
+      return m;
+    }
+
+    const stepsMap = groupByUser(stepsDays);
+    const exerciseMap = groupByUser(exerciseDays);
+    const readingMap = groupByUser(readingDays);
+
+    const feed = [];
+    for (const f of eligible) {
+      const milestones: Array<{ type: string; label: string; count: number }> = [];
+      if (f.share_steps) {
+        const s = calcStreak(stepsMap.get(f.friend_id) ?? []);
+        if (s >= 3) milestones.push({ type: "steps_streak", label: "step streak", count: s });
+      }
+      if (f.share_exercise) {
+        const s = calcStreak(exerciseMap.get(f.friend_id) ?? []);
+        if (s >= 3) milestones.push({ type: "exercise_streak", label: "workout streak", count: s });
+      }
+      if (f.share_books) {
+        const s = calcStreak(readingMap.get(f.friend_id) ?? []);
+        if (s >= 3) milestones.push({ type: "reading_streak", label: "reading streak", count: s });
+      }
+      if (milestones.length > 0) {
+        feed.push({
+          user_id: f.friend_id,
+          display_name: f.username ?? f.email,
+          milestones,
+        });
+      }
+    }
+
+    return feed;
+  });
+
+  // POST /nudge/:friendId — poke a friend (24h rate-limit)
+  app.post("/nudge/:friendId", async (req, reply) => {
+    const me = req.user_id;
+    const { friendId } = req.params as any;
+
+    const friendship = await query<any>(
+      `SELECT id FROM friend_connections
+       WHERE (user_id_a = $1 AND user_id_b = $2) OR (user_id_a = $2 AND user_id_b = $1)
+         AND status = 'accepted'`,
+      [me, friendId]
+    );
+    if (!friendship[0]) {
+      return reply.status(403).send({ error: "Not friends" });
+    }
+
+    const recent = await query<any>(
+      `SELECT id FROM friend_nudges
+       WHERE sender_id = $1 AND recipient_id = $2 AND sent_at > NOW() - INTERVAL '24 hours'`,
+      [me, friendId]
+    );
+    if (recent[0]) {
+      return reply.status(429).send({ error: "Already nudged recently" });
+    }
+
+    await query(
+      `INSERT INTO friend_nudges (sender_id, recipient_id) VALUES ($1, $2)`,
+      [me, friendId]
+    );
+    return { ok: true };
+  });
+
+  // GET /nudges — nudges received in the last 7 days
+  app.get("/nudges", async (req) => {
+    const me = req.user_id;
+    const rows = await query<any>(
+      `SELECT fn.sender_id, u.username AS display_name, fn.sent_at
+       FROM friend_nudges fn
+       JOIN users u ON u.id = fn.sender_id
+       WHERE fn.recipient_id = $1 AND fn.sent_at > NOW() - INTERVAL '7 days'
+       ORDER BY fn.sent_at DESC`,
+      [me]
+    );
+    return rows;
+  });
+
+  // GET /reactions — reactions for a category + week scoped to friend group
+  app.get("/reactions", async (req, reply) => {
+    const me = req.user_id;
+    const { category, weekStart } = req.query as any;
+    if (!ALLOWED_CATEGORIES.has(category)) {
+      return reply.status(400).send({ error: "invalid category" });
+    }
+    if (!weekStart || !/^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+      return reply.status(400).send({ error: "weekStart must be YYYY-MM-DD" });
+    }
+
+    const friendIds = await query<any>(
+      `SELECT CASE WHEN fc.user_id_a = $1 THEN fc.user_id_b ELSE fc.user_id_a END AS friend_id
+       FROM friend_connections fc
+       WHERE (fc.user_id_a = $1 OR fc.user_id_b = $1) AND fc.status = 'accepted'`,
+      [me]
+    );
+    const eligibleIds = [me, ...friendIds.map((r: any) => r.friend_id)];
+
+    const rows = await query<any>(
+      `SELECT lr.from_user_id, lr.to_user_id, lr.emoji
+       FROM leaderboard_reactions lr
+       WHERE lr.category = $1 AND lr.week_start = $2
+         AND lr.from_user_id = ANY($3::uuid[])
+         AND lr.to_user_id = ANY($3::uuid[])`,
+      [category, weekStart, eligibleIds]
+    );
+    return rows;
+  });
+
+  // POST /reactions — upsert a reaction (one per from→to per category per week)
+  app.post("/reactions", async (req, reply) => {
+    const me = req.user_id;
+    const { to_user_id, category, emoji, week_start } = req.body as any;
+
+    if (!ALLOWED_CATEGORIES.has(category)) {
+      return reply.status(400).send({ error: "invalid category" });
+    }
+    if (to_user_id === me) {
+      return reply.status(400).send({ error: "Cannot react to yourself" });
+    }
+
+    const friendship = await query<any>(
+      `SELECT id FROM friend_connections
+       WHERE ((user_id_a = $1 AND user_id_b = $2) OR (user_id_a = $2 AND user_id_b = $1))
+         AND status = 'accepted'`,
+      [me, to_user_id]
+    );
+    if (!friendship[0]) {
+      return reply.status(403).send({ error: "Not friends" });
+    }
+
+    await query(
+      `INSERT INTO leaderboard_reactions (from_user_id, to_user_id, category, emoji, week_start)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (from_user_id, to_user_id, category, week_start) DO UPDATE SET emoji = $4`,
+      [me, to_user_id, category, emoji, week_start]
+    );
+    return { ok: true };
+  });
+
   // PATCH /username — set my username
   app.patch("/username", async (req, reply) => {
     const me = req.user_id;
