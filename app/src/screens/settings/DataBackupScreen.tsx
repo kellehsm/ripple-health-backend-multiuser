@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet, Switch } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/typography";
 
 type WeekStart = "monday" | "sunday";
 
@@ -103,23 +104,23 @@ export function DataBackupScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 14 },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: "600" },
+  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  sectionTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   switchText: { flex: 1, paddingRight: 8 },
-  switchLabel: { fontSize: 14, fontWeight: "500" },
-  switchSub: { fontSize: 12, marginTop: 2 },
+  switchLabel: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
+  switchSub: { fontSize: 12, marginTop: 2, fontFamily: fonts.regular },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 4,
   },
-  infoLabel: { fontSize: 14 },
-  infoValue: { fontSize: 14, fontWeight: "500" },
+  infoLabel: { fontSize: 14, fontFamily: fonts.regular },
+  infoValue: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
   btn: {
     flexDirection: "row",
     alignItems: "center",
@@ -128,8 +129,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 11,
   },
-  btnText: { fontSize: 14, fontWeight: "500" },
-  note: { fontSize: 13 },
+  btnText: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
+  note: { fontSize: 13, fontFamily: fonts.regular },
   weekRow: { flexDirection: "row", gap: 10 },
   weekOption: {
     borderRadius: 10,
@@ -137,5 +138,5 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: "center",
   },
-  weekOptionText: { fontSize: 14, fontWeight: "500" },
+  weekOptionText: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
 });

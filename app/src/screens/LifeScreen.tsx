@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+import { fonts } from "../theme/typography";
 import { api } from "../api/client";
 
 const USER_ID = "f2cde901-feae-443e-abed-ddf7302bb131";
@@ -111,7 +112,7 @@ export function LifeScreen() {
         {loading && <ActivityIndicator style={{ marginTop: 12 }} color={theme.teal.bar} />}
 
         {!loading && books.length === 0 && (
-          <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 8 }}>
+          <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 8, fontFamily: fonts.regular }}>
             No books in progress.
           </Text>
         )}
@@ -251,7 +252,7 @@ export function LifeScreen() {
 
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Hobbies</Text>
-        <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 10 }}>
+        <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 10, fontFamily: fonts.regular }}>
           Guitar practice, woodworking, etc. - each tracked like a mini book.
         </Text>
       </View>
@@ -267,7 +268,7 @@ export function LifeScreen() {
             placeholderTextColor={theme.textSoft}
           />
           <Pressable style={[styles.addButton, { backgroundColor: theme.teal.bar }]}>
-            <Text style={{ color: "#fff", fontWeight: "600" }}>Add</Text>
+            <Text style={{ color: "#fff", fontWeight: "600", fontFamily: fonts.semiBold }}>Add</Text>
           </Pressable>
         </View>
       </View>
@@ -277,24 +278,33 @@ export function LifeScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16 },
-  cardTitle: { fontSize: 14, fontWeight: "500", marginBottom: 4 },
+  card: {
+    borderRadius: 14,
+    borderWidth: 0.5,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cardTitle: { fontSize: 14, fontWeight: "500", marginBottom: 10, fontFamily: fonts.medium },
 
   bookRow: { flexDirection: "row", gap: 12 },
   coverArea: { paddingTop: 2 },
   cover: { width: 56, height: 80, borderRadius: 6 },
   coverPlaceholder: { opacity: 0.5 },
   bookInfo: { flex: 1 },
-  bookTitle: { fontSize: 14, fontWeight: "600", lineHeight: 19 },
-  bookAuthor: { fontSize: 12, marginTop: 1 },
+  bookTitle: { fontSize: 14, fontWeight: "600", lineHeight: 19, fontFamily: fonts.semiBold },
+  bookAuthor: { fontSize: 12, marginTop: 3, fontFamily: fonts.regular },
 
   progressTrack: { height: 6, borderRadius: 6, overflow: "hidden", marginTop: 8 },
   progressFill: { height: "100%" },
-  progressText: { fontSize: 11, marginTop: 4 },
+  progressText: { fontSize: 11, marginTop: 4, fontFamily: fonts.regular },
 
   quickRow: { flexDirection: "row", gap: 6, marginTop: 8 },
   quickBtn: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  quickBtnText: { fontSize: 12, fontWeight: "600" },
+  quickBtnText: { fontSize: 12, fontWeight: "600", fontFamily: fonts.semiBold },
 
   manualRow: { flexDirection: "row", gap: 6, marginTop: 6 },
   manualInput: {
@@ -304,13 +314,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
     fontSize: 13,
+    fontFamily: fonts.regular,
   },
   manualBtn: { borderRadius: 8, paddingHorizontal: 12, justifyContent: "center" },
-  manualBtnText: { color: "#fff", fontSize: 12, fontWeight: "600" },
+  manualBtnText: { color: "#fff", fontSize: 12, fontWeight: "600", fontFamily: fonts.semiBold },
 
   chapterSection: { marginTop: 10 },
 
   mealRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-  input: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  input: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontFamily: fonts.regular },
   addButton: { borderRadius: 10, paddingHorizontal: 16, justifyContent: "center" },
 });

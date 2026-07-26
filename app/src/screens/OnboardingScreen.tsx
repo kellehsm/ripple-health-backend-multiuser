@@ -10,6 +10,8 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../theme/ThemeContext";
+import { fonts } from "../theme/typography";
+import { AppLogo } from "../components/AppLogo";
 import {
   requestNotificationPermission,
   scheduleCheckInNotifications,
@@ -52,7 +54,7 @@ export function OnboardingScreen({ onComplete }: Props) {
       contentContainerStyle={styles.content}
     >
       <View style={styles.hero}>
-        <Ionicons name="pulse" size={48} color={theme.teal.bar} />
+        <AppLogo size={110} />
         <Text style={[styles.title, { color: theme.textStrong }]}>Welcome to Ripple</Text>
         <Text style={[styles.subtitle, { color: theme.textSoft }]}>
           Your personal wellness dashboard
@@ -197,17 +199,17 @@ export function OnboardingScreen({ onComplete }: Props) {
 const styles = StyleSheet.create({
   content: { padding: 24, gap: 16, paddingTop: 60 },
   hero: { alignItems: "center", gap: 8, marginBottom: 8 },
-  title: { fontSize: 26, fontWeight: "700", textAlign: "center" },
-  subtitle: { fontSize: 15, textAlign: "center" },
-  card: { borderRadius: 16, borderWidth: 0.5, padding: 18, gap: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: "600" },
-  body: { fontSize: 14, lineHeight: 20 },
+  title: { fontSize: 26, fontWeight: "700", textAlign: "center", fontFamily: fonts.bold },
+  subtitle: { fontSize: 15, textAlign: "center", marginTop: 4, fontFamily: fonts.regular },
+  card: { borderRadius: 16, borderWidth: 0.5, padding: 18, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  sectionTitle: { fontSize: 16, fontWeight: "600", fontFamily: fonts.semiBold },
+  body: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular },
   primaryBtn: {
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: "center",
   },
-  primaryBtnText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  primaryBtnText: { color: "#fff", fontSize: 16, fontWeight: "600", fontFamily: fonts.semiBold },
   permissionBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -215,7 +217,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
-  permissionText: { fontSize: 13, flex: 1 },
+  permissionText: { fontSize: 13, flex: 1, fontFamily: fonts.regular },
   modeOption: {
     borderRadius: 12,
     borderWidth: 1.5,
@@ -223,8 +225,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   modeHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-  modeTitle: { fontSize: 15, fontWeight: "600" },
-  modeBody: { fontSize: 13, lineHeight: 18, paddingLeft: 30 },
-  hint: { fontSize: 12, textAlign: "center" },
-  skipText: { fontSize: 14, textAlign: "center", textDecorationLine: "underline" },
+  modeTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
+  modeBody: { fontSize: 13, lineHeight: 18, paddingLeft: 30, fontFamily: fonts.regular },
+  hint: { fontSize: 12, textAlign: "center", fontFamily: fonts.regular },
+  skipText: { fontSize: 14, textAlign: "center", textDecorationLine: "underline", fontFamily: fonts.regular },
 });

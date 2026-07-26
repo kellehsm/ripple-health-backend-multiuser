@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/typography";
 import { RootStackParamList } from "../../navigation/types";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -118,6 +119,11 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     padding: 14,
     gap: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   iconWrap: {
     width: 40,
@@ -127,6 +133,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowText: { flex: 1 },
-  rowLabel: { fontSize: 15, fontWeight: "600" },
-  rowSubtitle: { fontSize: 12, marginTop: 2 },
+  rowLabel: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
+  rowSubtitle: { fontSize: 12, marginTop: 4, fontFamily: fonts.regular },
 });

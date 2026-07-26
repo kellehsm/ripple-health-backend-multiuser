@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { fonts } from "../theme/typography";
 
 type ColorKey = "teal" | "blue" | "amber" | "coral" | "pink" | "green" | "red";
 
@@ -32,9 +33,19 @@ export function MetricCard({ label, value, icon, colorKey, sublabel }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 14, padding: 14, flexGrow: 1, minWidth: 130 },
+  card: {
+    borderRadius: 14,
+    padding: 14,
+    flexGrow: 1,
+    minWidth: 130,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
   labelRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 },
-  label: { fontSize: 12 },
-  value: { fontSize: 21, fontWeight: "500" },
-  sublabel: { fontSize: 12, marginTop: 4 },
+  label: { fontSize: 12, fontFamily: fonts.regular },
+  value: { fontSize: 21, fontWeight: "500", fontFamily: fonts.medium },
+  sublabel: { fontSize: 12, marginTop: 4, fontFamily: fonts.regular },
 });

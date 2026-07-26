@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ScrollView, View, Text, StyleSheet, Switch } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/typography";
 
 export function PrivacySecurityScreen() {
   const { theme } = useTheme();
@@ -50,15 +51,15 @@ export function PrivacySecurityScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 14 },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: "600" },
+  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  sectionTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   switchText: { flex: 1, paddingRight: 8 },
-  switchLabel: { fontSize: 14, fontWeight: "500" },
-  switchSub: { fontSize: 12, marginTop: 2 },
-  note: { fontSize: 13, lineHeight: 18 },
+  switchLabel: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
+  switchSub: { fontSize: 12, marginTop: 2, fontFamily: fonts.regular },
+  note: { fontSize: 13, lineHeight: 18, fontFamily: fonts.regular },
 });

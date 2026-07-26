@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
+import { fonts } from "../theme/typography";
 import { OverviewScreen } from "../screens/OverviewScreen";
 import { HealthScreen } from "../screens/HealthScreen";
 import { FinanceScreen } from "../screens/FinanceScreen";
@@ -96,7 +97,7 @@ function CustomTabBar({ state, navigation, insets }: BottomTabBarProps) {
               ) : (
                 <>
                   <Ionicons name={cfg.icon} size={22} color={iconColor} />
-                  <Text style={{ fontSize: 10, color: iconColor, marginTop: 3 }}>{cfg.label}</Text>
+                  <Text style={{ fontSize: 10, color: iconColor, marginTop: 3, fontFamily: fonts.medium }}>{cfg.label}</Text>
                 </>
               )}
             </Pressable>

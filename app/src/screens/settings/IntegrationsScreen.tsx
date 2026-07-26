@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/typography";
 
 function IntegrationRow({
   label,
@@ -96,9 +97,9 @@ export function IntegrationsScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 10 },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 8 },
-  sectionTitle: { fontSize: 15, fontWeight: "600" },
-  note: { fontSize: 13 },
+  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  sectionTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
+  note: { fontSize: 13, fontFamily: fonts.regular },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowText: { flex: 1 },
-  rowLabel: { fontSize: 14, fontWeight: "500" },
-  rowSub: { fontSize: 12, marginTop: 2 },
-  statusText: { fontSize: 12, fontWeight: "500" },
+  rowLabel: { fontSize: 14, fontWeight: "500", fontFamily: fonts.medium },
+  rowSub: { fontSize: 12, marginTop: 2, fontFamily: fonts.regular },
+  statusText: { fontSize: 12, fontWeight: "500", fontFamily: fonts.medium },
 });

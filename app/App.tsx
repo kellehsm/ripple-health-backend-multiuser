@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from "@expo-google-fonts/nunito";
 import { ThemeProvider } from "./src/theme/ThemeContext";
 import { RootStack } from "./src/navigation/RootStack";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { logAppOpen } from "./src/services/adaptiveTimingService";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
 
 const ONBOARDING_KEY = "ripple:onboarding_complete";
 
 export default function App() {
+  const [fontsLoaded] = useFonts({ Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold });
   const [loading, setLoading] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState(false);
 
@@ -24,16 +27,18 @@ export default function App() {
     init();
   }, []);
 
-  if (loading) return null;
+  if (loading || !fontsLoaded) return null;
 
   return (
-    <ThemeProvider>
-      <StatusBar style="auto" />
-      {onboardingDone ? (
-        <RootStack />
-      ) : (
-        <OnboardingScreen onComplete={() => setOnboardingDone(true)} />
-      )}
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <StatusBar style="auto" />
+        {onboardingDone ? (
+          <RootStack />
+        ) : (
+          <OnboardingScreen onComplete={() => setOnboardingDone(true)} />
+        )}
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

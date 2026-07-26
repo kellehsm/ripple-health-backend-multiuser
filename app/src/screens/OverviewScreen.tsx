@@ -1,6 +1,7 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+import { fonts } from "../theme/typography";
 import { MetricCard } from "../components/MetricCard";
 
 // Cross-domain snapshot: one card per major area, plus the "today's pattern"
@@ -23,7 +24,7 @@ export function OverviewScreen() {
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Today's pattern</Text>
         {/* TODO: render api.pattern(userId) as a horizontal timeline,
             reusing the dot-and-line layout from the approved mockup */}
-        <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 10 }}>
+        <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 10, fontFamily: fonts.regular }}>
           Timeline of mood, spending, meals, and glucose events goes here.
         </Text>
       </View>
@@ -33,8 +34,18 @@ export function OverviewScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12 },
-  greeting: { fontSize: 20, fontWeight: "600", marginBottom: 8 },
+  greeting: { fontSize: 20, fontWeight: "600", marginBottom: 8, fontFamily: fonts.semiBold },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, marginTop: 4 },
-  cardTitle: { fontSize: 14, fontWeight: "500" },
+  card: {
+    borderRadius: 14,
+    borderWidth: 0.5,
+    padding: 16,
+    marginTop: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cardTitle: { fontSize: 14, fontWeight: "500", marginBottom: 8, fontFamily: fonts.medium },
 });

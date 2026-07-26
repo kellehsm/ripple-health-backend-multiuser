@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { fonts } from "../../theme/typography";
 
 export function AppearanceScreen() {
   const { theme, mode, toggle } = useTheme();
@@ -58,8 +59,8 @@ export function AppearanceScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 14 },
-  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12 },
-  sectionTitle: { fontSize: 15, fontWeight: "600" },
+  card: { borderRadius: 14, borderWidth: 0.5, padding: 16, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
+  sectionTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
   modeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -68,6 +69,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     padding: 14,
   },
-  modeLabel: { fontSize: 15, fontWeight: "500" },
-  comingSoon: { fontSize: 13 },
+  modeLabel: { fontSize: 15, fontWeight: "500", fontFamily: fonts.medium },
+  comingSoon: { fontSize: 13, fontFamily: fonts.regular },
 });
