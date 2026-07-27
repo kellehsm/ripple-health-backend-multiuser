@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   content: { padding: 24, gap: 16, paddingTop: 60 },
   hero: { alignItems: "center", gap: 8, marginBottom: 8 },
   title: { fontSize: 26, fontWeight: "700", textAlign: "center", fontFamily: fonts.bold },
-  subtitle: { fontSize: 15, textAlign: "center", marginTop: 4, fontFamily: fonts.regular },
+  subtitle: { fontSize: 15, textAlign: "center", marginTop: 4, lineHeight: 22, fontFamily: fonts.regular },
   card: { borderRadius: 16, borderWidth: 0.5, padding: 18, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
   sectionTitle: { fontSize: 16, fontWeight: "600", fontFamily: fonts.semiBold },
   body: { fontSize: 14, lineHeight: 20, fontFamily: fonts.regular },
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
   },
-  permissionText: { fontSize: 13, flex: 1, fontFamily: fonts.regular },
+  permissionText: { fontSize: 13, flex: 1, lineHeight: 19, fontFamily: fonts.regular },
   modeOption: {
     borderRadius: 12,
     borderWidth: 1.5,
@@ -227,6 +227,6 @@ const styles = StyleSheet.create({
   modeHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   modeTitle: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
   modeBody: { fontSize: 13, lineHeight: 18, paddingLeft: 30, fontFamily: fonts.regular },
-  hint: { fontSize: 12, textAlign: "center", fontFamily: fonts.regular },
+  hint: { fontSize: 12, textAlign: "center", lineHeight: 18, fontFamily: fonts.regular },
   skipText: { fontSize: 14, textAlign: "center", textDecorationLine: "underline", fontFamily: fonts.regular },
 });

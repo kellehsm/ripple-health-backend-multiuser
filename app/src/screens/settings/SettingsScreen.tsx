@@ -67,13 +67,6 @@ const GROUPS: GroupConfig[] = [
     colorKey: "teal",
     screen: "SettingsHelpAbout",
   },
-  {
-    label: "Features",
-    subtitle: "Medications, cycle tracking",
-    icon: "apps-outline",
-    colorKey: "pink",
-    screen: "SettingsFeatures",
-  },
 ];
 
 export function SettingsScreen() {
@@ -141,5 +134,5 @@ const styles = StyleSheet.create({
   },
   rowText: { flex: 1 },
   rowLabel: { fontSize: 15, fontWeight: "600", fontFamily: fonts.semiBold },
-  rowSubtitle: { fontSize: 12, marginTop: 4, fontFamily: fonts.regular },
+  rowSubtitle: { fontSize: 12, marginTop: 4, lineHeight: 18, fontFamily: fonts.regular },
 });
