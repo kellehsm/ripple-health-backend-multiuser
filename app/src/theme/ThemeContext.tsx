@@ -1,56 +1,49 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { buildTheme, BG_PRESETS, DEFAULT_PRESET, BgPreset, LoadingVariant, Theme } from "./theme";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import * as SecureStore from "expo-secure-store";
+import type { Theme } from "./theme";
+import { PALETTES, DEFAULT_PALETTE_ID } from "./palettes";
 
-const MODE_KEY = "ripple:theme_mode";
-const PRESET_KEY = "ripple:theme_preset";
+const DEFAULT_DARK_PALETTE_ID = "obsidian";
+
+const STORAGE_KEY = "ripple_palette_id";
 
 type ThemeContextValue = {
   theme: Theme;
-  mode: "light" | "dark";
-  toggle: () => void;
-  preset: BgPreset;
-  setPreset: (p: BgPreset) => void;
-  loadingVariant: LoadingVariant;
-  themeReady: boolean;
+  paletteId: string;
+  setPalette: (id: string) => void;
+  mode: "light" | "dark";   // derived from theme.isDark — backward compat
+  toggle: () => void;        // backward compat: cycles light ↔ dark
 };
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode]     = useState<"light" | "dark">("light");
-  const [preset, setPresetState] = useState<BgPreset>(DEFAULT_PRESET);
-  const [themeReady, setThemeReady] = useState(false);
+  const [paletteId, setPaletteId] = useState(DEFAULT_PALETTE_ID);
 
+  // Load persisted palette on mount; new installs always start on morning-mist
   useEffect(() => {
-    AsyncStorage.multiGet([MODE_KEY, PRESET_KEY]).then(([[, savedMode], [, savedPreset]]) => {
-      if (savedMode === "dark") setMode("dark");
-      if (savedPreset) {
-        const found = BG_PRESETS.find((p) => p.id === savedPreset);
-        if (found) setPresetState(found);
-      }
-      setThemeReady(true);
-    });
+    SecureStore.getItemAsync(STORAGE_KEY)
+      .then((stored) => {
+        if (stored && PALETTES[stored]) setPaletteId(stored);
+      })
+      .catch(() => {});
   }, []);
 
-  function toggle() {
-    setMode((m) => {
-      const next = m === "light" ? "dark" : "light";
-      AsyncStorage.setItem(MODE_KEY, next);
-      return next;
-    });
-  }
+  const setPalette = useCallback((id: string) => {
+    if (!PALETTES[id]) return;
+    setPaletteId(id);
+    SecureStore.setItemAsync(STORAGE_KEY, id).catch(() => {});
+  }, []);
 
-  function setPreset(p: BgPreset) {
-    setPresetState(p);
-    AsyncStorage.setItem(PRESET_KEY, p.id);
-  }
+  const theme = PALETTES[paletteId] ?? PALETTES[DEFAULT_PALETTE_ID];
+  const mode: "light" | "dark" = theme.isDark ? "dark" : "light";
 
-  const theme = buildTheme(preset, mode === "dark");
-  const loadingVariant: LoadingVariant = preset.loadingVariant;
+  const toggle = useCallback(() => {
+    setPalette(theme.isDark ? "morning-mist" : "obsidian");
+  }, [theme.isDark, setPalette]);
 
   return (
-    <ThemeContext.Provider value={{ theme, mode, toggle, preset, setPreset, loadingVariant, themeReady }}>
+    <ThemeContext.Provider value={{ theme, paletteId, setPalette, mode, toggle }}>
       {children}
     </ThemeContext.Provider>
   );
