@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from "@expo-google-fonts/nunito";
 import { ThemeProvider } from "./src/theme/ThemeContext";
+import { BackgroundsProvider } from "./src/theme/BackgroundsContext";
 import { RootStack } from "./src/navigation/RootStack";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { logAppOpen } from "./src/services/adaptiveTimingService";
@@ -32,12 +33,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <StatusBar style="auto" />
-        {onboardingDone ? (
-          <RootStack />
-        ) : (
-          <OnboardingScreen onComplete={() => setOnboardingDone(true)} />
-        )}
+        <BackgroundsProvider>
+          <StatusBar style="auto" />
+          {onboardingDone ? (
+            <RootStack />
+          ) : (
+            <OnboardingScreen onComplete={() => setOnboardingDone(true)} />
+          )}
+        </BackgroundsProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

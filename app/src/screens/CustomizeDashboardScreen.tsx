@@ -27,7 +27,7 @@ export function CustomizeDashboardScreen() {
 
   const save = useCallback(function (next: DashboardLayout) {
     setSaving(true);
-    api.patchSettings({ dashboard_layout: next })
+    api.updateSettings({ dashboard_layout: next })
       .catch(function () {})
       .finally(function () { setSaving(false); });
   }, []);

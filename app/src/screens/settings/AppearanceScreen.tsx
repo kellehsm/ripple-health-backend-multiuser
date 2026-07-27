@@ -3,9 +3,13 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { fonts } from "../../theme/typography";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList } from "../../navigation/types";
 
 export function AppearanceScreen() {
   const { theme, mode, toggle } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
     <ScrollView
@@ -52,6 +56,23 @@ export function AppearanceScreen() {
         <Text style={[styles.comingSoon, { color: theme.textSoft }]}>
           Additional accent colour themes coming soon.
         </Text>
+      </View>
+
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Backgrounds & Transparency</Text>
+        <Pressable
+          style={[styles.modeRow, { borderColor: theme.cardBorder }]}
+          onPress={() => navigation.navigate("SettingsCustomizeBackgrounds")}
+        >
+          <Ionicons name="image-outline" size={20} color={theme.textSoft} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.modeLabel, { color: theme.textStrong }]}>Customize backgrounds</Text>
+            <Text style={{ fontSize: 12, color: theme.textSoft, fontFamily: fonts.regular }}>
+              Set images and transparency for pages, cards, and tiles
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={theme.textSoft} />
+        </Pressable>
       </View>
     </ScrollView>
   );

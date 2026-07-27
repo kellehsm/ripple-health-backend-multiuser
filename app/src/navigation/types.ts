@@ -9,4 +9,5 @@ export type RootStackParamList = {
   SettingsPrivacySecurity: undefined;
   SettingsHelpAbout: undefined;
   SettingsFeatures: undefined;
+  SettingsCustomizeBackgrounds: undefined;
 };

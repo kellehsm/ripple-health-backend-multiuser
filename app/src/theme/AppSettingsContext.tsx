@@ -146,7 +146,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     manualOverrideRef.current = true;
     AsyncStorage.setItem(KEY_CARD_OPACITY, String(clamped)).catch(() => {});
     AsyncStorage.setItem(KEY_OPACITY_OVERRIDE, "true").catch(() => {});
-    api.patchSettings({ cardOpacity: clamped, cardOpacityManualOverride: true }).catch(() => {});
+    api.updateSettings({ cardOpacity: clamped, cardOpacityManualOverride: true }).catch(() => {});
   }, []);
 
   const resetCardOpacity = useCallback(() => {
@@ -156,7 +156,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     manualOverrideRef.current = false;
     AsyncStorage.removeItem(KEY_CARD_OPACITY).catch(() => {});
     AsyncStorage.removeItem(KEY_OPACITY_OVERRIDE).catch(() => {});
-    api.patchSettings({ cardOpacity: null, cardOpacityManualOverride: false }).catch(() => {});
+    api.updateSettings({ cardOpacity: null, cardOpacityManualOverride: false }).catch(() => {});
   }, [theme.defaultCardOpacity]);
 
   return (

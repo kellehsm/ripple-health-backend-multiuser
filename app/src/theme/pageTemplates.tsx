@@ -14,6 +14,7 @@
 import React from "react";
 import { ImageBackground, View, StyleSheet, ImageSourcePropType } from "react-native";
 import { useTheme } from "./ThemeContext";
+import { useBackgrounds } from "./BackgroundsContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -332,32 +333,31 @@ function resolveColorToken(token: string, theme: Record<string, any>): string {
 
 /** Returns the resolved ThemeableBackground for a page. */
 export function usePageBackground(pageId: string): ThemeableBackground {
-  const { theme } = useTheme();
+  const { pageBackgrounds } = useBackgrounds();
   const defaultBg = PAGE_TEMPLATES[pageId]?.background ?? { type: "color" as const, value: "page" };
-  return resolveBackground(pageId, defaultBg, (theme as any).pageBackgrounds);
+  return pageBackgrounds[pageId] ?? defaultBg;
 }
 
 /** Returns the resolved ThemeableBackground for a card by its stable ID. */
 export function useCardBackground(cardId: string): ThemeableBackground {
-  const { theme } = useTheme();
-  // Find the card's default in the template registry
+  const { cardBackgrounds } = useBackgrounds();
   let defaultBg: ThemeableBackground = { type: "color", value: "card" };
   for (const tpl of Object.values(PAGE_TEMPLATES)) {
     const found = tpl.cards.find((c) => c.id === cardId);
     if (found) { defaultBg = found.background; break; }
   }
-  return resolveBackground(cardId, defaultBg, (theme as any).cardBackgrounds);
+  return cardBackgrounds[cardId] ?? defaultBg;
 }
 
 /** Returns the resolved ThemeableBackground for a tile by its stable ID. */
 export function useTileBackground(tileId: string): ThemeableBackground {
-  const { theme } = useTheme();
+  const { tileBackgrounds } = useBackgrounds();
   let defaultBg: ThemeableBackground = { type: "color", value: "card" };
   for (const tpl of Object.values(PAGE_TEMPLATES)) {
     const found = tpl.tiles.find((t) => t.id === tileId);
     if (found) { defaultBg = found.background; break; }
   }
-  return resolveBackground(tileId, defaultBg, (theme as any).tileBackgrounds);
+  return tileBackgrounds[tileId] ?? defaultBg;
 }
 
 // ─── ThemedSurface ────────────────────────────────────────────────────────────

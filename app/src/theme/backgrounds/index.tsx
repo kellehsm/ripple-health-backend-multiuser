@@ -6,6 +6,7 @@
 import React from "react";
 import { View, Image, StyleSheet, useWindowDimensions } from "react-native";
 import { useTheme } from "../ThemeContext";
+import { useBackgrounds } from "../BackgroundsContext";
 import Svg, {
   Circle,
   Line,
@@ -415,10 +416,11 @@ interface ThemedBackgroundProps {
  */
 export function ThemedBackground({ pageId, opacity = 1 }: ThemedBackgroundProps) {
   const { width, height } = useWindowDimensions();
-  const { theme, paletteId } = useTheme();
+  const { paletteId } = useTheme();
+  const { pageBackgrounds } = useBackgrounds();
 
-  // Check for a per-page image override from the premium theme
-  const pageBg = (theme as any).pageBackgrounds?.[pageId];
+  // Check for a per-page image override from BackgroundsContext
+  const pageBg = pageBackgrounds[pageId];
   if (pageBg) {
     if (pageBg.type === "image" || pageBg.type === "uri") {
       const source = pageBg.type === "uri" ? { uri: pageBg.value } : pageBg.value;

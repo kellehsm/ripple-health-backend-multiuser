@@ -14,6 +14,7 @@ import { DataBackupScreen } from "../screens/settings/DataBackupScreen";
 import { PrivacySecurityScreen } from "../screens/settings/PrivacySecurityScreen";
 import { HelpAboutScreen } from "../screens/settings/HelpAboutScreen";
 import { FeaturesScreen } from "../screens/settings/FeaturesScreen";
+import { CustomizeBackgroundsScreen } from "../screens/settings/CustomizeBackgroundsScreen";
 
 export type { RootStackParamList };
 
@@ -42,6 +43,7 @@ export function RootStack() {
         <Stack.Screen name="SettingsPrivacySecurity" component={PrivacySecurityScreen} options={{ title: "Privacy & Security" }} />
         <Stack.Screen name="SettingsHelpAbout" component={HelpAboutScreen} options={{ title: "Help & About" }} />
         <Stack.Screen name="SettingsFeatures" component={FeaturesScreen} options={{ title: "Features" }} />
+        <Stack.Screen name="SettingsCustomizeBackgrounds" component={CustomizeBackgroundsScreen} options={{ title: "Backgrounds" }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
