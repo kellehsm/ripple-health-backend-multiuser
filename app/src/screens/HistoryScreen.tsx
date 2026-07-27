@@ -8,6 +8,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { ShadowCard } from "../components/ShadowCard";
+import { formatDisplayDate } from "../utils/dateUtils";
 
 
 type FilterMode = "glucose" | "meals" | "mood" | "spending";
@@ -71,9 +72,6 @@ export function HistoryScreen() {
     }
   }
 
-  function formatDate(str: string): string {
-    return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  }
 
   const MODES: FilterMode[] = ["glucose", "meals", "mood", "spending"];
   const modeLabel: Record<FilterMode, string> = { glucose: "Glucose", meals: "Meals", mood: "Mood", spending: "Spending" };
@@ -226,28 +224,28 @@ export function HistoryScreen() {
             <View key={i} style={[styles.resultRow, i > 0 && { borderTopWidth: 0.5, borderTopColor: theme.cardBorder }]}>
               {mode === "glucose" && (
                 <>
-                  <Text style={[styles.resultDate, { color: theme.textSoft }]}>{formatDate(r.date)}</Text>
+                  <Text style={[styles.resultDate, { color: theme.textSoft }]}>{formatDisplayDate(r.date)}</Text>
                   <Text style={{ color: theme.berry.sub, fontWeight: "500" }}>avg {r.avg_mg_dl} mg/dL</Text>
                   <Text style={{ color: theme.textSoft, fontSize: 12 }}>peak {r.max_mg_dl} · {r.reading_count} readings</Text>
                 </>
               )}
               {mode === "meals" && (
                 <>
-                  <Text style={[styles.resultDate, { color: theme.textSoft }]}>{formatDate(r.logged_at)}</Text>
+                  <Text style={[styles.resultDate, { color: theme.textSoft }]}>{formatDisplayDate(r.logged_at)}</Text>
                   <Text style={{ color: theme.textStrong, fontWeight: "500" }}>{r.name}</Text>
                   {r.carbs_g != null && <Text style={{ color: theme.textSoft, fontSize: 12 }}>{Math.round(r.carbs_g)}g carbs{r.calories != null ? " · " + Math.round(r.calories) + " cal" : ""}</Text>}
                 </>
               )}
               {mode === "mood" && (
                 <>
-                  <Text style={[styles.resultDate, { color: theme.textSoft }]}>{formatDate(r.logged_at)}</Text>
+                  <Text style={[styles.resultDate, { color: theme.textSoft }]}>{formatDisplayDate(r.logged_at)}</Text>
                   <Text style={{ color: theme.textStrong, fontWeight: "500" }}>{r.mood_label ?? "Score " + r.mood_score}</Text>
                   {r.entry_text && <Text style={{ color: theme.textSoft, fontSize: 12 }} numberOfLines={2}>{r.entry_text}</Text>}
                 </>
               )}
               {mode === "spending" && (
                 <>
-                  <Text style={[styles.resultDate, { color: theme.textSoft }]}>{formatDate(r.logged_at)}</Text>
+                  <Text style={[styles.resultDate, { color: theme.textSoft }]}>{formatDisplayDate(r.logged_at)}</Text>
                   <Text style={{ color: theme.purple.sub, fontWeight: "500" }}>${Number(r.amount).toFixed(2)}</Text>
                   {r.category && <Text style={{ color: theme.textSoft, fontSize: 12 }}>{r.category}</Text>}
                 </>

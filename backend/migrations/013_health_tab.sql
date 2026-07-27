@@ -73,3 +73,5 @@ INSERT INTO emotion_vocabulary (user_id, label, source) VALUES
   (NULL, 'sensitive', 'default'),
   (NULL, 'energetic', 'default')
 ON CONFLICT DO NOTHING;
+
+CREATE INDEX IF NOT EXISTS idx_cycle_day_logs_user_date ON cycle_day_logs (user_id, log_date);

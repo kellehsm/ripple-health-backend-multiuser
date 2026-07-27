@@ -24,6 +24,7 @@ import { SectionEditorModal, SectionDef } from '../components/SectionEditorModal
 import { FeatureTour, TourStep } from '../components/FeatureTour';
 import { hasSeenTooltip, markTooltipSeen } from '../utils/tooltipSeen';
 import { ShadowCard } from '../components/ShadowCard';
+import { getWeekStartISO, formatDisplayDate } from '../utils/dateUtils';
 
 const HEALTH_SECTIONS: SectionDef[] = [
   { id: 'cycle_tab',    label: 'Cycle tracking', description: 'Menstrual cycle calendar and logging' },
@@ -165,9 +166,6 @@ function addDays(dateStr: string, n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 function getPhaseLabel(cycleDay: number): string {
   if (cycleDay <= 5) return 'Menstrual';
@@ -176,11 +174,6 @@ function getPhaseLabel(cycleDay: number): string {
   return 'Luteal';
 }
 
-function getWeekStart(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - d.getDay());
-  return d.toISOString().slice(0, 10);
-}
 
 // ─── OverviewBlocks ──────────────────────────────────────────────────────────
 
@@ -189,28 +182,27 @@ function OverviewBlocks({
   activeSubTab,
   theme,
   hiddenSections,
+  medications,
 }: {
   onNavigate: (t: SubTab) => void;
   activeSubTab: SubTab;
   theme: any;
   hiddenSections: string[];
+  medications: Medication[];
 }) {
-  const [medications, setMedications] = useState<Medication[]>([]);
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [weekSymptomCount, setWeekSymptomCount] = useState(0);
   const [insight, setInsight] = useState<{ id: string; text: string; confidence: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const weekStart = getWeekStart();
+    const weekStart = getWeekStartISO();
     const today = new Date().toISOString().slice(0, 10);
     Promise.all([
-      api.getMedications().catch(() => [] as Medication[]),
       api.getCyclePrediction().catch(() => null),
       api.getCycleLogs(weekStart, today).catch(() => []),
       api.getHealthOverviewInsight().catch(() => null),
-    ]).then(([meds, pred, weekLogs, ins]) => {
-      setMedications((meds as Medication[]) ?? []);
+    ]).then(([pred, weekLogs, ins]) => {
       setPrediction(pred);
       // count unique symptoms across all logs this week
       const symptomSet = new Set<string>();
@@ -786,10 +778,10 @@ const modalStyles = StyleSheet.create({
 
 // ─── MedicationList (shared by MedicationView and MedicationViewInline) ──────
 
-function MedicationList({ theme, scrollEnabled = true }: { theme: any; scrollEnabled?: boolean }) {
+function MedicationList({ theme, scrollEnabled = true, initialMedications }: { theme: any; scrollEnabled?: boolean; initialMedications?: Medication[] }) {
   const navigation = useNavigation<any>();
-  const [medications, setMedications] = useState<Medication[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [medications, setMedications] = useState<Medication[]>(initialMedications ?? []);
+  const [loading, setLoading] = useState(initialMedications === undefined);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedSlotIds, setSelectedSlotIds] = useState<string[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -811,7 +803,12 @@ function MedicationList({ theme, scrollEnabled = true }: { theme: any; scrollEna
     }
   }, []);
 
-  useEffect(() => { load(); }, [load, refresh]);
+  // Only fetch on mount when no initialMedications were provided; always re-fetch after mutations (refresh > 0)
+  useEffect(() => {
+    if (refresh > 0 || initialMedications === undefined) {
+      load();
+    }
+  }, [load, refresh]);
 
   const todayDowList = new Date().getDay(); // 0=Sun,...,6=Sat
   const buckets: Record<string, Medication[]> = { morning: [], midday: [], evening: [], custom: [] };
@@ -1335,7 +1332,7 @@ function CycleDayLogModal({
         <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: theme.ink }]}>
           <View style={modalStyles.header}>
             <Text style={[modalStyles.title, { color: theme.textStrong }]}>
-              {formatDate(date)}
+              {formatDisplayDate(date)}
             </Text>
             <Pressable onPress={onClose}><Text style={{ color: theme.textSoft, fontSize: 22 }}>✕</Text></Pressable>
           </View>
@@ -1513,17 +1510,18 @@ function MonthCalendar({
   theme,
   onDayPress,
   refreshKey,
+  prediction,
 }: {
   theme: any;
   onDayPress: (date: string) => void;
   refreshKey?: number;
+  prediction: Prediction | null;
 }) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
   });
   const [logs, setLogs] = useState<CycleLog[]>([]);
-  const [prediction, setPrediction] = useState<Prediction | null>(null);
 
   const { year, month } = currentMonth;
   const firstDay = new Date(year, month, 1);
@@ -1536,7 +1534,6 @@ function MonthCalendar({
     const from = firstDay.toISOString().slice(0, 10);
     const to = lastDay.toISOString().slice(0, 10);
     api.getCycleLogs(from, to).then((res: any) => setLogs(res ?? [])).catch(() => setLogs([]));
-    api.getCyclePrediction().then((res: any) => setPrediction(res)).catch(() => setPrediction(null));
   }, [year, month, refreshKey]);
 
   function prevMonth() {
@@ -1745,13 +1742,18 @@ function CycleView({ theme }: { theme: any }) {
   const [topSymptoms, setTopSymptoms] = useState<string[]>([]);
 
   useEffect(() => {
-    api.getCyclePrediction().then((res: any) => setPrediction(res)).catch(() => {});
-    api.getCycleHistory().then((res: any) => setHistory(res ?? [])).catch(() => {});
-    api.getCycleInstructionCardStatus().then((res: any) => setInstructionDismissed(res?.dismissed ?? false)).catch(() => setInstructionDismissed(false));
-    api.getRankedSymptoms().then((res: any) => {
-      const common: string[] = res?.common ?? [];
+    Promise.all([
+      api.getCyclePrediction().catch(() => null),
+      api.getCycleHistory().catch(() => []),
+      api.getCycleInstructionCardStatus().catch(() => ({ dismissed: false })),
+      api.getRankedSymptoms().catch(() => null),
+    ]).then(([pred, hist, instrStatus, symRes]) => {
+      setPrediction(pred);
+      setHistory(hist ?? []);
+      setInstructionDismissed(instrStatus?.dismissed ?? false);
+      const common: string[] = symRes?.common ?? [];
       setTopSymptoms(common.slice(0, 3));
-    }).catch(() => {});
+    });
   }, [calRefresh]);
 
   async function onDayPress(dateStr: string) {
@@ -1828,6 +1830,7 @@ function CycleView({ theme }: { theme: any }) {
         theme={theme}
         onDayPress={onDayPress}
         refreshKey={calRefresh}
+        prediction={prediction}
       />
 
       {/* Selected day detail panel */}
@@ -1931,7 +1934,7 @@ function CycleView({ theme }: { theme: any }) {
           {history.slice(0, 6).map((h, i) => (
             <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: 'rgba(0,0,0,0.06)' }}>
               <Text style={{ color: theme.textSoft, fontSize: 13 }}>
-                {formatDate(h.start)} – {formatDate(h.end)}
+                {formatDisplayDate(h.start)} – {formatDisplayDate(h.end)}
               </Text>
               <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: '700' }}>
                 {h.length_days}d
@@ -2093,6 +2096,14 @@ export function HealthTabScreen() {
   const tourContentRef = useRef<View>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
+  // Fetch medications once at the root level so OverviewBlocks and MedicationList share the result
+  const [rootMedications, setRootMedications] = useState<Medication[]>([]);
+  useEffect(() => {
+    api.getMedications().then((meds: any) => setRootMedications(meds ?? [])).catch(() => {});
+  }, []);
+
+  // Cache settings so we don't refetch on every focus event
+  const settingsCache = useRef<any>(null);
 
   const HEALTH_TOUR_STEPS: TourStep[] = [
     { ref: tourOverviewRef, title: "Health Hub", body: "Switch between Medications, Cycle tracking, and Symptoms using the tiles at the top." },
@@ -2100,9 +2111,14 @@ export function HealthTabScreen() {
   ];
 
   useFocusEffect(useCallback(() => {
-    api.getSettings().then((s: any) => {
-      setHiddenSections(s?.health_hidden_sections ?? []);
-    }).catch(() => {});
+    if (!settingsCache.current) {
+      api.getSettings().then((s: any) => {
+        settingsCache.current = s;
+        setHiddenSections(s?.health_hidden_sections ?? []);
+      }).catch(() => {});
+    } else {
+      setHiddenSections(settingsCache.current?.health_hidden_sections ?? []);
+    }
     hasSeenTooltip("health-tour").then(seen => {
       if (!seen) { markTooltipSeen("health-tour"); setTimeout(() => setShowTour(true), 600); }
     });
@@ -2111,7 +2127,11 @@ export function HealthTabScreen() {
   async function handleSaveSections(newHidden: string[]) {
     setHiddenSections(newHidden);
     setShowSectionEditor(false);
-    try { await api.patchSettings({ health_hidden_sections: newHidden }); } catch (_) {}
+    try {
+      await api.patchSettings({ health_hidden_sections: newHidden });
+      // Invalidate cache so next focus re-reads the updated settings
+      settingsCache.current = null;
+    } catch (_) {}
   }
 
   if (!medication && !cycle) {
@@ -2146,13 +2166,13 @@ export function HealthTabScreen() {
               </Pressable>
             </View>
             <View ref={tourOverviewRef}>
-              <OverviewBlocks onNavigate={setActiveSubTab} activeSubTab={effectiveTab} theme={theme} hiddenSections={hiddenSections} />
+              <OverviewBlocks onNavigate={setActiveSubTab} activeSubTab={effectiveTab} theme={theme} hiddenSections={hiddenSections} medications={rootMedications} />
             </View>
           </View>
 
           {/* Active sub-tab content — not full-screen scrollable, rendered inline */}
           <View ref={tourContentRef}>
-            {effectiveTab === 'medication' && <MedicationList theme={theme} scrollEnabled={false} />}
+            {effectiveTab === 'medication' && <MedicationList theme={theme} scrollEnabled={false} initialMedications={rootMedications} />}
             {effectiveTab === 'cycle' && !hiddenSections.includes('cycle_tab') && <CycleView theme={theme} />}
             {effectiveTab === 'symptoms' && !hiddenSections.includes('symptoms_tab') && <SymptomsView theme={theme} />}
           </View>
@@ -2161,7 +2181,7 @@ export function HealthTabScreen() {
 
       {!bothEnabled && (
         <>
-          {medication && <MedicationList theme={theme} scrollEnabled={true} />}
+          {medication && <MedicationList theme={theme} scrollEnabled={true} initialMedications={rootMedications} />}
           {cycle && !medication && !hiddenSections.includes('cycle_tab') && <CycleView theme={theme} />}
         </>
       )}

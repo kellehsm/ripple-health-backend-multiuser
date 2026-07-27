@@ -5,8 +5,8 @@ import { useTheme } from "../theme/ThemeContext";
 import { fonts } from "../theme/typography";
 import { MetricCard } from "../components/MetricCard";
 import { api } from "../api/client";
-
-const USER_ID = "f2cde901-feae-443e-abed-ddf7302bb131";
+import { getUserId } from "../lib/auth";
+import { CARD_SHADOW } from "../theme/styleUtils";
 
 const CHART_HEIGHT = 180;
 const PAD = { left: 36, right: 10, top: 10, bottom: 18 };
@@ -36,9 +36,12 @@ export function HealthScreen() {
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
-    api.glucoseToday(USER_ID, today)
-      .then((data: GlucoseReading[]) => setGlucoseData(data))
-      .catch(() => {});
+    getUserId().then((userId) => {
+      if (!userId) return;
+      api.glucoseToday(userId, today)
+        .then((data: GlucoseReading[]) => setGlucoseData(data))
+        .catch(() => {});
+    });
   }, []);
 
   const latest = glucoseData.length > 0 ? glucoseData[glucoseData.length - 1] : null;
@@ -176,11 +179,7 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     padding: 16,
     marginTop: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    ...CARD_SHADOW,
   },
   cardTitle: { fontSize: 14, fontWeight: "500", marginBottom: 10, fontFamily: fonts.medium },
 

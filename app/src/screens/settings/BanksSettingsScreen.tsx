@@ -8,6 +8,7 @@ import { usePlaidLink } from "../../lib/plaidLink";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { EmptyState } from "../../components/EmptyState";
 import { toast } from "../../lib/toast";
+import { formatDisplayDate } from "../../utils/dateUtils";
 
 type PlaidItem = {
   item_id: string;
@@ -17,10 +18,6 @@ type PlaidItem = {
   connected_at: string;
 };
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "never";
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 export function BanksSettingsScreen() {
   const { theme } = useTheme();
@@ -143,7 +140,7 @@ export function BanksSettingsScreen() {
                     {item.institution_name ?? "Bank account"}
                   </Text>
                   <Text style={[s.bankMeta, { color: theme.textSoft }]}>
-                    Last synced {formatDate(item.last_synced_at)}
+                    Last synced {item.last_synced_at ? formatDisplayDate(item.last_synced_at) : "never"}
                   </Text>
                 </View>
                 <Pressable

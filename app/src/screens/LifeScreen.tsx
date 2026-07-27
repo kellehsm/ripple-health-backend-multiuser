@@ -13,8 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
 import { fonts } from "../theme/typography";
 import { api } from "../api/client";
-
-const USER_ID = "f2cde901-feae-443e-abed-ddf7302bb131";
+import { getUserId } from "../lib/auth";
 
 type Book = {
   id: string;
@@ -43,7 +42,9 @@ export function LifeScreen() {
 
   const fetchBooks = useCallback(async () => {
     try {
-      const data: Book[] = await api.books(USER_ID, "reading");
+      const userId = await getUserId();
+      if (!userId) return;
+      const data: Book[] = await api.books(userId, "reading");
       setBooks(data);
       const progressEntries = await Promise.all(
         data.map(async (b) => {

@@ -23,7 +23,7 @@ const PLOT_H = 150;
 const LABEL_H = 20;
 const CHART_H = PLOT_H + LABEL_H;
 
-export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: Props) {
+export const WeekComparisonChart = React.memo(function WeekComparisonChart({ days, barColor, fadedColor, textColor }: Props) {
   const chartW = SCREEN_W - 32;
   const slotW = chartW / 7;
   const barW = Math.max(Math.floor(slotW * 0.33), 6);
@@ -101,4 +101,4 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
       })}
     </Svg>
   );
-}
+});

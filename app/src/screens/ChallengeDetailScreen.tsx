@@ -20,6 +20,7 @@ import {
   ChallengeParticipant,
   SocialCategory,
 } from "../api/friends";
+import { RANK_COLORS } from "../constants/socialConstants";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -48,7 +49,6 @@ function daysRemaining(endDate: string): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-const RANK_COLORS = ["", "#F5B800", "#A8A8A8", "#C07A4A"];
 
 export function ChallengeDetailScreen() {
   const { theme } = useTheme();

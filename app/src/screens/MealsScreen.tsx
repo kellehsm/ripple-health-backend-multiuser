@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
 import { fonts } from "../theme/typography";
+import { CARD_SHADOW } from "../theme/styleUtils";
 
 export function MealsScreen() {
   const { theme } = useTheme();
@@ -24,11 +25,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 0.5,
     padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    ...CARD_SHADOW,
   },
   cardTitle: { fontSize: 14, fontWeight: "500", marginBottom: 8, fontFamily: fonts.medium },
 });

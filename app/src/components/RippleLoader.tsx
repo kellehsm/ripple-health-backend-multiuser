@@ -19,9 +19,9 @@ const DROP_PATH =
   "M12 2.5 C11.5 2.5 4.5 10 4.5 15.5 C4.5 19.6 7.9 23 12 23 C16.1 23 19.5 19.6 19.5 15.5 C19.5 10 12.5 2.5 12 2.5Z";
 
 // EKG/heartbeat polyline at y=12 (vertical midpoint). Clipped to droplet shape.
-const HB_POINTS = "0,12 7.5,12 8.1,10.8 9.2,13.2 10,12 10.5,12 11.2,7.5 12.8,16.5 13.5,12 24,12";
+const HB_POINTS = "6.5,12 7.5,12 8.1,10.8 9.2,13.2 10,12 10.5,12 11.2,7.5 12.8,16.5 13.5,12 17.5,12";
 // Approximate total polyline length (for stroke-dasharray)
-const HB_LENGTH = 58;
+const HB_LENGTH = 32;
 
 // Loop timing constants (all in ms)
 const LOOP_MS   = 1000;  // full cycle

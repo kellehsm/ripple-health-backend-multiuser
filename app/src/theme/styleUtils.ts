@@ -40,6 +40,15 @@ export function hardOffset(size: ShadowSize = "card"): number {
   return HARD[size];
 }
 
+/** Standard card shadow — matches design system card shadow spec. */
+export const CARD_SHADOW = {
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 6,
+  elevation: 3,
+} as const;
+
 // Legacy — kept for backward compat.
 export function coloredShadow(color: string, intensity: number = 1) {
   return {

@@ -6,21 +6,7 @@ import {
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { LoadingIndicator } from './LoadingIndicator';
-
-const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
-
-function CyclingImage({ images, style }: { images: string[]; style: any }) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % images.length), 2000);
-    return () => clearInterval(t);
-  }, [images.length]);
-  if (!images.length) {
-    return <View style={[style, { backgroundColor: '#D8F5EB', opacity: 0.5 }]} />;
-  }
-  return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={style} resizeMode="cover" />;
-}
+import { CyclingImage, IMAGE_BASE } from './CyclingExerciseImage';
 
 interface ExerciseResult {
   id: string;

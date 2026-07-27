@@ -21,3 +21,6 @@ CREATE INDEX IF NOT EXISTS idx_hobby_logs_hobby_time
 
 CREATE INDEX IF NOT EXISTS idx_daily_summaries_user_date
   ON daily_summaries (user_id, date);
+
+CREATE INDEX IF NOT EXISTS idx_books_user_status ON books (user_id, status, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reading_logs_book ON reading_logs (book_id, logged_at DESC);

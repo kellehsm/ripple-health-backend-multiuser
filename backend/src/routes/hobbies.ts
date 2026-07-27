@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { parseWeekStartDay } from "../lib/weekStartDay.js";
 
 // Generalized version of the "books" pattern - works for any hobby.
 export default async function hobbiesRoutes(app: FastifyInstance) {
@@ -81,8 +82,7 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     const owned = await query(`SELECT id FROM hobbies WHERE id = $1 AND user_id = $2`, [id, user_id]);
     if (!owned[0]) return reply.status(404).send({ error: "not found" });
     const { week_start_day = "1" } = req.query as any;
-    const parsed = parseInt(week_start_day, 10);
-    const startDay = Math.max(0, Math.min(6, isNaN(parsed) ? 1 : parsed));
+    const startDay = parseWeekStartDay(week_start_day);
 
     const [ws] = await query<any>(
       `SELECT (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $1 + 7) % 7) * INTERVAL '1 day')::date AS week_start`,

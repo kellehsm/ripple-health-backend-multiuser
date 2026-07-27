@@ -14,6 +14,8 @@ import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { getLeaderboard, getReactions, addReaction, LeaderboardEntry, Reaction, SocialCategory } from "../api/friends";
 import { toast } from "../lib/toast";
+import { getWeekStartISO } from "../utils/dateUtils";
+import { RANK_COLORS } from "../constants/socialConstants";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -54,15 +56,8 @@ function formatValue(value: number, category: SocialCategory): string {
 }
 
 const RANK_MEDALS = ["", "gold", "silver", "bronze"] as const;
-const RANK_COLORS = ["", "#F5B800", "#A8A8A8", "#C07A4A"];
 const REACTION_EMOJIS = ["🔥", "💪", "👏", "⭐", "🚀"] as const;
 
-function getWeekStart(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - d.getDay());
-  return d.toISOString().slice(0, 10);
-}
 
 export function LeaderboardScreen() {
   const { theme } = useTheme();
@@ -79,7 +74,7 @@ export function LeaderboardScreen() {
     useCallback(() => {
       let cancelled = false;
       setLoading(true);
-      const weekStart = getWeekStart();
+      const weekStart = getWeekStartISO();
       Promise.all([
         getLeaderboard(category),
         getReactions(category, weekStart).catch(() => []),
@@ -102,7 +97,7 @@ export function LeaderboardScreen() {
   async function handleAddReaction(entry: LeaderboardEntry, emoji: string) {
     setPickerTarget(null);
     try {
-      await addReaction({ to_user_id: entry.user_id, category, emoji, week_start: getWeekStart() });
+      await addReaction({ to_user_id: entry.user_id, category, emoji, week_start: getWeekStartISO() });
       setReactions((prev) => {
         const filtered = prev.filter(
           (r) => !(r.from_user_id === myUserId && r.to_user_id === entry.user_id)

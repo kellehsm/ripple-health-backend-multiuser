@@ -146,14 +146,31 @@ async function ensureDefaultCategories(user_id: string) {
     [user_id]
   );
   if (existing.length > 0) return;
-  for (let i = 0; i < DEFAULT_COLOR_CATEGORIES.length; i++) {
-    const cat = DEFAULT_COLOR_CATEGORIES[i];
-    await query(
-      `INSERT INTO medication_color_categories (user_id, label, color_hex, is_default, sort_order)
-       VALUES ($1, $2, $3, true, $4) ON CONFLICT (user_id, label) DO NOTHING`,
-      [user_id, cat.label, cat.color_hex, i]
-    );
-  }
+
+  // Build a single multi-row INSERT instead of N sequential inserts
+  const params: any[] = [user_id];
+  const valueClauses = DEFAULT_COLOR_CATEGORIES.map((cat, i) => {
+    const base = 2 + i * 2;
+    params.push(cat.label, cat.color_hex);
+    return `($1, $${base}, $${base + 1}, true, ${i})`;
+  });
+  await query(
+    `INSERT INTO medication_color_categories (user_id, label, color_hex, is_default, sort_order)
+     VALUES ${valueClauses.join(", ")} ON CONFLICT (user_id, label) DO NOTHING`,
+    params
+  );
+}
+
+async function insertSlots(medId: string, slots: any[]): Promise<void> {
+  await Promise.all(
+    slots.map((s, i) =>
+      query(
+        `INSERT INTO medication_schedule_slots (medication_id, time_of_day, specific_time, sort_order)
+         VALUES ($1, $2, $3, $4)`,
+        [medId, s.time_of_day, s.specific_time ?? null, i]
+      )
+    )
+  );
 }
 
 export default async function medicationsRoutes(app: FastifyInstance) {
@@ -188,14 +205,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     );
 
     if (Array.isArray(slots) && slots.length > 0) {
-      for (let i = 0; i < slots.length; i++) {
-        const s = slots[i];
-        await query(
-          `INSERT INTO medication_schedule_slots (medication_id, time_of_day, specific_time, sort_order)
-           VALUES ($1, $2, $3, $4)`,
-          [med.id, s.time_of_day, s.specific_time ?? null, i]
-        );
-      }
+      await insertSlots(med.id, slots);
     }
 
     await query(
@@ -268,13 +278,8 @@ export default async function medicationsRoutes(app: FastifyInstance) {
 
     if (Array.isArray(slots)) {
       await query(`DELETE FROM medication_schedule_slots WHERE medication_id = $1`, [id]);
-      for (let i = 0; i < slots.length; i++) {
-        const s = slots[i];
-        await query(
-          `INSERT INTO medication_schedule_slots (medication_id, time_of_day, specific_time, sort_order)
-           VALUES ($1, $2, $3, $4)`,
-          [id, s.time_of_day, s.specific_time ?? null, i]
-        );
+      if (slots.length > 0) {
+        await insertSlots(id, slots);
       }
       const newTimes = slots.map((s: any) => s.time_of_day).sort().join(", ");
       const oldTimes = (current.slot_times ?? []).sort().join(", ");
@@ -283,13 +288,13 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       }
     }
 
-    for (const [change_type, old_value, new_value] of histEntries) {
-      await query(
+    await Promise.all(histEntries.map(([change_type, old_value, new_value]) =>
+      query(
         `INSERT INTO medication_history (medication_id, change_type, old_value, new_value, reason, changed_by)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [id, change_type, old_value, new_value, reason ?? null, changed_by ?? null]
-      );
-    }
+      )
+    ));
 
     const [result] = await query<any>(
       `${MED_SELECT} WHERE m.id = $1 GROUP BY m.id, p.id, c.id`,
@@ -546,13 +551,8 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       );
 
       const slots = normalizeSchedule(schedStr);
-      for (let i = 0; i < slots.length; i++) {
-        const s = slots[i];
-        await query(
-          `INSERT INTO medication_schedule_slots (medication_id, time_of_day, specific_time, sort_order)
-           VALUES ($1, $2, $3, $4)`,
-          [med.id, s.time_of_day, s.specific_time, i]
-        );
+      if (slots.length > 0) {
+        await insertSlots(med.id, slots);
       }
 
       await query(

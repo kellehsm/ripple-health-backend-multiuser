@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
 import { api } from "../api/client";
+import { formatDisplayDate } from "../utils/dateUtils";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -272,9 +273,6 @@ function BookShelf({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatDate(str: string): string {
-  return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -380,7 +378,7 @@ export function CompletedScreen() {
                       </View>
                       {item.author ? <Text style={{ color: theme.textSoft, fontSize: 12 }}>{item.author}</Text> : null}
                       {item.rating ? <StarRating rating={item.rating} /> : null}
-                      <Text style={[styles.dateLabel, { color: theme.textSoft }]}>Finished {formatDate(item.completed_at)}</Text>
+                      <Text style={[styles.dateLabel, { color: theme.textSoft }]}>Finished {formatDisplayDate(item.completed_at)}</Text>
                     </View>
                   </View>
                 </View>

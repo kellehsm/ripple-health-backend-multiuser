@@ -11,19 +11,8 @@ import { LoadingIndicator } from '../components/LoadingIndicator';
 import { ExerciseSearchModal } from '../components/ExerciseSearchModal';
 import { PlanExercise } from '../components/WorkoutPlannerModal';
 import { fireRestTimerDone } from '../lib/smartNotifications';
-
-const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
-
-function CyclingImage({ images, style }: { images: string[]; style: any }) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % images.length), 2000);
-    return () => clearInterval(t);
-  }, [images.length]);
-  if (!images.length) return <View style={[style, { backgroundColor: '#D8F5EB', opacity: 0.4, borderRadius: 14 }]} />;
-  return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={[style, { borderRadius: 14 }]} resizeMode="cover" />;
-}
+import { CyclingImage } from '../components/CyclingExerciseImage';
+import { formatSecs } from '../utils/dateUtils';
 
 interface LogEntry {
   id: string;
@@ -53,13 +42,6 @@ interface ActiveExercise {
   category: string;
 }
 
-function formatSecs(totalSecs: number): string {
-  const h = Math.floor(totalSecs / 3600);
-  const m = Math.floor((totalSecs % 3600) / 60);
-  const s = totalSecs % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
 
 function entryLabel(entry: LogEntry): string {
   const wt = entry.weight_used ? ` @ ${entry.weight_used} lbs` : '';

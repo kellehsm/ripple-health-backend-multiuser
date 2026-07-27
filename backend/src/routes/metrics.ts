@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { parseWeekStartDay } from "../lib/weekStartDay.js";
 
 // Generic metric engine: water, screen time, meds, workouts, etc.
 export default async function metricsRoutes(app: FastifyInstance) {
@@ -87,16 +88,16 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { metricId } = req.params as any;
     if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { week_start_day = "1", agg = "max" } = req.query as any;
-    const parsedWsd = parseInt(week_start_day, 10);
-    const startDay = Math.max(0, Math.min(6, isNaN(parsedWsd) ? 1 : parsedWsd));
+    const startDay = parseWeekStartDay(week_start_day);
     const aggFn = agg === "sum" ? "SUM" : "MAX";
 
-    const [ws] = await query<any>(
-      `SELECT (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $1 + 7) % 7) * INTERVAL '1 day')::date AS week_start`,
-      [startDay]
-    );
     const toStr = (v: any) => v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
-    const weekStart = toStr(ws.week_start);
+    const weekStart = toStr(
+      ((await query<any>(
+        `SELECT (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $1 + 7) % 7) * INTERVAL '1 day')::date AS week_start`,
+        [startDay]
+      ))[0].week_start)
+    );
 
     const thisWeekRows = await query<any>(
       `SELECT
@@ -164,75 +165,82 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { metricId } = req.params as any;
     if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { week_start_day = "1", agg = "max" } = req.query as any;
-    const parsedWsd = parseInt(week_start_day, 10);
-    const startDay = Math.max(0, Math.min(6, isNaN(parsedWsd) ? 1 : parsedWsd));
+    const startDay = parseWeekStartDay(week_start_day);
     const aggFn = agg === "sum" ? "SUM" : "MAX";
 
-    const [ws] = await query<any>(
-      `SELECT (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $1 + 7) % 7) * INTERVAL '1 day')::date AS week_start`,
-      [startDay]
-    );
     const toStr = (v: any) => v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
-    const thisWeekStart = toStr(ws.week_start);
 
-    // Build 4 pairs: offset 0..3 weeks back (recent) vs same offset + 4 weeks back (prior)
-    const weeks = await Promise.all(
-      [0, 1, 2, 3].map(async (offset) => {
-        const recentStart = `$1::date - (${offset} * INTERVAL '7 days')`;
-        const priorStart  = `$1::date - (${offset + 4} * INTERVAL '7 days')`;
-
-        const recentRows = await query<any>(
-          `SELECT COALESCE(SUM(day_val), 0) AS total,
-                  MIN(d)::date AS week_start_date
-           FROM (
-             SELECT logged_at::date AS d, ${aggFn}(value) AS day_val
-             FROM metric_logs
-             WHERE metric_id = $2
-               AND logged_at::date >= ${recentStart}
-               AND logged_at::date < ${recentStart} + INTERVAL '7 days'
-             GROUP BY logged_at::date
-           ) t`,
-          [thisWeekStart, metricId]
-        );
-        const priorRows = await query<any>(
-          `SELECT COALESCE(SUM(day_val), 0) AS total
-           FROM (
-             SELECT logged_at::date AS d, ${aggFn}(value) AS day_val
-             FROM metric_logs
-             WHERE metric_id = $2
-               AND logged_at::date >= ${priorStart}
-               AND logged_at::date < ${priorStart} + INTERVAL '7 days'
-             GROUP BY logged_at::date
-           ) t`,
-          [thisWeekStart, metricId]
-        );
-
-        // Compute the week_start_date for display even when there are no logs
-        const [dateRow] = await query<any>(
-          `SELECT (${recentStart})::date AS week_start_date`,
-          [thisWeekStart]
-        );
-
-        const recentTotal = Number(recentRows[0]?.total ?? 0);
-        const priorTotal  = Number(priorRows[0]?.total ?? 0);
-        const changePct   = priorTotal > 0
-          ? Math.round(((recentTotal - priorTotal) / priorTotal) * 100)
-          : null;
-
-        const weekStartDate = toStr(dateRow.week_start_date);
-        const label = new Date(weekStartDate + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-        return {
-          week_offset: offset,
-          week_start_date: weekStartDate,
-          week_label: label,
-          is_current: offset === 0,
-          recent_total: recentTotal,
-          prior_total: priorTotal,
-          change_pct: changePct,
-        };
-      })
+    // Single query: compute all 8 week windows (4 recent + 4 prior) in one round-trip.
+    // $1 = metricId, $2 = startDay (DOW integer for week boundary calculation)
+    const rows = await query<any>(
+      `WITH base AS (
+         SELECT (
+           date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $2 + 7) % 7) * INTERVAL '1 day'
+         )::date AS this_week_start
+       ),
+       recent_weeks AS (
+         SELECT gs.offset AS week_offset,
+                (base.this_week_start - gs.offset * INTERVAL '7 days')::date AS week_start
+         FROM generate_series(0, 3) AS gs(offset), base
+       ),
+       prior_weeks AS (
+         SELECT gs.offset AS week_offset,
+                (base.this_week_start - (gs.offset + 4) * INTERVAL '7 days')::date AS week_start
+         FROM generate_series(0, 3) AS gs(offset), base
+       ),
+       recent_totals AS (
+         SELECT rw.week_offset,
+                COALESCE(SUM(day_val), 0) AS total
+         FROM recent_weeks rw
+         LEFT JOIN (
+           SELECT logged_at::date AS d, ${aggFn}(value) AS day_val
+           FROM metric_logs
+           WHERE metric_id = $1
+           GROUP BY logged_at::date
+         ) dl ON dl.d >= rw.week_start AND dl.d < rw.week_start + INTERVAL '7 days'
+         GROUP BY rw.week_offset
+       ),
+       prior_totals AS (
+         SELECT pw.week_offset,
+                COALESCE(SUM(day_val), 0) AS total
+         FROM prior_weeks pw
+         LEFT JOIN (
+           SELECT logged_at::date AS d, ${aggFn}(value) AS day_val
+           FROM metric_logs
+           WHERE metric_id = $1
+           GROUP BY logged_at::date
+         ) dl ON dl.d >= pw.week_start AND dl.d < pw.week_start + INTERVAL '7 days'
+         GROUP BY pw.week_offset
+       )
+       SELECT rw.week_offset,
+              rw.week_start AS week_start_date,
+              rt.total      AS recent_total,
+              pt.total      AS prior_total
+       FROM recent_weeks rw
+       JOIN recent_totals rt ON rt.week_offset = rw.week_offset
+       JOIN prior_totals  pt ON pt.week_offset = rw.week_offset
+       ORDER BY rw.week_offset`,
+      [metricId, startDay]
     );
+
+    const weeks = rows.map((r: any) => {
+      const recentTotal = Number(r.recent_total);
+      const priorTotal  = Number(r.prior_total);
+      const changePct   = priorTotal > 0
+        ? Math.round(((recentTotal - priorTotal) / priorTotal) * 100)
+        : null;
+      const weekStartDate = toStr(r.week_start_date);
+      const label = new Date(weekStartDate + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return {
+        week_offset: Number(r.week_offset),
+        week_start_date: weekStartDate,
+        week_label: label,
+        is_current: Number(r.week_offset) === 0,
+        recent_total: recentTotal,
+        prior_total: priorTotal,
+        change_pct: changePct,
+      };
+    });
 
     // weeks[0] = current week, weeks[3] = 3 weeks ago — reverse so oldest first
     return weeks.reverse();
@@ -244,8 +252,7 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { metricId } = req.params as any;
     if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { week_start_day = "1", agg = "max" } = req.query as any;
-    const parsed = parseInt(week_start_day, 10);
-    const startDay = Math.max(0, Math.min(6, isNaN(parsed) ? 1 : parsed));
+    const startDay = parseWeekStartDay(week_start_day);
     const aggFn = agg === "sum" ? "SUM" : "MAX";
     const [result] = await query<any>(
       `SELECT COALESCE(SUM(day_val), 0) as total FROM (

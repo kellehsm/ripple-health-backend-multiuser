@@ -14,6 +14,8 @@ import { useTabPreferences } from '../hooks/useTabPreferences';
 import { TooltipBubble } from '../components/TooltipBubble';
 import { hasSeenTooltip, markTooltipSeen } from '../utils/tooltipSeen';
 import { WorkoutPlannerModal, PlanExercise } from '../components/WorkoutPlannerModal';
+import { CyclingImage } from '../components/CyclingExerciseImage';
+import { formatDisplayDate, formatDuration } from '../utils/dateUtils';
 
 interface WorkoutSuggestion {
   type: string;
@@ -57,41 +59,12 @@ interface ExerciseSession {
   exercise_names: string[] | null;
 }
 
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  if (diff < 86400000 && d.getDate() === now.getDate()) return 'Today';
-  if (diff < 172800000) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 const FOCUS_LABEL: Record<string, string> = {
   push: 'Push', pull: 'Pull', legs: 'Legs',
   upper: 'Upper Body', lower: 'Lower Body', full_body: 'Full Body',
 };
 
-const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
-
-function CyclingImage({ images, style }: { images: string[]; style: any }) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % images.length), 2000);
-    return () => clearInterval(t);
-  }, [images.length]);
-  if (!images.length) {
-    return <View style={[style, { backgroundColor: '#D8F5EB', opacity: 0.5 }]} />;
-  }
-  return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={style} resizeMode="cover" />;
-}
 
 function ExerciseEmptyState({ onPress }: { onPress: () => void }) {
   const { theme } = useTheme();
@@ -342,7 +315,7 @@ export function ExerciseScreen() {
               >
                 <View style={styles.sessionCardRow}>
                   <Text style={[styles.sessionDate, { color: theme.textStrong }]}>
-                    {formatDate(session.started_at)}
+                    {formatDisplayDate(session.started_at)}
                   </Text>
                   <Text style={[styles.sessionDuration, { color: theme.textSoft }]}>
                     {formatDuration(session.duration_seconds)}

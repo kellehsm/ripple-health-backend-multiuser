@@ -60,7 +60,7 @@ function splitAvg(xs: number[], ys: number[]): [number | null, number | null] {
 
 // ── Scatter plot ──────────────────────────────────────────────────────────────
 
-function ScatterPlot({
+const ScatterPlot = React.memo(function ScatterPlot({
   xs, ys, dotColor, lineColor, xLabel, yLabel,
 }: { xs: number[]; ys: number[]; dotColor: string; lineColor: string; xLabel?: string; yLabel?: string }) {
   const xMin = Math.min(...xs), xMax = Math.max(...xs);
@@ -144,7 +144,7 @@ function ScatterPlot({
       </Svg>
     </View>
   );
-}
+});
 
 // ── Correlation card ──────────────────────────────────────────────────────────
 
@@ -370,32 +370,42 @@ export function TrendsScreen() {
 
   useEffect(() => { load(days); }, [days, load]);
 
-  // Pre-filter pairs for each correlation
-  const smRows = rows.filter(r => r.avg_mood !== null && r.sleep_hours > 0);
-  const spRows = rows.filter(r => r.avg_mood !== null);
-  const gmRows = rows.filter(r => r.avg_mood !== null && r.avg_mg_dl !== null);
-  const sgRows = rows.filter(r => r.avg_mg_dl !== null && r.sleep_hours > 0);
-  // Substance correlations — only include days that actually have logged data
-  const cgRows = rows.filter(r => r.caffeine_mg > 0 && r.avg_mg_dl !== null);
-  const asRows = rows.filter(r => r.standard_drinks > 0 && r.sleep_hours > 0);
-  const cmRows = rows.filter(r => r.caffeine_mg > 0 && r.avg_mood !== null);
-  // Activity correlations — only include days that actually have data
-  const stmRows = rows.filter(r => r.steps > 0 && r.avg_mood !== null);
-  const exmRows = rows.filter(r => r.exercise_minutes > 0 && r.avg_mood !== null);
-  const stsRows = rows.filter(r => r.steps > 0 && r.sleep_hours > 0);
-  const exsRows = rows.filter(r => r.exercise_minutes > 0 && r.sleep_hours > 0);
+  // Pre-filter pairs for each correlation — memoized so they don't recompute on every render
+  const {
+    smRows, spRows, gmRows, sgRows, cgRows, asRows, cmRows, stmRows, exmRows, stsRows, exsRows,
+    smXs, smYs, spXs, spYs, gmXs, gmYs, sgXs, sgYs,
+    cgXs, cgYs, asXs, asYs, cmXs, cmYs,
+    stmXs, stmYs, exmXs, exmYs, stsXs, stsYs, exsXs, exsYs,
+  } = useMemo(() => {
+    const smRows = rows.filter(r => r.avg_mood !== null && r.sleep_hours > 0);
+    const spRows = rows.filter(r => r.avg_mood !== null);
+    const gmRows = rows.filter(r => r.avg_mood !== null && r.avg_mg_dl !== null);
+    const sgRows = rows.filter(r => r.avg_mg_dl !== null && r.sleep_hours > 0);
+    // Substance correlations — only include days that actually have logged data
+    const cgRows = rows.filter(r => r.caffeine_mg > 0 && r.avg_mg_dl !== null);
+    const asRows = rows.filter(r => r.standard_drinks > 0 && r.sleep_hours > 0);
+    const cmRows = rows.filter(r => r.caffeine_mg > 0 && r.avg_mood !== null);
+    // Activity correlations — only include days that actually have data
+    const stmRows = rows.filter(r => r.steps > 0 && r.avg_mood !== null);
+    const exmRows = rows.filter(r => r.exercise_minutes > 0 && r.avg_mood !== null);
+    const stsRows = rows.filter(r => r.steps > 0 && r.sleep_hours > 0);
+    const exsRows = rows.filter(r => r.exercise_minutes > 0 && r.sleep_hours > 0);
 
-  const smXs = smRows.map(r => r.sleep_hours),         smYs = smRows.map(r => r.avg_mood!);
-  const spXs = spRows.map(r => r.total_spent),          spYs = spRows.map(r => r.avg_mood!);
-  const gmXs = gmRows.map(r => r.avg_mg_dl!),           gmYs = gmRows.map(r => r.avg_mood!);
-  const sgXs = sgRows.map(r => r.sleep_hours),          sgYs = sgRows.map(r => r.avg_mg_dl!);
-  const cgXs = cgRows.map(r => r.caffeine_mg),          cgYs = cgRows.map(r => r.avg_mg_dl!);
-  const asXs = asRows.map(r => r.standard_drinks),      asYs = asRows.map(r => r.sleep_hours);
-  const cmXs = cmRows.map(r => r.caffeine_mg),          cmYs = cmRows.map(r => r.avg_mood!);
-  const stmXs = stmRows.map(r => r.steps),              stmYs = stmRows.map(r => r.avg_mood!);
-  const exmXs = exmRows.map(r => r.exercise_minutes),   exmYs = exmRows.map(r => r.avg_mood!);
-  const stsXs = stsRows.map(r => r.steps),              stsYs = stsRows.map(r => r.sleep_hours);
-  const exsXs = exsRows.map(r => r.exercise_minutes),   exsYs = exsRows.map(r => r.sleep_hours);
+    return {
+      smRows, spRows, gmRows, sgRows, cgRows, asRows, cmRows, stmRows, exmRows, stsRows, exsRows,
+      smXs: smRows.map(r => r.sleep_hours),        smYs: smRows.map(r => r.avg_mood!),
+      spXs: spRows.map(r => r.total_spent),         spYs: spRows.map(r => r.avg_mood!),
+      gmXs: gmRows.map(r => r.avg_mg_dl!),          gmYs: gmRows.map(r => r.avg_mood!),
+      sgXs: sgRows.map(r => r.sleep_hours),         sgYs: sgRows.map(r => r.avg_mg_dl!),
+      cgXs: cgRows.map(r => r.caffeine_mg),         cgYs: cgRows.map(r => r.avg_mg_dl!),
+      asXs: asRows.map(r => r.standard_drinks),     asYs: asRows.map(r => r.sleep_hours),
+      cmXs: cmRows.map(r => r.caffeine_mg),         cmYs: cmRows.map(r => r.avg_mood!),
+      stmXs: stmRows.map(r => r.steps),             stmYs: stmRows.map(r => r.avg_mood!),
+      exmXs: exmRows.map(r => r.exercise_minutes),  exmYs: exmRows.map(r => r.avg_mood!),
+      stsXs: stsRows.map(r => r.steps),             stsYs: stsRows.map(r => r.sleep_hours),
+      exsXs: exsRows.map(r => r.exercise_minutes),  exsYs: exsRows.map(r => r.sleep_hours),
+    };
+  }, [rows]);
 
   return (
     <ScrollView

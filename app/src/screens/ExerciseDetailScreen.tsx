@@ -6,21 +6,8 @@ import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
-
-const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
-
-function CyclingImage({ images, style }: { images: string[]; style: any }) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % images.length), 2000);
-    return () => clearInterval(t);
-  }, [images.length]);
-  if (!images.length) {
-    return <View style={[style, { backgroundColor: '#D8F5EB', opacity: 0.5 }]} />;
-  }
-  return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={style} resizeMode="cover" />;
-}
+import { CyclingImage } from '../components/CyclingExerciseImage';
+import { formatDuration } from '../utils/dateUtils';
 
 const ZONES = [
   { name: 'very_light', label: 'Very light', color: '#8ED4D8' }, // teal
@@ -60,12 +47,6 @@ interface SessionDetail {
   hr_samples: Array<{ recorded_at: string; bpm: number }>;
 }
 
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m} min`;
-}
 
 function entryLabel(entry: SessionEntry): string {
   const wt = entry.weight_used ? ` @ ${entry.weight_used} lbs` : '';

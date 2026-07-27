@@ -18,3 +18,4 @@ CREATE TABLE IF NOT EXISTS leaderboard_reactions (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(from_user_id, to_user_id, category, week_start)
 );
+CREATE INDEX IF NOT EXISTS idx_leaderboard_reactions_cat_week ON leaderboard_reactions (category, week_start);
