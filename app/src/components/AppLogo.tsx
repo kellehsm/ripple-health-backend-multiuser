@@ -7,9 +7,9 @@ export function AppLogo({ size = 100 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 280 280">
       {/* rings — vivid, matching droplet quadrant colors */}
-      <Circle cx="140" cy="140" r="130" fill="none" stroke="#7B3FBF" strokeWidth="2.2" />
-      <Circle cx="140" cy="140" r="105" fill="none" stroke="#E8654E" strokeWidth="2.2" />
-      <Circle cx="140" cy="140" r="80"  fill="none" stroke="#3FA0A6" strokeWidth="2.4" />
+      <Circle cx="140" cy="140" r="130" fill="none" stroke="#7B3FBF" strokeWidth="4.0" />
+      <Circle cx="140" cy="140" r="105" fill="none" stroke="#E8654E" strokeWidth="4.0" />
+      <Circle cx="140" cy="140" r="80"  fill="none" stroke="#3FA0A6" strokeWidth="4.2" />
 
       {/* droplet: translate(20,37) places bounding-box center (local 120,103) at canvas center (140,140) */}
       <G transform="translate(20,37)">
