@@ -38,8 +38,8 @@ export function MilestoneBanner({ message, onDismiss }: MilestoneBannerProps) {
         styles.container,
         {
           bottom: insets.bottom + 72,
-          backgroundColor: theme.teal.solid,
-          borderColor: theme.ink,
+          backgroundColor: theme.teal.bar,
+          borderColor: theme.textStrong,
           opacity,
           transform: [{ translateY: slideY }],
         },
