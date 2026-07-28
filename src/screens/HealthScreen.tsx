@@ -1006,7 +1006,7 @@ export function HealthScreen() {
       <SectionDivider label="GLUCOSE" />
 
       {/* Glucose chart card */}
-      <ShadowCard size="hero" accent={theme.berry.solid} rotate={-0.5} padding={14}>
+      <ShadowCard size="hero" accent={theme.berry.solid} rotate={-0.5} padding={14} cardId="glucose_card">
         <View style={styles.cardHeaderRow}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Glucose</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end", flexWrap: "wrap" }}>

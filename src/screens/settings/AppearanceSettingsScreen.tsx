@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from "react";
-import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder, LayoutAnimation, UIManager, Platform } from "react-native";
+import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAppSettings, CARD_OPACITY_MIN, CARD_OPACITY_MAX } from "../../theme/AppSettingsContext";
@@ -13,10 +13,6 @@ import {
   OVERVIEW_TEMPLATE, WELLNESS_TEMPLATE, MEALS_TEMPLATE, LIFE_TEMPLATE,
   FINANCE_TEMPLATE, HEALTH_TAB_TEMPLATE,
 } from "../../theme/pageTemplates";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 // ─── Per-object items ─────────────────────────────────────────────────────────
 
@@ -56,7 +52,6 @@ function ObjectOpacityRow({ entry, globalOpacity }: ObjectOpacityRowProps) {
   const glassEnabled = perObjectGlassBlur[entry.id] ?? false;
 
   const toggle = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(e => !e);
     Haptics.selectionAsync();
   };
@@ -89,7 +84,7 @@ function ObjectOpacityRow({ entry, globalOpacity }: ObjectOpacityRowProps) {
       </Pressable>
 
       {expanded && (
-        <View style={[advStyles.expandedPanel, { backgroundColor: theme.page + "CC", borderTopColor: theme.cardBorder }]}>
+        <View style={[advStyles.expandedPanel, { backgroundColor: theme.page, borderTopColor: theme.cardBorder }]}>
           {/* Opacity slider */}
           <View style={advStyles.panelRow}>
             <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Opacity</Text>
@@ -139,13 +134,12 @@ function AdvancedThemeMenu({ cardOpacity, theme }: { cardOpacity: number; theme:
   const [open, setOpen] = useState(false);
 
   const toggle = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setOpen(o => !o);
     Haptics.selectionAsync();
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginTop: 4 }]}>
+    <View style={[advStyles.advCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       {/* Header row */}
       <Pressable
         onPress={toggle}
@@ -579,6 +573,11 @@ const styles = StyleSheet.create({
 });
 
 const advStyles = StyleSheet.create({
+  advCard: {
+    borderRadius: 22,
+    borderWidth: 2,
+    marginTop: 4,
+  },
   objectRow: {
     flexDirection: "row",
     alignItems: "center",

@@ -544,7 +544,7 @@ export function LifeScreen() {
       {/* Add a book card + Currently reading */}
       {!hiddenSections.includes('books') && (<>
       <View ref={tourBooksRef}>
-      <ShadowCard size="card">
+      <ShadowCard size="card" cardId="books_card">
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Add a book</Text>
         <View style={styles.searchRow}>
           <TextInput
@@ -684,7 +684,7 @@ export function LifeScreen() {
       {/* Hobbies section — add form + individual cards */}
       {!hiddenSections.includes('hobbies') && (<>
       <View ref={tourHobbiesRef}>
-      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} rotate={-0.4}>
+      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} rotate={-0.4} cardId="hobbies_card">
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Hobbies</Text>
         <View style={styles.searchRow}>
           <TextInput
@@ -852,7 +852,7 @@ export function LifeScreen() {
 
       {/* Gratitude prompt — shown when no journal text logged today */}
       {!hasGratitudeToday && (
-        <ShadowCard size="card" bg={theme.berry.tint} accent={theme.berry.solid}>
+        <ShadowCard size="card" bg={theme.berry.tint} accent={theme.berry.solid} cardId="mood_log_card">
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <Text style={{ fontSize: 22 }}>📓</Text>
             <Text style={{ fontSize: 16, fontWeight: "900", color: theme.berry.fg, flex: 1 }}>

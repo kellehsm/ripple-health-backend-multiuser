@@ -516,7 +516,7 @@ export function FinanceScreen() {
           accessibilityRole="button"
           accessibilityLabel="Spending total — tap to add expense"
         >
-        <ShadowCard size="hero" bg={theme.purple.tint} accent={theme.purple.solid} rotate={0.6}>
+        <ShadowCard size="hero" bg={theme.purple.tint} accent={theme.purple.solid} rotate={0.6} cardId="spending_total">
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
             <View>
               <Text style={[s.label, { color: theme.purple.sub }]}>
@@ -555,7 +555,7 @@ export function FinanceScreen() {
         {/* Category breakdown chart */}
         {categoryTotals.length > 0 && !hiddenSections.includes('breakdown') && (
           <View ref={tourBreakdownRef}>
-          <ShadowCard size="card">
+          <ShadowCard size="card" cardId="spending_breakdown">
             <Text style={[s.cardTitle, { color: theme.textStrong }]}>Where it went</Text>
             <View style={{ gap: 11, marginTop: 6 }}>
               {categoryTotals.map(([cat, amt], idx) => {
