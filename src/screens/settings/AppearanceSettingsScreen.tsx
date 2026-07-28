@@ -133,6 +133,61 @@ function ObjectOpacityRow({ entry, globalOpacity }: ObjectOpacityRowProps) {
   );
 }
 
+// ─── Advanced theme menu ──────────────────────────────────────────────────────
+
+function AdvancedThemeMenu({ cardOpacity, theme }: { cardOpacity: number; theme: import("../../theme/theme").Theme }) {
+  const [open, setOpen] = useState(false);
+
+  const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setOpen(o => !o);
+    Haptics.selectionAsync();
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, marginTop: 4 }]}>
+      {/* Header row */}
+      <Pressable
+        onPress={toggle}
+        style={({ pressed }) => [
+          styles.paletteRow,
+          pressed && { backgroundColor: theme.cardBorder + "40" },
+        ]}
+      >
+        <Text style={[styles.paletteName, { color: theme.textStrong }]}>Advanced</Text>
+        <Text style={{ color: theme.textSoft, fontSize: 11 }}>{open ? "▲" : "▼"}</Text>
+      </Pressable>
+
+      {open && (
+        <View>
+          <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+          <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
+            <Text style={{ fontSize: 11, color: theme.textSoft, lineHeight: 16 }}>
+              Fine-tune opacity and glass blur per card or tile. Glass blur takes effect after the next build.
+            </Text>
+          </View>
+          {Object.entries(OBJECT_GROUPS).map(([screenName, entries]) => (
+            <View key={screenName}>
+              <Text style={[styles.subGroupLabel, { color: theme.textSoft, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2 }]}>
+                {screenName.toUpperCase()}
+              </Text>
+              {entries.map((entry, index) => {
+                const isLast = index === entries.length - 1;
+                return (
+                  <View key={entry.id}>
+                    <ObjectOpacityRow entry={entry} globalOpacity={cardOpacity} />
+                    {!isLast && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Opacity slider ────────────────────────────────────────────────────────────
 
 interface OpacitySliderProps {
@@ -287,6 +342,9 @@ export function AppearanceSettingsScreen() {
         </View>
       ))}
 
+      {/* ── Advanced (inside theme section) ────────────────────────── */}
+      <AdvancedThemeMenu cardOpacity={cardOpacity} theme={theme} />
+
       {/* ── Shadows ────────────────────────────────────────────────── */}
       <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 20 }]}>{s.appearance_shadows_title}</Text>
       <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
@@ -427,32 +485,6 @@ export function AppearanceSettingsScreen() {
         </View>
       </View>
 
-      {/* ── Advanced ───────────────────────────────────────────────── */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 20 }]}>
-        ADVANCED
-      </Text>
-      <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
-        Fine-tune opacity and glass blur per card or tile. Glass blur takes effect after the next build.
-      </Text>
-
-      {Object.entries(OBJECT_GROUPS).map(([screenName, entries]) => (
-        <View key={screenName} style={{ gap: 0 }}>
-          <Text style={[styles.subGroupLabel, { color: theme.textSoft, marginTop: 8 }]}>
-            {screenName.toUpperCase()}
-          </Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            {entries.map((entry, index) => {
-              const isLast = index === entries.length - 1;
-              return (
-                <View key={entry.id}>
-                  <ObjectOpacityRow entry={entry} globalOpacity={cardOpacity} />
-                  {!isLast && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      ))}
 
     </ScrollView>
   );
