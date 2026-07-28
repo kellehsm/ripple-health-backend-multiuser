@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from "react";
-import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder } from "react-native";
+import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder, Modal, TouchableWithoutFeedback } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAppSettings, CARD_OPACITY_MIN, CARD_OPACITY_MAX } from "../../theme/AppSettingsContext";
@@ -36,95 +36,87 @@ for (const entry of OBJECT_ENTRIES) {
   OBJECT_GROUPS[entry.screen].push(entry);
 }
 
-// ─── Per-object opacity row ───────────────────────────────────────────────────
+// ─── Per-object popup (Modal) ─────────────────────────────────────────────────
 
-interface ObjectOpacityRowProps {
-  entry: ObjectEntry;
+interface ObjectPopupProps {
+  entry: ObjectEntry | null;
   globalOpacity: number;
+  onClose: () => void;
 }
 
-function ObjectOpacityRow({ entry, globalOpacity }: ObjectOpacityRowProps) {
+function ObjectPopup({ entry, globalOpacity, onClose }: ObjectPopupProps) {
   const { theme } = useTheme();
   const { perObjectOpacity, perObjectGlassBlur, setObjectOpacity, resetObjectOpacity, setObjectGlassBlur } = useAppSettings();
-  const [expanded, setExpanded] = useState(false);
+  if (!entry) return null;
+
   const isCustom = perObjectOpacity[entry.id] !== undefined;
   const value = isCustom ? perObjectOpacity[entry.id] : globalOpacity;
   const glassEnabled = perObjectGlassBlur[entry.id] ?? false;
 
-  const toggle = () => {
-    setExpanded(e => !e);
-    Haptics.selectionAsync();
-  };
-
   return (
-    <View>
-      <Pressable
-        onPress={toggle}
-        style={({ pressed }) => [
-          advStyles.objectRow,
-          pressed && { backgroundColor: theme.cardBorder + "40" },
-        ]}
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={[advStyles.objectLabel, { color: theme.textStrong }]}>{entry.label}</Text>
-          {isCustom && (
-            <Text style={[advStyles.objectSub, { color: theme.teal.solid }]}>
-              Custom: {Math.round(value * 100)}%
-            </Text>
-          )}
-          {!isCustom && (
-            <Text style={[advStyles.objectSub, { color: theme.textSoft }]}>
-              Global: {Math.round(value * 100)}%
-            </Text>
-          )}
-        </View>
-        <Text style={[advStyles.chevron, { color: theme.textSoft }]}>
-          {expanded ? "▲" : "▼"}
-        </Text>
-      </Pressable>
+    <Modal transparent animationType="fade" visible onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={advStyles.popupOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={[advStyles.popup, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              {/* Title */}
+              <View style={advStyles.popupHeader}>
+                <Text style={[advStyles.popupTitle, { color: theme.textStrong }]}>{entry.label}</Text>
+                <Text style={[advStyles.popupScreen, { color: theme.textSoft }]}>{entry.screen}</Text>
+              </View>
 
-      {expanded && (
-        <View style={[advStyles.expandedPanel, { backgroundColor: theme.page, borderTopColor: theme.cardBorder }]}>
-          {/* Opacity slider */}
-          <View style={advStyles.panelRow}>
-            <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Opacity</Text>
-            <Text style={[advStyles.panelValue, { color: theme.textStrong }]}>{Math.round(value * 100)}%</Text>
-          </View>
-          <OpacitySlider
-            value={value}
-            onChange={(v) => setObjectOpacity(entry.id, v)}
-            trackColor={theme.teal.solid}
-            thumbColor={theme.card}
-            borderColor={theme.teal.solid}
-            trackBgColor={theme.cardBorder}
-          />
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginHorizontal: 0, marginBottom: 16 }]} />
 
-          {/* Glass blur toggle */}
-          <View style={[advStyles.panelRow, { marginTop: 10 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Glass blur</Text>
-              <Text style={[advStyles.panelHint, { color: theme.textSoft }]}>Requires next build</Text>
+              {/* Opacity slider */}
+              <View style={advStyles.panelRow}>
+                <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Opacity</Text>
+                <Text style={[advStyles.panelValue, { color: theme.textStrong }]}>{Math.round(value * 100)}%</Text>
+              </View>
+              <OpacitySlider
+                value={value}
+                onChange={(v) => setObjectOpacity(entry.id, v)}
+                trackColor={theme.teal.solid}
+                thumbColor={theme.card}
+                borderColor={theme.teal.solid}
+                trackBgColor={theme.cardBorder}
+              />
+
+              {/* Glass blur toggle */}
+              <View style={[advStyles.panelRow, { marginTop: 18 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Glass blur</Text>
+                  <Text style={[advStyles.panelHint, { color: theme.textSoft }]}>Activates after next build</Text>
+                </View>
+                <Switch
+                  value={glassEnabled}
+                  onValueChange={(v) => { setObjectGlassBlur(entry.id, v); Haptics.selectionAsync(); }}
+                  trackColor={{ true: theme.teal.solid, false: theme.cardBorder }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              {/* Footer actions */}
+              <View style={advStyles.popupFooter}>
+                {isCustom && (
+                  <Pressable
+                    onPress={() => { resetObjectOpacity(entry.id); Haptics.selectionAsync(); }}
+                    style={[advStyles.resetLink, { borderColor: theme.cardBorder }]}
+                  >
+                    <Text style={[advStyles.resetLinkText, { color: theme.textSoft }]}>Reset to global</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={onClose}
+                  style={[advStyles.doneBtn, { backgroundColor: theme.teal.solid }]}
+                >
+                  <Text style={advStyles.doneBtnText}>Done</Text>
+                </Pressable>
+              </View>
             </View>
-            <Switch
-              value={glassEnabled}
-              onValueChange={(v) => { setObjectGlassBlur(entry.id, v); Haptics.selectionAsync(); }}
-              trackColor={{ true: theme.teal.solid, false: theme.cardBorder }}
-              thumbColor="#ffffff"
-            />
-          </View>
-
-          {/* Reset button */}
-          {isCustom && (
-            <Pressable
-              onPress={() => { resetObjectOpacity(entry.id); Haptics.selectionAsync(); }}
-              style={[advStyles.resetLink, { borderColor: theme.cardBorder }]}
-            >
-              <Text style={[advStyles.resetLinkText, { color: theme.textSoft }]}>Reset to global</Text>
-            </Pressable>
-          )}
+          </TouchableWithoutFeedback>
         </View>
-      )}
-    </View>
+      </TouchableWithoutFeedback>
+    </Modal>
   );
 }
 
@@ -132,17 +124,14 @@ function ObjectOpacityRow({ entry, globalOpacity }: ObjectOpacityRowProps) {
 
 function AdvancedThemeMenu({ cardOpacity, theme }: { cardOpacity: number; theme: import("../../theme/theme").Theme }) {
   const [open, setOpen] = useState(false);
-
-  const toggle = () => {
-    setOpen(o => !o);
-    Haptics.selectionAsync();
-  };
+  const [activeEntry, setActiveEntry] = useState<ObjectEntry | null>(null);
+  const { perObjectOpacity } = useAppSettings();
 
   return (
     <View style={[advStyles.advCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       {/* Header row */}
       <Pressable
-        onPress={toggle}
+        onPress={() => { setOpen(o => !o); Haptics.selectionAsync(); }}
         style={({ pressed }) => [
           styles.paletteRow,
           pressed && { backgroundColor: theme.cardBorder + "40" },
@@ -157,7 +146,7 @@ function AdvancedThemeMenu({ cardOpacity, theme }: { cardOpacity: number; theme:
           <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
           <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
             <Text style={{ fontSize: 11, color: theme.textSoft, lineHeight: 16 }}>
-              Fine-tune opacity and glass blur per card or tile. Glass blur takes effect after the next build.
+              Tap any card or tile to fine-tune its opacity and glass blur independently.
             </Text>
           </View>
           {Object.entries(OBJECT_GROUPS).map(([screenName, entries]) => (
@@ -167,9 +156,25 @@ function AdvancedThemeMenu({ cardOpacity, theme }: { cardOpacity: number; theme:
               </Text>
               {entries.map((entry, index) => {
                 const isLast = index === entries.length - 1;
+                const isCustom = perObjectOpacity[entry.id] !== undefined;
+                const displayVal = isCustom ? perObjectOpacity[entry.id] : cardOpacity;
                 return (
                   <View key={entry.id}>
-                    <ObjectOpacityRow entry={entry} globalOpacity={cardOpacity} />
+                    <Pressable
+                      onPress={() => { setActiveEntry(entry); Haptics.selectionAsync(); }}
+                      style={({ pressed }) => [
+                        advStyles.objectRow,
+                        pressed && { backgroundColor: theme.cardBorder + "40" },
+                      ]}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={[advStyles.objectLabel, { color: theme.textStrong }]}>{entry.label}</Text>
+                        <Text style={[advStyles.objectSub, { color: isCustom ? theme.teal.solid : theme.textSoft }]}>
+                          {isCustom ? "Custom" : "Global"}: {Math.round(displayVal * 100)}%
+                        </Text>
+                      </View>
+                      <Text style={{ color: theme.textSoft, fontSize: 12 }}>›</Text>
+                    </Pressable>
                     {!isLast && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
                   </View>
                 );
@@ -178,6 +183,13 @@ function AdvancedThemeMenu({ cardOpacity, theme }: { cardOpacity: number; theme:
           ))}
         </View>
       )}
+
+      {/* Popup — one at a time */}
+      <ObjectPopup
+        entry={activeEntry}
+        globalOpacity={cardOpacity}
+        onClose={() => setActiveEntry(null)}
+      />
     </View>
   );
 }
@@ -586,23 +598,46 @@ const advStyles = StyleSheet.create({
   },
   objectLabel: { fontSize: 13, fontWeight: "600" },
   objectSub: { fontSize: 11, marginTop: 1 },
-  chevron: { fontSize: 11, marginLeft: 8 },
-  expandedPanel: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-  },
   panelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
   panelLabel: { flex: 1, fontSize: 12, fontWeight: "600" },
   panelValue: { fontSize: 14, fontWeight: "700" },
   panelHint: { fontSize: 10, marginTop: 1 },
   resetLink: {
-    alignSelf: "flex-start",
-    marginTop: 10,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-  resetLinkText: { fontSize: 11, fontWeight: "600" },
+  resetLinkText: { fontSize: 12, fontWeight: "600" },
+  // Popup modal
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  popup: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: 22,
+    borderWidth: 2,
+    padding: 20,
+  },
+  popupHeader: { marginBottom: 12 },
+  popupTitle: { fontSize: 17, fontWeight: "800" },
+  popupScreen: { fontSize: 11, marginTop: 2 },
+  popupFooter: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 20,
+  },
+  doneBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  doneBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 });

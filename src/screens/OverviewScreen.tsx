@@ -1765,7 +1765,7 @@ export function OverviewScreen() {
                 <View style={{ marginBottom: hasSleep ? 16 : 0 }}>
                   <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5, marginBottom: 6 }}>EXERCISE DAYS VS REST DAYS</Text>
                   <View style={{ flexDirection: "row", gap: 8 }}>
-                    <View style={{ flex: 1, backgroundColor: theme.teal.tint, borderRadius: 10, padding: 10, alignItems: "center" }}>
+                    <View style={{ flex: 1, backgroundColor: theme.teal.tint, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
                       <Text style={{ color: theme.teal.fg, fontSize: 20, fontWeight: "900" }}>{ex.with_avg}</Text>
                       <Text style={{ color: theme.teal.sub, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
                       <Text style={{ color: theme.teal.sub, fontSize: 10 }}>exercise days</Text>
@@ -1791,7 +1791,7 @@ export function OverviewScreen() {
                 <View>
                   <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5, marginBottom: 6 }}>7+ HOURS SLEEP VS LESS</Text>
                   <View style={{ flexDirection: "row", gap: 8 }}>
-                    <View style={{ flex: 1, backgroundColor: theme.amber.tint, borderRadius: 10, padding: 10, alignItems: "center" }}>
+                    <View style={{ flex: 1, backgroundColor: theme.amber.tint, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
                       <Text style={{ color: theme.amber.fg, fontSize: 20, fontWeight: "900" }}>{sl.good_avg}</Text>
                       <Text style={{ color: theme.amber.sub, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
                       <Text style={{ color: theme.amber.sub, fontSize: 10 }}>7+ h nights</Text>

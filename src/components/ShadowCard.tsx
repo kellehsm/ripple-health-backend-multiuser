@@ -8,6 +8,15 @@ import { layeredShadow, hardOffset, ShadowSize } from "../theme/styleUtils";
 import { ThemedSurface, useCardBackground, useTileBackground } from "../theme/pageTemplates";
 import { SPRING_STANDARD } from "../theme/motion";
 
+// Lazy-load BlurView so the app doesn't crash when expo-glass-effect isn't
+// installed yet. Once a native build includes the package, blur activates
+// automatically without any further code change.
+let BlurView: React.ComponentType<{ intensity: number; tint: "light" | "dark" | "default"; style?: ViewStyle }> | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  BlurView = require("expo-glass-effect").GlassView ?? require("expo-blur").BlurView ?? null;
+} catch { /* not installed yet — blur is a no-op */ }
+
 interface ShadowCardProps {
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -72,11 +81,13 @@ export function ShadowCard({
   skipTransparency = false,
 }: ShadowCardProps) {
   const { theme } = useTheme();
-  const { shadowsEnabled, cardOpacity, perObjectOpacity } = useAppSettings();
+  const { shadowsEnabled, cardOpacity, perObjectOpacity, perObjectGlassBlur } = useAppSettings();
   const objectId = cardId ?? tileId;
   const effectiveOpacity = objectId && perObjectOpacity[objectId] !== undefined
     ? perObjectOpacity[objectId]
     : cardOpacity;
+  const blurEnabled = BlurView !== null && objectId ? (perObjectGlassBlur[objectId] ?? false) : false;
+  const blurIntensity = 40;
   const cardBg = useCardBackground(cardId ?? "");
   const tileBg = useTileBackground(tileId ?? "");
   const bgOverride = cardId ? cardBg : (tileId ? tileBg : null);
@@ -177,17 +188,32 @@ export function ShadowCard({
     <View
       style={[
         {
-          backgroundColor: resolvedBg,
+          backgroundColor: blurEnabled ? "transparent" : resolvedBg,
           borderRadius: radius,
           borderWidth: 2.5,
           borderColor: borderColor ?? ink,
           padding,
-          overflow: (cardId || tileId) ? "hidden" : undefined,
+          overflow: (cardId || tileId || blurEnabled) ? "hidden" : undefined,
           ...softShadow,
         },
         style,
       ]}
     >
+      {/* Glass blur layer — only renders when BlurView is available and toggled on */}
+      {blurEnabled && BlurView && (
+        <BlurView
+          intensity={blurIntensity}
+          tint={isDark ? "dark" : "light"}
+          style={[StyleSheet.absoluteFill, { borderRadius: radius }]}
+        />
+      )}
+      {/* Tinted fill on top of blur (preserves the card colour at reduced opacity) */}
+      {blurEnabled && (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { backgroundColor: resolvedBg, borderRadius: radius }]}
+        />
+      )}
       {(cardId || tileId) && (
         <ThemedSurface
           elementId={(cardId ?? tileId)!}

@@ -14,7 +14,7 @@ import { api } from "../api/client";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-export const CARD_OPACITY_MIN = 0.30;
+export const CARD_OPACITY_MIN = 0.00;
 export const CARD_OPACITY_MAX = 1.0;
 const DEFAULT_OPACITY = 1.0;
 
