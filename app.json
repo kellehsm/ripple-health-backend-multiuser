@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "Ripple Wellness",
+    "slug": "ripple-health",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "ripple",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera is used to scan food barcodes for meal logging."
+      }
+    },
+    "android": {
+      "package": "com.kellehs.wellness",
+      "adaptiveIcon": {
+        "backgroundColor": "#FBFAF7",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "statusBar": {
+        "backgroundColor": "#F5F1E8",
+        "style": "dark",
+        "translucent": false
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_HEALTH"
+      ],
+      "versionCode": 3
+    },
+    "plugins": [
+      "expo-health-connect",
+      "expo-notifications",
+      "./plugins/withForegroundServiceType",
+      "./plugins/withAndroidWidget",
+      "./plugins/withAndroidShortcuts",
+      [
+        "expo-network-security-config",
+        {
+          "networkSecurityConfigPath": "./assets/network_security_config.xml"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 26,
+            "kotlinVersion": "2.1.20"
+          }
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store"
+    ],
+    "updates": {
+      "enabled": false
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "owner": "keells",
+    "extra": {
+      "eas": {
+        "projectId": "24d6d00c-8c89-45fa-9a30-532450044375"
+      },
+      "apiBaseUrl": "https://app.kels.gg/api"
+    }
+  }
+}
