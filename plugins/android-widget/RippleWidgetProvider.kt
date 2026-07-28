@@ -47,14 +47,14 @@ class RippleWidgetProvider : AppWidgetProvider() {
         // gets valid RemoteViews immediately and never shows "Can't load widget".
         for (id in appWidgetIds) {
             try {
-                val (cSteps, cMood, cGlucose) = getCached(context)
+                val (cSteps, cMood, cGlucose, cWater) = getCached(context)
                 val cachedStatus = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .getString("status", "Tap ↻ to refresh") ?: "Tap ↻ to refresh"
-                updateWidget(context, appWidgetManager, id, cGlucose, cSteps, cMood, cachedStatus)
+                updateWidget(context, appWidgetManager, id, cGlucose, cSteps, cMood, cWater, cachedStatus)
             } catch (e: Exception) {
                 Log.e(TAG, "onUpdate initial render failed", e)
                 try {
-                    updateWidget(context, appWidgetManager, id, "--", "--", "--", "Tap ↻ to refresh")
+                    updateWidget(context, appWidgetManager, id, "--", "--", "--", "--", "Tap ↻ to refresh")
                 } catch (e2: Exception) { Log.e(TAG, "fallback render failed", e2) }
             }
         }
@@ -67,27 +67,28 @@ class RippleWidgetProvider : AppWidgetProvider() {
                 val token = readToken(context)
                 if (token == null) {
                     val s = "Sign in to app"
-                    saveCache(context, "--", "--", "--", s)
+                    saveCache(context, "--", "--", "--", "--", s)
                     for (id in appWidgetIds) {
-                        updateWidget(context, appWidgetManager, id, "--", "--", "--", s)
+                        updateWidget(context, appWidgetManager, id, "--", "--", "--", "--", s)
                     }
                 } else {
                     val glucose = fetchGlucose(token)
                     val steps = fetchSteps(token)
                     val mood = fetchMood(token)
+                    val water = fetchWater(token)
                     val time = LocalTime.now()
                         .format(DateTimeFormatter.ofPattern("h:mm a"))
                     val s = "Updated $time"
-                    saveCache(context, glucose, steps, mood, s)
+                    saveCache(context, glucose, steps, mood, water, s)
                     for (id in appWidgetIds) {
-                        updateWidget(context, appWidgetManager, id, glucose, steps, mood, s)
+                        updateWidget(context, appWidgetManager, id, glucose, steps, mood, water, s)
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "fetch error", e)
-                val (cs, cm, cg) = getCached(context)
+                val (cs, cm, cg, cw) = getCached(context)
                 for (id in appWidgetIds) {
-                    updateWidget(context, appWidgetManager, id, cg, cs, cm, "Tap ↻ to retry")
+                    updateWidget(context, appWidgetManager, id, cg, cs, cm, cw, "Tap ↻ to retry")
                 }
             } finally {
                 try { pending?.finish() } catch (_: Exception) {}
@@ -95,22 +96,24 @@ class RippleWidgetProvider : AppWidgetProvider() {
         }.start()
     }
 
-    data class CachedData(val steps: String, val mood: String, val glucose: String)
+    data class CachedData(val steps: String, val mood: String, val glucose: String, val water: String)
 
     private fun getCached(context: Context): CachedData {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return CachedData(
             p.getString("steps", "--") ?: "--",
             p.getString("mood", "--") ?: "--",
-            p.getString("glucose", "--") ?: "--"
+            p.getString("glucose", "--") ?: "--",
+            p.getString("water", "--") ?: "--"
         )
     }
 
-    private fun saveCache(context: Context, glucose: String, steps: String, mood: String, status: String) {
+    private fun saveCache(context: Context, glucose: String, steps: String, mood: String, water: String, status: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("glucose", glucose)
             .putString("steps", steps)
             .putString("mood", mood)
+            .putString("water", water)
             .putString("status", status)
             .apply()
     }
@@ -122,10 +125,11 @@ class RippleWidgetProvider : AppWidgetProvider() {
         glucose: String,
         steps: String,
         mood: String,
+        water: String,
         status: String
     ) {
         try {
-            val views = buildViews(context, glucose, steps, mood, status)
+            val views = buildViews(context, glucose, steps, mood, water, status)
             manager.updateAppWidget(id, views)
         } catch (e: Exception) {
             Log.e(TAG, "updateWidget failed", e)
@@ -142,12 +146,13 @@ class RippleWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun buildViews(context: Context, glucose: String, steps: String, mood: String, status: String): RemoteViews {
+    private fun buildViews(context: Context, glucose: String, steps: String, mood: String, water: String, status: String): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.ripple_widget)
         views.setTextViewText(R.id.widget_glucose, glucose)
         views.setTextViewText(R.id.widget_steps, steps)
         views.setTextViewText(R.id.widget_mood, mood)
         views.setTextViewText(R.id.widget_status, status)
+        views.setTextViewText(R.id.btn_water, if (water != "--") "💧 $water" else "💧 Water")
         // Dynamic glucose color: green in-range, amber slightly elevated, red out of range
         if (glucose != "--") {
             views.setTextColor(R.id.widget_glucose, glucoseColor(glucose))
@@ -205,6 +210,27 @@ class RippleWidgetProvider : AppWidgetProvider() {
         } catch (e: Exception) { Log.w(TAG, "btn_mood failed", e) }
 
         return views
+    }
+
+    private fun fetchWater(token: String): String {
+        return try {
+            val conn = URL("$API/metrics/water/today").openConnection() as HttpsURLConnection
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            val code = conn.responseCode
+            val result = if (code == 200) {
+                val obj = JSONObject(conn.inputStream.bufferedReader().readText())
+                val count = obj.optInt("count", 0)
+                val goal = obj.optInt("goal", 8)
+                "$count/$goal"
+            } else "--"
+            conn.disconnect()
+            result
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchWater: ${e.message}")
+            "--"
+        }
     }
 
     private fun readToken(context: Context): String? {

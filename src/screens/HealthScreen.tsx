@@ -913,10 +913,10 @@ export function HealthScreen() {
               <Text style={[styles.chipLabel, { color: theme.textSoft }]}>SLEEP</Text>
             </View>
 
-            {/* WATER chip — ring shows progress, tap to log */}
+            {/* WATER chip — filling droplet shows progress, tap to log */}
             <Pressable style={[styles.metricChip, { borderColor: theme.blue.solid, backgroundColor: theme.blue.bg, overflow: "hidden" }]} onPress={handleLogWater}>
               <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.blue.solid, opacity: waterFlashAnim, borderRadius: 11 }} pointerEvents="none" />
-              <WaterRing count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
+              <MiniDroplet count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
               <Text style={[styles.chipSub, { color: theme.blue.sub }]}>{waterCount ?? 0}/{waterGoal}</Text>
               <Text style={[styles.chipLabel, { color: theme.textSoft }]}>WATER</Text>
               <Text style={{ fontSize: 7, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap to log</Text>
