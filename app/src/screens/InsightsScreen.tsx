@@ -51,6 +51,7 @@ function AnimatedCard({
   onDismiss?: (id: string) => void;
   animValue: Animated.Value;
 }) {
+  const scale = useRef(new Animated.Value(1)).current;
   const opacity = animValue.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
   const translateY = animValue.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
   return (
