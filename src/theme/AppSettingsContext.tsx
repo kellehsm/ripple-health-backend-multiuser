@@ -24,6 +24,8 @@ type AppSettings = {
   fontSizeScale: FontScalePreset;
   cardOpacity: number;
   cardOpacityManualOverride: boolean;
+  perObjectOpacity: Record<string, number>;
+  perObjectGlassBlur: Record<string, boolean>;
 };
 
 type AppSettingsContextValue = AppSettings & {
@@ -32,15 +34,20 @@ type AppSettingsContextValue = AppSettings & {
   setFontSizeScale: (v: FontScalePreset) => void;
   setCardOpacity: (v: number) => void;
   resetCardOpacity: () => void;
+  setObjectOpacity: (id: string, value: number) => void;
+  resetObjectOpacity: (id: string) => void;
+  setObjectGlassBlur: (id: string, enabled: boolean) => void;
 };
 
 // ─── Storage keys ──────────────────────────────────────────────────────────────
 
-const KEY_SHADOWS          = "ripple_shadows_enabled";
-const KEY_FONT_FAMILY      = "ripple_font_family";
-const KEY_FONT_SCALE       = "ripple_font_scale";
-const KEY_CARD_OPACITY     = "ripple_card_opacity";
-const KEY_OPACITY_OVERRIDE = "ripple_card_opacity_override";
+const KEY_SHADOWS            = "ripple_shadows_enabled";
+const KEY_FONT_FAMILY        = "ripple_font_family";
+const KEY_FONT_SCALE         = "ripple_font_scale";
+const KEY_CARD_OPACITY       = "ripple_card_opacity";
+const KEY_OPACITY_OVERRIDE   = "ripple_card_opacity_override";
+const KEY_OBJ_OPACITY        = "ripple_per_object_opacity";
+const KEY_OBJ_GLASS_BLUR     = "ripple_per_object_glass_blur";
 
 // ─── Context ───────────────────────────────────────────────────────────────────
 
@@ -50,11 +57,16 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   fontSizeScale: DEFAULT_FONT_SCALE,
   cardOpacity: DEFAULT_OPACITY,
   cardOpacityManualOverride: false,
+  perObjectOpacity: {},
+  perObjectGlassBlur: {},
   setShadowsEnabled: () => {},
   setFontFamily: () => {},
   setFontSizeScale: () => {},
   setCardOpacity: () => {},
   resetCardOpacity: () => {},
+  setObjectOpacity: () => {},
+  resetObjectOpacity: () => {},
+  setObjectGlassBlur: () => {},
 });
 
 export function AppSettingsProvider({ children }: { children: React.ReactNode }) {
@@ -65,6 +77,8 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   const [fontSizeScale, setFontSizeScaleState] = useState<FontScalePreset>(DEFAULT_FONT_SCALE);
   const [cardOpacity, setCardOpacityState] = useState(DEFAULT_OPACITY);
   const [cardOpacityManualOverride, setCardOpacityManualOverrideState] = useState(false);
+  const [perObjectOpacity, setPerObjectOpacityState] = useState<Record<string, number>>({});
+  const [perObjectGlassBlur, setPerObjectGlassBlurState] = useState<Record<string, boolean>>({});
 
   // Ref so palette-change effect can read current override without stale closure
   const manualOverrideRef = useRef(false);
@@ -72,12 +86,14 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   // ── Load persisted settings on mount ──────────────────────────────────────
   useEffect(() => {
     const load = async () => {
-      const [shadows, ff, scale, opacity, override] = await Promise.all([
+      const [shadows, ff, scale, opacity, override, objOpacity, objGlass] = await Promise.all([
         AsyncStorage.getItem(KEY_SHADOWS),
         AsyncStorage.getItem(KEY_FONT_FAMILY),
         AsyncStorage.getItem(KEY_FONT_SCALE),
         AsyncStorage.getItem(KEY_CARD_OPACITY),
         AsyncStorage.getItem(KEY_OPACITY_OVERRIDE),
+        AsyncStorage.getItem(KEY_OBJ_OPACITY),
+        AsyncStorage.getItem(KEY_OBJ_GLASS_BLUR),
       ]);
 
       if (shadows !== null) setShadowsEnabledState(shadows !== "false");
@@ -95,6 +111,13 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
           setCardOpacityManualOverrideState(true);
           manualOverrideRef.current = true;
         }
+      }
+
+      if (objOpacity) {
+        try { setPerObjectOpacityState(JSON.parse(objOpacity)); } catch {}
+      }
+      if (objGlass) {
+        try { setPerObjectGlassBlurState(JSON.parse(objGlass)); } catch {}
       }
 
       // Backend sync (non-blocking; overrides AsyncStorage if server has a value)
@@ -159,11 +182,39 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     api.patchSettings({ cardOpacity: null, cardOpacityManualOverride: false }).catch(() => {});
   }, [theme.defaultCardOpacity]);
 
+  const setObjectOpacity = useCallback((id: string, value: number) => {
+    const clamped = Math.max(CARD_OPACITY_MIN, Math.min(CARD_OPACITY_MAX, value));
+    setPerObjectOpacityState(prev => {
+      const next = { ...prev, [id]: clamped };
+      AsyncStorage.setItem(KEY_OBJ_OPACITY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const resetObjectOpacity = useCallback((id: string) => {
+    setPerObjectOpacityState(prev => {
+      const next = { ...prev };
+      delete next[id];
+      AsyncStorage.setItem(KEY_OBJ_OPACITY, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const setObjectGlassBlur = useCallback((id: string, enabled: boolean) => {
+    setPerObjectGlassBlurState(prev => {
+      const next = { ...prev, [id]: enabled };
+      AsyncStorage.setItem(KEY_OBJ_GLASS_BLUR, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
   return (
     <AppSettingsContext.Provider
       value={{
         shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride,
+        perObjectOpacity, perObjectGlassBlur,
         setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity,
+        setObjectOpacity, resetObjectOpacity, setObjectGlassBlur,
       }}
     >
       {children}

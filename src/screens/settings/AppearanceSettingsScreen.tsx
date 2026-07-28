@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback } from "react";
-import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder } from "react-native";
+import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder, LayoutAnimation, UIManager, Platform } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAppSettings, CARD_OPACITY_MIN, CARD_OPACITY_MAX } from "../../theme/AppSettingsContext";
@@ -9,6 +9,129 @@ import {
   FONT_FAMILY_KEYS, FONT_FAMILY_LABELS, FONT_SCALE_KEYS, FONT_SCALE_LABELS,
   FontFamilyKey, FontScalePreset,
 } from "../../theme/fontSystem";
+import {
+  OVERVIEW_TEMPLATE, WELLNESS_TEMPLATE, MEALS_TEMPLATE, LIFE_TEMPLATE,
+  FINANCE_TEMPLATE, HEALTH_TAB_TEMPLATE,
+} from "../../theme/pageTemplates";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// ─── Per-object items ─────────────────────────────────────────────────────────
+
+type ObjectEntry = { id: string; label: string; screen: string };
+
+const OBJECT_ENTRIES: ObjectEntry[] = [
+  ...OVERVIEW_TEMPLATE.tiles.map(t => ({ id: t.id, label: t.label, screen: "Home" })),
+  ...OVERVIEW_TEMPLATE.cards.map(c => ({ id: c.id, label: c.label, screen: "Home" })),
+  ...WELLNESS_TEMPLATE.cards.map(c => ({ id: c.id, label: c.label, screen: "Health" })),
+  ...MEALS_TEMPLATE.tiles.map(t => ({ id: t.id, label: t.label, screen: "Meals" })),
+  ...MEALS_TEMPLATE.cards.map(c => ({ id: c.id, label: c.label, screen: "Meals" })),
+  ...LIFE_TEMPLATE.cards.map(c => ({ id: c.id, label: c.label, screen: "Life" })),
+  ...FINANCE_TEMPLATE.cards.map(c => ({ id: c.id, label: c.label, screen: "Finance" })),
+  ...HEALTH_TAB_TEMPLATE.cards.map(c => ({ id: c.id, label: c.label, screen: "Med/Cycle" })),
+];
+
+// Group by screen
+const OBJECT_GROUPS: Record<string, ObjectEntry[]> = {};
+for (const entry of OBJECT_ENTRIES) {
+  if (!OBJECT_GROUPS[entry.screen]) OBJECT_GROUPS[entry.screen] = [];
+  OBJECT_GROUPS[entry.screen].push(entry);
+}
+
+// ─── Per-object opacity row ───────────────────────────────────────────────────
+
+interface ObjectOpacityRowProps {
+  entry: ObjectEntry;
+  globalOpacity: number;
+}
+
+function ObjectOpacityRow({ entry, globalOpacity }: ObjectOpacityRowProps) {
+  const { theme } = useTheme();
+  const { perObjectOpacity, perObjectGlassBlur, setObjectOpacity, resetObjectOpacity, setObjectGlassBlur } = useAppSettings();
+  const [expanded, setExpanded] = useState(false);
+  const isCustom = perObjectOpacity[entry.id] !== undefined;
+  const value = isCustom ? perObjectOpacity[entry.id] : globalOpacity;
+  const glassEnabled = perObjectGlassBlur[entry.id] ?? false;
+
+  const toggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpanded(e => !e);
+    Haptics.selectionAsync();
+  };
+
+  return (
+    <View>
+      <Pressable
+        onPress={toggle}
+        style={({ pressed }) => [
+          advStyles.objectRow,
+          pressed && { backgroundColor: theme.cardBorder + "40" },
+        ]}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={[advStyles.objectLabel, { color: theme.textStrong }]}>{entry.label}</Text>
+          {isCustom && (
+            <Text style={[advStyles.objectSub, { color: theme.teal.solid }]}>
+              Custom: {Math.round(value * 100)}%
+            </Text>
+          )}
+          {!isCustom && (
+            <Text style={[advStyles.objectSub, { color: theme.textSoft }]}>
+              Global: {Math.round(value * 100)}%
+            </Text>
+          )}
+        </View>
+        <Text style={[advStyles.chevron, { color: theme.textSoft }]}>
+          {expanded ? "▲" : "▼"}
+        </Text>
+      </Pressable>
+
+      {expanded && (
+        <View style={[advStyles.expandedPanel, { backgroundColor: theme.page + "CC", borderTopColor: theme.cardBorder }]}>
+          {/* Opacity slider */}
+          <View style={advStyles.panelRow}>
+            <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Opacity</Text>
+            <Text style={[advStyles.panelValue, { color: theme.textStrong }]}>{Math.round(value * 100)}%</Text>
+          </View>
+          <OpacitySlider
+            value={value}
+            onChange={(v) => setObjectOpacity(entry.id, v)}
+            trackColor={theme.teal.solid}
+            thumbColor={theme.card}
+            borderColor={theme.teal.solid}
+            trackBgColor={theme.cardBorder}
+          />
+
+          {/* Glass blur toggle */}
+          <View style={[advStyles.panelRow, { marginTop: 10 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Glass blur</Text>
+              <Text style={[advStyles.panelHint, { color: theme.textSoft }]}>Requires next build</Text>
+            </View>
+            <Switch
+              value={glassEnabled}
+              onValueChange={(v) => { setObjectGlassBlur(entry.id, v); Haptics.selectionAsync(); }}
+              trackColor={{ true: theme.teal.solid, false: theme.cardBorder }}
+              thumbColor="#ffffff"
+            />
+          </View>
+
+          {/* Reset button */}
+          {isCustom && (
+            <Pressable
+              onPress={() => { resetObjectOpacity(entry.id); Haptics.selectionAsync(); }}
+              style={[advStyles.resetLink, { borderColor: theme.cardBorder }]}
+            >
+              <Text style={[advStyles.resetLinkText, { color: theme.textSoft }]}>Reset to global</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
 
 // ─── Opacity slider ────────────────────────────────────────────────────────────
 
@@ -304,6 +427,33 @@ export function AppearanceSettingsScreen() {
         </View>
       </View>
 
+      {/* ── Advanced ───────────────────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 20 }]}>
+        ADVANCED
+      </Text>
+      <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
+        Fine-tune opacity and glass blur per card or tile. Glass blur takes effect after the next build.
+      </Text>
+
+      {Object.entries(OBJECT_GROUPS).map(([screenName, entries]) => (
+        <View key={screenName} style={{ gap: 0 }}>
+          <Text style={[styles.subGroupLabel, { color: theme.textSoft, marginTop: 8 }]}>
+            {screenName.toUpperCase()}
+          </Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            {entries.map((entry, index) => {
+              const isLast = index === entries.length - 1;
+              return (
+                <View key={entry.id}>
+                  <ObjectOpacityRow entry={entry} globalOpacity={cardOpacity} />
+                  {!isLast && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ))}
+
     </ScrollView>
   );
 }
@@ -394,4 +544,34 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   opacityRangeLabel: { fontSize: 10, fontWeight: "600" },
+});
+
+const advStyles = StyleSheet.create({
+  objectRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  objectLabel: { fontSize: 13, fontWeight: "600" },
+  objectSub: { fontSize: 11, marginTop: 1 },
+  chevron: { fontSize: 11, marginLeft: 8 },
+  expandedPanel: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+  },
+  panelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
+  panelLabel: { flex: 1, fontSize: 12, fontWeight: "600" },
+  panelValue: { fontSize: 14, fontWeight: "700" },
+  panelHint: { fontSize: 10, marginTop: 1 },
+  resetLink: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  resetLinkText: { fontSize: 11, fontWeight: "600" },
 });

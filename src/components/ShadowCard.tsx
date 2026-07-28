@@ -72,7 +72,11 @@ export function ShadowCard({
   skipTransparency = false,
 }: ShadowCardProps) {
   const { theme } = useTheme();
-  const { shadowsEnabled, cardOpacity } = useAppSettings();
+  const { shadowsEnabled, cardOpacity, perObjectOpacity } = useAppSettings();
+  const objectId = cardId ?? tileId;
+  const effectiveOpacity = objectId && perObjectOpacity[objectId] !== undefined
+    ? perObjectOpacity[objectId]
+    : cardOpacity;
   const cardBg = useCardBackground(cardId ?? "");
   const tileBg = useTileBackground(tileId ?? "");
   const bgOverride = cardId ? cardBg : (tileId ? tileBg : null);
@@ -167,7 +171,7 @@ export function ShadowCard({
 
   const resolvedBg = skipTransparency
     ? (bg ?? theme.card)
-    : hexWithAlpha(bg ?? theme.card, cardOpacity);
+    : hexWithAlpha(bg ?? theme.card, effectiveOpacity);
 
   const cardBody = (
     <View
