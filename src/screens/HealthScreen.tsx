@@ -298,6 +298,8 @@ export function HealthScreen() {
   const [sleepDisplay, setSleepDisplay] = useState<string | null>(null);
   const [sleepStatLine, setSleepStatLine] = useState<string | null>(null);
   const [sleepAvgSecs, setSleepAvgSecs] = useState<number | null>(null);
+  const [sleepWeekDays, setSleepWeekDays] = useState<{ date: string; seconds: number }[]>([]);
+  const [weekAvgGlucose, setWeekAvgGlucose] = useState<number | null>(null);
   const [hrRangeHours, setHrRangeHours] = useState(6);
   const [hrReadings, setHrReadings] = useState<HRReading[]>([]);
   const [hr7DayReadings, setHr7DayReadings] = useState<HRReading[]>([]);
@@ -316,6 +318,7 @@ export function HealthScreen() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const waterFlashAnim = useRef(new Animated.Value(0)).current;
   const waterCelebAnim = useRef(new Animated.Value(0)).current;
+  const waterCountScaleAnim = useRef(new Animated.Value(1)).current;
   const prevWaterRef = useRef<number>(0);
 
   // Steps goal ring flash (Feature 12)
@@ -349,6 +352,7 @@ export function HealthScreen() {
   });
   const lastSnappedRef = useRef<string | null>(null);
   const mindfulnessScale = useRef(new Animated.Value(1)).current;
+  const entranceAnim = useRef(new Animated.Value(0)).current;
 
   const loadStepsAndSleep = useCallback(async function () {
     const _now = new Date();
@@ -393,6 +397,7 @@ export function HealthScreen() {
       const avg = stats?.seven_day_average_seconds > 0 ? fmt(stats.seven_day_average_seconds) : "--";
       setSleepStatLine("Yesterday: " + yest + " · 7d avg: " + avg);
       if (stats?.seven_day_average_seconds > 0) setSleepAvgSecs(stats.seven_day_average_seconds);
+      if (Array.isArray(stats?.week_days)) setSleepWeekDays(stats.week_days);
     } catch (e) {
       console.error("Failed to load sleep stats", e);
     }
@@ -471,6 +476,11 @@ export function HealthScreen() {
       const wasAtGoal = prevWaterRef.current >= waterGoal;
       prevWaterRef.current = newCount;
       setWaterCount(newCount);
+      // Pop the count number on each log
+      Animated.sequence([
+        Animated.spring(waterCountScaleAnim, { toValue: 1.35, useNativeDriver: true, speed: 40, bounciness: 10 }),
+        Animated.spring(waterCountScaleAnim, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }),
+      ]).start();
       if (newCount >= waterGoal && !wasAtGoal) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         waterCelebAnim.setValue(0);
@@ -552,15 +562,18 @@ export function HealthScreen() {
     const yestStart = new Date(now - windowMs - dayMs).toISOString();
     const yestEnd = new Date(now - dayMs).toISOString();
 
+    const weekGlucoseStart = new Date(now - 7 * dayMs).toISOString();
     Promise.all([
       api.glucoseRange(todayStart, todayEnd),
       api.glucoseRange(yestStart, yestEnd),
       api.glucoseStatus(),
+      api.glucoseRange(weekGlucoseStart, todayEnd),
     ])
       .then(function (results) {
         const todayData = results[0];
         const yestData = results[1];
         const statusData = results[2];
+        const weekData = results[3];
 
         setTodayReadings(Array.isArray(todayData) ? todayData : []);
         const yestArray = Array.isArray(yestData) ? yestData : [];
@@ -572,6 +585,10 @@ export function HealthScreen() {
           })
         );
         setStatus(statusData);
+        if (Array.isArray(weekData) && weekData.length > 0) {
+          const sum = weekData.reduce((acc: number, r: GlucoseReading) => acc + Number(r.mg_dl), 0);
+          setWeekAvgGlucose(Math.round(sum / weekData.length));
+        }
       })
       .catch(function (e) {
         console.error("Failed to load glucose data", e);
@@ -706,6 +723,11 @@ export function HealthScreen() {
   useEffect(function () { loadWater(); }, [loadWater]);
   useEffect(function () { loadStepsAndSleep(); }, [loadStepsAndSleep]);
 
+  // Entrance animation — fade+slide cards in on mount
+  useEffect(function () {
+    Animated.timing(entranceAnim, { toValue: 1, duration: 420, useNativeDriver: true }).start();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Steps goal ring flash — fire when steps cross 10,000 (Feature 12)
   useEffect(function () {
     if (stepsCount === null) return;
@@ -787,6 +809,10 @@ export function HealthScreen() {
           onDismiss={() => setShowTooltip(false)}
         />
       )}
+      <Animated.View style={{
+        opacity: entranceAnim,
+        transform: [{ translateY: entranceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+      }}>
       {/* Mindfulness button */}
       <Pressable
         onPress={() => {
@@ -909,7 +935,35 @@ export function HealthScreen() {
             {/* SLEEP chip */}
             <View style={[styles.metricChip, { borderColor: amberSolid, backgroundColor: amberBg }]}>
               <Ionicons name="moon" size={20} color={amberSub} />
-              <Text style={[styles.chipVal, { color: amberFg }]}>{sleepDisplay ?? "--"}</Text>
+              {sleepDisplay ? (
+                <Text style={[styles.chipVal, { color: amberFg }]}>{sleepDisplay}</Text>
+              ) : (
+                <Svg width={28} height={34} viewBox="0 0 28 34" style={{ opacity: 0.25 }}>
+                  <Path d="M14,2 C10,7 3,16 3,24 C3,30 8,34 14,34 C20,34 25,30 25,24 C25,16 18,7 14,2Z" fill={amberSolid} />
+                </Svg>
+              )}
+              {/* 7-night sparkline */}
+              {sleepWeekDays.length > 0 && (() => {
+                const GOAL = 8 * 3600;
+                const BAR_W = 5, GAP = 2;
+                const MAX_H = 18;
+                const bars = Array.from({ length: 7 }, (_, i) => {
+                  const dayEntry = sleepWeekDays[i];
+                  return dayEntry ? Math.min(1, dayEntry.seconds / GOAL) : 0;
+                });
+                const totalW = 7 * BAR_W + 6 * GAP;
+                return (
+                  <Svg width={totalW} height={MAX_H + 2}>
+                    {bars.map((pct, i) => {
+                      const h = Math.max(2, Math.round(pct * MAX_H));
+                      return (
+                        <Rect key={i} x={i * (BAR_W + GAP)} y={MAX_H - h + 2} width={BAR_W} height={h}
+                          fill={amberSolid} opacity={pct > 0 ? 0.75 : 0.18} rx={1.5} />
+                      );
+                    })}
+                  </Svg>
+                );
+              })()}
               <Text style={[styles.chipLabel, { color: theme.textSoft }]}>SLEEP</Text>
             </View>
 
@@ -917,7 +971,9 @@ export function HealthScreen() {
             <Pressable style={[styles.metricChip, { borderColor: theme.blue.solid, backgroundColor: theme.blue.bg, overflow: "hidden" }]} onPress={handleLogWater}>
               <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.blue.solid, opacity: waterFlashAnim, borderRadius: 11 }} pointerEvents="none" />
               <MiniDroplet count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
-              <Text style={[styles.chipSub, { color: theme.blue.sub }]}>{waterCount ?? 0}/{waterGoal}</Text>
+              <Animated.Text style={[styles.chipSub, { color: theme.blue.sub, transform: [{ scale: waterCountScaleAnim }] }]}>
+                {waterCount ?? 0}/{waterGoal}
+              </Animated.Text>
               <Text style={[styles.chipLabel, { color: theme.textSoft }]}>WATER</Text>
               <Text style={{ fontSize: 7, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap to log</Text>
               {/* Goal celebration overlay */}
@@ -1035,59 +1091,50 @@ export function HealthScreen() {
           </View>
         </View>
 
-        {/* Range selector buttons */}
-        <View style={styles.rangeRow}>
-          {RANGE_OPTIONS.map(function (hrs) {
-            const active = rangeHours === hrs;
-            return (
-              <Pressable
-                key={hrs}
-                onPress={function () { Haptics.selectionAsync(); setRangeHours(hrs); }}
-                style={[
-                  styles.rangeBtn,
-                  { backgroundColor: active ? ink : card },
-                ]}
-              >
-                <Text style={[styles.rangeBtnText, { color: active ? "#ffffff" : ink }]}>
-                  {hrs}H
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Current reading — solid berry block */}
-        {status && status.hasData ? (
-          <View style={[styles.glucoseCurrentBox, { backgroundColor: theme.berry.solid }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.glucoseCurrentValue, { color: onSolid(theme.berry.solid) }]}>
-                {status.mg_dl}{status.arrow ? " " + status.arrow : ""}
-              </Text>
-              {status.minutesSinceReading != null ? (
-                <Text style={[styles.glucoseMinAgo, { color: onSolid(theme.berry.solid), opacity: 0.8 }]}>
-                  {status.minutesSinceReading} min ago
-                </Text>
-              ) : null}
-              {(function () {
-                const dayPct = todayReadings.length >= 3
-                  ? Math.round((todayReadings.filter(r => { const v = Number(r.mg_dl); return v >= 70 && v <= 180; }).length / todayReadings.length) * 100)
-                  : null;
-                return dayPct !== null ? (
-                  <Text style={{ fontSize: 10, color: onSolid(theme.berry.solid), opacity: 0.75, marginTop: 2 }}>
-                    {dayPct}% in range today
-                  </Text>
-                ) : null;
-              })()}
-            </View>
-            {status.delta != null ? (
-              <View style={styles.deltaBadge}>
-                <Text style={[styles.deltaBadgeText, { color: onSolid(theme.berry.solid) }]}>
-                  {status.delta > 0 ? "+" : ""}{status.delta}
-                </Text>
+        {/* Range selector + live glucose value inline */}
+        {(function () {
+          const mgDl = status?.hasData ? (status.mg_dl ?? null) : null;
+          const glucoseColor = mgDl === null ? theme.berry.solid
+            : mgDl >= 70 && mgDl <= 140 ? "#27AE60"
+            : mgDl <= 180 ? "#E67E22"
+            : "#C0392B";
+          return (
+            <View style={[styles.rangeRow, { justifyContent: "space-between", alignItems: "center" }]}>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {RANGE_OPTIONS.map(function (hrs) {
+                  const active = rangeHours === hrs;
+                  return (
+                    <Pressable
+                      key={hrs}
+                      onPress={function () { Haptics.selectionAsync(); setRangeHours(hrs); }}
+                      style={[styles.rangeBtn, { backgroundColor: active ? ink : card }]}
+                    >
+                      <Text style={[styles.rangeBtnText, { color: active ? "#ffffff" : ink }]}>{hrs}H</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-            ) : null}
-          </View>
-        ) : null}
+              {status?.hasData && mgDl !== null ? (
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
+                  <Text style={{ fontSize: 26, fontWeight: "900", color: glucoseColor, letterSpacing: -0.5 }}>
+                    {mgDl}
+                  </Text>
+                  {status.arrow ? (
+                    <Text style={{ fontSize: 18, fontWeight: "700", color: glucoseColor }}>{status.arrow}</Text>
+                  ) : null}
+                  {status.delta != null ? (
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: status.delta > 0 ? "#C0392B" : "#27AE60", marginLeft: 2 }}>
+                      {status.delta > 0 ? "+" : ""}{status.delta}
+                    </Text>
+                  ) : null}
+                  {status.minutesSinceReading != null ? (
+                    <Text style={{ fontSize: 9, color: theme.textSoft, marginLeft: 2 }}>{status.minutesSinceReading}m</Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
+          );
+        })()}
 
         {loading ? (
           <ShadowCard skeleton skeletonHeight={140} style={{ marginTop: 12 }} />
@@ -1142,6 +1189,22 @@ export function HealthScreen() {
                 {/* Yesterday — dotted reference line */}
                 {yesterdayPoints.length > 0 ? (
                   <Polyline points={yesterdayPoints} fill="none" stroke={theme.textSoft} strokeWidth={2} strokeDasharray="4,4" opacity={0.65} />
+                ) : null}
+
+                {/* Weekly average horizontal line */}
+                {weekAvgGlucose !== null && weekAvgGlucose >= minVal && weekAvgGlucose <= maxVal ? (
+                  (() => {
+                    const wy = PAD_TOP + chartInnerHeight - ((weekAvgGlucose - minVal) / (maxVal - minVal)) * chartInnerHeight;
+                    return (
+                      <>
+                        <Line x1={PAD_LEFT} x2={CHART_WIDTH} y1={wy} y2={wy}
+                          stroke={theme.berry.sub ?? theme.berry.solid} strokeWidth={1.5} strokeDasharray="6,4" opacity={0.55} />
+                        <SvgText x={CHART_WIDTH - 2} y={wy - 3} fontSize={8} fill={theme.berry.sub ?? theme.berry.solid} textAnchor="end" opacity={0.75}>
+                          7d avg {weekAvgGlucose}
+                        </SvgText>
+                      </>
+                    );
+                  })()
                 ) : null}
 
                 {/* Today — double stroke: ink outline below, color on top */}
@@ -1216,13 +1279,13 @@ export function HealthScreen() {
                     ) : null}
                     {scrubInfo.yestVal !== null ? (
                       <View style={styles.scrubStat}>
-                        <Text style={[styles.scrubLabel, { color: theme.textSoft }]}>YEST</Text>
+                        <Text style={[styles.scrubLabel, { color: theme.textSoft }]}>YESTERDAY</Text>
                         <Text style={[styles.scrubVal, { color: theme.textSoft }]}>{scrubInfo.yestVal}</Text>
                       </View>
                     ) : null}
                     {scrubInfo.delta !== null ? (
                       <View style={styles.scrubStat}>
-                        <Text style={[styles.scrubLabel, { color: theme.textSoft }]}>DELTA</Text>
+                        <Text style={[styles.scrubLabel, { color: theme.textSoft }]}>DIFFERENCE</Text>
                         <Text style={[styles.scrubVal, { color: scrubInfo.delta > 0 ? theme.red.sub : theme.teal.bar }]}>
                           {scrubInfo.delta > 0 ? "+" : ""}{scrubInfo.delta}
                         </Text>
@@ -1244,6 +1307,12 @@ export function HealthScreen() {
             <View style={[styles.legendDot, { backgroundColor: theme.textSoft, opacity: 0.4 }]} />
             <Text style={{ color: theme.textSoft, fontSize: 11 }}>Yesterday</Text>
           </View>
+          {weekAvgGlucose !== null ? (
+            <View style={styles.legendItem}>
+              <View style={{ width: 14, height: 2, backgroundColor: theme.berry.sub ?? theme.berry.solid, opacity: 0.6, borderRadius: 1 }} />
+              <Text style={{ color: theme.textSoft, fontSize: 11 }}>7d avg</Text>
+            </View>
+          ) : null}
           {annotations.filter(function (a) {
             const t = new Date(a.annotated_at).getTime();
             return t >= windowStart && t <= now;
@@ -1424,7 +1493,7 @@ export function HealthScreen() {
         );
       })()}
 
-
+      </Animated.View>
     </ScrollView>
     </LinearGradient>
     {staleBannerMessage ? (
