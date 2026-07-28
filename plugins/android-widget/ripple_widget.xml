@@ -5,23 +5,23 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/ripple_widget_bg"
-    android:padding="12dp">
+    android:padding="14dp">
 
-    <!-- Header row: label + status + refresh -->
+    <!-- Header: branding + timestamp + refresh -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="6dp">
+        android:layout_marginBottom="10dp">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="RIPPLE"
-            android:textSize="10sp"
-            android:textColor="#AAFFFFFF"
+            android:text="Ripple"
+            android:textSize="13sp"
+            android:textColor="#3FA0A6"
             android:textStyle="bold" />
 
         <TextView
@@ -30,20 +30,20 @@
             android:layout_height="wrap_content"
             android:text="Tap to refresh"
             android:textSize="9sp"
-            android:textColor="#88FFFFFF" />
+            android:textColor="#9E9689" />
 
         <TextView
             android:id="@+id/btn_refresh"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="  ↻"
-            android:textSize="15sp"
-            android:textColor="#CCFFFFFF"
+            android:textSize="16sp"
+            android:textColor="#3FA0A6"
             android:padding="4dp" />
 
     </LinearLayout>
 
-    <!-- Metrics: Glucose+Steps left, Mood right -->
+    <!-- Metric chips row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -51,75 +51,110 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <!-- Left: Glucose stacked above Steps -->
+        <!-- Glucose chip -->
         <LinearLayout
+            android:id="@+id/chip_glucose"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical"
             android:gravity="center_vertical"
-            android:paddingRight="10dp">
+            android:background="@drawable/ripple_chip_berry"
+            android:padding="8dp"
+            android:layout_marginRight="5dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="GLUCOSE"
                 android:textSize="8sp"
-                android:textColor="#AAFFFFFF" />
+                android:textColor="#A62A50"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_glucose"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="18sp"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:layout_marginBottom="6dp" />
+                android:textSize="22sp"
+                android:textColor="#A62A50"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="mg/dL"
+                android:textSize="8sp"
+                android:textColor="#C07090"
+                android:layout_marginTop="1dp" />
+
+        </LinearLayout>
+
+        <!-- Steps chip -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:background="@drawable/ripple_chip_teal"
+            android:padding="8dp"
+            android:layout_marginRight="5dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="STEPS"
                 android:textSize="8sp"
-                android:textColor="#AAFFFFFF" />
+                android:textColor="#3FA0A6"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_steps"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="18sp"
-                android:textColor="#FFFFFF"
+                android:textSize="22sp"
+                android:textColor="#2A7A80"
                 android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="today"
+                android:textSize="8sp"
+                android:textColor="#5AACB0"
+                android:layout_marginTop="1dp" />
 
         </LinearLayout>
 
-        <!-- Right: Mood (big emoji) -->
+        <!-- Mood chip -->
         <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:gravity="end|center_vertical"
-            android:paddingLeft="10dp">
+            android:gravity="center"
+            android:background="@drawable/ripple_chip_violet"
+            android:padding="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="MOOD"
                 android:textSize="8sp"
-                android:textColor="#AAFFFFFF"
-                android:layout_gravity="end" />
+                android:textColor="#7B3FBF"
+                android:textStyle="bold"
+                android:gravity="center" />
 
             <TextView
                 android:id="@+id/widget_mood"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="30sp"
-                android:textColor="#FFFFFF"
-                android:layout_gravity="end" />
+                android:textSize="28sp"
+                android:gravity="center"
+                android:layout_marginTop="2dp" />
 
         </LinearLayout>
 
@@ -131,53 +166,53 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginTop="8dp">
+        android:layout_marginTop="10dp">
 
         <TextView
             android:id="@+id/btn_meal"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Meal"
+            android:text="🍜 Meal"
             android:textSize="11sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:gravity="center"
-            android:background="#33FFFFFF"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:layout_marginRight="3dp" />
+            android:background="@drawable/ripple_btn_coral"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:layout_marginRight="4dp" />
 
         <TextView
             android:id="@+id/btn_water"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Water"
+            android:text="💧 Water"
             android:textSize="11sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:gravity="center"
-            android:background="#33FFFFFF"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:layout_marginLeft="3dp"
-            android:layout_marginRight="3dp" />
+            android:background="@drawable/ripple_btn_teal"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:layout_marginLeft="4dp"
+            android:layout_marginRight="4dp" />
 
         <TextView
             android:id="@+id/btn_mood"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Mood"
+            android:text="😊 Mood"
             android:textSize="11sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:gravity="center"
-            android:background="#33FFFFFF"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:layout_marginLeft="3dp" />
+            android:background="@drawable/ripple_btn_violet"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:layout_marginLeft="4dp" />
 
     </LinearLayout>
 

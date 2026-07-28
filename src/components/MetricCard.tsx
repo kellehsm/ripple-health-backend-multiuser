@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
@@ -20,10 +20,47 @@ type Props = {
   tileId?: string;
 };
 
+const NUMERIC_RE = /^[\d,.]+$/;
+
+function useCountUp(value: string, duration = 600): string {
+  const target = NUMERIC_RE.test(value) ? parseFloat(value.replace(/,/g, "")) : null;
+  const animRef = useRef(new Animated.Value(0));
+  const [display, setDisplay] = useState<string>(value);
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    if (target === null) {
+      setDisplay(value);
+      return;
+    }
+    doneRef.current = false;
+    animRef.current.setValue(0);
+    setDisplay("0");
+    const id = animRef.current.addListener(({ value: v }) => {
+      if (!doneRef.current) setDisplay(String(Math.round(v)));
+    });
+    Animated.timing(animRef.current, {
+      toValue: target,
+      duration,
+      useNativeDriver: false,
+    }).start(() => {
+      doneRef.current = true;
+      animRef.current.removeListener(id);
+      setDisplay(value);
+    });
+    return () => {
+      animRef.current.removeListener(id);
+    };
+  }, [value]);
+
+  return display;
+}
+
 export function MetricCard({ label, value, icon, colorKey, sublabel, onAction, variant = "tint", tileId }: Props) {
   const { theme } = useTheme();
   const ink = theme.ink;
   const c = (theme as any)[colorKey];
+  const displayValue = useCountUp(value);
 
   const bg = variant === "solid" ? c.solid : c.tint;
   const solidText = onSolid(c.solid);
@@ -44,7 +81,7 @@ export function MetricCard({ label, value, icon, colorKey, sublabel, onAction, v
         <Ionicons name={icon} size={11} color={iconColor} />
         <Text style={[styles.label, { color: subColor }]}>{label.toUpperCase()}</Text>
       </View>
-      <Text style={[styles.value, { color: textColor }]}>{value}</Text>
+      <Text style={[styles.value, { color: textColor }]}>{displayValue}</Text>
       {sublabel ? <Text style={[styles.sublabel, { color: subColor }]}>{sublabel}</Text> : null}
       {onAction ? (
         <Pressable

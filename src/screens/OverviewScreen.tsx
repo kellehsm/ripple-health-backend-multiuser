@@ -1831,9 +1831,8 @@ export function OverviewScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={handleRefresh}
-          tintColor="transparent"
-          colors={[theme.page]}
-          progressBackgroundColor={theme.page}
+          tintColor={theme.teal.bar}
+          colors={[theme.teal.bar]}
         />
       }
       accessibilityLabel="Today dashboard"

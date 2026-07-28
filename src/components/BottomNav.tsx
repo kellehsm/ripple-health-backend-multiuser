@@ -259,7 +259,7 @@ function NavIcon({
         style={[
           styles.activeDot,
           {
-            backgroundColor: theme.ink,
+            backgroundColor: theme.teal.solid,
             transform: [{ scale: dotAnim }],
             opacity: dotAnim,
           },

@@ -175,6 +175,7 @@ export function FinanceScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
   const spendingCardScale = useRef(new Animated.Value(1)).current;
+  const barAnims = useRef<Animated.Value[]>([]);
 
   const FINANCE_TOUR: TourStep[] = [
     { ref: tourTotalsRef,    title: "Spending Total", body: "Switch between Today and This Week. Tap the + button to log a new expense. Plaid users see transactions sync automatically." },
@@ -305,6 +306,21 @@ export function FinanceScreen() {
     const budget = dailyBudget * daysInMonth;
     return { monthTotal, projected, budget, daysInMonth, dayOfMonth };
   }, [entries, dailyBudget]);
+
+  // Stagger animation for category bars
+  useEffect(() => {
+    const count = categoryTotals.length;
+    barAnims.current = Array.from({ length: count }, () => new Animated.Value(0));
+    const animations = barAnims.current.map((anim, i) =>
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 400,
+        delay: i * 40,
+        useNativeDriver: false,
+      })
+    );
+    Animated.parallel(animations).start();
+  }, [categoryTotals.length]);
 
   // Animated progress bar for the Month Forecast card
   const forecastBarAnim = useRef(new Animated.Value(0)).current;
@@ -446,7 +462,7 @@ export function FinanceScreen() {
         contentContainerStyle={[s.content, tourPadding > 0 && { paddingBottom: tourPadding }]}
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={theme.primary} colors={[theme.primary]} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={theme.teal.bar} colors={[theme.teal.bar]} />
         }
         scrollEventThrottle={16}
         onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
@@ -542,8 +558,14 @@ export function FinanceScreen() {
           <ShadowCard size="card">
             <Text style={[s.cardTitle, { color: theme.textStrong }]}>Where it went</Text>
             <View style={{ gap: 11, marginTop: 6 }}>
-              {categoryTotals.map(([cat, amt]) => {
+              {categoryTotals.map(([cat, amt], idx) => {
                 const color = getCategoryColor(cat);
+                const targetPct = Math.round((amt / maxCat) * 100);
+                const animVal = barAnims.current[idx] ?? new Animated.Value(1);
+                const animatedWidth = animVal.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ["0%", `${targetPct}%`],
+                });
                 return (
                   <View key={cat}>
                     <View style={s.chartRow}>
@@ -551,7 +573,7 @@ export function FinanceScreen() {
                       <Text style={[s.chartAmt, { color }]}>{formatAmount(amt)}</Text>
                     </View>
                     <View style={[s.barTrack, { backgroundColor: color + "22" }]}>
-                      <View style={[s.barFill, { backgroundColor: color, width: `${Math.round((amt / maxCat) * 100)}%` as any }]} />
+                      <Animated.View style={[s.barFill, { backgroundColor: color, width: animatedWidth }]} />
                     </View>
                   </View>
                 );

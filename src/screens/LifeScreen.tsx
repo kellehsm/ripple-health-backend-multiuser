@@ -500,7 +500,7 @@ export function LifeScreen() {
       ref={scrollViewRef}
       style={{ backgroundColor: "transparent" }}
       contentContainerStyle={[styles.content, tourPadding > 0 && { paddingBottom: tourPadding }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.primary} colors={[theme.primary]} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.bar} colors={[theme.teal.bar]} />}
       scrollEventThrottle={16}
       onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
     >

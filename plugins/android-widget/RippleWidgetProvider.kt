@@ -132,12 +132,26 @@ class RippleWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    private fun glucoseColor(glucose: String): Int {
+        val mg = glucose.trim().split(" ")[0].toIntOrNull()
+        return when {
+            mg == null -> android.graphics.Color.parseColor("#A62A50")
+            mg < 70 || mg > 180 -> android.graphics.Color.parseColor("#C0392B")
+            mg > 140 -> android.graphics.Color.parseColor("#E67E22")
+            else -> android.graphics.Color.parseColor("#27AE60")
+        }
+    }
+
     private fun buildViews(context: Context, glucose: String, steps: String, mood: String, status: String): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.ripple_widget)
         views.setTextViewText(R.id.widget_glucose, glucose)
         views.setTextViewText(R.id.widget_steps, steps)
         views.setTextViewText(R.id.widget_mood, mood)
         views.setTextViewText(R.id.widget_status, status)
+        // Dynamic glucose color: green in-range, amber slightly elevated, red out of range
+        if (glucose != "--") {
+            views.setTextColor(R.id.widget_glucose, glucoseColor(glucose))
+        }
 
         // Root tap → open app
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent()

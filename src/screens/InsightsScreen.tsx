@@ -298,9 +298,13 @@ export function InsightsScreen() {
       )}
 
       {!loading && !error && filtered.length === 0 && insights.length > 0 && (
-        <Text style={[styles.emptyText, { color: theme.textSoft }]}>
-          No {group.label.toLowerCase()} insights yet — keep logging!
-        </Text>
+        <View style={{ alignItems: "center", paddingVertical: 48, gap: 12 }}>
+          <Text style={{ fontSize: 32 }}>✨</Text>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: theme.textStrong }}>No insights yet</Text>
+          <Text style={{ fontSize: 13, color: theme.textSoft, textAlign: "center", paddingHorizontal: 32 }}>
+            Log a few days of meals, glucose, and mood and your first insights will appear here.
+          </Text>
+        </View>
       )}
 
       {/* Streak badges */}

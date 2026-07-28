@@ -38,7 +38,16 @@ function withAndroidWidget(config) {
 
       const drawableDir = path.join(root, 'app/src/main/res/drawable');
       fs.mkdirSync(drawableDir, { recursive: true });
-      fs.copyFileSync(path.join(SRC, 'ripple_widget_bg.xml'), path.join(drawableDir, 'ripple_widget_bg.xml'));
+      const drawables = [
+        'ripple_widget_bg.xml',
+        'ripple_chip_berry.xml',
+        'ripple_chip_teal.xml',
+        'ripple_chip_violet.xml',
+        'ripple_btn_coral.xml',
+        'ripple_btn_teal.xml',
+        'ripple_btn_violet.xml',
+      ];
+      drawables.forEach(f => fs.copyFileSync(path.join(SRC, f), path.join(drawableDir, f)));
 
       const xmlDir = path.join(root, 'app/src/main/res/xml');
       fs.mkdirSync(xmlDir, { recursive: true });

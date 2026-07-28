@@ -3,38 +3,38 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#1A2E29"
-    android:padding="12dp">
+    android:background="#F5F1E8"
+    android:padding="14dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="6dp">
+        android:layout_marginBottom="10dp">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="RIPPLE"
-            android:textSize="10sp"
-            android:textColor="#AAFFFFFF"
+            android:text="Ripple"
+            android:textSize="13sp"
+            android:textColor="#3FA0A6"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Updated 8:42 AM"
+            android:text="Updated 9:41 AM"
             android:textSize="9sp"
-            android:textColor="#88FFFFFF" />
+            android:textColor="#9E9689" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="  ↻"
-            android:textSize="15sp"
-            android:textColor="#CCFFFFFF"
+            android:textSize="16sp"
+            android:textColor="#3FA0A6"
             android:padding="4dp" />
 
     </LinearLayout>
@@ -52,65 +52,97 @@
             android:layout_weight="1"
             android:orientation="vertical"
             android:gravity="center_vertical"
-            android:paddingRight="10dp">
+            android:background="#FAE0E6"
+            android:padding="8dp"
+            android:layout_marginRight="5dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="GLUCOSE"
                 android:textSize="8sp"
-                android:textColor="#AAFFFFFF" />
+                android:textColor="#A62A50"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="142"
-                android:textSize="18sp"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:layout_marginBottom="6dp" />
+                android:text="108 →"
+                android:textSize="22sp"
+                android:textColor="#27AE60"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="mg/dL"
+                android:textSize="8sp"
+                android:textColor="#C07090"
+                android:layout_marginTop="1dp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:background="#E0F3F4"
+            android:padding="8dp"
+            android:layout_marginRight="5dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="STEPS"
                 android:textSize="8sp"
-                android:textColor="#AAFFFFFF" />
+                android:textColor="#3FA0A6"
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="8,432"
-                android:textSize="18sp"
-                android:textColor="#FFFFFF"
+                android:text="8,412"
+                android:textSize="22sp"
+                android:textColor="#2A7A80"
                 android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="today"
+                android:textSize="8sp"
+                android:textColor="#5AACB0"
+                android:layout_marginTop="1dp" />
 
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:gravity="end|center_vertical"
-            android:paddingLeft="10dp">
+            android:gravity="center"
+            android:background="#EDE8F8"
+            android:padding="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="MOOD"
                 android:textSize="8sp"
-                android:textColor="#AAFFFFFF"
-                android:layout_gravity="end" />
+                android:textColor="#7B3FBF"
+                android:textStyle="bold"
+                android:gravity="center" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Good"
-                android:textSize="18sp"
-                android:textColor="#FFFFFF"
-                android:textStyle="bold"
-                android:layout_gravity="end" />
+                android:text="😊"
+                android:textSize="28sp"
+                android:gravity="center"
+                android:layout_marginTop="2dp" />
 
         </LinearLayout>
 
@@ -121,50 +153,50 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginTop="8dp">
+        android:layout_marginTop="10dp">
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Meal"
+            android:text="🍜 Meal"
             android:textSize="11sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:gravity="center"
-            android:background="#33FFFFFF"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:layout_marginRight="3dp" />
+            android:background="#E8654E"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:layout_marginRight="4dp" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Water"
+            android:text="💧 Water"
             android:textSize="11sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:gravity="center"
-            android:background="#33FFFFFF"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:layout_marginLeft="3dp"
-            android:layout_marginRight="3dp" />
+            android:background="#3FA0A6"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:layout_marginLeft="4dp"
+            android:layout_marginRight="4dp" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Mood"
+            android:text="😊 Mood"
             android:textSize="11sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:gravity="center"
-            android:background="#33FFFFFF"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp"
-            android:layout_marginLeft="3dp" />
+            android:background="#7B3FBF"
+            android:paddingTop="7dp"
+            android:paddingBottom="7dp"
+            android:layout_marginLeft="4dp" />
 
     </LinearLayout>
 

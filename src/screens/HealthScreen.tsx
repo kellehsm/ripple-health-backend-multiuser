@@ -130,6 +130,33 @@ function WaterDropletLarge({ count, goal, color }: { count: number; goal: number
   );
 }
 
+function WaterRing({ count, goal, color }: { count: number; goal: number; color: string }) {
+  const SIZE = 44;
+  const R = 18, SW = 4;
+  const CX = SIZE / 2, CY = SIZE / 2;
+  const circumference = 2 * Math.PI * R;
+  const pct = goal > 0 ? Math.min(1, count / goal) : 0;
+  const dash = circumference * pct;
+  const gap = circumference - dash;
+  return (
+    <View style={{ width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center" }}>
+      <Svg width={SIZE} height={SIZE} style={{ position: "absolute" }}>
+        <Circle cx={CX} cy={CY} r={R} fill="none" stroke={color} strokeWidth={SW} opacity={0.2} />
+        {pct > 0 && (
+          <Circle
+            cx={CX} cy={CY} r={R}
+            fill="none" stroke={color} strokeWidth={SW}
+            strokeDasharray={`${dash} ${gap}`}
+            strokeLinecap="round"
+            rotation={-90} origin={`${CX}, ${CY}`}
+          />
+        )}
+      </Svg>
+      <Text style={{ fontSize: 13, fontWeight: "900", color }}>{count}</Text>
+    </View>
+  );
+}
+
 function MiniDroplet({ count, goal, color }: { count: number; goal: number; color: string }) {
   const VW = 28, VH = 34;
   const W = 36, H = 44;
@@ -294,6 +321,8 @@ export function HealthScreen() {
   // Steps goal ring flash (Feature 12)
   const stepsGoalAnim = useRef(new Animated.Value(0)).current;
   const prevStepsRef = useRef<number | null>(null);
+  const lastSyncTimeRef = useRef<number | null>(null);
+  const [lastSyncMinutes, setLastSyncMinutes] = useState<number | null>(null);
 
   // Annotations
   type Annotation = { id: string; annotated_at: string; label: string };
@@ -327,6 +356,8 @@ export function HealthScreen() {
     try {
       const s = await api.stepsToday(today);
       setStepsCount(s?.steps ?? null);
+      lastSyncTimeRef.current = Date.now();
+      setLastSyncMinutes(0);
     } catch (e) {
       console.error("Failed to load steps", e);
     }
@@ -692,6 +723,14 @@ export function HealthScreen() {
     isForegroundServiceRunning().then(setLiveTracking).catch(() => {});
   }, []);
   useEffect(function () { loadHeartRate(hrRangeHours); }, [loadHeartRate, hrRangeHours]);
+  useEffect(function () {
+    const ticker = setInterval(function () {
+      if (lastSyncTimeRef.current !== null) {
+        setLastSyncMinutes(Math.round((Date.now() - lastSyncTimeRef.current) / 60000));
+      }
+    }, 60000);
+    return function () { clearInterval(ticker); };
+  }, []);
 
   const now = Date.now();
   const windowStart = now - rangeHours * 60 * 60 * 1000;
@@ -740,7 +779,7 @@ export function HealthScreen() {
     <ScrollView
       style={{ backgroundColor: "transparent" }}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.bar} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.bar} colors={[theme.teal.bar]} />}
     >
       {showTooltip && (
         <TooltipBubble
@@ -826,16 +865,35 @@ export function HealthScreen() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: CHIP_GAP }}>
 
             {/* GLUCOSE chip */}
-            <View style={[styles.metricChip, { borderColor: berrySolid, backgroundColor: berryBg }]}>
-              <Ionicons name="pulse" size={20} color={berrySub} />
-              <Text style={[styles.chipVal, { color: berryFg }]}>
-                {status?.hasData ? (String(status.mg_dl) + (status.arrow ? " " + status.arrow : "")) : "--"}
-              </Text>
-              {tirPct !== null && (
-                <Text style={[styles.chipSub, { color: berrySub }]}>{tirPct}% in range</Text>
-              )}
-              <Text style={[styles.chipLabel, { color: theme.textSoft }]}>GLUCOSE</Text>
-            </View>
+            {(function () {
+              const mgDl = status?.hasData ? (status.mg_dl ?? null) : null;
+              const glucoseColor = mgDl === null
+                ? berrySolid
+                : mgDl >= 70 && mgDl <= 140
+                  ? "#27AE60"
+                  : mgDl <= 180
+                    ? "#E67E22"
+                    : "#C0392B";
+              const glucoseBg = mgDl === null
+                ? berryBg
+                : mgDl >= 70 && mgDl <= 140
+                  ? "#EAF7EE"
+                  : mgDl <= 180
+                    ? "#FEF5E7"
+                    : "#FDEDEC";
+              return (
+                <View style={[styles.metricChip, { borderColor: glucoseColor, backgroundColor: glucoseBg }]}>
+                  <Ionicons name="pulse" size={20} color={glucoseColor} />
+                  <Text style={[styles.chipVal, { color: glucoseColor }]}>
+                    {status?.hasData ? (String(status.mg_dl) + (status.arrow ? " " + status.arrow : "")) : "--"}
+                  </Text>
+                  {tirPct !== null && (
+                    <Text style={[styles.chipSub, { color: glucoseColor }]}>{tirPct}% in range</Text>
+                  )}
+                  <Text style={[styles.chipLabel, { color: theme.textSoft }]}>GLUCOSE</Text>
+                </View>
+              );
+            })()}
 
             {/* STEPS chip */}
             <Pressable
@@ -855,10 +913,10 @@ export function HealthScreen() {
               <Text style={[styles.chipLabel, { color: theme.textSoft }]}>SLEEP</Text>
             </View>
 
-            {/* WATER chip — droplet fills up, tap to log */}
+            {/* WATER chip — ring shows progress, tap to log */}
             <Pressable style={[styles.metricChip, { borderColor: theme.blue.solid, backgroundColor: theme.blue.bg, overflow: "hidden" }]} onPress={handleLogWater}>
               <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.blue.solid, opacity: waterFlashAnim, borderRadius: 11 }} pointerEvents="none" />
-              <MiniDroplet count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
+              <WaterRing count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
               <Text style={[styles.chipSub, { color: theme.blue.sub }]}>{waterCount ?? 0}/{waterGoal}</Text>
               <Text style={[styles.chipLabel, { color: theme.textSoft }]}>WATER</Text>
               <Text style={{ fontSize: 7, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap to log</Text>
@@ -894,6 +952,11 @@ export function HealthScreen() {
           Updated {Math.round((Date.now() - lastRefreshed.getTime()) / 60000) < 1
             ? "just now"
             : Math.round((Date.now() - lastRefreshed.getTime()) / 60000) + " min ago"}
+        </Text>
+      )}
+      {lastSyncMinutes !== null && (
+        <Text style={{ fontSize: 10, color: theme.textSoft, textAlign: "right", opacity: 0.65, marginTop: -4 }}>
+          Health Connect synced {lastSyncMinutes < 1 ? "just now" : lastSyncMinutes + " min ago"}
         </Text>
       )}
 
@@ -1005,6 +1068,16 @@ export function HealthScreen() {
                   {status.minutesSinceReading} min ago
                 </Text>
               ) : null}
+              {(function () {
+                const dayPct = todayReadings.length >= 3
+                  ? Math.round((todayReadings.filter(r => { const v = Number(r.mg_dl); return v >= 70 && v <= 180; }).length / todayReadings.length) * 100)
+                  : null;
+                return dayPct !== null ? (
+                  <Text style={{ fontSize: 10, color: onSolid(theme.berry.solid), opacity: 0.75, marginTop: 2 }}>
+                    {dayPct}% in range today
+                  </Text>
+                ) : null;
+              })()}
             </View>
             {status.delta != null ? (
               <View style={styles.deltaBadge}>

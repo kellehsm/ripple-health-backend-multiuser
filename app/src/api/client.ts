@@ -42,4 +42,8 @@ export const api = {
 
   logMood: (userId: string, mood_score: number, entry_text?: string) =>
     request(`/journal`, { method: "POST", body: JSON.stringify({ user_id: userId, mood_score, entry_text }) }),
+
+  getSettings: () => request(`/settings`),
+  updateSettings: (patch: Record<string, unknown>) =>
+    request(`/settings`, { method: "PATCH", body: JSON.stringify(patch) }),
 };

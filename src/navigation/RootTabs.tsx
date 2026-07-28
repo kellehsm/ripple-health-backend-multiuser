@@ -122,6 +122,8 @@ function TabNavigator() {
         const headerBg = accentMap[route.name] ?? theme.page;
         return ({
         lazy: false,
+        animation: 'fade' as const,
+        animationDuration: 100,
         tabBarHideOnKeyboard: true,
         headerStyle: { backgroundColor: headerBg },
         headerTitleStyle: { color: theme.textStrong, fontWeight: "800" as const, fontSize: 19 },
