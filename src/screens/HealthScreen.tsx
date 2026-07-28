@@ -11,7 +11,7 @@ import Svg, { Polyline, Line, Text as SvgText, Rect, Circle, G, Path, Defs, Clip
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { useTheme } from "../theme/ThemeContext";
-import { useCardShadow } from "../theme/AppSettingsContext";
+import { useCardShadow, useAppSettings } from "../theme/AppSettingsContext";
 import { onSolid } from "../theme/colorUtils";
 import { coloredShadow, layeredShadow } from "../theme/styleUtils";
 import { ShadowCard } from "../components/ShadowCard";
@@ -254,6 +254,7 @@ export function HealthScreen() {
   const card = theme.card;
   const styles = useMemo(() => makeStyles(ink, card, theme.isDark), [ink, card, theme.isDark]);
   const cardShadow = useCardShadow('card');
+  const { cardOpacity } = useAppSettings();
   const navigation = useNavigation<any>();
   const [rangeHours, setRangeHours] = useState(6);
   const [todayReadings, setTodayReadings] = useState<GlucoseReading[]>([]);
