@@ -7,7 +7,7 @@ import { BackgroundsProvider } from "./src/theme/BackgroundsContext";
 import { RootStack } from "./src/navigation/RootStack";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { logAppOpen } from "./src/services/adaptiveTimingService";
-import { ErrorBoundary } from "./src/components/ErrorBoundary";
+import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 
 const ONBOARDING_KEY = "ripple:onboarding_complete";
 
@@ -31,7 +31,7 @@ export default function App() {
   if (loading || !fontsLoaded) return null;
 
   return (
-    <ErrorBoundary>
+    <AppErrorBoundary>
       <ThemeProvider>
         <BackgroundsProvider>
           <StatusBar style="auto" />
@@ -42,6 +42,6 @@ export default function App() {
           )}
         </BackgroundsProvider>
       </ThemeProvider>
-    </ErrorBoundary>
+    </AppErrorBoundary>
   );
 }

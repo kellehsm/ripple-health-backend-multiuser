@@ -18,12 +18,10 @@ function RippleLoader({ color }: { color: string }) {
         ])
       );
     }
-    Animated.parallel([
-      pulse(ring1, 0),
-      pulse(ring2, 520),
-      pulse(ring3, 1040),
-    ]).start();
-  }, [ring1, ring2, ring3]);
+    const anim = Animated.parallel([pulse(ring1, 0), pulse(ring2, 520), pulse(ring3, 1040)]);
+    anim.start();
+    return () => anim.stop();
+  }, []);
 
   function ringStyle(anim: Animated.Value, size: number) {
     return {
@@ -53,7 +51,7 @@ function PulseLoader({ color }: { color: string }) {
   const opacity = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const anim = Animated.loop(
       Animated.sequence([
         Animated.parallel([
           Animated.timing(scale, { toValue: 1.08, duration: 700, useNativeDriver: true }),
@@ -64,8 +62,10 @@ function PulseLoader({ color }: { color: string }) {
           Animated.timing(opacity, { toValue: 0.9, duration: 700, useNativeDriver: true }),
         ]),
       ])
-    ).start();
-  }, [scale, opacity]);
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
 
   return (
     <Animated.View style={{ transform: [{ scale }], opacity }}>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   type FontFamilyKey,
@@ -10,6 +10,7 @@ import {
 } from "./fontSystem";
 import { layeredShadow, ShadowSize } from "./styleUtils";
 import { useTheme } from "./ThemeContext";
+import { hexWithAlpha } from "./colorUtils";
 import { api } from "../api/client";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -183,4 +184,16 @@ export function useCardShadow(size?: ShadowSize): Record<string, unknown> {
   const { theme } = useTheme();
   if (!shadowsEnabled) return {};
   return layeredShadow(size ?? "card", theme.isDark) as Record<string, unknown>;
+}
+
+/**
+ * Returns the computed card background color string, memoized.
+ * Applies cardOpacity from AppSettings to the theme's card color.
+ */
+export function useCardBg(): string {
+  const { cardOpacity } = useAppSettings();
+  const { theme } = useTheme();
+  return useMemo(() => {
+    return hexWithAlpha(theme.card, cardOpacity);
+  }, [theme.card, cardOpacity]);
 }

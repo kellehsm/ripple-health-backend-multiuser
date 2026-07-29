@@ -45,6 +45,7 @@ export function FeatureTour({ steps, visible, onDone, scrollRef, scrollY, onExtr
   const [idx, setIdx] = useState(0);
   const [spot, setSpot] = useState<Spot | null>(null);
   const savedScrollY = useRef(0);
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // ── Change 1: Animated dot values (one per step, stable across renders) ──
   const dotAnims = useRef<Animated.Value[]>([]);
@@ -131,6 +132,9 @@ export function FeatureTour({ steps, visible, onDone, scrollRef, scrollY, onExtr
   ).current;
   const handleDoneRef = useRef<() => void>(() => {});
 
+  // Cancel all pending timeouts on unmount to prevent state updates after unmount
+  useEffect(() => () => { timeoutsRef.current.forEach(clearTimeout); }, []);
+
   const doMeasure = useCallback((step: TourStep) => {
     if (!step?.ref?.current) { setSpot(null); return; }
     step.ref.current.measure(
@@ -164,13 +168,13 @@ export function FeatureTour({ steps, visible, onDone, scrollRef, scrollY, onExtr
           const scrollTarget = Math.max(0, ly - Math.floor(H * SCROLL_TARGET_RATIO));
           scrollRef.current!.scrollTo({ y: scrollTarget, animated: true });
           // Wait for scroll animation to settle then measure window position
-          setTimeout(() => doMeasure(step), 380);
+          timeoutsRef.current.push(setTimeout(() => doMeasure(step), 380));
         },
         // measureLayout failed (element not in this scroll view) — fall back
-        () => setTimeout(() => doMeasure(step), 150)
+        () => { timeoutsRef.current.push(setTimeout(() => doMeasure(step), 150)); }
       );
     } else {
-      setTimeout(() => doMeasure(step), 150);
+      timeoutsRef.current.push(setTimeout(() => doMeasure(step), 150));
     }
   }, [steps, idx, scrollRef, doMeasure]);
 

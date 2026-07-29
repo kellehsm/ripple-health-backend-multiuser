@@ -118,9 +118,10 @@ export function ExerciseSessionScreen() {
   // Live heart rate — full session accumulation
   const [sessionHR, setSessionHR] = useState<Array<{ recorded_at: string; bpm: number }>>([]);
   const hrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const maxHRRef = useRef(0);
 
   const liveHR = sessionHR.length > 0 ? sessionHR[sessionHR.length - 1].bpm : null;
-  const peakHR = sessionHR.length > 0 ? Math.max(...sessionHR.map(r => r.bpm)) : null;
+  const peakHR = sessionHR.length > 0 ? maxHRRef.current : null;
 
   // Session end celebration
   const [celebrating, setCelebrating] = useState(false);
@@ -155,6 +156,9 @@ export function ExerciseSessionScreen() {
       const end = new Date().toISOString();
       const readings = await api.heartRateRange(start, end);
       if (Array.isArray(readings) && readings.length > 0) {
+        for (const r of readings) {
+          if (r.bpm > maxHRRef.current) maxHRRef.current = r.bpm;
+        }
         setSessionHR(readings);
       }
     } catch {}

@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useCardBg } from "../theme/AppSettingsContext";
 
 interface UndoBannerProps {
   message: string;
@@ -8,8 +9,9 @@ interface UndoBannerProps {
 }
 
 export function UndoBanner({ message, onUndo, theme }: UndoBannerProps) {
+  const cardBg = useCardBg();
   return (
-    <View style={[styles.banner, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+    <View style={[styles.banner, { backgroundColor: cardBg, borderColor: theme.ink }]}>
       <Text style={{ color: theme.textStrong, flex: 1, fontSize: 13 }}>{message}</Text>
       <Pressable onPress={onUndo} hitSlop={12}>
         <Text style={{ color: theme.teal.fg, fontWeight: "800", fontSize: 13 }}>UNDO</Text>
