@@ -178,15 +178,9 @@ export default async function friendsRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  // GET /sharing-prefs — get my sharing prefs (upsert defaults if none)
+  // GET /sharing-prefs — get my sharing prefs
   app.get("/sharing-prefs", async (req) => {
     const me = req.user_id;
-    await query(
-      `INSERT INTO friend_sharing_prefs (user_id)
-       VALUES ($1)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [me]
-    );
     const rows = await query<any>(
       `SELECT share_steps, share_exercise, share_hobbies, share_books
        FROM friend_sharing_prefs WHERE user_id = $1`,
@@ -199,14 +193,6 @@ export default async function friendsRoutes(app: FastifyInstance) {
   app.patch("/sharing-prefs", async (req, reply) => {
     const me = req.user_id;
     const { share_steps, share_exercise, share_hobbies, share_books } = req.body as any;
-
-    // Ensure row exists
-    await query(
-      `INSERT INTO friend_sharing_prefs (user_id)
-       VALUES ($1)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [me]
-    );
 
     const rows = await query<any>(
       `UPDATE friend_sharing_prefs SET

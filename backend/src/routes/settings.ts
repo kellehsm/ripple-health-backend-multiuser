@@ -17,6 +17,8 @@ export default async function settingsRoutes(app: FastifyInstance) {
   app.patch("/", async (req) => {
     const user_id = req.user_id;
     const patch = req.body as any;
+
+    // Read existing settings once — needed for the Dexcom password guard and one-level deep merge.
     const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);
     const existing = rows[0]?.settings ?? {};
 
@@ -41,9 +43,12 @@ export default async function settingsRoutes(app: FastifyInstance) {
       merged.dexcom.share_password = existing.dexcom.share_password;
     }
 
+    // Upsert: create row if it doesn't exist yet, otherwise merge the patch into existing settings
     await query(
-      `INSERT INTO user_settings (user_id, settings) VALUES ($1, $2::jsonb)
-       ON CONFLICT (user_id) DO UPDATE SET settings = $2::jsonb`,
+      `INSERT INTO user_settings (user_id, settings)
+       VALUES ($1, $2::jsonb)
+       ON CONFLICT (user_id)
+       DO UPDATE SET settings = user_settings.settings || $2::jsonb`,
       [user_id, JSON.stringify(merged)]
     );
     return { ok: true };

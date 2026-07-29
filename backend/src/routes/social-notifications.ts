@@ -3,16 +3,9 @@ import { query } from "../db.js";
 
 export default async function socialNotificationsRoutes(app: FastifyInstance) {
 
-  // GET / — get notification prefs (upsert defaults if none exist)
+  // GET / — get notification prefs
   app.get("/", async (req) => {
     const me = req.user_id;
-
-    await query(
-      `INSERT INTO social_notification_prefs (user_id)
-       VALUES ($1)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [me]
-    );
 
     const rows = await query<any>(
       `SELECT
@@ -38,14 +31,6 @@ export default async function socialNotificationsRoutes(app: FastifyInstance) {
       notify_friend_book_finish,
       notify_friend_milestone,
     } = req.body as any;
-
-    // Ensure row exists
-    await query(
-      `INSERT INTO social_notification_prefs (user_id)
-       VALUES ($1)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [me]
-    );
 
     const rows = await query<any>(
       `UPDATE social_notification_prefs SET

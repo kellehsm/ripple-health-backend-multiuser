@@ -61,18 +61,17 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
   app.get("/:hobbyId/logs", async (req, reply) => {
     const user_id = req.user_id;
     const { hobbyId } = req.params as any;
-    const owned = await query(`SELECT id FROM hobbies WHERE id = $1 AND user_id = $2`, [hobbyId, user_id]);
-    if (!owned[0]) return reply.status(404).send({ error: "not found" });
+    // The JOIN on h.user_id enforces ownership — no separate SELECT needed
     return query(`SELECT hl.* FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE hl.hobby_id = $1 AND h.user_id = $2 ORDER BY hl.logged_at DESC LIMIT 100`, [hobbyId, user_id]);
   });
 
   app.delete("/:id", async (req, reply) => {
     const user_id = req.user_id;
     const { id } = req.params as any;
-    const owned = await query(`SELECT id FROM hobbies WHERE id = $1 AND user_id = $2`, [id, user_id]);
-    if (!owned[0]) return reply.status(404).send({ error: "not found" });
-    await query(`DELETE FROM hobby_logs WHERE hobby_id = $1 AND user_id = $2`, [id, user_id]);
-    await query(`DELETE FROM hobbies WHERE id = $1 AND user_id = $2`, [id, user_id]);
+    // Collapse ownership check + delete into one statement; RETURNING id signals 404 if not found
+    const deleted = await query<any>(`DELETE FROM hobbies WHERE id = $1 AND user_id = $2 RETURNING id`, [id, user_id]);
+    if (!deleted[0]) return reply.status(404).send({ error: "not found" });
+    await query(`DELETE FROM hobby_logs WHERE hobby_id = $1`, [id]);
     return { ok: true };
   });
 

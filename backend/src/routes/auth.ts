@@ -91,10 +91,21 @@ export default async function authRoutes(app: FastifyInstance) {
           [email.toLowerCase().trim(), hash]
         );
         const user = rows[0];
-        await query(
-          "INSERT INTO user_settings (user_id, settings) VALUES ($1, $2::jsonb) ON CONFLICT DO NOTHING",
-          [user.id, JSON.stringify({})]
-        );
+        // Initialize per-user rows at account creation so GET handlers never need to lazy-init them
+        await Promise.all([
+          query(
+            "INSERT INTO user_settings (user_id, settings) VALUES ($1, $2::jsonb) ON CONFLICT DO NOTHING",
+            [user.id, JSON.stringify({})]
+          ),
+          query(
+            "INSERT INTO social_notification_prefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+            [user.id]
+          ),
+          query(
+            "INSERT INTO friend_sharing_prefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+            [user.id]
+          ),
+        ]);
         const token = signToken(user.id);
         return { token, user_id: user.id };
       } catch (err: any) {

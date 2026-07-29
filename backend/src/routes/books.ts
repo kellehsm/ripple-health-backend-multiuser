@@ -25,6 +25,43 @@ export default async function booksRoutes(app: FastifyInstance) {
     return { pages_read_total, total_pages, percent_complete };
   });
 
+  // GET /progress/batch?ids=id1,id2,id3 — batch fetch progress for multiple books
+  app.get("/progress/batch", async (req, reply) => {
+    const user_id = req.user_id;
+    const { ids } = req.query as any;
+    if (!ids) return {};
+    const bookIds: string[] = String(ids).split(",").map(s => s.trim()).filter(Boolean);
+    if (bookIds.length === 0) return {};
+
+    // Fetch book totals and reading log totals in two parallel queries
+    const [books, logs] = await Promise.all([
+      query<any>(
+        `SELECT id, total_pages FROM books WHERE id = ANY($1::uuid[]) AND user_id = $2`,
+        [bookIds, user_id]
+      ),
+      query<any>(
+        `SELECT rl.book_id, COALESCE(SUM(rl.pages_read), 0) AS pages_read_total
+         FROM reading_logs rl
+         JOIN books b ON b.id = rl.book_id
+         WHERE rl.book_id = ANY($1::uuid[]) AND b.user_id = $2
+         GROUP BY rl.book_id`,
+        [bookIds, user_id]
+      ),
+    ]);
+
+    const pagesMap = new Map<string, number>();
+    for (const row of logs) pagesMap.set(row.book_id, Number(row.pages_read_total));
+
+    const result: Record<string, { pages_read_total: number; total_pages: number | null; percent_complete: number | null }> = {};
+    for (const book of books) {
+      const total_pages: number | null = book.total_pages ?? null;
+      const pages_read_total = pagesMap.get(book.id) ?? 0;
+      const percent_complete = total_pages ? Math.round((pages_read_total / total_pages) * 100) : null;
+      result[book.id] = { pages_read_total, total_pages, percent_complete };
+    }
+    return result;
+  });
+
   app.post("/", async (req) => {
     const user_id = req.user_id;
     const { title, author, cover_url, total_pages, total_chapters } = req.body as any;
@@ -54,10 +91,10 @@ export default async function booksRoutes(app: FastifyInstance) {
   app.delete("/:id", async (req, reply) => {
     const user_id = req.user_id;
     const { id } = req.params as any;
-    const owned = await query(`SELECT id FROM books WHERE id = $1 AND user_id = $2`, [id, user_id]);
-    if (!owned[0]) return reply.status(404).send({ error: "not found" });
-    await query(`DELETE FROM reading_logs WHERE book_id = $1 AND user_id = $2`, [id, user_id]);
-    await query(`DELETE FROM books WHERE id = $1 AND user_id = $2`, [id, user_id]);
+    // Collapse ownership check + delete; RETURNING id signals 404 if not found
+    const deleted = await query<any>(`DELETE FROM books WHERE id = $1 AND user_id = $2 RETURNING id`, [id, user_id]);
+    if (!deleted[0]) return reply.status(404).send({ error: "not found" });
+    await query(`DELETE FROM reading_logs WHERE book_id = $1`, [id]);
     return { ok: true };
   });
 

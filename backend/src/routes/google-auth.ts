@@ -46,19 +46,20 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
         return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=no_refresh_token`);
       }
 
-      const merged = {
-        ...existing,
-        google_drive: {
-          refresh_token: refreshToken,
-          auto_backup: existing.google_drive?.auto_backup ?? true,
-          connected_at: new Date().toISOString(),
-          last_backup: existing.google_drive?.last_backup ?? null,
-        },
+      const googleDrivePatch = {
+        refresh_token: refreshToken,
+        auto_backup: existing.google_drive?.auto_backup ?? true,
+        connected_at: new Date().toISOString(),
+        last_backup: existing.google_drive?.last_backup ?? null,
       };
+      // Upsert: merge google_drive patch into existing settings without replacing the whole row
       await query(
-        `INSERT INTO user_settings (user_id, settings) VALUES ($1, $2::jsonb)
-         ON CONFLICT (user_id) DO UPDATE SET settings = $2::jsonb`,
-        [userId, JSON.stringify(merged)]
+        `INSERT INTO user_settings (user_id, settings)
+         VALUES ($1, jsonb_build_object('google_drive', $2::jsonb))
+         ON CONFLICT (user_id)
+         DO UPDATE SET settings = user_settings.settings || jsonb_build_object('google_drive',
+           COALESCE(user_settings.settings->'google_drive', '{}'::jsonb) || $2::jsonb)`,
+        [userId, JSON.stringify(googleDrivePatch)]
       );
 
       return reply.redirect(302, `${APP_REDIRECT}?status=connected`);
