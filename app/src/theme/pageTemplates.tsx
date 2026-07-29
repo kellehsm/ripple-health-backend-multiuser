@@ -303,6 +303,22 @@ export const ALL_ICON_SLOTS: string[] = Array.from(
   ),
 );
 
+// ─── O(1) inverted lookup maps (built once at module load) ────────────────────
+
+/** cardId → default ThemeableBackground */
+const cardBgMap = new Map<string, ThemeableBackground>();
+/** tileId → default ThemeableBackground */
+const tileBgMap = new Map<string, ThemeableBackground>();
+
+for (const tpl of Object.values(PAGE_TEMPLATES)) {
+  for (const c of tpl.cards) {
+    cardBgMap.set(c.id, c.background);
+  }
+  for (const t of tpl.tiles) {
+    tileBgMap.set(t.id, t.background);
+  }
+}
+
 // ─── Background resolution ────────────────────────────────────────────────────
 
 /**
@@ -341,22 +357,14 @@ export function usePageBackground(pageId: string): ThemeableBackground {
 /** Returns the resolved ThemeableBackground for a card by its stable ID. */
 export function useCardBackground(cardId: string): ThemeableBackground {
   const { cardBackgrounds } = useBackgrounds();
-  let defaultBg: ThemeableBackground = { type: "color", value: "card" };
-  for (const tpl of Object.values(PAGE_TEMPLATES)) {
-    const found = tpl.cards.find((c) => c.id === cardId);
-    if (found) { defaultBg = found.background; break; }
-  }
+  const defaultBg: ThemeableBackground = cardBgMap.get(cardId) ?? { type: "color", value: "card" };
   return cardBackgrounds[cardId] ?? defaultBg;
 }
 
 /** Returns the resolved ThemeableBackground for a tile by its stable ID. */
 export function useTileBackground(tileId: string): ThemeableBackground {
   const { tileBackgrounds } = useBackgrounds();
-  let defaultBg: ThemeableBackground = { type: "color", value: "card" };
-  for (const tpl of Object.values(PAGE_TEMPLATES)) {
-    const found = tpl.tiles.find((t) => t.id === tileId);
-    if (found) { defaultBg = found.background; break; }
-  }
+  const defaultBg: ThemeableBackground = tileBgMap.get(tileId) ?? { type: "color", value: "card" };
   return tileBackgrounds[tileId] ?? defaultBg;
 }
 
@@ -402,18 +410,10 @@ export function ThemedSurface({
     const defaultBg = PAGE_TEMPLATES[elementId]?.background ?? { type: "color" as const, value: "page" };
     bg = resolveBackground(elementId, defaultBg, (theme as any).pageBackgrounds);
   } else if (kind === "card") {
-    let defaultBg: ThemeableBackground = { type: "color" as const, value: "card" };
-    for (const tpl of Object.values(PAGE_TEMPLATES)) {
-      const found = tpl.cards.find((c) => c.id === elementId);
-      if (found) { defaultBg = found.background; break; }
-    }
+    const defaultBg: ThemeableBackground = cardBgMap.get(elementId) ?? { type: "color" as const, value: "card" };
     bg = resolveBackground(elementId, defaultBg, (theme as any).cardBackgrounds);
   } else {
-    let defaultBg: ThemeableBackground = { type: "color" as const, value: "card" };
-    for (const tpl of Object.values(PAGE_TEMPLATES)) {
-      const found = tpl.tiles.find((t) => t.id === elementId);
-      if (found) { defaultBg = found.background; break; }
-    }
+    const defaultBg: ThemeableBackground = tileBgMap.get(elementId) ?? { type: "color" as const, value: "card" };
     bg = resolveBackground(elementId, defaultBg, (theme as any).tileBackgrounds);
   }
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -107,6 +107,7 @@ export function FriendsScreen() {
   // Feature tour refs
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
+  const lastFetchedAt = useRef(0);
   const usernameRef = useRef<View>(null);
   const addFriendRef = useRef<View>(null);
   const leaderboardRef = useRef<View>(null);
@@ -123,6 +124,9 @@ export function FriendsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      const now = Date.now();
+      if (now - lastFetchedAt.current < 60_000) return;
+      lastFetchedAt.current = now;
       let cancelled = false;
       async function load() {
         setLoading(true);
@@ -246,10 +250,10 @@ export function FriendsScreen() {
     }
   }
 
-  const activeChallenges = challenges.filter((c) => {
+  const activeChallenges = useMemo(() => {
     const now = new Date().toISOString().slice(0, 10);
-    return c.end_date >= now;
-  });
+    return challenges.filter(c => c.end_date >= now);
+  }, [challenges]);
 
   return (
     <>

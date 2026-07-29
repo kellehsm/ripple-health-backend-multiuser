@@ -1,5 +1,5 @@
 import React from "react";
-import { Dimensions } from "react-native";
+import { useWindowDimensions } from "react-native";
 import Svg, { G, Rect, Text as SvgText } from "react-native-svg";
 
 export type ChartDayData = {
@@ -18,12 +18,12 @@ type Props = {
   formatValue: (n: number) => string;
 };
 
-const SCREEN_W = Dimensions.get("window").width;
 const PLOT_H = 150;
 const LABEL_H = 20;
 const CHART_H = PLOT_H + LABEL_H;
 
 export const WeekComparisonChart = React.memo(function WeekComparisonChart({ days, barColor, fadedColor, textColor }: Props) {
+  const { width: SCREEN_W } = useWindowDimensions();
   const chartW = SCREEN_W - 32;
   const slotW = chartW / 7;
   const barW = Math.max(Math.floor(slotW * 0.33), 6);

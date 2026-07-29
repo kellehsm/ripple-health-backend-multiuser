@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
+  FlatList,
   ScrollView,
   View,
   Text,
@@ -284,6 +285,33 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
+type BookItemProps = { item: CompletedItem; onDelete: (id: string, name: string) => void; ink: string; theme: any; styles: ReturnType<typeof makeStyles> };
+
+const BookItem = React.memo(function BookItem({ item, onDelete, ink, theme, styles }: BookItemProps) {
+  return (
+    <View style={[styles.card, { backgroundColor: theme.teal.tint }]}>
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        {item.cover_url ? (
+          <Image source={{ uri: item.cover_url }} style={styles.cover} />
+        ) : (
+          <View style={[styles.cover, { backgroundColor: theme.teal.bg, borderWidth: 2, borderColor: ink }]} />
+        )}
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+            <Text style={[styles.title, { color: theme.textStrong, flex: 1 }]}>{item.name}</Text>
+            <Pressable onPress={() => onDelete(item.id, item.name)} hitSlop={8} style={{ marginLeft: 8 }}>
+              <Ionicons name="trash-outline" size={16} color={theme.textSoft} />
+            </Pressable>
+          </View>
+          {item.author ? <Text style={{ color: theme.textSoft, fontSize: 12 }}>{item.author}</Text> : null}
+          {item.rating ? <StarRating rating={item.rating} /> : null}
+          <Text style={[styles.dateLabel, { color: theme.textSoft }]}>Finished {formatDisplayDate(item.completed_at)}</Text>
+        </View>
+      </View>
+    </View>
+  );
+});
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export function CompletedScreen() {
@@ -306,16 +334,17 @@ export function CompletedScreen() {
       setItems(Array.isArray(completedData) ? completedData : []);
       const rb: ReadingBook[] = Array.isArray(readingData) ? readingData : [];
       setReadingBooks(rb);
-      // Fetch progress for reading books
-      const progEntries = await Promise.all(
-        rb.map(async (b) => {
-          try { return [b.id, await api.bookProgress(b.id)] as [string, Progress]; }
-          catch { return null; }
-        })
-      );
-      const progMap: Record<string, Progress> = {};
-      for (const entry of progEntries) { if (entry) progMap[entry[0]] = entry[1]; }
-      setProgress(progMap);
+      // Fetch progress for reading books using batch endpoint
+      if (rb.length > 0) {
+        try {
+          const progressMap = await api.bookProgressBatch(rb.map(b => b.id));
+          setProgress(progressMap as Record<string, Progress>);
+        } catch {
+          setProgress({});
+        }
+      } else {
+        setProgress({});
+      }
     } catch (e) {
       console.error("Failed to load bookshelf", e);
     } finally {
@@ -361,28 +390,21 @@ export function CompletedScreen() {
           {completedBooks.length > 0 && (
             <>
               <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>BOOKS READ · {completedBooks.length}</Text>
-              {completedBooks.map((item) => (
-                <View key={item.id} style={[styles.card, { backgroundColor: theme.teal.tint }]}>
-                  <View style={{ flexDirection: "row", gap: 12 }}>
-                    {item.cover_url ? (
-                      <Image source={{ uri: item.cover_url }} style={styles.cover} />
-                    ) : (
-                      <View style={[styles.cover, { backgroundColor: theme.teal.bg, borderWidth: 2, borderColor: ink }]} />
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
-                        <Text style={[styles.title, { color: theme.textStrong, flex: 1 }]}>{item.name}</Text>
-                        <Pressable onPress={() => handleDeleteBook(item.id, item.name)} hitSlop={8} style={{ marginLeft: 8 }}>
-                          <Ionicons name="trash-outline" size={16} color={theme.textSoft} />
-                        </Pressable>
-                      </View>
-                      {item.author ? <Text style={{ color: theme.textSoft, fontSize: 12 }}>{item.author}</Text> : null}
-                      {item.rating ? <StarRating rating={item.rating} /> : null}
-                      <Text style={[styles.dateLabel, { color: theme.textSoft }]}>Finished {formatDisplayDate(item.completed_at)}</Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
+              <FlatList
+                data={completedBooks}
+                keyExtractor={b => b.id}
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+                renderItem={({ item }) => (
+                  <BookItem
+                    item={item}
+                    onDelete={handleDeleteBook}
+                    ink={ink}
+                    theme={theme}
+                    styles={styles}
+                  />
+                )}
+              />
             </>
           )}
 

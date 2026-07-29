@@ -3,7 +3,7 @@
  * Each component renders at full W×H, absolute-positioned behind screen content.
  * Opacity is kept very low (0.06–0.12) so they never interfere with readability.
  */
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Image, StyleSheet, useWindowDimensions } from "react-native";
 import { useTheme } from "../ThemeContext";
 import { useBackgrounds } from "../BackgroundsContext";
@@ -142,13 +142,16 @@ function JewelLightBg({ width, height }: { width: number; height: number }) {
 
 /** Clean Slate: minimal dotted grid in gray */
 function CleanSlateBg({ width, height }: { width: number; height: number }) {
-  const dots: { x: number; y: number }[] = [];
-  const spacing = 28;
-  for (let x = spacing; x < width; x += spacing) {
-    for (let y = spacing; y < height; y += spacing) {
-      dots.push({ x, y });
+  const dots = useMemo(() => {
+    const result: { x: number; y: number }[] = [];
+    const spacing = 28;
+    for (let x = spacing; x < width; x += spacing) {
+      for (let y = spacing; y < height; y += spacing) {
+        result.push({ x, y });
+      }
     }
-  }
+    return result;
+  }, [width, height]);
   return (
     <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
       {dots.map((d, i) => (
@@ -167,19 +170,8 @@ function CleanSlateBg({ width, height }: { width: number; height: number }) {
 
 /** Obsidian: star field — scattered dots of varying sizes on deep black */
 function ObsidianBg({ width, height }: { width: number; height: number }) {
-  // Pseudo-random star positions (deterministic)
-  const stars = Array.from({ length: 90 }, (_, i) => {
-    const t = i * 137.508; // golden angle
-    const r2 = (i / 90) * Math.sqrt(2) * Math.max(width, height);
-    return {
-      x: (width / 2) + Math.cos((t * Math.PI) / 180) * r2 * 0.7 * Math.random(),
-      y: (height / 2) + Math.sin((t * Math.PI) / 180) * r2 * 0.7 * Math.random(),
-      r: 0.5 + (i % 4) * 0.4,
-      op: 0.05 + (i % 5) * 0.03,
-    };
-  });
-  // Use fibonacci spiral for more natural distribution
-  const fib = Array.from({ length: 120 }, (_, i) => {
+  // Use fibonacci spiral for more natural distribution — memoized to avoid Math.random on every render
+  const fib = useMemo(() => Array.from({ length: 120 }, (_, i) => {
     const angle = i * 2.39996; // golden angle in radians
     const rr = Math.sqrt(i / 120) * Math.max(width, height) * 0.7;
     return {
@@ -188,7 +180,7 @@ function ObsidianBg({ width, height }: { width: number; height: number }) {
       r: 0.4 + (i % 5) * 0.25,
       op: 0.04 + (i % 6) * 0.02,
     };
-  });
+  }), [width, height]);
   return (
     <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
       {fib.map((s, i) => (

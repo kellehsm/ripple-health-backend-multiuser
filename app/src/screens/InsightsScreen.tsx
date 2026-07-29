@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated, Easing, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
 } from "react-native";
@@ -96,6 +96,7 @@ export function InsightsScreen() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [animationKey, setAnimationKey] = useState(0);
   const isFirstLoad = useRef(true);
+  const needsRefreshRef = useRef(false);
   // Per-card animation values for stagger entrance
   const cardAnims = useRef<Animated.Value[]>([]);
   const staggerRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -130,14 +131,19 @@ export function InsightsScreen() {
         markTooltipSeen("insights");
       }
     });
-    load();
-  }, []));
+    // Only re-fetch on initial load or after a dismiss action — insights are nightly-computed
+    if (insights.length === 0 || needsRefreshRef.current) {
+      needsRefreshRef.current = false;
+      load();
+    }
+  }, [insights.length]));
 
   async function handleDismiss(id: string) {
     try {
       await api.dismissInsight(id);
       const item = insights.find(i => i.id === id);
       setInsights(prev => prev.filter(i => i.id !== id));
+      needsRefreshRef.current = true;
       if (item) {
         setDismissed(prev => [{ ...item, dismissed: true }, ...prev]);
         if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
@@ -174,17 +180,20 @@ export function InsightsScreen() {
   }
 
   const group = TYPE_GROUPS[activeGroup];
-  const filtered = group.types.length === 0
-    ? insights
-    : insights.filter(i => group.types.includes(i.type));
-
-  const streaks   = filtered.filter(i => i.type === "streak");
-  const patterns  = filtered.filter(i => i.type !== "streak");
+  const { streaks, patterns } = useMemo(() => {
+    const filtered = group.types.length === 0
+      ? insights
+      : insights.filter(i => group.types.includes(i.type));
+    return {
+      streaks:  filtered.filter(i => i.type === "streak"),
+      patterns: filtered.filter(i => i.type !== "streak"),
+    };
+  }, [insights, group]);
 
   // Rebuild and fire stagger animation whenever filtered list or active group changes
   useEffect(() => {
     if (loading) return;
-    const count = filtered.length;
+    const count = streaks.length + patterns.length;
     // Reset to correct length
     cardAnims.current = Array.from({ length: count }, () => new Animated.Value(0));
     if (staggerRef.current) staggerRef.current.stop();
@@ -297,7 +306,7 @@ export function InsightsScreen() {
         </View>
       )}
 
-      {!loading && !error && filtered.length === 0 && insights.length > 0 && (
+      {!loading && !error && streaks.length === 0 && patterns.length === 0 && insights.length > 0 && (
         <View style={{ alignItems: "center", paddingVertical: 48, gap: 12 }}>
           <Text style={{ fontSize: 32 }}>✨</Text>
           <Text style={{ fontSize: 16, fontWeight: "600", color: theme.textStrong }}>No insights yet</Text>

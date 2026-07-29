@@ -46,13 +46,12 @@ export function LifeScreen() {
       if (!userId) return;
       const data: Book[] = await api.books(userId, "reading");
       setBooks(data);
-      const progressEntries = await Promise.all(
-        data.map(async (b) => {
-          const p: Progress = await api.bookProgress(b.id);
-          return [b.id, p] as [string, Progress];
-        })
-      );
-      setProgress(Object.fromEntries(progressEntries));
+      if (data.length > 0) {
+        const progressMap = await api.bookProgressBatch(data.map(b => b.id));
+        setProgress(progressMap as Record<string, Progress>);
+      } else {
+        setProgress({});
+      }
     } catch (e) {
       console.error("Failed to load books", e);
     } finally {

@@ -19,6 +19,8 @@ export const api = {
   addBook: (payload: Record<string, unknown>) =>
     request(`/books`, { method: "POST", body: JSON.stringify(payload) }),
   bookProgress: (bookId: string) => request(`/books/${bookId}/progress`),
+  bookProgressBatch: (ids: string[]): Promise<Record<string, any>> =>
+    request(`/books/progress/batch?ids=${ids.join(",")}`),
   logPages: (bookId: string, pages_read: number) =>
     request(`/books/${bookId}/logs`, { method: "POST", body: JSON.stringify({ pages_read }) }),
   updateBook: (bookId: string, updates: Record<string, unknown>) =>

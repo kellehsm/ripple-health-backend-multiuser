@@ -72,41 +72,42 @@ export function HeartRateDetailScreen() {
       .finally(() => setLoadingDaily(false));
   }, []);
 
-  // Chart geometry
-  const bpms = readings.map((r) => r.bpm);
-  const rawMin = bpms.length ? Math.min(...bpms) : 50;
-  const rawMax = bpms.length ? Math.max(...bpms) : 120;
-  const padding = Math.max(5, Math.round((rawMax - rawMin) * 0.1));
-  const chartMin = rawMin - padding;
-  const chartMax = rawMax + padding;
-  const chartRange = chartMax - chartMin || 1;
-  const usableW = CHART_W - PAD_L;
-  const usableH = CHART_H - PAD_T - PAD_B;
+  // Chart geometry — memoized so heavy array ops don't repeat on every re-render
+  const { resting, peak, avg, chartMin, chartMax, chartRange, usableW, usableH, points, gridVals } = useMemo(() => {
+    const bpms = readings.map((r) => r.bpm);
+    const rawMin = bpms.length ? Math.min(...bpms) : 50;
+    const rawMax = bpms.length ? Math.max(...bpms) : 120;
+    const padding = Math.max(5, Math.round((rawMax - rawMin) * 0.1));
+    const chartMin = rawMin - padding;
+    const chartMax = rawMax + padding;
+    const chartRange = chartMax - chartMin || 1;
+    const usableW = CHART_W - PAD_L;
+    const usableH = CHART_H - PAD_T - PAD_B;
 
-  const now = Date.now();
-  const windowStart = now - rangeHours * 3600 * 1000;
-  const windowMs = rangeHours * 3600 * 1000;
+    const now = Date.now();
+    const windowStart = now - rangeHours * 3600 * 1000;
+    const windowMs = rangeHours * 3600 * 1000;
 
-  const points = readings
-    .map((r) => {
-      const t = new Date(r.recorded_at).getTime();
-      const x = PAD_L + ((t - windowStart) / windowMs) * usableW;
-      const y = PAD_T + usableH - ((r.bpm - chartMin) / chartRange) * usableH;
-      return x + "," + y;
-    })
-    .join(" ");
+    const points = readings
+      .map((r) => {
+        const t = new Date(r.recorded_at).getTime();
+        const x = PAD_L + ((t - windowStart) / windowMs) * usableW;
+        const y = PAD_T + usableH - ((r.bpm - chartMin) / chartRange) * usableH;
+        return x + "," + y;
+      })
+      .join(" ");
 
-  const gridVals = (() => {
     const step = chartRange > 80 ? 20 : chartRange > 40 ? 10 : 5;
-    const start = Math.ceil(chartMin / step) * step;
-    const vals: number[] = [];
-    for (let v = start; v <= chartMax; v += step) vals.push(v);
-    return vals;
-  })();
+    const gridStart = Math.ceil(chartMin / step) * step;
+    const gridVals: number[] = [];
+    for (let v = gridStart; v <= chartMax; v += step) gridVals.push(v);
 
-  const resting = bpms.length ? Math.min(...bpms) : null;
-  const peak = bpms.length ? Math.max(...bpms) : null;
-  const avg = bpms.length ? Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length) : null;
+    const resting = bpms.length ? Math.min(...bpms) : null;
+    const peak = bpms.length ? Math.max(...bpms) : null;
+    const avg = bpms.length ? Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length) : null;
+
+    return { resting, peak, avg, chartMin, chartMax, chartRange, usableW, usableH, points, gridVals };
+  }, [readings, rangeHours]);
 
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={s.content}>

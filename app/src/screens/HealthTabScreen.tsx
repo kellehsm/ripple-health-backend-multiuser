@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -810,20 +810,23 @@ function MedicationList({ theme, scrollEnabled = true, initialMedications }: { t
     }
   }, [load, refresh]);
 
-  const todayDowList = new Date().getDay(); // 0=Sun,...,6=Sat
-  const buckets: Record<string, Medication[]> = { morning: [], midday: [], evening: [], custom: [] };
-  for (const med of medications) {
-    // PRN meds appear in the "My Medications" list but not the schedule buckets
-    if (med.is_prn) continue;
-    // Weekly meds only appear in schedule on their designated day
-    if (med.frequency === 'weekly' && med.day_of_week !== todayDowList) continue;
-    for (const slot of med.slots) {
-      const bucket = ['morning', 'midday', 'evening'].includes(slot.time_of_day) ? slot.time_of_day : 'custom';
-      if (!buckets[bucket].find((m) => m.id === med.id)) {
-        buckets[bucket].push(med);
+  const { buckets, nextDoseMsg } = useMemo(() => {
+    const todayDow = new Date().getDay(); // 0=Sun,...,6=Sat
+    const buckets: Record<string, Medication[]> = { morning: [], midday: [], evening: [], custom: [] };
+    for (const med of medications) {
+      // PRN meds appear in the "My Medications" list but not the schedule buckets
+      if (med.is_prn) continue;
+      // Weekly meds only appear in schedule on their designated day
+      if (med.frequency === 'weekly' && med.day_of_week !== todayDow) continue;
+      for (const slot of med.slots) {
+        const bucket = ['morning', 'midday', 'evening'].includes(slot.time_of_day) ? slot.time_of_day : 'custom';
+        if (!buckets[bucket].find((m) => m.id === med.id)) {
+          buckets[bucket].push(med);
+        }
       }
     }
-  }
+    return { buckets, nextDoseMsg: nextDoseCallout(medications) };
+  }, [medications]);
 
   async function markAllTaken(time_of_day: string) {
     try {
@@ -891,12 +894,12 @@ function MedicationList({ theme, scrollEnabled = true, initialMedications }: { t
   ) : (
     <>
           {/* Next dose callout */}
-          {(() => { const msg = nextDoseCallout(medications); return msg ? (
+          {nextDoseMsg ? (
             <View style={[medStyles.nextDoseBar, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
               <Text style={{ fontSize: 14 }}>⏰</Text>
-              <Text style={[medStyles.nextDoseText, { color: theme.teal.sub }]}>Next: {msg}</Text>
+              <Text style={[medStyles.nextDoseText, { color: theme.teal.sub }]}>Next: {nextDoseMsg}</Text>
             </View>
-          ) : null; })()}
+          ) : null}
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={[medStyles.sectionHead, { color: theme.textStrong }]}>Today's Schedule</Text>

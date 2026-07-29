@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ScrollView,
   View,
@@ -52,10 +52,12 @@ export function ChallengesScreen() {
     }, [])
   );
 
-  const today = new Date().toISOString().slice(0, 10);
-  const active = challenges.filter((c) => c.end_date >= today && c.start_date <= today);
-  const upcoming = challenges.filter((c) => c.start_date > today);
-  const past = challenges.filter((c) => c.end_date < today);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const { active, upcoming, past } = useMemo(() => ({
+    active:   challenges.filter((c) => c.end_date >= today && c.start_date <= today),
+    upcoming: challenges.filter((c) => c.start_date > today),
+    past:     challenges.filter((c) => c.end_date < today),
+  }), [challenges, today]);
 
   function renderChallenge(challenge: Challenge) {
     const days = daysRemaining(challenge.end_date);

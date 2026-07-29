@@ -184,15 +184,18 @@ type CardProps = {
 
 function CorrCard({ title, xLabel, yLabel, xs, ys, insight, dotColor, lineColor, theme }: CardProps) {
   const s = useMemo(() => makeStyles(theme.ink, theme.card), [theme.ink, theme.card]);
-  // Filter out any NaN / null that slipped through
-  const clean: [number, number][] = [];
-  for (let i = 0; i < xs.length; i++) {
-    if (!isNaN(xs[i]) && !isNaN(ys[i])) clean.push([xs[i], ys[i]]);
-  }
-  const cxs = clean.map(p => p[0]);
-  const cys = clean.map(p => p[1]);
-  const r = pearson(cxs, cys);
-  const badge = badgeColors(r, theme);
+  // Filter out any NaN / null that slipped through — memoized so it doesn't repeat on every render
+  const { cxs, cys, r, badge } = useMemo(() => {
+    const clean: [number, number][] = [];
+    for (let i = 0; i < xs.length; i++) {
+      if (!isNaN(xs[i]) && !isNaN(ys[i])) clean.push([xs[i], ys[i]]);
+    }
+    const cxs = clean.map(p => p[0]);
+    const cys = clean.map(p => p[1]);
+    const r = pearson(cxs, cys);
+    const badge = badgeColors(r, theme);
+    return { cxs, cys, r, badge };
+  }, [xs, ys, theme]);
 
   return (
     <ShadowCard size="card" accent={dotColor}>
@@ -209,7 +212,7 @@ function CorrCard({ title, xLabel, yLabel, xs, ys, insight, dotColor, lineColor,
         )}
       </View>
 
-      {clean.length < 5 ? (
+      {cxs.length < 5 ? (
         <Text style={[s.noData, { color: theme.textSoft }]}>
           Not enough data yet — keep logging to reveal patterns.
         </Text>
