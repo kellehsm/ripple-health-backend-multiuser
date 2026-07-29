@@ -2,11 +2,18 @@
  * Shared date/time utility functions.
  */
 
-/** Returns the ISO date string (YYYY-MM-DD) of Sunday of the current week. */
+const EST_TZ = 'America/New_York';
+
+/** Returns YYYY-MM-DD for today in EST. */
+export function todayEST(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: EST_TZ }).format(new Date());
+}
+
+/** Returns the ISO date string (YYYY-MM-DD) of Sunday of the current week in EST. */
 export function getWeekStartISO(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - d.getDay());
+  const today = todayEST();
+  const d = new Date(today + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());
   return d.toISOString().slice(0, 10);
 }
 
@@ -15,12 +22,12 @@ export function getWeekStartISO(): string {
  * Shows "Today" or "Yesterday" for recent dates, otherwise "Mon D".
  */
 export function formatDisplayDate(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = now.getTime() - d.getTime();
-  if (diff < 86400000 && d.getDate() === now.getDate()) return 'Today';
-  if (diff < 172800000) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const today = todayEST();
+  const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: EST_TZ }).format(new Date(Date.now() - 86400000));
+  if (iso.slice(0, 10) === today) return 'Today';
+  if (iso.slice(0, 10) === yesterday) return 'Yesterday';
+  const d = new Date(iso + 'T12:00:00Z');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: EST_TZ });
 }
 
 /** Formats a duration in seconds as "Xh Ym" or "Ym". */

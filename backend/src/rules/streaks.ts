@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult } from "./types.js";
+import { estToday, estYesterday } from "../lib/estDate.js";
 
 function streakInsight(streakType: string, count: number, unit: string, motivation: string): InsightResult {
   const confidenceScore = Math.min(100, count * 5);
@@ -28,8 +29,8 @@ export const MealStreakRule: InsightRule = {
     );
 
     const days = rows.map(r => (String(r.day).slice(0, 10)));
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const today = estToday();
+    const yesterday = estYesterday();
 
     if (!days.length || (days[0] !== today && days[0] !== yesterday)) return null;
 
@@ -72,8 +73,8 @@ export const WaterStreakRule: InsightRule = {
     );
 
     const days = rows.map(r => (String(r.day).slice(0, 10)));
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const today = estToday();
+    const yesterday = estYesterday();
 
     if (!days.length || (days[0] !== today && days[0] !== yesterday)) return null;
 
@@ -125,8 +126,8 @@ export const StepGoalStreakRule: InsightRule = {
 
     if (!qualifyingDays.length) return null;
 
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const today = estToday();
+    const yesterday = estYesterday();
     if (qualifyingDays[0] !== today && qualifyingDays[0] !== yesterday) return null;
 
     let streak = 0;

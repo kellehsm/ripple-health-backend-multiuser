@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { getDailySummary, generateDailySummary } from "../services/dailySummaryService.js";
+import { estToday, estYesterday } from "../lib/estDate.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -188,7 +189,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
   // Powers the Overview tab's top stat row — reads from precomputed daily_summaries.
   app.get("/today", async (req) => {
     const user_id = req.user_id;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = estToday();
     const row = await getDailySummary(user_id, today);
     if (!row) return { user_id, date: today };
     return formatSummaryResponse(row);
@@ -214,7 +215,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
   app.get("/pattern", async (req) => {
     const user_id = req.user_id;
     const { date } = req.query as any;
-    const day = date ?? new Date().toISOString().slice(0, 10);
+    const day = date ?? estToday();
 
     const [mood, spend, meals, glucoseSpikes, water, hobbyEvts] = await Promise.all([
       query(
@@ -272,8 +273,8 @@ export default async function summaryRoutes(app: FastifyInstance) {
       const days = rawDays.map((r: any) =>
         r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10)
       );
-      const today = new Date().toISOString().slice(0, 10);
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const today = estToday();
+      const yesterday = estYesterday();
       if (days.length === 0 || (days[0] !== today && days[0] !== yesterday)) return 0;
       let streak = 0;
       let expected = days[0];
@@ -339,7 +340,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
   app.get("/day", async (req) => {
     const user_id = req.user_id;
     const { date } = req.query as any;
-    const day = date ?? new Date().toISOString().slice(0, 10);
+    const day = date ?? estToday();
 
     const [glucose, mood, meals, spend] = await Promise.all([
       query<any>(

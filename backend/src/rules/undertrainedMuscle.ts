@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult } from "./types.js";
+import { estToday } from "../lib/estDate.js";
 
 export const UndertrainedMuscleRule: InsightRule = {
   id: "undertrained_muscle_group",
@@ -25,12 +26,12 @@ export const UndertrainedMuscleRule: InsightRule = {
 
     if (rows.length === 0) return null;
 
-    const today = new Date();
+    const todayMs = new Date(estToday() + "T12:00:00Z").getTime();
     const candidates = rows
       .filter((r) => parseInt(r.appearances) >= 2)
       .map((r) => {
-        const last = new Date(r.last_date);
-        const daysSince = Math.round((today.getTime() - last.getTime()) / 86400000);
+        const last = new Date(r.last_date + "T12:00:00Z");
+        const daysSince = Math.round((todayMs - last.getTime()) / 86400000);
         return { muscle: r.muscle, daysSince, last_date: r.last_date };
       })
       .filter((r) => r.daysSince >= 10)

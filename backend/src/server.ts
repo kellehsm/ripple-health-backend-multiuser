@@ -53,6 +53,7 @@ import { runInsightsJob } from "./jobs/insightsJob.js";
 import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
 import cron from "node-cron";
 import { query } from "./db.js";
+import { estYesterday } from "./lib/estDate.js";
 
 dotenv.config();
 
@@ -130,7 +131,7 @@ async function main() {
   // Daily Summary Engine — refresh today every 30 min; finalize yesterday at 1 AM
   cron.schedule("*/30 * * * *", () => void runDailySummaryJob());
   cron.schedule("0 1 * * *", () => {
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const yesterday = estYesterday();
     void runDailySummaryJob(yesterday);
   });
   void runDailySummaryJob(); // seed on startup

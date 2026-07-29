@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { syncDexcomShareGlucose } from "../jobs/dexcom-share-sync.js";
+import { estToday } from "../lib/estDate.js";
 
 export default async function glucoseRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
@@ -39,7 +40,7 @@ export default async function glucoseRoutes(app: FastifyInstance) {
   app.get("/tir", async (req) => {
     const user_id = req.user_id;
     const { date } = req.query as any;
-    const targetDate = date ?? new Date().toISOString().slice(0, 10);
+    const targetDate = date ?? estToday();
     const rows = await query<{ in_range: string; total: string }>(
       `SELECT
         COUNT(*) FILTER (WHERE mg_dl BETWEEN 70 AND 180) AS in_range,

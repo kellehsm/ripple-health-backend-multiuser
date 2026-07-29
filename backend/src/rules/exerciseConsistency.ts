@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult } from "./types.js";
+import { estDaysAgo } from "../lib/estDate.js";
 
 export const ExerciseConsistencyRule: InsightRule = {
   id: "exercise_consistency_monthly",
@@ -7,7 +8,7 @@ export const ExerciseConsistencyRule: InsightRule = {
   minDays: 14,
 
   async run(userId: string): Promise<InsightResult | null> {
-    const windowStart = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const windowStart = estDaysAgo(14);
 
     const [row] = await query<{ cnt: string }>(
       `SELECT COUNT(*) AS cnt FROM exercise_sessions
