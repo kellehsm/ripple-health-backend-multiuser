@@ -13,6 +13,7 @@ import * as WebBrowser from "expo-web-browser";
 import notifee from "@notifee/react-native";
 import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { GOOGLE_CLIENT_ID, api } from "../api/client";
 import { getUserId } from "../lib/auth";
 import { requestHealthPermissions } from "../lib/healthConnect";
@@ -98,6 +99,7 @@ const WALK_PAGES: Array<{
 
 export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => void; replayMode?: boolean }) {
   const { theme, paletteId, setPalette } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
   const { width } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(ink, theme.card, theme.cardBorder, width), [ink, theme.card, theme.cardBorder, width]);
@@ -241,7 +243,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             { label: "Glucose", value: "118", sub: "mg/dL stable" },
             { label: "Steps", value: "6,240", sub: "today" },
           ].map((item) => (
-            <View key={item.label} style={[styles.glanceChip, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View key={item.label} style={[styles.glanceChip, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
               <Text style={{ fontSize: 20, textAlign: "center" }}>{item.value}</Text>
               <Text style={[styles.statChipLabel, { color: ink }]}>{item.label}</Text>
               <Text style={[styles.statChipSub, { color: theme.textSoft, textAlign: "center" }]}>{item.sub}</Text>
@@ -249,7 +251,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           ))}
         </View>
         {/* Mini timeline strip */}
-        <View style={[styles.bookCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingVertical: 10, gap: 6 }]}>
+        <View style={[styles.bookCard, { backgroundColor: cardBg, borderColor: theme.cardBorder, paddingVertical: 10, gap: 6 }]}>
           {[
             { icon: "🍜", label: "Lunch", time: "12:45 pm" },
             { icon: "😊", label: "Mood", time: "2:00 pm" },
@@ -276,7 +278,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             { label: "Water", value: "6 / 8 glasses", color: theme.blue?.solid ?? "#3B82F6" },
             { label: "Sleep", value: "7h 15m", color: theme.amber?.solid ?? "#F59E0B" },
           ].map((chip) => (
-            <View key={chip.label} style={[styles.miniChip, { backgroundColor: theme.card, borderColor: chip.color }]}>
+            <View key={chip.label} style={[styles.miniChip, { backgroundColor: cardBg, borderColor: chip.color }]}>
               <View style={[styles.miniChipDot, { backgroundColor: chip.color }]} />
               <Text style={[styles.miniChipValue, { color: ink, fontSize: 12 }]}>{chip.value}</Text>
               <Text style={[styles.statChipSub, { color: theme.textSoft }]}>{chip.label}</Text>
@@ -305,7 +307,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
         {/* 4 stat chips in 2×2 grid */}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           {chips.map((c) => (
-            <View key={c.label} style={[styles.statChip, { backgroundColor: theme.card, borderColor: c.color }]}>
+            <View key={c.label} style={[styles.statChip, { backgroundColor: cardBg, borderColor: c.color }]}>
               <View style={[styles.statChipDot, { backgroundColor: c.color }]} />
               <Text style={[styles.statChipValue, { color: ink }]}>
                 {c.value}<Text style={styles.statChipUnit}> {c.unit}</Text>
@@ -315,7 +317,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           ))}
         </View>
         {/* Mini bar chart Mon–Thu */}
-        <View style={[styles.bookCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingVertical: 10 }]}>
+        <View style={[styles.bookCard, { backgroundColor: cardBg, borderColor: theme.cardBorder, paddingVertical: 10 }]}>
           <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, height: 56, justifyContent: "center" }}>
             {bars.map((b) => (
               <View key={b.day} style={{ alignItems: "center", gap: 4 }}>
@@ -344,7 +346,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
       <View style={styles.preview}>
         {/* 3 meal rows */}
         {rows.map((r) => (
-          <View key={r.name} style={[styles.mealRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View key={r.name} style={[styles.mealRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <View style={[styles.mealDot, { backgroundColor: r.color }]} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.mealName, { color: ink }]} numberOfLines={1}>{r.name}</Text>
@@ -359,7 +361,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             { label: "Protein", g: "76g", color: theme.teal.solid },
             { label: "Fat", g: "32g", color: theme.amber?.solid ?? "#F59E0B" },
           ].map((m) => (
-            <View key={m.label} style={[styles.macroChip, { borderColor: m.color, backgroundColor: theme.card }]}>
+            <View key={m.label} style={[styles.macroChip, { borderColor: m.color, backgroundColor: cardBg }]}>
               <Text style={{ fontSize: 14, fontWeight: "800", color: ink }}>{m.g}</Text>
               <Text style={{ fontSize: 11, color: theme.textSoft }}>{m.label}</Text>
             </View>
@@ -377,7 +379,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     return (
       <View style={styles.preview}>
         {/* Book card */}
-        <View style={[styles.bookCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.bookCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.bookTitle, { color: ink }]} numberOfLines={1}>The Almanack of Naval Ravikant</Text>
@@ -391,7 +393,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           <Text style={[styles.progressLabel, { color: theme.textSoft }]}>38% complete</Text>
         </View>
         {/* Guitar hobby row */}
-        <View style={[styles.hobbyRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.hobbyRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <View style={[styles.hobbyIcon, { backgroundColor: theme.blue?.bg ?? "#EFF6FF" }]}>
             <Text style={{ fontSize: 20 }}>🎸</Text>
           </View>
@@ -401,7 +403,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           </View>
         </View>
         {/* Running hobby row */}
-        <View style={[styles.hobbyRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.hobbyRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <View style={[styles.hobbyIcon, { backgroundColor: theme.teal.bg }]}>
             <Text style={{ fontSize: 20 }}>🏃</Text>
           </View>
@@ -411,7 +413,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           </View>
         </View>
         {/* Journal preview */}
-        <View style={[styles.insightCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.insightCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={{ fontSize: 16 }}>📝</Text>
           <View style={{ flex: 1 }}>
             <Text style={[styles.insightTitle, { color: ink }]}>Journal</Text>
@@ -461,7 +463,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           </View>
         ))}
         {/* Weekly Wrap banner */}
-        <View style={[styles.weekBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.weekBadge, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={{ fontSize: 16 }}>📊</Text>
           <Text style={[styles.weekBadgeText, { color: ink }]}>Weekly Wrap — tap to review your trends</Text>
         </View>
@@ -474,7 +476,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     return (
       <View style={styles.preview}>
         {/* Budget card with progress bar */}
-        <View style={[styles.bookCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.bookCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={[styles.bookTitle, { color: ink }]}>Monthly Budget</Text>
             <Text style={[styles.bookAuthor, { color: theme.textSoft }]}>$1,180 / $2,000</Text>
@@ -491,7 +493,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           { cat: "Transport", amt: "$145", color: theme.amber?.solid ?? "#F59E0B" },
           { cat: "Entertainment", amt: "$85", color: purple },
         ].map((row) => (
-          <View key={row.cat} style={[styles.mealRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View key={row.cat} style={[styles.mealRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <View style={[styles.categoryDot, { backgroundColor: row.color }]} />
             <Text style={[styles.mealName, { color: ink, flex: 1 }]}>{row.cat}</Text>
             <Text style={[styles.mealName, { color: ink }]}>{row.amt}</Text>
@@ -514,7 +516,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     return (
       <View style={styles.preview}>
         {sessions.map((s) => (
-          <View key={s.name} style={[styles.mealRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View key={s.name} style={[styles.mealRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <View style={[styles.hobbyIcon, { backgroundColor: theme.berry.bg }]}>
               <Text style={{ fontSize: 20 }}>{s.icon}</Text>
             </View>
@@ -524,7 +526,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             </View>
           </View>
         ))}
-        <View style={[styles.bookCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.bookCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <View style={{ flexDirection: "row", gap: 14, justifyContent: "center" }}>
             {[
               { label: "This week", val: "3", unit: "sessions" },
@@ -584,7 +586,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           { gesture: "Tap tile header", desc: "Open the detail screen for steps, glucose, heart rate, and more", icon: "↗️", color: theme.teal.solid },
           { gesture: "Header buttons", desc: "INSIGHT, FRIENDS, SEARCH, and SETTINGS always in the top-right corner", icon: "⚙️", color: theme.berry.solid },
         ].map((item) => (
-          <View key={item.gesture} style={[styles.mealRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View key={item.gesture} style={[styles.mealRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <View style={[styles.hobbyIcon, { backgroundColor: theme.amber.bg, width: 36, height: 36, borderRadius: 18 }]}>
               <Text style={{ fontSize: 17 }}>{item.icon}</Text>
             </View>
@@ -601,7 +603,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
   function RefreshPreview() {
     return (
       <View style={styles.preview}>
-        <View style={[styles.bookCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 18 }]}>
+        <View style={[styles.bookCard, { backgroundColor: cardBg, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 18 }]}>
           <View style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: theme.cardBorder, alignItems: "center", justifyContent: "center", marginBottom: 10, backgroundColor: theme.page }}>
             <Text style={{ fontSize: 26 }}>💧</Text>
           </View>
@@ -826,7 +828,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             <>
               <Text style={[styles.inputLabel, { color: ink }]}>Dexcom Username or Email</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.card, borderColor: theme.cardBorder, color: theme.textStrong }]}
+                style={[styles.input, { backgroundColor: cardBg, borderColor: theme.cardBorder, color: theme.textStrong }]}
                 value={dexcomUsername}
                 onChangeText={setDexcomUsername}
                 placeholder="username or email"
@@ -845,7 +847,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
               </View>
               <Text style={[styles.inputLabel, { color: ink }]}>Account ID (UUID)</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.card, borderColor: theme.cardBorder, color: theme.textStrong }]}
+                style={[styles.input, { backgroundColor: cardBg, borderColor: theme.cardBorder, color: theme.textStrong }]}
                 value={dexcomAccountId}
                 onChangeText={setDexcomAccountId}
                 placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -858,7 +860,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
 
           <Text style={[styles.inputLabel, { color: ink }]}>Share Password</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: theme.card, borderColor: theme.cardBorder, color: theme.textStrong }]}
+            style={[styles.input, { backgroundColor: cardBg, borderColor: theme.cardBorder, color: theme.textStrong }]}
             value={dexcomPassword}
             onChangeText={setDexcomPassword}
             placeholder="Dexcom Share password"
@@ -992,7 +994,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
   return (
     <View style={[styles.screen, { backgroundColor: theme.page }]}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <View style={[styles.stepCard, { backgroundColor: theme.card, borderColor: ink }]}>
+        <View style={[styles.stepCard, { backgroundColor: cardBg, borderColor: ink }]}>
           <View style={[styles.stepEmojiBlock, { backgroundColor: accent.bg, borderColor: ink }]}>
             <Text style={styles.stepEmoji}>{cfg.emoji}</Text>
           </View>
@@ -1010,7 +1012,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           {loading || dexcomConnecting ? <LoadingIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>{cfg.primaryLabel}</Text>}
         </Pressable>
         <Pressable
-          style={[styles.secondaryBtn, { backgroundColor: theme.card, borderColor: ink }]}
+          style={[styles.secondaryBtn, { backgroundColor: cardBg, borderColor: ink }]}
           onPress={advance}
           disabled={loading || dexcomConnecting}
         >

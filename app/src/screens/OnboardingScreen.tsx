@@ -10,6 +10,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { AppLogo } from "../components/AppLogo";
 import {
@@ -29,6 +30,7 @@ interface Props {
 
 export function OnboardingScreen({ onComplete }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [timingMode, setTimingMode] = useState<TimingMode>("fixed");
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
@@ -62,7 +64,7 @@ export function OnboardingScreen({ onComplete }: Props) {
       </View>
 
       {/* Notification permission */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
           Check-in reminders
         </Text>
@@ -97,7 +99,7 @@ export function OnboardingScreen({ onComplete }: Props) {
 
       {/* Timing mode choice */}
       {permissionGranted !== false && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
             How should check-in reminders work?
           </Text>

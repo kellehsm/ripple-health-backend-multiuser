@@ -10,7 +10,8 @@ import {
 } from "./fontSystem";
 import { layeredShadow, ShadowSize } from "./styleUtils";
 import { useTheme } from "./ThemeContext";
-import { hexWithAlpha } from "./colorUtils";
+import { hexWithAlpha, blendWithWhite } from "./colorUtils";
+import { FONT_FAMILIES, setFontFamilyOverride } from "./typography";
 import { api } from "../api/client";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ type AppSettings = {
   fontSizeScale: FontScalePreset;
   cardOpacity: number;
   cardOpacityManualOverride: boolean;
+  cardGlass: boolean;
 };
 
 type AppSettingsContextValue = AppSettings & {
@@ -33,6 +35,7 @@ type AppSettingsContextValue = AppSettings & {
   setFontSizeScale: (v: FontScalePreset) => void;
   setCardOpacity: (v: number) => void;
   resetCardOpacity: () => void;
+  setCardGlass: (v: boolean) => void;
 };
 
 // ─── Storage keys ──────────────────────────────────────────────────────────────
@@ -42,6 +45,7 @@ const KEY_FONT_FAMILY      = "ripple_font_family";
 const KEY_FONT_SCALE       = "ripple_font_scale";
 const KEY_CARD_OPACITY     = "ripple_card_opacity";
 const KEY_OPACITY_OVERRIDE = "ripple_card_opacity_override";
+const KEY_CARD_GLASS       = "ripple_card_glass";
 
 // ─── Context ───────────────────────────────────────────────────────────────────
 
@@ -51,11 +55,13 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   fontSizeScale: DEFAULT_FONT_SCALE,
   cardOpacity: DEFAULT_OPACITY,
   cardOpacityManualOverride: false,
+  cardGlass: false,
   setShadowsEnabled: () => {},
   setFontFamily: () => {},
   setFontSizeScale: () => {},
   setCardOpacity: () => {},
   resetCardOpacity: () => {},
+  setCardGlass: () => {},
 });
 
 export function AppSettingsProvider({ children }: { children: React.ReactNode }) {
@@ -66,6 +72,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   const [fontSizeScale, setFontSizeScaleState] = useState<FontScalePreset>(DEFAULT_FONT_SCALE);
   const [cardOpacity, setCardOpacityState] = useState(DEFAULT_OPACITY);
   const [cardOpacityManualOverride, setCardOpacityManualOverrideState] = useState(false);
+  const [cardGlass, setCardGlassState] = useState(false);
 
   // Ref so palette-change effect can read current override without stale closure
   const manualOverrideRef = useRef(false);
@@ -73,12 +80,13 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   // ── Load persisted settings on mount ──────────────────────────────────────
   useEffect(() => {
     const load = async () => {
-      const [shadows, ff, scale, opacity, override] = await Promise.all([
+      const [shadows, ff, scale, opacity, override, glass] = await Promise.all([
         AsyncStorage.getItem(KEY_SHADOWS),
         AsyncStorage.getItem(KEY_FONT_FAMILY),
         AsyncStorage.getItem(KEY_FONT_SCALE),
         AsyncStorage.getItem(KEY_CARD_OPACITY),
         AsyncStorage.getItem(KEY_OPACITY_OVERRIDE),
+        AsyncStorage.getItem(KEY_CARD_GLASS),
       ]);
 
       if (shadows !== null) setShadowsEnabledState(shadows !== "false");
@@ -98,6 +106,8 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
         }
       }
 
+      if (glass !== null) setCardGlassState(glass === "true");
+
       // Backend sync (non-blocking; overrides AsyncStorage if server has a value)
       try {
         const settings = await api.getSettings();
@@ -115,6 +125,12 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     };
     load();
   }, []);
+
+  // ── Propagate fontFamily to the mutable singleton in typography.ts ──────
+  useEffect(() => {
+    const ff = FONT_FAMILIES[fontFamily ?? "System"];
+    setFontFamilyOverride(typeof ff === "string" ? ff : undefined);
+  }, [fontFamily]);
 
   // ── Apply theme default when palette changes (unless user has overridden) ──
   useEffect(() => {
@@ -160,11 +176,16 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     api.updateSettings({ cardOpacity: null, cardOpacityManualOverride: false }).catch(() => {});
   }, [theme.defaultCardOpacity]);
 
+  const setCardGlass = useCallback((v: boolean) => {
+    setCardGlassState(v);
+    AsyncStorage.setItem(KEY_CARD_GLASS, String(v)).catch(() => {});
+  }, []);
+
   return (
     <AppSettingsContext.Provider
       value={{
-        shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride,
-        setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity,
+        shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride, cardGlass,
+        setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity, setCardGlass,
       }}
     >
       {children}
@@ -174,6 +195,18 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
 
 export function useAppSettings(): AppSettingsContextValue {
   return useContext(AppSettingsContext);
+}
+
+/**
+ * Returns the card background color with the current cardOpacity and glass effect applied.
+ * Use this everywhere you'd otherwise write `backgroundColor: theme.card`.
+ */
+export function useCardBg(): string {
+  const { cardOpacity, cardGlass } = useAppSettings();
+  const { theme } = useTheme();
+  const base = cardGlass ? blendWithWhite(theme.card, 0.28) : theme.card;
+  const alpha = cardGlass ? cardOpacity * 0.82 : cardOpacity;
+  return hexWithAlpha(base, alpha);
 }
 
 /**

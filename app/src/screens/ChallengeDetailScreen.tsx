@@ -11,6 +11,7 @@ import {
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { toast } from "../lib/toast";
 import {
@@ -52,6 +53,7 @@ function daysRemaining(endDate: string): number {
 
 export function ChallengeDetailScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const challengeId: string = route.params?.challengeId;
@@ -152,7 +154,7 @@ export function ChallengeDetailScreen() {
         </Text>
 
         <View style={styles.metaRow}>
-          <View style={[styles.metaBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.metaBadge, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <Ionicons name="calendar-outline" size={12} color={theme.textSoft} />
             <Text style={{ color: theme.textSoft, fontSize: 11, marginLeft: 4 }}>
               {new Date(challenge.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -166,7 +168,7 @@ export function ChallengeDetailScreen() {
               {isPast ? "Ended" : days + " day" + (days === 1 ? "" : "s") + " left"}
             </Text>
           </View>
-          <View style={[styles.metaBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.metaBadge, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <Ionicons name="people-outline" size={12} color={theme.textSoft} />
             <Text style={{ color: theme.textSoft, fontSize: 11, marginLeft: 4 }}>
               {challenge.participant_count} {challenge.participant_count === 1 ? "participant" : "participants"}
@@ -188,11 +190,11 @@ export function ChallengeDetailScreen() {
       {/* Participant leaderboard */}
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PARTICIPANTS</Text>
       {participants.length === 0 ? (
-        <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.emptyCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={{ color: theme.textSoft, fontSize: 13 }}>No participants yet.</Text>
         </View>
       ) : (
-        <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+        <View style={[styles.board, { backgroundColor: cardBg, borderColor: theme.ink }]}>
           {participants.map((p, i) => {
             const isTop3 = p.rank <= 3;
             const medalColor = RANK_COLORS[p.rank] ?? theme.textSoft;
@@ -220,7 +222,7 @@ export function ChallengeDetailScreen() {
 
       {/* Encouragement */}
       {!isPast && (
-        <View style={[styles.encourageNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.encourageNote, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center" }}>
             Keep going — every bit of effort counts. Consistent progress is the goal, not just the finish line.
           </Text>
@@ -231,7 +233,7 @@ export function ChallengeDetailScreen() {
       <Pressable
         onPress={handleLeave}
         disabled={leaving}
-        style={[styles.leaveBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
+        style={[styles.leaveBtn, { borderColor: theme.ink, backgroundColor: cardBg }]}
       >
         {leaving ? (
           <ActivityIndicator color={theme.textSoft} size="small" />

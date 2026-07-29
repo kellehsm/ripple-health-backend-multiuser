@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from "react";
 import { View, ViewStyle, StyleProp, Pressable, Animated, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../theme/ThemeContext";
-import { useAppSettings } from "../theme/AppSettingsContext";
+import { useAppSettings, useCardBg } from "../theme/AppSettingsContext";
 import { hexWithAlpha } from "../theme/colorUtils";
 import { layeredShadow, hardOffset, ShadowSize } from "../theme/styleUtils";
 import { ThemedSurface, useCardBackground, useTileBackground } from "../theme/pageTemplates";
@@ -73,6 +73,7 @@ export function ShadowCard({
 }: ShadowCardProps) {
   const { theme } = useTheme();
   const { shadowsEnabled, cardOpacity } = useAppSettings();
+  const defaultCardBg = useCardBg();
   const cardBg = useCardBackground(cardId ?? "");
   const tileBg = useTileBackground(tileId ?? "");
   const bgOverride = cardId ? cardBg : (tileId ? tileBg : null);
@@ -167,7 +168,7 @@ export function ShadowCard({
 
   const resolvedBg = skipTransparency
     ? (bg ?? theme.card)
-    : hexWithAlpha(bg ?? theme.card, cardOpacity);
+    : (bg ? hexWithAlpha(bg, cardOpacity) : defaultCardBg);
 
   const cardBody = (
     <View

@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { PALETTES, PALETTE_GROUPS } from "../theme/palettes";
 import type { Theme } from "../theme/theme";
 
@@ -34,6 +35,7 @@ type Props = {
 
 export function ThemePickerModal({ visible, onClose }: Props) {
   const { theme, paletteId, setPalette } = useTheme();
+  const cardBg = useCardBg();
   const previousIdRef = useRef(paletteId);
 
   // Keep previousIdRef stable for the lifetime of this modal open; reset when
@@ -119,7 +121,7 @@ export function ThemePickerModal({ visible, onClose }: Props) {
             <Text style={[styles.groupLabel, { color: theme.textSoft }]}>
               ✦ PREMIUM
             </Text>
-            <View style={[styles.premiumPlaceholder, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.premiumPlaceholder, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
               <Ionicons name="lock-closed-outline" size={22} color={theme.textSoft} style={{ marginBottom: 8 }} />
               <Text style={[styles.premiumTitle, { color: theme.textStrong }]}>Premium Themes</Text>
               <Text style={[styles.premiumSub, { color: theme.textSoft }]}>

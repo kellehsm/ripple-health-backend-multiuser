@@ -13,6 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { ShadowCard } from "../../components/ShadowCard";
 import { toast } from "../../lib/toast";
 import { api } from "../../api/client";
@@ -40,6 +41,7 @@ function normalizeTime(t: string): string {
 
 export function MedicationRemindersScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [meds, setMeds] = useState<any[]>([]);
   const [reminders, setReminders] = useState<MedReminders>({});
   const [inputs, setInputs] = useState<Record<string, string>>({});
@@ -171,7 +173,7 @@ export function MedicationRemindersScreen() {
                 placeholderTextColor={theme.textSoft}
                 keyboardType="numbers-and-punctuation"
                 maxLength={5}
-                style={[styles.timeInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
+                style={[styles.timeInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg }]}
               />
               <Pressable
                 onPress={() => addTime(med.id)}

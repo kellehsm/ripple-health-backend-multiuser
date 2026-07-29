@@ -12,6 +12,7 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { toast } from "../lib/toast";
 import { createChallenge, getFriends, Friend, SocialCategory } from "../api/friends";
@@ -38,6 +39,7 @@ function addDays(date: Date, days: number): Date {
 
 export function NewChallengeScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
 
   const today = new Date();
@@ -117,7 +119,7 @@ export function NewChallengeScreen() {
           onChangeText={setTitle}
           placeholder="e.g. 10K steps a day for a week"
           placeholderTextColor={theme.textSoft}
-          style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
+          style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg }]}
           maxLength={80}
         />
       </ShadowCard>
@@ -159,7 +161,7 @@ export function NewChallengeScreen() {
           onChangeText={setGoalDescription}
           placeholder="e.g. Walk 10,000 steps every day"
           placeholderTextColor={theme.textSoft}
-          style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
+          style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg }]}
           maxLength={200}
           multiline
         />
@@ -179,7 +181,7 @@ export function NewChallengeScreen() {
           }
           placeholderTextColor={theme.textSoft}
           keyboardType="numeric"
-          style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
+          style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg }]}
         />
         <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 6 }}>
           Leave blank if the goal is qualitative rather than a specific number.
@@ -197,7 +199,7 @@ export function NewChallengeScreen() {
               onChangeText={setStartDate}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={theme.textSoft}
-              style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
+              style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg }]}
             />
           </View>
           <View style={{ flex: 1 }}>
@@ -207,7 +209,7 @@ export function NewChallengeScreen() {
               onChangeText={setEndDate}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={theme.textSoft}
-              style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
+              style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg }]}
             />
           </View>
         </View>
@@ -224,7 +226,7 @@ export function NewChallengeScreen() {
                 const s = new Date(startDate || formatDateLocal(today));
                 setEndDate(formatDateLocal(addDays(s, opt.days)));
               }}
-              style={[styles.chip, { borderColor: theme.ink, backgroundColor: theme.card }]}
+              style={[styles.chip, { borderColor: theme.ink, backgroundColor: cardBg }]}
             >
               <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>{opt.label}</Text>
             </Pressable>

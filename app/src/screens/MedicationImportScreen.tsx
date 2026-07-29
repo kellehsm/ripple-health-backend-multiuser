@@ -5,6 +5,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from '../api/client';
 import { useNavigation } from '@react-navigation/native';
 import { showErrorAlert } from '../utils/errorReport';
@@ -26,6 +27,7 @@ type Step = 'pick' | 'mapping' | 'done';
 
 export function MedicationImportScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
   const ink = theme.ink;
 
@@ -166,7 +168,7 @@ export function MedicationImportScreen() {
                 <Pressable
                   key={field.key}
                   onPress={() => setPickerField(field.key)}
-                  style={[styles.mappingRow, { backgroundColor: theme.card, borderColor: mapped ? ink : theme.cardBorder }]}
+                  style={[styles.mappingRow, { backgroundColor: cardBg, borderColor: mapped ? ink : theme.cardBorder }]}
                 >
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.fieldLabel, { color: theme.textStrong }]}>
@@ -188,7 +190,7 @@ export function MedicationImportScreen() {
               const dosage = row[mapping.dosage ?? ''] ?? '';
               const schedule = row[mapping.schedule ?? ''] ?? '';
               return (
-                <View key={i} style={[styles.previewRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <View key={i} style={[styles.previewRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
                   <Text style={[styles.previewName, { color: theme.textStrong }]}>{name}</Text>
                   {dosage ? <Text style={{ color: theme.textSoft, fontSize: 12 }}>{dosage}</Text> : null}
                   {schedule ? <Text style={{ color: theme.textSoft, fontSize: 12 }}>{schedule}</Text> : null}
@@ -235,7 +237,7 @@ export function MedicationImportScreen() {
       {/* ── Column picker modal ── */}
       <Modal visible={pickerField !== null} transparent animationType="slide" onRequestClose={() => setPickerField(null)}>
         <View style={styles.pickerOverlay}>
-          <View style={[styles.pickerSheet, { backgroundColor: theme.card, borderColor: ink }]}>
+          <View style={[styles.pickerSheet, { backgroundColor: cardBg, borderColor: ink }]}>
             <Text style={[styles.pickerTitle, { color: theme.textStrong }]}>
               {APP_FIELDS.find((f) => f.key === pickerField)?.label ?? 'Select column'}
             </Text>

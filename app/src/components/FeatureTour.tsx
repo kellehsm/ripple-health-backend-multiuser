@@ -11,6 +11,7 @@ import {
   PanResponder,
 } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SPOT_PAD = 10;
@@ -42,6 +43,7 @@ type Props = {
 
 export function FeatureTour({ steps, visible, onDone, scrollRef, scrollY, onExtraPadding }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [idx, setIdx] = useState(0);
   const [spot, setSpot] = useState<Spot | null>(null);
   const savedScrollY = useRef(0);
@@ -298,7 +300,7 @@ export function FeatureTour({ steps, visible, onDone, scrollRef, scrollY, onExtr
           </View>
 
           {/* Body — card background fills the bottom section */}
-          <View style={[styles.cardBody, { backgroundColor: theme.card }]}>
+          <View style={[styles.cardBody, { backgroundColor: cardBg }]}>
             {/* Change 2: animated body text */}
             <Animated.Text
               style={[

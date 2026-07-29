@@ -1280,7 +1280,7 @@ export function MealsScreen() {
 
       {/* Log a meal card */}
       <View ref={tourLogRef}>
-      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} rotate={-0.5}>
+      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} rotate={-0.5} cardId="meal_log">
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Log a meal</Text>
 
         {/* Frequent meals + recipes */}
@@ -1647,7 +1647,7 @@ export function MealsScreen() {
 
       {/* Today's meals list */}
       <View ref={tourHistoryRef}>
-      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid}>
+      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} cardId="food_report">
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Today's meals</Text>
 
         {mealsError ? (
@@ -1755,7 +1755,7 @@ export function MealsScreen() {
         const stable = [...foodReport].sort((a, b) => a.avg_spike - b.avg_spike).slice(0, 5).filter(s => s.avg_spike <= 30);
         const maxSpike = spiky[0]?.avg_spike ?? 1;
         return (
-          <ShadowCard size="card" bg={theme.card} accent={theme.berry.solid} rotate={0.4}>
+          <ShadowCard size="card" bg={theme.card} accent={theme.berry.solid} rotate={0.4} cardId="glucose_panel">
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <Ionicons name="analytics-outline" size={18} color={theme.berry.solid} />
               <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>Food Report</Text>

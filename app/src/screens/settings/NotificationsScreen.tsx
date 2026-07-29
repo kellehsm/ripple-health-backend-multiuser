@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 import {
   requestNotificationPermission,
@@ -32,6 +33,7 @@ const TIMING_MODE_KEY = "ripple:notification_mode";
 
 export function NotificationsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [mode, setMode] = useState<TimingMode>("fixed");
   const [permStatus, setPermStatus] = useState<string>("undetermined");
   const [adaptiveWindows, setAdaptiveWindows] = useState<NotificationWindows | null>(null);
@@ -95,7 +97,7 @@ export function NotificationsScreen() {
       contentContainerStyle={styles.content}
     >
       {/* Permission status */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
           Permission
         </Text>
@@ -129,7 +131,7 @@ export function NotificationsScreen() {
       </View>
 
       {/* Timing mode */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
           Check-in timing
         </Text>
@@ -197,7 +199,7 @@ export function NotificationsScreen() {
       </View>
 
       {/* Current schedule */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
           Current schedule
         </Text>

@@ -6,6 +6,7 @@ import { onSolid } from '../theme/colorUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { ShadowCard } from '../components/ShadowCard';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
@@ -68,6 +69,7 @@ const FOCUS_LABEL: Record<string, string> = {
 
 function ExerciseEmptyState({ onPress }: { onPress: () => void }) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const c = theme.teal.solid;
   return (
     <View style={{ alignItems: "center", paddingVertical: 48 }}>
@@ -95,6 +97,7 @@ function ExerciseEmptyState({ onPress }: { onPress: () => void }) {
 
 export function ExerciseScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
   const { preferences, loading: prefsLoading } = useTabPreferences();
   const ink = theme.ink;
@@ -251,7 +254,7 @@ export function ExerciseScreen() {
         {activeProgram && (
           <>
             <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>YOUR PLAN</Text>
-            <View style={[styles.programCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+            <View style={[styles.programCard, { backgroundColor: cardBg, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
               <Text style={[styles.programName, { color: theme.textStrong }]}>{activeProgram.name}</Text>
               <Text style={{ color: theme.textSoft, fontSize: 12, marginBottom: 8 }}>
                 {activeProgram.preferred_minutes} min · {activeProgram.days_per_week} day{activeProgram.days_per_week !== 1 ? 's' : ''}/week
@@ -282,7 +285,7 @@ export function ExerciseScreen() {
 
         {/* Suggestion card */}
         {suggestion && (
-          <View style={[styles.suggestionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+          <View style={[styles.suggestionCard, { backgroundColor: cardBg, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
             <View style={styles.suggestionHeader}>
               <Text style={styles.suggestionIcon}>{SUGGESTION_ICON[suggestion.type] ?? '💪'}</Text>
               <Text style={[styles.suggestionTitle, { color: theme.textStrong }]}>{suggestion.title}</Text>
@@ -311,7 +314,7 @@ export function ExerciseScreen() {
               <Pressable
                 key={session.id}
                 onPress={() => navigation.navigate('ExerciseDetail', { sessionId: session.id })}
-                style={[styles.sessionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                style={[styles.sessionCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
               >
                 <View style={styles.sessionCardRow}>
                   <Text style={[styles.sessionDate, { color: theme.textStrong }]}>
@@ -373,7 +376,7 @@ export function ExerciseScreen() {
           ) : (
             <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
               {selectedDay?.exercises.map((ex, i) => (
-                <View key={ex.exercise_id} style={{ backgroundColor: theme.card, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, overflow: 'hidden', shadowColor: 'rgba(60,40,20,0.1)', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.10, shadowRadius: 12, elevation: 3 }}>
+                <View key={ex.exercise_id} style={{ backgroundColor: cardBg, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, overflow: 'hidden', shadowColor: 'rgba(60,40,20,0.1)', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.10, shadowRadius: 12, elevation: 3 }}>
                   {ex.images.length > 0 ? (
                     <CyclingImage images={ex.images} style={{ width: '100%', height: 220 }} />
                   ) : (

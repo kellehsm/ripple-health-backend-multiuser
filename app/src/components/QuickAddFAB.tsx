@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { View, Text, Pressable, Animated, StyleSheet } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { RADIUS, SPACING } from "../theme/tokens";
 import { SPRING_BOUNCY } from "../theme/motion";
 
@@ -17,6 +18,7 @@ interface QuickAddFABProps {
 
 export function QuickAddFAB({ actions }: QuickAddFABProps) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [open, setOpen] = useState(false);
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -53,12 +55,12 @@ export function QuickAddFAB({ actions }: QuickAddFABProps) {
             key={action.label}
             style={[styles.actionItem, { opacity, transform: [{ translateY }] }]}
           >
-            <Text style={[styles.actionLabel, { color: theme.textStrong, backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <Text style={[styles.actionLabel, { color: theme.textStrong, backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
               {action.label}
             </Text>
             <Pressable
               onPress={() => { close(); action.onPress(); }}
-              style={[styles.actionBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+              style={[styles.actionBtn, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
             >
               <Text style={styles.actionEmoji}>{action.emoji}</Text>
             </Pressable>

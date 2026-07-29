@@ -3,6 +3,7 @@ import {
   View, Text, Pressable, ScrollView, StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from '../api/client';
 
 // ── Wizard answer types ────────────────────────────────────────────────────────
@@ -204,7 +205,7 @@ function NavRow({ onBack, onNext, nextLabel = 'Next →', nextDisabled = false, 
       {onBack && (
         <Pressable
           onPress={onBack}
-          style={[styles.backBtn, { borderColor: ink, backgroundColor: theme.card }]}
+          style={[styles.backBtn, { borderColor: ink, backgroundColor: cardBg }]}
         >
           <Text style={{ color: ink, fontWeight: '700', fontSize: 14 }}>← Back</Text>
         </Pressable>
@@ -233,6 +234,7 @@ interface Props {
 
 export function WorkoutSetupWizard({ onComplete }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
 
   const [step, setStep] = useState(0);
@@ -365,7 +367,7 @@ export function WorkoutSetupWizard({ onComplete }: Props) {
         {generatedDays.map((day) => (
           <View
             key={day.day_number}
-            style={[styles.dayCard, { backgroundColor: theme.card, borderColor: ink, shadowColor: "rgba(60,40,20,0.1)" }]}
+            style={[styles.dayCard, { backgroundColor: cardBg, borderColor: ink, shadowColor: "rgba(60,40,20,0.1)" }]}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <View style={[styles.dayBadge, { backgroundColor: theme.teal?.solid ?? ink }]}>
@@ -405,14 +407,14 @@ export function WorkoutSetupWizard({ onComplete }: Props) {
           </Pressable>
           <Pressable
             onPress={() => { setGeneratedDays(null); setStep(0); }}
-            style={[styles.outlineBtn, { borderColor: ink, backgroundColor: theme.card }]}
+            style={[styles.outlineBtn, { borderColor: ink, backgroundColor: cardBg }]}
           >
             <Text style={{ color: ink, fontWeight: '700', fontSize: 14 }}>↺ Change answers</Text>
           </Pressable>
           <Pressable
             onPress={handleSkip}
             disabled={skipping}
-            style={[styles.outlineBtn, { borderColor: theme.cardBorder ?? '#D1D5DB', backgroundColor: theme.card }]}
+            style={[styles.outlineBtn, { borderColor: theme.cardBorder ?? '#D1D5DB', backgroundColor: cardBg }]}
           >
             {skipping
               ? <ActivityIndicator color={theme.textSoft} size="small" />
@@ -630,7 +632,7 @@ export function WorkoutSetupWizard({ onComplete }: Props) {
             theme={theme}
           />
 
-          <View style={[styles.disclaimer, { backgroundColor: theme.card, borderColor: theme.cardBorder ?? '#E5E7EB' }]}>
+          <View style={[styles.disclaimer, { backgroundColor: cardBg, borderColor: theme.cardBorder ?? '#E5E7EB' }]}>
             <Text style={{ color: theme.textSoft, fontSize: 12, lineHeight: 17 }}>
               ⚠️ This filtering is general safety guidance only and is not medical advice.
               Consult a healthcare professional for specific conditions before beginning any exercise program.

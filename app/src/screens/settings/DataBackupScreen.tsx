@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet, Switch } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 
 type WeekStart = "monday" | "sunday";
 
 export function DataBackupScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [driveBackup, setDriveBackup] = useState(false);
   const [weekStart, setWeekStart] = useState<WeekStart>("monday");
 
@@ -17,7 +19,7 @@ export function DataBackupScreen() {
       contentContainerStyle={styles.content}
     >
       {/* Google Drive backup */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Google Drive backup</Text>
 
         <View style={styles.switchRow}>
@@ -58,7 +60,7 @@ export function DataBackupScreen() {
       </View>
 
       {/* Export */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Export data</Text>
         <Text style={[styles.note, { color: theme.textSoft }]}>
           Download all your data as a JSON file.
@@ -70,7 +72,7 @@ export function DataBackupScreen() {
       </View>
 
       {/* Week start */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Week starts on</Text>
         <View style={styles.weekRow}>
           {(["monday", "sunday"] as WeekStart[]).map((day) => (

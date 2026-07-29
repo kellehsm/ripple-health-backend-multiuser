@@ -14,6 +14,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { coloredShadow } from '../theme/styleUtils';
 import { IconBadge } from '../components/IconBadge';
 import { useTabPreferences } from '../hooks/useTabPreferences';
@@ -248,7 +249,7 @@ function OverviewBlocks({
 
   if (loading) {
     return (
-      <View style={[obStyles.row, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+      <View style={[obStyles.row, { backgroundColor: cardBg, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
         <ActivityIndicator color={theme.teal.solid} style={{ flex: 1, paddingVertical: 24 }} />
       </View>
     );
@@ -256,7 +257,7 @@ function OverviewBlocks({
 
   return (
     <View style={{ gap: 10 }}>
-      <View style={[obStyles.row, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+      <View style={[obStyles.row, { backgroundColor: cardBg, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
         {/* Medication block */}
         <Pressable
           style={({ pressed }) => [obStyles.block, { backgroundColor: activeSubTab === 'medication' ? theme.teal.tint : 'transparent', opacity: pressed ? 0.75 : 1 }]}
@@ -486,7 +487,7 @@ function AddMedicationModal({
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <View style={modalStyles.overlay}>
-        <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: ink }]}>
+        <View style={[modalStyles.sheet, { backgroundColor: cardBg, borderColor: ink }]}>
           <View style={modalStyles.header}>
             <Text style={[modalStyles.title, { color: theme.textStrong }]}>
               {isEdit ? 'Edit Medication' : 'Add Medication'}
@@ -503,7 +504,7 @@ function AddMedicationModal({
                 onChangeText={onNameChange}
               />
               {suggestions.length > 0 && (
-                <View style={[modalStyles.suggestions, { backgroundColor: theme.card, borderColor: ink }]}>
+                <View style={[modalStyles.suggestions, { backgroundColor: cardBg, borderColor: ink }]}>
                   {suggestions.map((s) => (
                     <Pressable key={s} style={[modalStyles.suggRow, { borderBottomColor: theme.cardBorder }]}
                       onPress={async () => {
@@ -678,7 +679,7 @@ function MedicationInfoModal({ med, theme, onClose }: { med: Medication; theme: 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <View style={modalStyles.overlay}>
-        <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+        <View style={[modalStyles.sheet, { backgroundColor: cardBg, borderColor: theme.ink }]}>
           <View style={modalStyles.header}>
             <Text style={[modalStyles.title, { color: theme.textStrong }]} numberOfLines={1}>{med.name}</Text>
             <Pressable onPress={onClose}><Text style={{ color: theme.textSoft, fontSize: 22 }}>✕</Text></Pressable>
@@ -911,7 +912,7 @@ function MedicationList({ theme, scrollEnabled = true, initialMedications }: { t
           {Object.entries(buckets).map(([bucket, meds]) => {
             if (meds.length === 0) return null;
             return (
-              <View key={bucket} style={[medStyles.bucket, { backgroundColor: theme.card, borderColor: theme.cardBorder, ...coloredShadow(theme.teal.solid) }]}>
+              <View key={bucket} style={[medStyles.bucket, { backgroundColor: cardBg, borderColor: theme.cardBorder, ...coloredShadow(theme.teal.solid) }]}>
                 <View style={medStyles.bucketHeader}>
                   <Text style={[medStyles.bucketLabel, { color: theme.textStrong }]}>{BUCKET_LABELS[bucket]}</Text>
                   <Pressable onPress={() => markAllTaken(bucket)}>
@@ -1035,7 +1036,7 @@ function MedicationList({ theme, scrollEnabled = true, initialMedications }: { t
                 ]}
               >
               <View
-                style={[medStyles.medCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, ...coloredShadow(theme.teal.solid) }]}
+                style={[medStyles.medCard, { backgroundColor: cardBg, borderColor: theme.cardBorder, ...coloredShadow(theme.teal.solid) }]}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
                   <IconBadge name="medical-outline" color={med.color_category?.color_hex ?? '#3FA0A6'} bgColor={(med.color_category?.color_hex ?? '#3FA0A6') + '22'} size={16} containerSize={32} borderRadius={8} />
@@ -1332,7 +1333,7 @@ function CycleDayLogModal({
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <View style={modalStyles.overlay}>
-        <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+        <View style={[modalStyles.sheet, { backgroundColor: cardBg, borderColor: theme.ink }]}>
           <View style={modalStyles.header}>
             <Text style={[modalStyles.title, { color: theme.textStrong }]}>
               {formatDisplayDate(date)}
@@ -1568,7 +1569,7 @@ function MonthCalendar({
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-    <View style={[calStyles.container, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+    <View style={[calStyles.container, { backgroundColor: cardBg, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
       <View style={calStyles.header}>
         <Pressable onPress={prevMonth} hitSlop={8}><Text style={{ color: theme.textStrong, fontSize: 20 }}>‹</Text></Pressable>
         <Text style={[calStyles.monthLabel, { color: theme.textStrong }]}>{monthLabel}</Text>
@@ -1812,7 +1813,7 @@ function CycleView({ theme }: { theme: any }) {
           </Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
             <Pressable
-              style={[insStyles.btn, { borderColor: theme.teal.solid, backgroundColor: theme.card }]}
+              style={[insStyles.btn, { borderColor: theme.teal.solid, backgroundColor: cardBg }]}
               onPress={() => Alert.alert('Cycle Tracking', 'Tap any day on the calendar to log flow, symptoms, mood, and energy. After 3+ cycles, you will see period predictions.')}
             >
               <Text style={{ color: theme.teal.fg, fontWeight: '700', fontSize: 13 }}>Learn more</Text>
@@ -1838,7 +1839,7 @@ function CycleView({ theme }: { theme: any }) {
 
       {/* Selected day detail panel */}
       {selectedDate && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+        <View style={[insStyles.panel, { backgroundColor: cardBg, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>
             {selectedDateLabel}{selectedPhase ? ` · ${selectedPhase} phase` : ''}
           </Text>
@@ -1895,7 +1896,7 @@ function CycleView({ theme }: { theme: any }) {
 
       {/* Cycle insights card */}
       {showInsightsCard && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+        <View style={[insStyles.panel, { backgroundColor: cardBg, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>Cycle Insights</Text>
           <View style={{ gap: 6, marginTop: 6 }}>
             {prediction?.avgCycleLength != null && (
@@ -1932,7 +1933,7 @@ function CycleView({ theme }: { theme: any }) {
 
       {/* Cycle history */}
       {history.length > 0 && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+        <View style={[insStyles.panel, { backgroundColor: cardBg, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>Cycle History</Text>
           {history.slice(0, 6).map((h, i) => (
             <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: 'rgba(0,0,0,0.06)' }}>
@@ -2055,7 +2056,7 @@ function SymptomsView({ theme }: { theme: any }) {
   return (
     <ScrollView contentContainerStyle={{ padding: 14, gap: 12, paddingBottom: 100 }} scrollEnabled={false}>
       {symptomCounts.length === 0 ? (
-        <View style={[{ borderRadius: 22, borderWidth: 2, padding: 20, alignItems: 'center', backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[{ borderRadius: 22, borderWidth: 2, padding: 20, alignItems: 'center', backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={{ fontSize: 28, marginBottom: 8 }}>📝</Text>
           <Text style={{ color: theme.textSoft, fontSize: 14, textAlign: 'center' }}>
             No symptoms logged yet. Log cycle days to track symptoms over time.
@@ -2066,7 +2067,7 @@ function SymptomsView({ theme }: { theme: any }) {
           <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase' }}>
             Last 90 days
           </Text>
-          <View style={[{ borderRadius: 22, borderWidth: 2, backgroundColor: theme.card, borderColor: theme.cardBorder, overflow: 'hidden', shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 3 }]}>
+          <View style={[{ borderRadius: 22, borderWidth: 2, backgroundColor: cardBg, borderColor: theme.cardBorder, overflow: 'hidden', shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 3 }]}>
             {symptomCounts.map(({ label, count }, i) => (
               <View key={label} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: theme.cardBorder }}>
                 <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: '500', textTransform: 'capitalize' }}>{label}</Text>
@@ -2087,6 +2088,7 @@ function SymptomsView({ theme }: { theme: any }) {
 
 export function HealthTabScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const { preferences } = useTabPreferences();
   const { medication, cycle } = preferences.health;
   const bothEnabled = medication && cycle;

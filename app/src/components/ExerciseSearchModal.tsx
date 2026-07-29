@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Image,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from '../api/client';
 import { LoadingIndicator } from './LoadingIndicator';
 import { CyclingImage, IMAGE_BASE } from './CyclingExerciseImage';
@@ -54,6 +55,7 @@ const INITIAL_FORM: LogForm = {
 
 export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ExerciseResult[]>([]);
@@ -158,7 +160,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
         {selected ? (
           /* ── Log entry form ── */
           <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
-            <View style={[styles.exerciseChip, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.exerciseChip, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
               {selected.images.length > 0 ? (
                 <CyclingImage images={selected.images} style={styles.chipImage} />
               ) : (
@@ -180,7 +182,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
               /* Cardio: just duration */
               <>
                 <Text style={[styles.formLabel, { color: theme.textSoft }]}>DURATION</Text>
-                <View style={[styles.formField, { backgroundColor: theme.card, borderColor: ink }]}>
+                <View style={[styles.formField, { backgroundColor: cardBg, borderColor: ink }]}>
                   <Text style={[styles.formFieldLabel, { color: theme.textSoft }]}>Minutes</Text>
                   <TextInput
                     style={[styles.formFieldInput, { color: theme.textStrong }]}
@@ -199,7 +201,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
                 <View style={styles.topRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.formLabel, { color: theme.textSoft }]}>WEIGHT (lbs)</Text>
-                    <View style={[styles.formField, { backgroundColor: theme.card, borderColor: ink }]}>
+                    <View style={[styles.formField, { backgroundColor: cardBg, borderColor: ink }]}>
                       <TextInput
                         style={[styles.formFieldInput, { color: theme.textStrong }]}
                         value={form.weight_used}
@@ -214,7 +216,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
                   <View style={{ flex: 1.4 }}>
                     <Text style={[styles.formLabel, { color: theme.textSoft }]}>REP RANGE</Text>
                     <View style={styles.rangeRow}>
-                      <View style={[styles.formField, { flex: 1, backgroundColor: theme.card, borderColor: ink }]}>
+                      <View style={[styles.formField, { flex: 1, backgroundColor: cardBg, borderColor: ink }]}>
                         <TextInput
                           style={[styles.formFieldInput, { color: theme.textStrong }]}
                           value={form.target_rep_range_min}
@@ -225,7 +227,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
                         />
                       </View>
                       <Text style={[styles.rangeDash, { color: theme.textSoft }]}>—</Text>
-                      <View style={[styles.formField, { flex: 1, backgroundColor: theme.card, borderColor: ink }]}>
+                      <View style={[styles.formField, { flex: 1, backgroundColor: cardBg, borderColor: ink }]}>
                         <TextInput
                           style={[styles.formFieldInput, { color: theme.textStrong }]}
                           value={form.target_rep_range_max}
@@ -244,7 +246,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
                 {form.sets_reps.map((reps, i) => (
                   <View key={i} style={styles.setRow}>
                     <Text style={[styles.setLabel, { color: theme.textSoft }]}>Set {i + 1}</Text>
-                    <View style={[styles.setField, { backgroundColor: theme.card, borderColor: ink }]}>
+                    <View style={[styles.setField, { backgroundColor: cardBg, borderColor: ink }]}>
                       <TextInput
                         style={[styles.setInput, { color: theme.textStrong }]}
                         value={reps}
@@ -281,7 +283,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
         ) : (
           /* ── Search list ── */
           <>
-            <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[styles.searchBar, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
               <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
               <TextInput
                 style={[styles.searchInput, { color: theme.textStrong }]}

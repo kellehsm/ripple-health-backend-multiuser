@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/core";
 import { getGrantedPermissions } from "react-native-health-connect";
 import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { onSolid } from "../../theme/colorUtils";
 import { api } from "../../api/client";
 import { requestHealthPermissions, syncHealthData } from "../../lib/healthConnect";
@@ -19,6 +20,7 @@ type HCSettings = {
 
 export function HealthConnectSettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [hc, setHc] = useState<HCSettings>({});
   const [hcGranted, setHcGranted] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
@@ -134,7 +136,7 @@ export function HealthConnectSettingsScreen() {
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PERMISSIONS</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <View style={styles.statusRow}>
           <Text style={{ color: theme.textStrong, flex: 1 }}>Health Connect permissions</Text>
           <Text style={{ color: hcGranted ? theme.teal.fg : theme.coral.fg, fontWeight: "700", fontSize: 13 }}>
@@ -152,7 +154,7 @@ export function HealthConnectSettingsScreen() {
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>AUTO-SYNC</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         {saving && <LoadingIndicator size="small" style={{ alignSelf: "flex-end" }} />}
         <ToggleRow label="Auto-sync enabled" value={hc.auto_sync_enabled !== false} onChange={(v) => setToggle("auto_sync_enabled", v)} theme={theme} />
         <ToggleRow label="Sync steps" value={hc.sync_steps !== false} onChange={(v) => setToggle("sync_steps", v)} theme={theme} />
@@ -161,7 +163,7 @@ export function HealthConnectSettingsScreen() {
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>MANUAL SYNC</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Pressable onPress={handleSync} disabled={syncing}
           style={[styles.btn, { backgroundColor: theme.teal.bg, borderColor: theme.teal.sub, opacity: syncing ? 0.6 : 1 }]}>
           {syncing ? <LoadingIndicator size="small" color={theme.teal.fg} /> : <Text style={{ color: theme.teal.fg, fontWeight: "500" }}>Sync now from Health Connect</Text>}
@@ -176,7 +178,7 @@ export function HealthConnectSettingsScreen() {
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>LIVE TRACKING</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
           Keeps a persistent notification with live data. Requires Health Connect permissions.
         </Text>
@@ -191,7 +193,7 @@ export function HealthConnectSettingsScreen() {
         {liveTracking && (
           <Pressable
             onPress={() => IntentLauncher.startActivityAsync("android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS", { data: "package:com.kellehs.wellness" }).catch(() => Alert.alert("Unavailable", "Could not open battery settings."))}
-            style={[styles.btn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            style={[styles.btn, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
           >
             <Text style={{ color: theme.textSoft, fontWeight: "500" }}>Battery optimization exemption</Text>
           </Pressable>

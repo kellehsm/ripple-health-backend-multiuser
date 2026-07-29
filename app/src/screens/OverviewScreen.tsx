@@ -1,6 +1,7 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { MetricCard } from "../components/MetricCard";
 import { CARD_SHADOW } from "../theme/styleUtils";
@@ -9,6 +10,7 @@ import { CARD_SHADOW } from "../theme/styleUtils";
 // timeline (mood -> spend -> meal -> glucose spike) merged from /summary/pattern.
 export function OverviewScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
@@ -21,7 +23,7 @@ export function OverviewScreen() {
         <MetricCard label="Spent today" value="$34" icon="wallet" colorKey="green" />
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Today's pattern</Text>
         {/* TODO: render api.pattern(userId) as a horizontal timeline,
             reusing the dot-and-line layout from the approved mockup */}

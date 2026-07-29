@@ -1,19 +1,21 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 
 const APP_VERSION = "1.0.0";
 
 export function HelpAboutScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
     >
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>About Ripple</Text>
         <View style={styles.infoRow}>
           <Text style={[styles.label, { color: theme.textSoft }]}>Version</Text>
@@ -25,7 +27,7 @@ export function HelpAboutScreen() {
         </Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>What's new</Text>
         <Text style={[styles.changelogItem, { color: theme.textStrong }]}>v1.0.0</Text>
         <Text style={[styles.note, { color: theme.textSoft }]}>
@@ -34,7 +36,7 @@ export function HelpAboutScreen() {
         </Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Help & FAQ</Text>
         <Text style={[styles.note, { color: theme.textSoft }]}>
           In-app FAQ and help docs coming soon.

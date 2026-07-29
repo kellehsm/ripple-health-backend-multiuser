@@ -10,6 +10,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { toast } from "../../lib/toast";
 import {
   getSharingPrefs,
@@ -53,6 +54,7 @@ function ToggleRow({
 
 export function SocialSettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   const [sharing, setSharing] = useState<SharingPrefs>({
     steps: false,
@@ -134,7 +136,7 @@ export function SocialSettingsScreen() {
         <Text style={[styles.groupLabel, { color: theme.textSoft }]}>SHARE WITH FRIENDS</Text>
         {savingSharing && <ActivityIndicator size="small" color={theme.teal.bar} />}
       </View>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         {loadingSharing ? (
           <ActivityIndicator color={theme.teal.bar} style={{ paddingVertical: 12 }} />
         ) : (
@@ -183,7 +185,7 @@ export function SocialSettingsScreen() {
         <Text style={[styles.groupLabel, { color: theme.textSoft }]}>SOCIAL NOTIFICATIONS</Text>
         {savingNotifs && <ActivityIndicator size="small" color={theme.teal.bar} />}
       </View>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         {loadingNotifs ? (
           <ActivityIndicator color={theme.teal.bar} style={{ paddingVertical: 12 }} />
         ) : (

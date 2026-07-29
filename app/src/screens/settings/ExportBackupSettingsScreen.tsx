@@ -7,6 +7,7 @@ import * as Sharing from "expo-sharing";
 import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect } from "@react-navigation/core";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { api, GOOGLE_CLIENT_ID } from "../../api/client";
 import { getUserId } from "../../lib/auth";
 
@@ -16,6 +17,7 @@ type DriveStatus = { connected: boolean; last_backup: string | null; auto_backup
 
 export function ExportBackupSettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const defaultEnd = new Date().toISOString().slice(0, 10);
   const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [exportStart, setExportStart] = useState(defaultStart);
@@ -148,7 +150,7 @@ export function ExportBackupSettingsScreen() {
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>HEALTH REPORT</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>PDF with glucose trends and meal timing — useful to bring to a doctor's appointment.</Text>
         <Text style={[styles.label, { color: theme.textSoft }]}>Start date</Text>
         <TextInput value={exportStart} onChangeText={setExportStart} placeholder="YYYY-MM-DD" placeholderTextColor={theme.textSoft}
@@ -165,7 +167,7 @@ export function ExportBackupSettingsScreen() {
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>FULL DATA EXPORT</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>Full backup of all your data as JSON.</Text>
         <Pressable onPress={handleExportAll} disabled={exportingAll}
           style={[styles.btn, { backgroundColor: theme.teal.bg, borderColor: theme.teal.sub, opacity: exportingAll ? 0.6 : 1 }]}>
@@ -174,7 +176,7 @@ export function ExportBackupSettingsScreen() {
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>GOOGLE DRIVE</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>Automatically backs up to Google Drive every night at 2 AM. Keeps the last 14 days.</Text>
         {driveStatus?.connected ? (
           <>
@@ -218,7 +220,7 @@ export function ExportBackupSettingsScreen() {
               </View>
             )}
             <Pressable onPress={handleDisconnectDrive}
-              style={[styles.btn, { backgroundColor: theme.card, borderColor: theme.coral.sub, marginTop: 4 }]}>
+              style={[styles.btn, { backgroundColor: cardBg, borderColor: theme.coral.sub, marginTop: 4 }]}>
               <Text style={{ color: theme.coral.fg, fontWeight: "500" }}>Disconnect Google Drive</Text>
             </Pressable>
           </>

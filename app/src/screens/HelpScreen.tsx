@@ -3,6 +3,7 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 
 type FaqItem = { q: string; a: string };
 type FaqSection = { title: string; items: FaqItem[] };
@@ -114,6 +115,7 @@ const FAQ: FaqSection[] = [
 
 export function HelpScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -125,7 +127,7 @@ export function HelpScreen() {
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
       {/* App tour replay */}
       <Pressable
-        style={[styles.tourCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+        style={[styles.tourCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
         onPress={() => navigation.navigate("OnboardingReplay")}
         accessibilityRole="button"
         accessibilityLabel="Replay the app tour"
@@ -146,7 +148,7 @@ export function HelpScreen() {
       {FAQ.map((section) => (
         <View key={section.title} style={{ marginBottom: 16 }}>
           <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>{section.title.toUpperCase()}</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             {section.items.map((item, idx) => {
               const key = section.title + idx;
               const open = !!expanded[key];

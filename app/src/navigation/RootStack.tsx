@@ -7,7 +7,7 @@ import { RootStackParamList } from "./types";
 import { RootTabs } from "./RootTabs";
 import { SettingsScreen } from "../screens/settings/SettingsScreen";
 import { AccountScreen } from "../screens/settings/AccountScreen";
-import { AppearanceScreen } from "../screens/settings/AppearanceScreen";
+import { AppearanceSettingsScreen } from "../screens/settings/AppearanceSettingsScreen";
 import { NotificationsScreen } from "../screens/settings/NotificationsScreen";
 import { IntegrationsScreen } from "../screens/settings/IntegrationsScreen";
 import { DataBackupScreen } from "../screens/settings/DataBackupScreen";
@@ -36,7 +36,7 @@ export function RootStack() {
         <Stack.Screen name="Main" component={RootTabs} options={{ headerShown: false }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
         <Stack.Screen name="SettingsAccount" component={AccountScreen} options={{ title: "Account" }} />
-        <Stack.Screen name="SettingsAppearance" component={AppearanceScreen} options={{ title: "Appearance" }} />
+        <Stack.Screen name="SettingsAppearance" component={AppearanceSettingsScreen} options={{ title: "Appearance" }} />
         <Stack.Screen name="SettingsNotifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
         <Stack.Screen name="SettingsIntegrations" component={IntegrationsScreen} options={{ title: "Integrations" }} />
         <Stack.Screen name="SettingsDataBackup" component={DataBackupScreen} options={{ title: "Data & Backup" }} />

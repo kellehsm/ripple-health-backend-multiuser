@@ -1,11 +1,13 @@
 import React from "react";
 import { ScrollView, View, Text, Switch, StyleSheet } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 import { useFeatures } from "../../context/FeaturesContext";
 
 export function FeaturesScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const { medsEnabled, cycleEnabled, setMeds, setCycle } = useFeatures();
 
   const activeLabel = medsEnabled && cycleEnabled
@@ -18,7 +20,7 @@ export function FeaturesScreen() {
 
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Health Modules</Text>
         <Text style={[styles.body, { color: theme.textSoft }]}>
           Enabled modules appear as a tab in the navigation bar.

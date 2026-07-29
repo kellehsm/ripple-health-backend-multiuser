@@ -10,6 +10,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 
 export type SectionDef = {
   id: string;
@@ -35,6 +36,7 @@ export function SectionEditorModal({
   onCancel,
 }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
 
   const [localHidden, setLocalHidden] = useState<string[]>(hidden);
@@ -99,7 +101,7 @@ export function SectionEditorModal({
                 style={[
                   styles.row,
                   {
-                    backgroundColor: theme.card,
+                    backgroundColor: cardBg,
                     borderColor: isHidden ? theme.cardBorder : ink,
                     opacity: isHidden ? 0.5 : 1,
                   },

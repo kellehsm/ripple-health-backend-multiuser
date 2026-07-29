@@ -35,6 +35,25 @@ export default async function metricsRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
+  // Today's water count + goal — used by the Android widget (no metricId required)
+  app.get("/water/today", async (req) => {
+    const user_id = req.user_id;
+    const [row] = await query<any>(
+      `SELECT COALESCE(SUM(ml.value), 0)::int AS count
+       FROM metric_logs ml
+       JOIN metrics m ON m.id = ml.metric_id
+       WHERE m.user_id = $1 AND m.name = 'water'
+         AND ml.logged_at::date = current_date`,
+      [user_id]
+    );
+    const [settings] = await query<any>(
+      `SELECT settings FROM user_settings WHERE user_id = $1`,
+      [user_id]
+    );
+    const goal = settings?.settings?.smart_notifications?.water_reminder?.goal ?? 8;
+    return { count: row?.count ?? 0, goal };
+  });
+
   // Log a value for a metric (e.g. "8 glasses of water")
   app.post("/:metricId/logs", async (req, reply) => {
     const { metricId } = req.params as any;

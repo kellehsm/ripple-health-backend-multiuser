@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 
 function IntegrationRow({
@@ -18,6 +19,7 @@ function IntegrationRow({
   onPress?: () => void;
 }) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const statusColor =
     status === "connected" ? theme.teal.fg : theme.textSoft;
   const statusLabel =
@@ -33,7 +35,7 @@ function IntegrationRow({
       style={({ pressed }) => [
         styles.row,
         {
-          backgroundColor: theme.card,
+          backgroundColor: cardBg,
           borderColor: theme.cardBorder,
           opacity: pressed ? 0.75 : 1,
         },
@@ -52,13 +54,14 @@ function IntegrationRow({
 
 export function IntegrationsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
     >
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>
           Connected services
         </Text>

@@ -6,6 +6,7 @@ import Svg, { Polyline } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { ExerciseSearchModal } from '../components/ExerciseSearchModal';
@@ -85,6 +86,7 @@ function HRSparkline({ readings, color }: { readings: Array<{ bpm: number }>; co
 
 export function ExerciseSessionScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { sessionId, plannedExercises: initialPlan } = route.params as {
@@ -319,7 +321,7 @@ export function ExerciseSessionScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.page }]}>
       {/* Timer bar */}
-      <View style={[styles.timerBar, { backgroundColor: theme.card, borderBottomColor: ink }]}>
+      <View style={[styles.timerBar, { backgroundColor: cardBg, borderBottomColor: ink }]}>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
             <View>
@@ -365,7 +367,7 @@ export function ExerciseSessionScreen() {
 
       {/* Active exercise card */}
       {activeExercise && restSeconds === null && (
-        <View style={[styles.activeCard, { backgroundColor: theme.card, borderColor: theme.teal.solid ?? ink }]}>
+        <View style={[styles.activeCard, { backgroundColor: cardBg, borderColor: theme.teal.solid ?? ink }]}>
           <CyclingImage images={activeExercise.images} style={styles.activeImage} />
           <View style={styles.activeInfo}>
             <Text style={[styles.activeName, { color: theme.textStrong }]} numberOfLines={2}>
@@ -425,7 +427,7 @@ export function ExerciseSessionScreen() {
               <Pressable
                 key={`${ex.id}-${i}`}
                 onPress={() => handleLogPlanned(ex)}
-                style={[styles.plannedCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                style={[styles.plannedCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
               >
                 <CyclingImage images={ex.images} style={styles.plannedImage} />
                 <View style={styles.plannedInfo}>
@@ -458,7 +460,7 @@ export function ExerciseSessionScreen() {
               <Pressable
                 key={entry.id}
                 onLongPress={() => handleDeleteEntry(entry.id)}
-                style={[styles.entryCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                style={[styles.entryCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.entryName, { color: theme.textStrong }]}>{entry.exercise.name}</Text>

@@ -12,6 +12,7 @@ import React from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 
 type RowConfig = {
@@ -48,6 +49,7 @@ const GROUPS: { heading?: string; rows: RowConfig[] }[] = [
 
 export function SettingsListScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <ScrollView
@@ -70,7 +72,7 @@ export function SettingsListScreenTemplate() {
                 style={({ pressed }) => [
                   styles.row,
                   {
-                    backgroundColor: theme.card,
+                    backgroundColor: cardBg,
                     borderColor: theme.cardBorder,
                     opacity: pressed ? 0.75 : 1,
                     // Rounded corners: top-only for first, bottom-only for last in a group

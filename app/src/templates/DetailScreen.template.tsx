@@ -12,10 +12,12 @@ import React from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 
 export function DetailScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <ScrollView
@@ -23,7 +25,7 @@ export function DetailScreenTemplate() {
       contentContainerStyle={styles.content}
     >
       {/* ── Hero stat ── */}
-      <View style={[styles.hero, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.hero, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         {/* Domain color accent bar */}
         <View style={[styles.accentBar, { backgroundColor: theme.teal.bar }]} />
 
@@ -42,7 +44,7 @@ export function DetailScreenTemplate() {
       </View>
 
       {/* ── Chart card ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         {/* Time range tabs */}
         <View style={styles.rangeTabs}>
           {["Day", "Week", "Month"].map((range) => (
@@ -74,7 +76,7 @@ export function DetailScreenTemplate() {
       </View>
 
       {/* ── Stats breakdown card ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>This week</Text>
 
         <View style={styles.statsGrid}>
@@ -93,7 +95,7 @@ export function DetailScreenTemplate() {
       </View>
 
       {/* ── Related observations ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Patterns</Text>
 
         {[

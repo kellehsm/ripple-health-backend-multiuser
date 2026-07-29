@@ -75,9 +75,19 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
        ) sub`,
       [user_id]
     );
+    const weekDays = await query<any>(
+      `SELECT start_time::date AS day,
+              SUM(EXTRACT(EPOCH FROM (end_time - start_time))) AS seconds
+       FROM sleep_sessions
+       WHERE user_id = $1 AND start_time >= current_date - interval '6 days'
+       GROUP BY start_time::date
+       ORDER BY start_time::date ASC`,
+      [user_id]
+    );
     return {
       yesterday_seconds: Number(yesterday.seconds),
       seven_day_average_seconds: Number(weekAvg.avg_seconds),
+      week_days: weekDays.map((r: any) => ({ date: String(r.day).slice(0, 10), seconds: Number(r.seconds) })),
     };
   });
 

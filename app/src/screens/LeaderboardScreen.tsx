@@ -11,6 +11,7 @@ import {
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { getLeaderboard, getReactions, addReaction, LeaderboardEntry, Reaction, SocialCategory } from "../api/friends";
 import { toast } from "../lib/toast";
@@ -61,6 +62,7 @@ const REACTION_EMOJIS = ["🔥", "💪", "👏", "⭐", "🚀"] as const;
 
 export function LeaderboardScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const route = useRoute<any>();
   const category: SocialCategory = route.params?.category ?? "steps";
 
@@ -139,7 +141,7 @@ export function LeaderboardScreen() {
       </ShadowCard>
 
       {/* Privacy note */}
-      <View style={[styles.privacyNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.privacyNote, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Ionicons name="shield-checkmark-outline" size={14} color={theme.textSoft} style={{ marginRight: 6 }} />
         <Text style={{ color: theme.textSoft, fontSize: 11, flex: 1, lineHeight: 16 }}>
           Only data each person has chosen to share is visible here. All other health data stays completely private.
@@ -164,7 +166,7 @@ export function LeaderboardScreen() {
           </View>
         </ShadowCard>
       ) : (
-        <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+        <View style={[styles.board, { backgroundColor: cardBg, borderColor: theme.ink }]}>
           {entries.map((entry, i) => {
             const isTop3 = entry.rank <= 3;
             const medalColor = RANK_COLORS[entry.rank] ?? theme.textSoft;
@@ -203,7 +205,7 @@ export function LeaderboardScreen() {
                     {entryReactions.length > 0 && (
                       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
                         {entryReactions.map((r, j) => (
-                          <View key={j} style={[styles.reactionPill, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                          <View key={j} style={[styles.reactionPill, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
                             <Text style={{ fontSize: 13 }}>{r.emoji}</Text>
                           </View>
                         ))}
@@ -240,7 +242,7 @@ export function LeaderboardScreen() {
         onRequestClose={() => setPickerTarget(null)}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setPickerTarget(null)}>
-          <View style={[styles.emojiPicker, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+          <View style={[styles.emojiPicker, { backgroundColor: cardBg, borderColor: theme.ink }]}>
             <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: "700", marginBottom: 8, letterSpacing: 0.4 }}>
               REACT TO {(pickerTarget?.display_name ?? "").toUpperCase()}
             </Text>
@@ -257,7 +259,7 @@ export function LeaderboardScreen() {
 
       {/* Encouraging note */}
       {entries.length >= 2 && (
-        <View style={[styles.encourageNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.encourageNote, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", lineHeight: 18 }}>
             Keep it up — every bit of progress counts. The goal is to stay active together, not to race.
           </Text>

@@ -18,8 +18,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { useAppSettings, useCardBg } from "../../theme/AppSettingsContext";
 import { useBackgrounds } from "../../theme/BackgroundsContext";
-import { useAppSettings } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 import { PAGE_TEMPLATES, type ThemeableBackground } from "../../theme/pageTemplates";
 
@@ -74,6 +74,7 @@ type ImageModalProps = {
 
 function ImageModal({ visible, currentUrl, onSave, onCancel }: ImageModalProps) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [url, setUrl] = useState(currentUrl);
 
   const handleSave = useCallback(() => {
@@ -96,7 +97,7 @@ function ImageModal({ visible, currentUrl, onSave, onCancel }: ImageModalProps) 
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.modalOverlay}
       >
-        <View style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.modalSheet, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={[styles.modalTitle, { color: theme.textStrong }]}>Set image background</Text>
           <Text style={[styles.modalSubtitle, { color: theme.textSoft }]}>
             Paste any image URL (https://...)
@@ -139,6 +140,7 @@ function ImageModal({ visible, currentUrl, onSave, onCancel }: ImageModalProps) 
 
 function BgBadge({ bg }: { bg: ThemeableBackground | undefined }) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   if (!bg) return null;
   if (bg.type === "uri") {
     return (
@@ -161,6 +163,7 @@ type ItemRowProps = {
 
 function ItemRow({ label, currentBg, onSetImage, onClear }: ItemRowProps) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const hasOverride = !!currentBg;
 
   return (
@@ -199,6 +202,7 @@ function ItemRow({ label, currentBg, onSetImage, onClear }: ItemRowProps) {
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   return (
     <View style={styles.sectionHeader}>
       <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>{title}</Text>
@@ -219,6 +223,7 @@ type ModalTarget = {
 
 export function CustomizeBackgroundsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const { cardOpacity, setCardOpacity } = useAppSettings();
   const {
     pageBackgrounds,
@@ -284,7 +289,7 @@ export function CustomizeBackgroundsScreen() {
       >
 
         {/* ── A. Card Transparency ───────────────────────────────────────── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <SectionHeader title="Card Transparency" />
           <View style={styles.opacityRow}>
             {OPACITY_PRESETS.map((preset) => {
@@ -314,7 +319,7 @@ export function CustomizeBackgroundsScreen() {
         </View>
 
         {/* ── B. Page Backgrounds ────────────────────────────────────────── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <SectionHeader
             title="Page Backgrounds"
             subtitle="Apply an image behind each screen"
@@ -331,7 +336,7 @@ export function CustomizeBackgroundsScreen() {
         </View>
 
         {/* ── C. Card Backgrounds ────────────────────────────────────────── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <SectionHeader
             title="Card Backgrounds"
             subtitle="Set an image background for individual cards"
@@ -349,7 +354,7 @@ export function CustomizeBackgroundsScreen() {
 
         {/* ── D. Tile Backgrounds ────────────────────────────────────────── */}
         {allTiles.length > 0 && (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <SectionHeader
               title="Tile Backgrounds"
               subtitle="Set an image background for metric tiles"
@@ -368,7 +373,7 @@ export function CustomizeBackgroundsScreen() {
 
         {/* ── E. Reset all ───────────────────────────────────────────────── */}
         <Pressable
-          style={[styles.resetBtn, { borderColor: theme.cardBorder, backgroundColor: theme.card }]}
+          style={[styles.resetBtn, { borderColor: theme.cardBorder, backgroundColor: cardBg }]}
           onPress={handleClearAll}
         >
           <Ionicons name="refresh-outline" size={16} color={theme.textSoft} style={{ marginRight: 6 }} />

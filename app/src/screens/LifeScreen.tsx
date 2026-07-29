@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { api } from "../api/client";
 import { getUserId } from "../lib/auth";
@@ -33,6 +34,7 @@ type Progress = {
 
 export function LifeScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [books, setBooks] = useState<Book[]>([]);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
   const [pageInputs, setPageInputs] = useState<Record<string, string>>({});
@@ -109,7 +111,7 @@ export function LifeScreen() {
 
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Currently reading</Text>
 
         {loading && <ActivityIndicator style={{ marginTop: 12 }} color={theme.teal.bar} />}
@@ -253,14 +255,14 @@ export function LifeScreen() {
         })}
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Hobbies</Text>
         <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 10, fontFamily: fonts.regular }}>
           Guitar practice, woodworking, etc. - each tracked like a mini book.
         </Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Log a meal</Text>
         <View style={styles.mealRow}>
           <TextInput

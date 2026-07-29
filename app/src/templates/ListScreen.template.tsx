@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 
 type ListItem = { id: string; title: string; subtitle: string; value: string; colorKey: "teal" | "amber" | "coral" | "pink" | "green" | "red" };
@@ -31,6 +32,7 @@ const SAMPLE_ITEMS: ListItem[] = [
 
 export function ListScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [query, setQuery] = useState("");
 
   const filtered = SAMPLE_ITEMS.filter((i) =>
@@ -43,7 +45,7 @@ export function ListScreenTemplate() {
       <Pressable
         style={({ pressed }) => [
           styles.row,
-          { backgroundColor: theme.card, borderColor: theme.cardBorder, opacity: pressed ? 0.75 : 1 },
+          { backgroundColor: cardBg, borderColor: theme.cardBorder, opacity: pressed ? 0.75 : 1 },
         ]}
       >
         {/* Left icon */}
@@ -69,7 +71,7 @@ export function ListScreenTemplate() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
       {/* ── Search / filter bar ── */}
-      <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.searchBar, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Ionicons name="search-outline" size={16} color={theme.textSoft} />
         <TextInput
           value={query}
@@ -94,7 +96,7 @@ export function ListScreenTemplate() {
               styles.filterChip,
               f === "All"
                 ? { backgroundColor: theme.teal.bg, borderColor: theme.teal.bar }
-                : { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                : { backgroundColor: cardBg, borderColor: theme.cardBorder },
             ]}
           >
             <Text

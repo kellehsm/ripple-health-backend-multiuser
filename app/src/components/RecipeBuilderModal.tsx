@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { onSolid } from "../theme/colorUtils";
 import { api } from "../api/client";
 import { LoadingIndicator } from "./LoadingIndicator";
@@ -58,6 +59,7 @@ function sumMacros(ingredients: RecipeIngredient[]) {
 
 export function RecipeBuilderModal({ visible, onClose, onSaved, existing }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
 
   const [step, setStep] = useState<Step>("name");
@@ -214,7 +216,7 @@ export function RecipeBuilderModal({ visible, onClose, onSaved, existing }: Prop
                 placeholder="e.g. My morning smoothie"
                 placeholderTextColor={theme.textSoft}
                 autoFocus
-                style={[s.input, { color: theme.textStrong, borderColor: ink, backgroundColor: theme.card }]}
+                style={[s.input, { color: theme.textStrong, borderColor: ink, backgroundColor: cardBg }]}
                 returnKeyType="next"
                 onSubmitEditing={() => { if (recipeName.trim()) setStep("ingredients"); }}
               />
@@ -238,7 +240,7 @@ export function RecipeBuilderModal({ visible, onClose, onSaved, existing }: Prop
                   onChangeText={setSearchQ}
                   placeholder="search food..."
                   placeholderTextColor={theme.textSoft}
-                  style={[s.searchInput, { color: theme.textStrong, borderColor: ink, backgroundColor: theme.card }]}
+                  style={[s.searchInput, { color: theme.textStrong, borderColor: ink, backgroundColor: cardBg }]}
                   returnKeyType="search"
                   onSubmitEditing={handleSearch}
                 />
@@ -254,7 +256,7 @@ export function RecipeBuilderModal({ visible, onClose, onSaved, existing }: Prop
               </View>
 
               {searchResults.length > 0 && (
-                <View style={[s.resultsBox, { borderColor: ink + "44", backgroundColor: theme.card }]}>
+                <View style={[s.resultsBox, { borderColor: ink + "44", backgroundColor: cardBg }]}>
                   {searchResults.slice(0, 6).map((food, i) => (
                     <Pressable
                       key={food.source_food_id + i}
@@ -284,7 +286,7 @@ export function RecipeBuilderModal({ visible, onClose, onSaved, existing }: Prop
                     INGREDIENTS ({ingredients.length})
                   </Text>
                   {ingredients.map((ing, idx) => (
-                    <View key={idx} style={[s.ingRow, { borderColor: ink + "33", backgroundColor: theme.card }]}>
+                    <View key={idx} style={[s.ingRow, { borderColor: ink + "33", backgroundColor: cardBg }]}>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "500" }} numberOfLines={1}>{ing.name}</Text>
                         {editingIdx === idx ? (

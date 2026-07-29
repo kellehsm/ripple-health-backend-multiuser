@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback } from "react";
 import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../../theme/ThemeContext";
-import { useAppSettings, CARD_OPACITY_MIN, CARD_OPACITY_MAX } from "../../theme/AppSettingsContext";
+import { useAppSettings, useCardBg, CARD_OPACITY_MIN, CARD_OPACITY_MAX } from "../../theme/AppSettingsContext";
 import { PALETTES, PALETTE_GROUPS } from "../../theme/palettes";
 import { useStrings } from "../../strings/StringsContext";
 import {
@@ -83,10 +83,12 @@ const THUMB_SIZE = 26;
 
 export function AppearanceSettingsScreen() {
   const { theme, paletteId, setPalette } = useTheme();
+  const cardBg = useCardBg();
   const {
     shadowsEnabled, setShadowsEnabled,
     fontFamily, fontSizeScale, setFontFamily, setFontSizeScale,
     cardOpacity, cardOpacityManualOverride, setCardOpacity, resetCardOpacity,
+    cardGlass, setCardGlass,
   } = useAppSettings();
   const s = useStrings();
 
@@ -107,7 +109,7 @@ export function AppearanceSettingsScreen() {
             {groupName.toUpperCase()}
           </Text>
 
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             {ids.map((id, index) => {
               const p = PALETTES[id];
               const isActive = paletteId === id;
@@ -169,7 +171,7 @@ export function AppearanceSettingsScreen() {
       <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
         {s.appearance_shadows_desc}
       </Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <View style={styles.settingRow}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.settingLabel, { color: theme.textStrong }]}>{s.appearance_shadows_row_label}</Text>
@@ -193,7 +195,7 @@ export function AppearanceSettingsScreen() {
       <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
         {s.appearance_opacity_desc}
       </Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, padding: 16 }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder, padding: 16 }]}>
         {/* Value row */}
         <View style={styles.opacityValueRow}>
           <Text style={[styles.opacityValueLabel, { color: theme.textStrong }]}>
@@ -237,6 +239,28 @@ export function AppearanceSettingsScreen() {
         </View>
       </View>
 
+      {/* ── Glass effect ───────────────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 20 }]}>Glass Effect</Text>
+      <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
+        Frosted-glass cards — blends card backgrounds with white for a lighter, more translucent look. Works best at lower opacity settings.
+      </Text>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
+        <View style={styles.settingRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.settingLabel, { color: theme.textStrong }]}>Glass Cards</Text>
+            <Text style={[styles.settingDesc, { color: theme.textSoft }]}>
+              {cardGlass ? "Cards are frosted — lighter and more translucent" : "Cards use solid background colors"}
+            </Text>
+          </View>
+          <Switch
+            value={cardGlass}
+            onValueChange={(v) => { Haptics.selectionAsync(); setCardGlass(v); }}
+            trackColor={{ true: theme.teal.solid, false: theme.cardBorder }}
+            thumbColor="#ffffff"
+          />
+        </View>
+      </View>
+
       {/* ── Font family ─────────────────────────────────────────────── */}
       <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 20 }]}>
         {s.appearance_font_family_title}
@@ -244,7 +268,7 @@ export function AppearanceSettingsScreen() {
       <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
         {s.appearance_font_family_desc}
       </Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         {FONT_FAMILY_KEYS.map((key, index) => {
           const active = (fontFamily ?? 'System') === key;
           const isLast = index === FONT_FAMILY_KEYS.length - 1;
@@ -280,7 +304,7 @@ export function AppearanceSettingsScreen() {
       <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
         {s.appearance_font_scale_desc}
       </Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, padding: 14 }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder, padding: 14 }]}>
         <View style={styles.opacityRow}>
           {FONT_SCALE_KEYS.map((key) => {
             const active = (fontSizeScale ?? 'default') === key;

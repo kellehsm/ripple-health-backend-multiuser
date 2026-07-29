@@ -10,6 +10,7 @@ import {
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from "../api/client";
 
 function relativeDate(iso: string): string {
@@ -34,6 +35,7 @@ const EMPTY: SearchResults = { meals: [], mood: [], journal: [], books: [], hobb
 
 export function GlobalSearchScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,7 +70,7 @@ export function GlobalSearchScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
-      <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+      <View style={[styles.searchBar, { backgroundColor: cardBg, borderColor: theme.ink }]}>
         <Ionicons name="search" size={18} color={theme.textSoft} />
         <TextInput
           value={query}
@@ -185,7 +187,7 @@ function Section({ title, icon, count, children, theme }: { title: string; icon:
           <Text style={[styles.countText, { color: theme.teal.fg }]}>{count}</Text>
         </View>
       </View>
-      <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.sectionCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         {children}
       </View>
     </View>

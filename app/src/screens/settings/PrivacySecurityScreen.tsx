@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import { ScrollView, View, Text, StyleSheet, Switch } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 
 export function PrivacySecurityScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [biometric, setBiometric] = useState(false);
 
   return (
@@ -12,7 +14,7 @@ export function PrivacySecurityScreen() {
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
     >
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>App lock</Text>
 
         <View style={styles.switchRow}>
@@ -38,7 +40,7 @@ export function PrivacySecurityScreen() {
         )}
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Data privacy</Text>
         <Text style={[styles.note, { color: theme.textSoft }]}>
           All your data is stored on your own server. Nothing is shared with third

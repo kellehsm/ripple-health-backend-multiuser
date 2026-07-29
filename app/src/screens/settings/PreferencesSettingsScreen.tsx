@@ -4,12 +4,14 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { api } from "../../api/client";
 
 const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export function PreferencesSettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
   const [weekStart, setWeekStartState] = useState<Record<string, number>>({});
   const [birthdate, setBirthdate] = useState('');
@@ -46,7 +48,7 @@ export function PreferencesSettingsScreen() {
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PROFILE</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
           Used to calculate heart rate zones during exercise sessions (Tanaka formula).
         </Text>
@@ -77,7 +79,7 @@ export function PreferencesSettingsScreen() {
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>HOME SCREEN</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>Reorder or hide cards on your Home screen.</Text>
         <Pressable
           onPress={() => navigation.navigate("CustomizeDashboard")}
@@ -88,7 +90,7 @@ export function PreferencesSettingsScreen() {
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>WEEK START DAY</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
           Controls the "this week" calculation for each section.
         </Text>

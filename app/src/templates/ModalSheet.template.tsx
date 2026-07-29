@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 
 type Props = {
@@ -33,6 +34,7 @@ type Props = {
 
 export function ModalSheetTemplate({ visible, onClose, title = "Sheet title" }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <Modal
@@ -45,7 +47,7 @@ export function ModalSheetTemplate({ visible, onClose, title = "Sheet title" }: 
       <Pressable style={[styles.scrim]} onPress={onClose} />
 
       {/* ── Sheet container ── */}
-      <View style={[styles.sheet, { backgroundColor: theme.card }]}>
+      <View style={[styles.sheet, { backgroundColor: cardBg }]}>
         {/* Drag handle */}
         <View style={[styles.handle, { backgroundColor: theme.cardBorder }]} />
 

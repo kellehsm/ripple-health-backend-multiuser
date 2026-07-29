@@ -11,11 +11,13 @@ import React from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet, RefreshControl } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { MetricCard } from "../components/MetricCard";
 
 export function DashboardScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <ScrollView
@@ -45,7 +47,7 @@ export function DashboardScreenTemplate() {
       </View>
 
       {/* ── Section card: Today's pattern / timeline ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <View style={styles.cardHeader}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Today's pattern</Text>
           {/* Expand / detail link */}
@@ -62,7 +64,7 @@ export function DashboardScreenTemplate() {
       </View>
 
       {/* ── Section card: Top insight ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <View style={styles.cardHeader}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Top insight</Text>
           <View style={[styles.insightBadge, { backgroundColor: theme.teal.bg }]}>
@@ -79,7 +81,7 @@ export function DashboardScreenTemplate() {
       </View>
 
       {/* ── Section card: Weekly review ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>This week</Text>
 
         {/* Stat row — repeat for each domain summary */}

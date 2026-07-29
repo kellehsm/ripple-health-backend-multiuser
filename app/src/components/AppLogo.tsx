@@ -6,10 +6,10 @@ type Props = { size?: number };
 export function AppLogo({ size = 100 }: Props) {
   return (
     <Svg width={size} height={size} viewBox="0 0 280 280">
-      {/* rings — vivid, matching droplet quadrant colors */}
-      <Circle cx="140" cy="140" r="130" fill="none" stroke="#7B3FBF" strokeWidth="7.0" />
-      <Circle cx="140" cy="140" r="105" fill="none" stroke="#E8654E" strokeWidth="7.0" />
-      <Circle cx="140" cy="140" r="80"  fill="none" stroke="#3FA0A6" strokeWidth="7.5" />
+      {/* rings — dark, thick, matching droplet quadrant colors */}
+      <Circle cx="140" cy="140" r="126" fill="none" stroke="#4E1F85" strokeWidth="30" />
+      <Circle cx="140" cy="140" r="100" fill="none" stroke="#B03520" strokeWidth="30" />
+      <Circle cx="140" cy="140" r="74"  fill="none" stroke="#1F6E73" strokeWidth="30" />
 
       {/* droplet: translate(20,37) places bounding-box center (local 120,103) at canvas center (140,140) */}
       <G transform="translate(20,37)">
@@ -24,7 +24,7 @@ export function AppLogo({ size = 100 }: Props) {
           strokeWidth="3.2"
         />
         <Path
-          d="M93 120 L103 120 L108 103 L124 146 L134 120 L147 120"
+          d="M76 120 L103 120 L108 103 L124 146 L134 120 L164 120"
           stroke="#111111"
           strokeWidth="4.6"
           fill="none"
