@@ -23,7 +23,22 @@ export async function runDailySummaryJob(date?: string): Promise<void> {
   log("INFO", `Generating summaries for ${users.length} user(s), date=${targetDate}`);
 
   const results = await Promise.allSettled(
-    users.map(({ id: userId }) => generateDailySummary(userId, targetDate))
+    users.map(async ({ id: userId }) => {
+      // Pre-flight: skip users with no data at all today to avoid wasteful queries
+      const [{ has_data }] = await query<{ has_data: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM journal_entries
+           WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + INTERVAL '1 day'
+           UNION ALL
+           SELECT 1 FROM glucose_readings
+           WHERE user_id = $1 AND recorded_at >= $2::date AND recorded_at < $2::date + INTERVAL '1 day'
+           LIMIT 1
+         ) AS has_data`,
+        [userId, targetDate]
+      );
+      if (!has_data) return null;
+      return generateDailySummary(userId, targetDate);
+    })
   );
 
   for (let i = 0; i < users.length; i++) {

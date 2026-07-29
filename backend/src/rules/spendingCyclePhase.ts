@@ -1,5 +1,5 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
 
 const FIXED_CATEGORIES = [
   'Rent / Mortgage',
@@ -18,7 +18,8 @@ export const SpendingCyclePhaseRule: InsightRule = {
   type: "cycle",
   minDays: 35,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && !capabilities.has_cycle) return null;
     // Join cycle_day_logs with impulse spending (excluding fixed categories) for last 90 days
     const rows = await query<{ log_date: string; flow_intensity: string; total_spend: number }>(
       `SELECT

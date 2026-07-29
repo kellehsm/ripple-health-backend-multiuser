@@ -7,11 +7,22 @@ export interface InsightResult {
   timesObserved: number;
 }
 
+// Pre-flight capability flags fetched once per user before running all rules.
+// Rules that require data the user doesn't have can skip their DB query immediately.
+export interface UserCapabilities {
+  has_substances: boolean;
+  has_cycle: boolean;
+  has_hr: boolean;
+  has_glucose: boolean;
+  has_medications: boolean;
+  medication_slots_count: number; // 0 if no active slots
+}
+
 export interface InsightRule {
   readonly id: string;
   readonly type: string;
   readonly minDays: number;
-  run(userId: string): Promise<InsightResult | null>;
+  run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null>;
 }
 
 export function confidenceFromScore(score: number): "low" | "moderate" | "high" | "very_high" {

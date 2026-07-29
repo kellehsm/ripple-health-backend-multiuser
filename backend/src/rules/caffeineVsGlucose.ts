@@ -1,12 +1,13 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
 
 export const CaffeineVsGlucoseRule: InsightRule = {
   id: "caffeine_vs_glucose",
   type: "combined",
   minDays: 21,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && (!capabilities.has_substances || !capabilities.has_glucose)) return null;
     // Join daily caffeine totals with daily glucose averages
     const rows = await query<{ day: string; total_caffeine: number; avg_glucose: number }>(
       `SELECT

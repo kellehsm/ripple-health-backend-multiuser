@@ -1,12 +1,13 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
 
 export const RestingHRVsExerciseRule: InsightRule = {
   id: "resting_hr_vs_exercise",
   type: "combined",
   minDays: 30,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && !capabilities.has_hr) return null;
     const rows = await query<{ date: string; resting_hr: number; exercised: boolean }>(
       `WITH ex_days AS (
          SELECT DISTINCT DATE(started_at) AS day

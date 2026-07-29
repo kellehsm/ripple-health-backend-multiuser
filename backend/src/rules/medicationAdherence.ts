@@ -1,20 +1,22 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities } from "./types.js";
 
 export const MedicationAdherenceRule: InsightRule = {
   id: "medication_adherence_weekly",
   type: "medication",
   minDays: 7,
 
-  async run(userId: string): Promise<InsightResult | null> {
-    const [schedRow] = await query<{ cnt: string }>(
-      `SELECT COUNT(*) AS cnt
-       FROM medication_schedule_slots mss
-       JOIN medications m ON m.id = mss.medication_id
-       WHERE m.user_id = $1 AND m.active = true`,
-      [userId]
-    );
-    const slotsPerDay = parseInt(schedRow?.cnt ?? "0");
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && !capabilities.has_medications) return null;
+    // Use pre-fetched slot count if available, otherwise query
+    const slotsPerDay = capabilities
+      ? capabilities.medication_slots_count
+      : parseInt((await query<{ cnt: string }>(
+          `SELECT COUNT(*) AS cnt FROM medication_schedule_slots mss
+           JOIN medications m ON m.id = mss.medication_id
+           WHERE m.user_id = $1 AND m.active = true`,
+          [userId]
+        ))[0]?.cnt ?? "0");
     if (slotsPerDay === 0) return null;
 
     const scheduledWeek = slotsPerDay * 7;

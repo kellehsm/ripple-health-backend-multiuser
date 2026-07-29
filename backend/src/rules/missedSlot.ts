@@ -1,12 +1,13 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities } from "./types.js";
 
 export const MissedSlotRule: InsightRule = {
   id: "missed_slot_pattern",
   type: "medication",
   minDays: 7,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && (!capabilities.has_medications || capabilities.medication_slots_count === 0)) return null;
     const rows = await query<{ tod: string; missed_days: string }>(
       `SELECT s.tod,
               COUNT(*) FILTER (WHERE taken_on.log_date IS NULL) AS missed_days

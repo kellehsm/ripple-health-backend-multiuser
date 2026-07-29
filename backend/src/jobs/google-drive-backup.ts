@@ -26,7 +26,7 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
   // Export all user data as JSON (same format as GET /export/all)
   const [glucose, meals, journal, spending, books, hobbies, hobbiesLogs, sleep, heartRate, metrics, metricLogs] =
     await Promise.all([
-      query<any>(`SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at`, [userId]),
+      query<any>(`SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 262800`, [userId]),
       query<any>(`SELECT * FROM meals WHERE user_id = $1 ORDER BY logged_at`, [userId]),
       query<any>(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at`, [userId]),
       query<any>(`SELECT * FROM spending_entries WHERE user_id = $1 ORDER BY logged_at`, [userId]),
@@ -34,7 +34,7 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
       query<any>(`SELECT * FROM hobbies WHERE user_id = $1`, [userId]),
       query<any>(`SELECT hl.* FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE h.user_id = $1 ORDER BY hl.logged_at`, [userId]),
       query<any>(`SELECT * FROM sleep_sessions WHERE user_id = $1 ORDER BY start_time`, [userId]),
-      query<any>(`SELECT * FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at`, [userId]),
+      query<any>(`SELECT * FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 1051200`, [userId]),
       query<any>(`SELECT * FROM metrics WHERE user_id = $1`, [userId]),
       query<any>(`SELECT ml.* FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id WHERE m.user_id = $1 ORDER BY ml.logged_at`, [userId]),
     ]);

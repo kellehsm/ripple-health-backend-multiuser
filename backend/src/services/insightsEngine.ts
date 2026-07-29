@@ -1,5 +1,5 @@
 import { query } from "../db.js";
-import type { InsightRule, InsightResult } from "../rules/types.js";
+import type { InsightRule, InsightResult, UserCapabilities } from "../rules/types.js";
 import { SleepVsMoodRule } from "../rules/sleepVsMood.js";
 import { ActivityVsGlucoseRule } from "../rules/activityVsGlucose.js";
 import { ReadingVsMoodRule } from "../rules/readingVsMood.js";
@@ -191,10 +191,45 @@ export async function runInsightsForUser(userId: string): Promise<{ ran: number;
 
   const eligibleRules = ALL_RULES.filter(rule => !rule.minDays || accountAgeDays >= rule.minDays);
 
+  // Mark everything stale FIRST so a partial run leaves insights hidden rather
+  // than leaving obsolete ones active if the process crashes mid-run.
+  await markStale(userId, []);
+
+  // Pre-flight: fetch a single capability summary so rules can skip DB queries
+  // when the user doesn't have the required data types.
+  const [caps] = await query<{
+    has_substances: boolean;
+    has_cycle: boolean;
+    has_hr: boolean;
+    has_glucose: boolean;
+    has_medications: boolean;
+    medication_slots_count: string;
+  }>(
+    `SELECT
+       EXISTS(SELECT 1 FROM substance_logs WHERE user_id=$1 LIMIT 1)           AS has_substances,
+       EXISTS(SELECT 1 FROM cycle_day_logs  WHERE user_id=$1 LIMIT 1)          AS has_cycle,
+       EXISTS(SELECT 1 FROM heart_rate_readings WHERE user_id=$1 LIMIT 1)      AS has_hr,
+       EXISTS(SELECT 1 FROM glucose_readings WHERE user_id=$1 LIMIT 1)         AS has_glucose,
+       EXISTS(SELECT 1 FROM medications WHERE user_id=$1 AND active=true LIMIT 1) AS has_medications,
+       (SELECT COUNT(*) FROM medication_schedule_slots mss
+        JOIN medications m ON m.id = mss.medication_id
+        WHERE m.user_id=$1 AND m.active=true)                                  AS medication_slots_count`,
+    [userId]
+  );
+
+  const capabilities: UserCapabilities = {
+    has_substances:         caps?.has_substances         ?? false,
+    has_cycle:              caps?.has_cycle              ?? false,
+    has_hr:                 caps?.has_hr                 ?? false,
+    has_glucose:            caps?.has_glucose            ?? false,
+    has_medications:        caps?.has_medications        ?? false,
+    medication_slots_count: parseInt(caps?.medication_slots_count ?? "0"),
+  };
+
   await Promise.allSettled(
     eligibleRules.map(async (rule) => {
       try {
-        const result = await rule.run(userId);
+        const result = await rule.run(userId, capabilities);
         if (result) {
           await upsertInsight(userId, rule.id, rule.type, result);
           foundRuleIds.push(rule.id);
@@ -204,8 +239,6 @@ export async function runInsightsForUser(userId: string): Promise<{ ran: number;
       }
     })
   );
-
-  await markStale(userId, foundRuleIds);
 
   return { ran: eligibleRules.length, found: foundRuleIds.length, errors };
 }

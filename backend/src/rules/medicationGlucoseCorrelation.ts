@@ -1,29 +1,30 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities } from "./types.js";
 
 export const MedicationGlucoseCorrelationRule: InsightRule = {
   id: "medication_glucose_correlation",
   type: "combined",
   minDays: 30,
 
-  async run(userId: string): Promise<InsightResult | null> {
-    // Only relevant if user has active medications and glucose readings
-    const [medRow] = await query<{ cnt: string }>(
-      `SELECT COUNT(*) AS cnt FROM medications WHERE user_id = $1 AND active = true`,
-      [userId]
-    );
-    if (parseInt(medRow?.cnt ?? "0") === 0) return null;
-
-    // Get scheduled slots per day count
-    const [slotRow] = await query<{ cnt: string }>(
-      `SELECT COUNT(*) AS cnt
-       FROM medication_schedule_slots mss
-       JOIN medications m ON m.id = mss.medication_id
-       WHERE m.user_id = $1 AND m.active = true`,
-      [userId]
-    );
-    const slotsPerDay = parseInt(slotRow?.cnt ?? "0");
-    if (slotsPerDay === 0) return null;
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    // Use pre-fetched capabilities to skip DB queries when data is absent
+    if (capabilities) {
+      if (!capabilities.has_medications || !capabilities.has_glucose || capabilities.medication_slots_count === 0) return null;
+    } else {
+      // Fallback: query directly if no capabilities provided
+      const [medRow] = await query<{ cnt: string }>(
+        `SELECT COUNT(*) AS cnt FROM medications WHERE user_id = $1 AND active = true`,
+        [userId]
+      );
+      if (parseInt(medRow?.cnt ?? "0") === 0) return null;
+      const [slotRow] = await query<{ cnt: string }>(
+        `SELECT COUNT(*) AS cnt FROM medication_schedule_slots mss
+         JOIN medications m ON m.id = mss.medication_id
+         WHERE m.user_id = $1 AND m.active = true`,
+        [userId]
+      );
+      if (parseInt(slotRow?.cnt ?? "0") === 0) return null;
+    }
 
     // Get days in last 60 days with average glucose, grouped by adherence
     // Adherent day: at least one dose taken; missed day: no doses taken

@@ -145,8 +145,8 @@ async function main() {
   // Dexcom Share auto-sync — poll every 5 min for all users with Share configured
   const runDexcomShareSync = async () => {
     try {
-      const users = await query<{ user_id: string }>(
-        `SELECT user_id FROM user_settings
+      const users = await query<{ user_id: string; dexcom: Record<string, any> }>(
+        `SELECT user_id, settings->'dexcom' AS dexcom FROM user_settings
          WHERE (
            (settings->'dexcom'->>'share_account_id' IS NOT NULL AND settings->'dexcom'->>'share_account_id' != '')
            OR (settings->'dexcom'->>'share_account_name' IS NOT NULL AND settings->'dexcom'->>'share_account_name' != '')
@@ -154,9 +154,10 @@ async function main() {
            AND settings->'dexcom'->>'share_password' IS NOT NULL
            AND settings->'dexcom'->>'share_password' != ''`
       );
-      for (const { user_id } of users) {
+      for (const { user_id, dexcom } of users) {
         try {
-          const result = await syncDexcomShareGlucose(user_id, app.log);
+          // Pass the already-fetched dexcom settings to avoid a redundant DB query inside the sync function
+          const result = await syncDexcomShareGlucose(user_id, app.log, dexcom);
           if (result.inserted > 0) {
             app.log.info({ user_id, ...result }, "Dexcom Share sync: new readings");
           }
@@ -171,6 +172,17 @@ async function main() {
   cron.schedule("*/5 * * * *", () => void runDexcomShareSync());
   void runDexcomShareSync(); // run once on startup to catch any missed readings
   app.log.info("Dexcom Share sync scheduled (every 5 min + startup)");
+
+  // Nightly sync_log TTL cleanup — delete rows older than 30 days
+  cron.schedule("0 4 * * *", async () => {
+    try {
+      await query(`DELETE FROM sync_log WHERE processed_at < NOW() - INTERVAL '30 days'`);
+      app.log.info("sync_log TTL cleanup completed");
+    } catch (err: any) {
+      app.log.error({ err: err?.message }, "sync_log TTL cleanup failed");
+    }
+  });
+  app.log.info("sync_log TTL cleanup scheduled (nightly 4 AM)");
 
   // Nightly Google Drive backup — iterate over all users with Drive connected
   if (process.env.GOOGLE_CLIENT_ID) {

@@ -1,12 +1,13 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
 
 export const MindfulnessVsRestingHRRule: InsightRule = {
   id: "mindfulness_vs_resting_hr",
   type: "mindfulness",
   minDays: 20,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && !capabilities.has_hr) return null;
     const rows = await query<{ date: string; resting_hr: number; had_mindfulness: boolean }>(
       `WITH mindfulness_days AS (
          SELECT DATE(ml.logged_at) AS day

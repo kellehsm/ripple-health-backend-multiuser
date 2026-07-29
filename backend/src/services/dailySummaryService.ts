@@ -26,7 +26,7 @@ export interface DailySummaryRow {
 async function getGlucoseData(userId: string, date: string) {
   const rows = await query<{ mg_dl: string }>(
     `SELECT mg_dl FROM glucose_readings
-     WHERE user_id = $1 AND recorded_at::date = $2
+     WHERE user_id = $1 AND recorded_at >= $2::date AND recorded_at < $2::date + INTERVAL '1 day'
      ORDER BY recorded_at`,
     [userId, date]
   );
@@ -47,7 +47,7 @@ async function getSleepData(userId: string, date: string) {
   const rows = await query<{ duration_minutes: string }>(
     `SELECT EXTRACT(EPOCH FROM (end_time - start_time)) / 60 AS duration_minutes
      FROM sleep_sessions
-     WHERE user_id = $1 AND end_time::date = $2`,
+     WHERE user_id = $1 AND end_time >= $2::date AND end_time < $2::date + INTERVAL '1 day'`,
     [userId, date]
   );
   if (rows.length === 0) return null;
@@ -61,7 +61,7 @@ async function getActivityData(userId: string, date: string) {
     `SELECT MAX(ml.value) AS max_steps
      FROM metric_logs ml
      JOIN metrics m ON m.id = ml.metric_id
-     WHERE m.user_id = $1 AND m.name = 'steps' AND ml.logged_at::date = $2`,
+     WHERE m.user_id = $1 AND m.name = 'steps' AND ml.logged_at >= $2::date AND ml.logged_at < $2::date + INTERVAL '1 day'`,
     [userId, date]
   );
   const steps = rows[0]?.max_steps ? Math.round(Number(rows[0].max_steps)) : 0;
@@ -74,7 +74,7 @@ async function getHydrationData(userId: string, date: string) {
     `SELECT COALESCE(SUM(ml.value), 0) AS total
      FROM metric_logs ml
      JOIN metrics m ON m.id = ml.metric_id
-     WHERE m.user_id = $1 AND m.name = 'water' AND ml.logged_at::date = $2`,
+     WHERE m.user_id = $1 AND m.name = 'water' AND ml.logged_at >= $2::date AND ml.logged_at < $2::date + INTERVAL '1 day'`,
     [userId, date]
   );
   const glasses = Math.round(Number(rows[0]?.total ?? 0));
@@ -84,7 +84,7 @@ async function getHydrationData(userId: string, date: string) {
 
 async function getNutritionData(userId: string, date: string) {
   const rows = await query<{ calories: string | null; carbs_g: string | null; caffeine_mg: string | null; sodium_mg: string | null }>(
-    `SELECT calories, carbs_g, caffeine_mg, sodium_mg FROM meals WHERE user_id = $1 AND logged_at::date = $2`,
+    `SELECT calories, carbs_g, caffeine_mg, sodium_mg FROM meals WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + INTERVAL '1 day'`,
     [userId, date]
   );
   if (rows.length === 0) return null;
@@ -108,7 +108,7 @@ async function getNutritionData(userId: string, date: string) {
 
 async function getMoodData(userId: string, date: string) {
   const rows = await query<{ mood_score: string }>(
-    `SELECT mood_score FROM journal_entries WHERE user_id = $1 AND logged_at::date = $2 AND entry_type != 'moment'`,
+    `SELECT mood_score FROM journal_entries WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + INTERVAL '1 day' AND entry_type != 'moment'`,
     [userId, date]
   );
   if (rows.length === 0) return null;
@@ -131,7 +131,7 @@ async function getMindfulnessData(userId: string, date: string) {
      JOIN metrics m ON m.id = ml.metric_id
      WHERE m.user_id = $1
        AND m.name = 'mindfulness'
-       AND ml.logged_at::date = $2`,
+       AND ml.logged_at >= $2::date AND ml.logged_at < $2::date + INTERVAL '1 day'`,
     [userId, date]
   );
   const sessions = Number(rows[0]?.sessions ?? 0);

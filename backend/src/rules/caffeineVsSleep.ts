@@ -1,12 +1,13 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
 
 export const CaffeineVsSleepRule: InsightRule = {
   id: "caffeine_vs_sleep",
   type: "combined",
   minDays: 21,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && !capabilities.has_substances) return null;
     // Join daily caffeine totals with sleep quality (sleep ending on that calendar day)
     const rows = await query<{ day: string; total_caffeine: number; avg_sleep_quality: number }>(
       `SELECT

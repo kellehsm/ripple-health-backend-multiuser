@@ -1,12 +1,13 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
 
 export const CycleVsMoodRule: InsightRule = {
   id: "cycle_vs_mood",
   type: "cycle",
   minDays: 35,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && !capabilities.has_cycle) return null;
     // Get cycle days and mood from daily_summaries joined on same date, last 90 days
     const rows = await query<{ log_date: string; flow_intensity: string; avg_mood: number }>(
       `SELECT

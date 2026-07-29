@@ -1,5 +1,5 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities } from "./types.js";
 
 function detectPeriods(flowDays: string[]): Array<{ start: string; end: string }> {
   if (flowDays.length === 0) return [];
@@ -27,7 +27,8 @@ export const ExerciseCycleCorrelationRule: InsightRule = {
   type: "cycle",
   minDays: 90,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && !capabilities.has_cycle) return null;
     const flowRows = await query<{ log_date: string }>(
       `SELECT log_date::text FROM cycle_day_logs
        WHERE user_id = $1 AND flow_intensity != 'none' AND flow_intensity IS NOT NULL

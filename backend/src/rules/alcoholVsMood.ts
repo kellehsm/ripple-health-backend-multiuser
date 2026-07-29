@@ -1,12 +1,13 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
 
 export const AlcoholVsMoodRule: InsightRule = {
   id: "alcohol_vs_mood",
   type: "combined",
   minDays: 21,
 
-  async run(userId: string): Promise<InsightResult | null> {
+  async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
+    if (capabilities && !capabilities.has_substances) return null;
     // Get mood for each day, tagged with whether the PREVIOUS day had any alcohol
     const rows = await query<{ date: string; avg_mood: number; prev_day_had_alcohol: boolean }>(
       `WITH alcohol_days AS (

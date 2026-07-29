@@ -29,7 +29,7 @@ interface Credentials {
   baseUrl: string;
 }
 
-async function resolveCredentials(userId: string): Promise<Credentials> {
+async function resolveCredentials(userId: string, prefetchedDexcom?: Record<string, any>): Promise<Credentials> {
   // Start with env vars as the baseline; DB settings (from app Settings screen) override them.
   let accountId = process.env.DEXCOM_SHARE_ACCOUNT_ID ?? "";
   let accountName = "";
@@ -37,11 +37,15 @@ async function resolveCredentials(userId: string): Promise<Credentials> {
   let region = process.env.DEXCOM_SHARE_REGION === "ous" ? "shareous1" : "share2";
 
   try {
-    const rows = await query<{ settings: Record<string, any> }>(
-      "SELECT settings FROM user_settings WHERE user_id = $1",
-      [userId]
-    );
-    const dexcom = rows[0]?.settings?.dexcom;
+    // Use pre-fetched dexcom settings if provided (avoids a redundant DB round-trip
+    // when the caller already queried user_settings to find Dexcom-enabled users).
+    const dexcom = prefetchedDexcom ?? (await (async () => {
+      const rows = await query<{ settings: Record<string, any> }>(
+        "SELECT settings FROM user_settings WHERE user_id = $1",
+        [userId]
+      );
+      return rows[0]?.settings?.dexcom;
+    })());
     if (dexcom?.share_account_id) accountId = dexcom.share_account_id;
     if (dexcom?.share_account_name) accountName = dexcom.share_account_name;
     if (dexcom?.share_password) password = dexcom.share_password;
@@ -95,13 +99,13 @@ async function loginWithName(baseUrl: string, accountName: string, password: str
   return sessionId;
 }
 
-async function authenticate(userId: string): Promise<SessionEntry> {
+async function authenticate(userId: string, prefetchedDexcom?: Record<string, any>): Promise<SessionEntry> {
   const cached = sessionCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) {
     return cached;
   }
 
-  const { accountId, accountName, password, baseUrl } = await resolveCredentials(userId);
+  const { accountId, accountName, password, baseUrl } = await resolveCredentials(userId, prefetchedDexcom);
 
   const sessionId = accountId
     ? await loginWithId(baseUrl, accountId, password)
@@ -174,9 +178,10 @@ export interface SyncResult {
 
 export async function syncDexcomShareGlucose(
   userId: string,
-  log?: FastifyBaseLogger
+  log?: FastifyBaseLogger,
+  prefetchedDexcom?: Record<string, any>
 ): Promise<SyncResult> {
-  let session = await authenticate(userId);
+  let session = await authenticate(userId, prefetchedDexcom);
 
   let readings = await fetchReadings(session.sessionId, session.baseUrl);
 
@@ -185,7 +190,7 @@ export async function syncDexcomShareGlucose(
     // Evict the cache, re-authenticate once, and retry.
     sessionCache.delete(userId);
     log?.warn("Dexcom Share session expired mid-flight — re-authenticating");
-    session = await authenticate(userId);
+    session = await authenticate(userId, prefetchedDexcom);
     readings = await fetchReadings(session.sessionId, session.baseUrl);
 
     if (readings === null) {
