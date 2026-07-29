@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { generateDailySummary } from "../services/dailySummaryService.js";
+import { estToday } from "../lib/estDate.js";
 
 type LogLevel = "INFO" | "ERROR";
 function log(level: LogLevel, msg: string, meta?: Record<string, unknown>) {
@@ -9,7 +10,7 @@ function log(level: LogLevel, msg: string, meta?: Record<string, unknown>) {
 }
 
 export async function runDailySummaryJob(date?: string): Promise<void> {
-  const targetDate = date ?? new Date().toISOString().slice(0, 10);
+  const targetDate = date ?? estToday();
 
   let users: Array<{ id: string }>;
   try {

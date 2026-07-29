@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { estToday, estYesterday } from "../lib/estDate.js";
 
 // Canonical ordering: smaller UUID is always user_id_a
 function friendPair(a: string, b: string): { user_id_a: string; user_id_b: string } {
@@ -375,8 +376,8 @@ export default async function friendsRoutes(app: FastifyInstance) {
 
     function calcStreak(days: string[]): number {
       if (days.length === 0) return 0;
-      const today = new Date().toISOString().slice(0, 10);
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const today = estToday();
+      const yesterday = estYesterday();
       if (days[0] !== today && days[0] !== yesterday) return 0;
       let streak = 0;
       let expected = days[0];

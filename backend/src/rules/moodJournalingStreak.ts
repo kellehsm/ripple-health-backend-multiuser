@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { estToday, estYesterday } from "../lib/estDate.js";
 
 export const MoodJournalingStreakRule: InsightRule = {
   id: "mood_journaling_streak",
@@ -19,23 +20,19 @@ export const MoodJournalingStreakRule: InsightRule = {
 
     if (rows.length === 0) return null;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTs = today.getTime();
-    const yesterdayTs = todayTs - 86400000;
+    const today = estToday();
+    const yesterday = estYesterday();
 
-    const dateTimes = rows.map(r => {
-      const d = new Date(r.date);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    });
+    const days = rows.map(r => String(r.date).slice(0, 10));
 
-    // Streak must anchor to today or yesterday
-    if (dateTimes[0] !== todayTs && dateTimes[0] !== yesterdayTs) return null;
+    if (days[0] !== today && days[0] !== yesterday) return null;
 
     let streak = 1;
-    for (let i = 1; i < dateTimes.length; i++) {
-      if (dateTimes[i] === dateTimes[i - 1] - 86400000) {
+    for (let i = 1; i < days.length; i++) {
+      const prev = new Date(days[i - 1] + "T12:00:00");
+      prev.setDate(prev.getDate() - 1);
+      const expectedPrev = prev.toISOString().slice(0, 10);
+      if (days[i] === expectedPrev) {
         streak++;
       } else {
         break;
