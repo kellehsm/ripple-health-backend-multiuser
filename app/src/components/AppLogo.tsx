@@ -24,7 +24,7 @@ export function AppLogo({ size = 100 }: Props) {
           strokeWidth="3.2"
         />
         <Path
-          d="M93 120 L103 120 L108 103 L124 146 L134 120 L147 120"
+          d="M76 120 L103 120 L108 103 L124 146 L134 120 L164 120"
           stroke="#111111"
           strokeWidth="4.6"
           fill="none"
