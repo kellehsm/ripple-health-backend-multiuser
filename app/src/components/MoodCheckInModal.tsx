@@ -13,6 +13,7 @@ import {
 import { LoadingIndicator } from "./LoadingIndicator";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { onSolid } from "../theme/colorUtils";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
@@ -66,6 +67,7 @@ type ContextKey = typeof CONTEXT_SLIDERS[number]["key"];
 
 export function MoodCheckInModal({ visible, period, onDismiss, onSubmitted }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
 
   const [selected, setSelected] = useState<{ label: string; score: number; colorKey: string } | null>(null);
@@ -233,7 +235,7 @@ export function MoodCheckInModal({ visible, period, onDismiss, onSubmitted }: Pr
               onChangeText={setNote}
               placeholder="Anything on your mind? (optional)"
               placeholderTextColor={theme.textSoft}
-              style={[styles.noteInput, { color: theme.textStrong, borderColor: ink, backgroundColor: theme.card }]}
+              style={[styles.noteInput, { color: theme.textStrong, borderColor: ink, backgroundColor: cardBg }]}
               multiline
               accessibilityLabel="Mood note"
             />

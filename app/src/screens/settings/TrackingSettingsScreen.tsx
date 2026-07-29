@@ -8,6 +8,7 @@ import * as Notifications from "expo-notifications";
 import { getGrantedPermissions } from "react-native-health-connect";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { requestHealthPermissions } from "../../lib/healthConnect";
 import { startForegroundService, stopForegroundService, isForegroundServiceRunning } from "../../lib/foregroundService";
 
@@ -30,6 +31,7 @@ function StatusRow({ label, status, theme }: { label: string; status: "granted" 
 
 export function TrackingSettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [trackingEnabled, setTrackingEnabled] = useState(false);
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [notifGranted, setNotifGranted] = useState<boolean | null>(null);
@@ -120,7 +122,7 @@ export function TrackingSettingsScreen() {
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>ALWAYS-ON TRACKING</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
           Shows a persistent notification with live glucose and steps. Keeps syncing in the background.
         </Text>
@@ -150,7 +152,7 @@ export function TrackingSettingsScreen() {
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 8 }]}>DAILY STEP GOAL</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
           Sets your personal daily step target. Used on the Health screen progress ring.
         </Text>

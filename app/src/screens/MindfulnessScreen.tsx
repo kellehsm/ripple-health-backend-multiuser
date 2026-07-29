@@ -15,6 +15,7 @@ import { RippleLoader } from "../components/RippleLoader";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
 import { trackMindfulnessCompletion, getTodayCompletedSections } from "../lib/mindfulnessTracker";
@@ -121,7 +122,7 @@ function GraceCountdown({ count, accentColor, theme, ink }: {
       {count !== null && (
         <View style={{
           width: 104, height: 104, borderRadius: 52,
-          backgroundColor: theme.card,
+          backgroundColor: cardBg,
           borderWidth: 2, borderColor: accentColor,
           alignItems: "center", justifyContent: "center",
           shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 8 },
@@ -408,6 +409,7 @@ function CircleBreathingAnimation({
 
 export function MindfulnessScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
 
   const [activeSection, setActiveSection] = useState<Section | null>(null);
@@ -862,14 +864,14 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
           <View style={{ flexDirection: "row", gap: 10, width: "100%" }}>
             <Pressable
               onPress={handleRestart}
-              style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card, flex: 1 }]}
+              style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg, flex: 1 }]}
               accessibilityRole="button"
             >
               <Text style={{ color: ink, fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>↺ RESTART</Text>
             </Pressable>
             <Pressable
               onPress={handleEndSession}
-              style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card, flex: 1 }]}
+              style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg, flex: 1 }]}
               accessibilityRole="button"
             >
               <Text style={{ color: ink, fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>END SESSION</Text>
@@ -1121,7 +1123,7 @@ function GroundingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
           {step > 0 && (
             <Pressable
               onPress={() => { Haptics.selectionAsync(); setStep(0); }}
-              style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]}
+              style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg }]}
               accessibilityRole="button"
             >
               <Text style={{ color: ink, fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>↺ RESTART</Text>
@@ -1162,7 +1164,7 @@ function GroundingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
               </Text>
               <View style={{
                 width: 90, height: 90, borderRadius: 45,
-                backgroundColor: theme.card,
+                backgroundColor: cardBg,
                 borderWidth: 2, borderColor: coralSolid,
                 alignItems: "center", justifyContent: "center",
                 shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 8 },
@@ -1181,7 +1183,7 @@ function GroundingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
 
               {/* PMR Body Diagram */}
               {step < PMR_STEPS.length && (
-                <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder ?? ink }]}>
+                <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder ?? ink }]}>
                   <PmrBodyDiagram activeArea={activeArea} accentColor={coralSolid} />
                 </View>
               )}
@@ -1203,14 +1205,14 @@ function GroundingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
               <View style={{ flexDirection: "row", gap: 10 }}>
                 <Pressable
                   onPress={handlePmrRestart}
-                  style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card, flex: 1 }]}
+                  style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg, flex: 1 }]}
                   accessibilityRole="button"
                 >
                   <Text style={{ color: ink, fontSize: 13, fontWeight: "800" }}>↺ RESTART</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => { stopTimer(); clearGetReadyTimer(); setTechnique(null); }}
-                  style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card, flex: 1 }]}
+                  style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg, flex: 1 }]}
                   accessibilityRole="button"
                 >
                   <Text style={{ color: ink, fontSize: 13, fontWeight: "800" }}>STOP</Text>
@@ -1260,7 +1262,7 @@ function GroundingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
           {step > 0 && (
             <Pressable
               onPress={() => { Haptics.selectionAsync(); setStep(0); }}
-              style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]}
+              style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg }]}
               accessibilityRole="button"
             >
               <Text style={{ color: ink, fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>↺ RESTART</Text>
@@ -1510,7 +1512,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
           <Text style={{ fontSize: 48 }}>🎉</Text>
           <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>Session complete</Text>
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>{duration} min · {mode === "guided" ? "Guided" : "Unguided"}</Text>
-          <Pressable onPress={() => { setDuration(null); setMode(null); }} style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]}>
+          <Pressable onPress={() => { setDuration(null); setMode(null); }} style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg }]}>
             <Text style={{ color: ink, fontSize: 13, fontWeight: "800" }}>DONE</Text>
           </Pressable>
         </View>
@@ -1531,14 +1533,14 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
           <View style={{ flexDirection: "row", gap: 10, width: "100%" }}>
             <Pressable
               onPress={handleRestart}
-              style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card, flex: 1 }]}
+              style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg, flex: 1 }]}
               accessibilityRole="button"
             >
               <Text style={{ color: ink, fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>↺ RESTART</Text>
             </Pressable>
             <Pressable
               onPress={stopSession}
-              style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card, flex: 1 }]}
+              style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg, flex: 1 }]}
               accessibilityRole="button"
             >
               <Text style={{ color: ink, fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>END SESSION</Text>
@@ -1552,7 +1554,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
                 <View style={{
                   flexDirection: "row", gap: 12, borderWidth: 2,
                   borderColor: ink, borderRadius: 16, padding: 12,
-                  alignItems: "center", backgroundColor: theme.card,
+                  alignItems: "center", backgroundColor: cardBg,
                 }}>
                   <Text style={{ fontSize: 22 }}>🎵</Text>
                   <View style={{ flex: 1 }}>
@@ -1565,7 +1567,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
                 <View style={{
                   flexDirection: "row", gap: 12, borderWidth: 2,
                   borderColor: ink, borderRadius: 16, padding: 12,
-                  alignItems: "center", backgroundColor: theme.card,
+                  alignItems: "center", backgroundColor: cardBg,
                 }}>
                   <Text style={{ fontSize: 22 }}>🎙️</Text>
                   <View style={{ flex: 1 }}>
@@ -1628,7 +1630,7 @@ function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onB
         <View style={{ alignItems: "center", gap: 16, paddingVertical: 24 }}>
           <Text style={{ fontSize: 48 }}>🙏</Text>
           <Text style={{ color: theme.textStrong, fontSize: 18, fontWeight: "800", textAlign: "center" }}>Saved to your journal</Text>
-          <Pressable onPress={() => setSaved(false)} style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]}>
+          <Pressable onPress={() => setSaved(false)} style={[styles.endBtn, { borderColor: ink, backgroundColor: cardBg }]}>
             <Text style={{ color: ink, fontSize: 13, fontWeight: "800" }}>WRITE ANOTHER</Text>
           </Pressable>
         </View>
@@ -1666,7 +1668,7 @@ function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onB
             style={{
               borderWidth: 2, borderColor: ink, borderRadius: 22, padding: 14,
               fontSize: 15, minHeight: 120, color: theme.textStrong,
-              backgroundColor: theme.card, textAlignVertical: "top",
+              backgroundColor: cardBg, textAlignVertical: "top",
               shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 2,
             }}
             multiline

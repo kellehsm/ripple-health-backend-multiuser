@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 import { RootStackParamList } from "../../navigation/types";
 
@@ -71,6 +72,7 @@ const GROUPS: GroupConfig[] = [
 
 export function SettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<Nav>();
 
   return (
@@ -87,7 +89,7 @@ export function SettingsScreen() {
             style={({ pressed }) => [
               styles.row,
               {
-                backgroundColor: theme.card,
+                backgroundColor: cardBg,
                 borderColor: theme.cardBorder,
                 opacity: pressed ? 0.75 : 1,
               },

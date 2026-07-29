@@ -20,12 +20,14 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 
 const STEPS = ["Setup", "Options", "Schedule", "Review"];
 
 export function WizardScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [step, setStep] = useState(0);
   const isFirst = step === 0;
   const isLast  = step === STEPS.length - 1;
@@ -39,7 +41,7 @@ export function WizardScreenTemplate() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       {/* ── Step indicator ── */}
-      <View style={[styles.stepBar, { backgroundColor: theme.card, borderBottomColor: theme.cardBorder }]}>
+      <View style={[styles.stepBar, { backgroundColor: cardBg, borderBottomColor: theme.cardBorder }]}>
         {STEPS.map((label, i) => {
           const done    = i < step;
           const current = i === step;
@@ -87,7 +89,7 @@ export function WizardScreenTemplate() {
         </Text>
 
         {/* Step content card */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           {/* Replace with the actual input / selection for this step */}
           <View style={styles.contentPlaceholder}>
             <Ionicons name="create-outline" size={32} color={theme.textSoft} />
@@ -109,7 +111,7 @@ export function WizardScreenTemplate() {
       </ScrollView>
 
       {/* ── Sticky footer with Back / Next ── */}
-      <View style={[styles.footer, { backgroundColor: theme.card, borderTopColor: theme.cardBorder }]}>
+      <View style={[styles.footer, { backgroundColor: cardBg, borderTopColor: theme.cardBorder }]}>
         <Pressable
           onPress={goBack}
           style={[styles.backBtn, { opacity: isFirst ? 0.3 : 1 }]}

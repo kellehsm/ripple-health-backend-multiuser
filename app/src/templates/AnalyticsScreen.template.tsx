@@ -12,6 +12,7 @@ import React, { useState } from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 
 const DOMAINS = ["Overview", "Sleep", "Steps", "Mood", "Glucose"] as const;
@@ -22,6 +23,7 @@ type Range  = typeof RANGES[number];
 
 export function AnalyticsScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [domain, setDomain] = useState<Domain>("Overview");
   const [range,  setRange]  = useState<Range>("7d");
 
@@ -41,7 +43,7 @@ export function AnalyticsScreenTemplate() {
                 styles.tab,
                 d === domain
                   ? { backgroundColor: theme.teal.bg, borderColor: theme.teal.bar }
-                  : { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                  : { backgroundColor: cardBg, borderColor: theme.cardBorder },
               ]}
             >
               <Text style={[styles.tabText, { color: d === domain ? theme.teal.fg : theme.textSoft }]}>
@@ -53,7 +55,7 @@ export function AnalyticsScreenTemplate() {
       </ScrollView>
 
       {/* ── Time range selector ── */}
-      <View style={[styles.rangeRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.rangeRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         {RANGES.map((r) => (
           <Pressable
             key={r}
@@ -90,7 +92,7 @@ export function AnalyticsScreenTemplate() {
       </View>
 
       {/* ── Primary chart card ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <View style={styles.cardHeaderRow}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>{domain} over time</Text>
           <Pressable>
@@ -125,7 +127,7 @@ export function AnalyticsScreenTemplate() {
         ].map((cor) => (
           <View
             key={cor.a + cor.b}
-            style={[styles.correlationCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            style={[styles.correlationCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
           >
             <Text style={[styles.correlationR, { color: theme[cor.color].fg }]}>{cor.r}</Text>
             <Text style={[styles.correlationLabel, { color: theme.textSoft }]}>
@@ -136,7 +138,7 @@ export function AnalyticsScreenTemplate() {
       </View>
 
       {/* ── Observation list ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Observations</Text>
         {[
           "Steps above 8k on 4 of 7 days this week.",

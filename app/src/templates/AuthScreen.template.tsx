@@ -20,11 +20,13 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { AppLogo } from "../components/AppLogo";
 
 export function AuthScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [inputValue, setInputValue] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -49,7 +51,7 @@ export function AuthScreenTemplate() {
         </View>
 
         {/* ── Primary card / input area ── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
             Section heading
           </Text>
@@ -83,7 +85,7 @@ export function AuthScreenTemplate() {
         </View>
 
         {/* ── Secondary info card (optional) ── */}
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>
             Another section
           </Text>

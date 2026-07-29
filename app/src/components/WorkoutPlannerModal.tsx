@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from '../api/client';
 import { LoadingIndicator } from './LoadingIndicator';
 import { CyclingImage, IMAGE_BASE } from './CyclingExerciseImage';
@@ -27,6 +28,7 @@ interface Props {
 
 export function WorkoutPlannerModal({ visible, onClose, onBegin, initialQueue }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
 
   const [view, setView] = useState<'queue' | 'search'>('queue');
@@ -100,7 +102,7 @@ export function WorkoutPlannerModal({ visible, onClose, onBegin, initialQueue }:
               <View style={{ width: 60 }} />
             </View>
 
-            <View style={[s.searchBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[s.searchBar, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
               <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
               <TextInput
                 style={[s.searchInput, { color: theme.textStrong }]}
@@ -160,7 +162,7 @@ export function WorkoutPlannerModal({ visible, onClose, onBegin, initialQueue }:
             </View>
 
             {/* Stat strip — mirrors ExerciseDetail's header card */}
-            <View style={[s.statCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[s.statCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
               <View style={s.stat}>
                 <Text style={[s.statValue, { color: ink }]}>{queue.length}</Text>
                 <Text style={[s.statLabel, { color: theme.textSoft }]}>EXERCISES</Text>
@@ -197,7 +199,7 @@ export function WorkoutPlannerModal({ visible, onClose, onBegin, initialQueue }:
                 queue.map((ex, i) => (
                   <View
                     key={`${ex.id}-${i}`}
-                    style={[s.exerciseCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                    style={[s.exerciseCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
                   >
                     <CyclingImage images={ex.images} style={s.exerciseImage} />
                     <View style={s.exerciseCardBody}>

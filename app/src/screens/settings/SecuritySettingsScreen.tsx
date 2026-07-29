@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { ScrollView, View, Text, Switch, StyleSheet, Alert } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { isBiometricLockEnabled, setBiometricLockEnabled, authenticateWithBiometrics } from "../../lib/biometricLock";
 
 export function SecuritySettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [biometricEnabled, setBiometricEnabled] = useState(false);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export function SecuritySettingsScreen() {
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>APP LOCK</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
           Require biometric auth (fingerprint / face) when opening Ripple after 5 minutes in the background.
         </Text>

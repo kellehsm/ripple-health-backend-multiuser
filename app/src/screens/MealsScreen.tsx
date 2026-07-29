@@ -1,15 +1,17 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { CARD_SHADOW } from "../theme/styleUtils";
 
 export function MealsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Meals</Text>
         <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 10, fontFamily: fonts.regular }}>
           Meal logging and nutrition tracking goes here.

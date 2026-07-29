@@ -16,6 +16,22 @@ export function hexWithAlpha(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha.toFixed(2)})`;
 }
 
+/**
+ * Blends a hex color toward white by `fraction` (0=original, 1=white).
+ * Used to simulate frosted-glass lightening on card backgrounds.
+ */
+export function blendWithWhite(hex: string, fraction: number): string {
+  const clean = hex.replace("#", "");
+  const full = clean.length === 3
+    ? clean.split("").map((c) => c + c).join("")
+    : clean;
+  if (full.length !== 6) return hex;
+  const r = Math.round(parseInt(full.slice(0, 2), 16) + (255 - parseInt(full.slice(0, 2), 16)) * fraction);
+  const g = Math.round(parseInt(full.slice(2, 4), 16) + (255 - parseInt(full.slice(2, 4), 16)) * fraction);
+  const b = Math.round(parseInt(full.slice(4, 6), 16) + (255 - parseInt(full.slice(4, 6), 16)) * fraction);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
 /** Returns "#ffffff" or "#1A1A1A" — whichever has better contrast against hex background. */
 export function onSolid(hex: string): "#ffffff" | "#1A1A1A" {
   const r = parseInt(hex.slice(1, 3), 16);

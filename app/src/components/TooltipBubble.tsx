@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 
 interface TooltipBubbleProps {
   message: string;
@@ -9,6 +10,7 @@ interface TooltipBubbleProps {
 
 export function TooltipBubble({ message, onDismiss }: TooltipBubbleProps) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function TooltipBubble({ message, onDismiss }: TooltipBubbleProps) {
 
   return (
     <Animated.View
-      style={[styles.bubble, { backgroundColor: theme.card, borderColor: theme.ink, opacity }]}
+      style={[styles.bubble, { backgroundColor: cardBg, borderColor: theme.ink, opacity }]}
     >
       {/* Arrow pointing up */}
       <View style={[styles.arrow, { borderBottomColor: theme.ink }]} />

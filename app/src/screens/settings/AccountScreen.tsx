@@ -9,12 +9,14 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 
 const ONBOARDING_KEY = "ripple:onboarding_complete";
 
 export function AccountScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [loggingOut, setLoggingOut] = useState(false);
 
   function handleLogOut() {
@@ -49,7 +51,7 @@ export function AccountScreen() {
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
     >
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Profile</Text>
         <View style={styles.infoRow}>
           <Text style={[styles.infoLabel, { color: theme.textSoft }]}>Name</Text>
@@ -61,7 +63,7 @@ export function AccountScreen() {
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Account actions</Text>
         <Pressable
           onPress={handleLogOut}

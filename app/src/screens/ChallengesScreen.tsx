@@ -10,6 +10,7 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { getChallenges, Challenge, SocialCategory } from "../api/friends";
 
@@ -35,6 +36,7 @@ function formatDateRange(start: string, end: string): string {
 
 export function ChallengesScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -64,7 +66,7 @@ export function ChallengesScreen() {
       <Pressable
         key={challenge.id}
         onPress={() => navigation.navigate("ChallengeDetail", { challengeId: challenge.id })}
-        style={[styles.challengeCard, { backgroundColor: theme.card, borderColor: theme.ink }]}
+        style={[styles.challengeCard, { backgroundColor: cardBg, borderColor: theme.ink }]}
       >
         <View style={styles.cardHeader}>
           <View style={[styles.iconBadge, { backgroundColor: theme.purple.tint, borderColor: theme.purple.solid }]}>
@@ -86,7 +88,7 @@ export function ChallengesScreen() {
         </Text>
 
         <View style={styles.metaRow}>
-          <View style={[styles.metaBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.metaBadge, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <Ionicons name="people-outline" size={12} color={theme.textSoft} />
             <Text style={{ color: theme.textSoft, fontSize: 11, marginLeft: 4 }}>
               {challenge.participant_count} {challenge.participant_count === 1 ? "participant" : "participants"}
@@ -146,7 +148,7 @@ export function ChallengesScreen() {
         )}
 
         {/* Privacy note */}
-        <View style={[styles.privacyNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.privacyNote, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Ionicons name="shield-checkmark-outline" size={14} color={theme.textSoft} style={{ marginRight: 6 }} />
           <Text style={{ color: theme.textSoft, fontSize: 11, flex: 1 }}>
             Challenges only involve steps, exercise, hobbies, and books. All other data stays private.

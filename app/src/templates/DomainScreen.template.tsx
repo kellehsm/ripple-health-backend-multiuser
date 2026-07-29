@@ -14,11 +14,13 @@ import React, { useState, useEffect } from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet, RefreshControl, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { MetricCard } from "../components/MetricCard";
 
 export function DomainScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -49,7 +51,7 @@ export function DomainScreenTemplate() {
       </View>
 
       {/* ── Primary content card ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Primary section</Text>
 
         {loading
@@ -77,7 +79,7 @@ export function DomainScreenTemplate() {
       </View>
 
       {/* ── Secondary content card ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <View style={styles.cardHeaderRow}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Secondary section</Text>
           <Pressable style={[styles.addBtn, { backgroundColor: theme.teal.bg }]}>
@@ -96,7 +98,7 @@ export function DomainScreenTemplate() {
       </View>
 
       {/* ── History / log card ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Recent history</Text>
 
         {/* Log entry row — repeat per item */}

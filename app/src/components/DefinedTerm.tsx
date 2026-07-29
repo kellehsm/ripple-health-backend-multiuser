@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, Pressable, Modal, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 
 const DEFINITIONS: Record<string, { title: string; body: string }> = {
   time_in_range: {
@@ -33,6 +34,7 @@ interface Props {
 
 export function DefinedTerm({ term, children, style, textStyle }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [visible, setVisible] = useState(false);
   const def = DEFINITIONS[term];
 
@@ -79,7 +81,7 @@ export function DefinedTerm({ term, children, style, textStyle }: Props) {
         >
           <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
             <Pressable
-              style={[styles.popover, { backgroundColor: theme.card, borderColor: theme.ink }]}
+              style={[styles.popover, { backgroundColor: cardBg, borderColor: theme.ink }]}
               onPress={(e) => e.stopPropagation()}
             >
               <Text style={[styles.title, { color: theme.textStrong }]}>{def.title}</Text>

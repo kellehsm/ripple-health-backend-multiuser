@@ -3,6 +3,7 @@ import { ScrollView, View, Text, Pressable, StyleSheet, Alert } from "react-nati
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { api } from "../../api/client";
 import { usePlaidLink } from "../../lib/plaidLink";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
@@ -21,6 +22,7 @@ type PlaidItem = {
 
 export function BanksSettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
 
   const [items, setItems] = useState<PlaidItem[]>([]);
@@ -126,7 +128,7 @@ export function BanksSettingsScreen() {
       ) : (
         <>
           <Text style={[s.sectionLabel, { color: theme.textSoft }]}>CONNECTED BANKS</Text>
-          <View style={[s.card, { borderColor: theme.cardBorder, backgroundColor: theme.card, ...shadow }]}>
+          <View style={[s.card, { borderColor: theme.cardBorder, backgroundColor: cardBg, ...shadow }]}>
             {items.map((item, i) => (
               <View
                 key={item.item_id}
@@ -159,7 +161,7 @@ export function BanksSettingsScreen() {
           <Pressable
             onPress={handleSync}
             disabled={syncing}
-            style={[s.syncBtn, { borderColor: ink, backgroundColor: theme.card, ...shadow, opacity: syncing ? 0.6 : 1 }]}
+            style={[s.syncBtn, { borderColor: ink, backgroundColor: cardBg, ...shadow, opacity: syncing ? 0.6 : 1 }]}
           >
             {syncing
               ? <LoadingIndicator size="small" color={theme.purple.solid} />

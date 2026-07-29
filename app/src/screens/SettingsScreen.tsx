@@ -6,6 +6,7 @@ import { useFocusEffect } from "@react-navigation/core";
 import { useNavigation } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { FONT_SIZES, SPACING, RADIUS } from "../theme/tokens";
 import { PALETTES } from "../theme/palettes";
 import { api } from "../api/client";
@@ -33,6 +34,7 @@ function MenuRow({ title, subtitle, onPress, theme, accent }: {
 export function SettingsScreen() {
   const navigation = useNavigation<any>();
   const { theme, paletteId } = useTheme();
+  const cardBg = useCardBg();
   const [journey, setJourney] = useState<Journey | null>(null);
   const [journeyLoading, setJourneyLoading] = useState(true);
   const [muteUntil, setMuteUntil] = useState<number | null>(null);
@@ -109,7 +111,7 @@ export function SettingsScreen() {
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
 
       {/* Search bar */}
-      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: theme.card, borderRadius: RADIUS.md, borderWidth: 1, borderColor: theme.cardBorder, paddingHorizontal: SPACING.md, marginBottom: SPACING.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: cardBg, borderRadius: RADIUS.md, borderWidth: 1, borderColor: theme.cardBorder, paddingHorizontal: SPACING.md, marginBottom: SPACING.md }}>
         <Text style={{ marginRight: SPACING.sm, fontSize: 16 }}>🔍</Text>
         <TextInput
           value={search}
@@ -145,7 +147,7 @@ export function SettingsScreen() {
                 { value: journey.total_mood_checkins, label: "mood check-ins" },
                 { value: journey.total_active_days, label: "active days" },
               ].map((stat) => (
-                <View key={stat.label} style={[styles.statChip, { backgroundColor: theme.card, borderColor: theme.teal.sub }]}>
+                <View key={stat.label} style={[styles.statChip, { backgroundColor: cardBg, borderColor: theme.teal.sub }]}>
                   <Text style={{ color: theme.teal.fg, fontSize: 22, fontWeight: "800" }}>{stat.value}</Text>
                   <Text style={{ color: theme.teal.sub, fontSize: 11, fontWeight: "600" }}>{stat.label}</Text>
                 </View>
@@ -159,7 +161,7 @@ export function SettingsScreen() {
       {matches("Theme", "Appearance", "Customize Tabs", "Tabs", "bottom bar", "colour", "color") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>APPEARANCE</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             {matches("Theme", "Appearance", "colour", "color") && (
               <MenuRow title="Theme" subtitle={PALETTES[paletteId]?.name} onPress={() => nav("SettingsAppearance")} theme={theme} />
             )}
@@ -177,7 +179,7 @@ export function SettingsScreen() {
       {matches("Data Sources", "Health Connect", "Sync", "permissions", "Dexcom", "CGM", "Connected Banks", "Plaid", "transactions") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>DATA SOURCES</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             {matches("Health Connect", "Sync", "permissions", "live tracking") && (
               <MenuRow title="Health Connect" subtitle="Sync, permissions & live tracking" onPress={() => nav("SettingsHealthConnect")} theme={theme} />
             )}
@@ -201,7 +203,7 @@ export function SettingsScreen() {
       {matches("Health", "Fasting Timer", "fasting", "Medication Reminders", "Import Medications", "CSV") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>HEALTH</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             {matches("Fasting Timer", "fasting", "Home screen") && (
               <View style={[styles.row, { borderColor: theme.cardBorder, paddingVertical: 13 }]}>
                 <View style={{ flex: 1 }}>
@@ -236,7 +238,7 @@ export function SettingsScreen() {
       {matches("Notifications", "reminders", "mute", "schedules", "Always-on Tracking", "background sync", "persistent") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>NOTIFICATIONS</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             {matches("Notifications", "Smart reminders", "mute", "schedules") && (
               <MenuRow title="Notifications" subtitle="Smart reminders, mute & schedules" onPress={() => nav("SettingsNotifications")} theme={theme} />
             )}
@@ -270,7 +272,7 @@ export function SettingsScreen() {
               <Pressable
                 key={preset.id}
                 onPress={() => void handlePreset(preset)}
-                style={[styles.quietPreset, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                style={[styles.quietPreset, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
               >
                 <Text style={{ fontSize: 22 }}>{preset.emoji}</Text>
                 <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", marginTop: 4 }}>{preset.label}</Text>
@@ -287,7 +289,7 @@ export function SettingsScreen() {
       {matches("Security", "App Lock", "Biometric", "unlock") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>SECURITY</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <MenuRow title="App Lock" subtitle="Biometric unlock" onPress={() => nav("SettingsSecurity")} theme={theme} />
           </View>
         </>
@@ -297,7 +299,7 @@ export function SettingsScreen() {
       {matches("Preferences", "Week start", "home screen", "start day") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PREFERENCES</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <MenuRow title="Preferences" subtitle="Week start day & home screen" onPress={() => nav("SettingsPreferences")} theme={theme} />
           </View>
         </>
@@ -307,7 +309,7 @@ export function SettingsScreen() {
       {matches("Friend Sharing", "friends", "social", "notifications", "sharing") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>FRIEND SHARING</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <MenuRow title="Friend Sharing" subtitle="Control what friends can see and social notifications" onPress={() => nav("SettingsSocial")} theme={theme} />
           </View>
         </>
@@ -317,7 +319,7 @@ export function SettingsScreen() {
       {matches("Export", "Backup", "PDF", "JSON", "Google Drive", "report") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>EXPORT & BACKUP</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <MenuRow
               title="Export & Backup"
               subtitle={backupNudge ? "⚠️ No backup in 30+ days — tap to back up" : "PDF report, JSON export & Google Drive"}
@@ -333,7 +335,7 @@ export function SettingsScreen() {
       {matches("Help", "FAQ", "bug", "Report a Bug", "Contact", "developer", "email") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>HELP</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             {matches("Help", "FAQ") && (
               <MenuRow title="Help & FAQ" onPress={() => nav("Help")} theme={theme} />
             )}
@@ -379,7 +381,7 @@ export function SettingsScreen() {
       {matches("Account", "Sign out", "logout", "sign in") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>ACCOUNT</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <MenuRow
               title="Sign out"
               onPress={() => {

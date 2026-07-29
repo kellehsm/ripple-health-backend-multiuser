@@ -10,6 +10,7 @@ import { LoadingIndicator } from "./LoadingIndicator";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from "../api/client";
 import { getCachedBarcode, setCachedBarcode } from "../utils/barcodeCache";
 
@@ -56,6 +57,7 @@ export function BarcodeScannerModal({
   onManual,
 }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const accent = mode === "caffeine" ? theme.coral.sub
                : mode === "alcohol" ? theme.purple.solid
                : theme.coral.solid;
@@ -222,7 +224,7 @@ export function BarcodeScannerModal({
                     <Text style={styles.btnText}>Enter manually</Text>
                   </Pressable>
                   <Pressable
-                    style={[styles.btn, { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.cardBorder, marginTop: 8 }]}
+                    style={[styles.btn, { backgroundColor: cardBg, borderWidth: 1, borderColor: theme.cardBorder, marginTop: 8 }]}
                     onPress={handleRetry}
                   >
                     <Text style={styles.btnText}>Scan again</Text>

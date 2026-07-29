@@ -3,10 +3,12 @@ import { ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert } from 
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { api } from "../../api/client";
 
 export function DexcomSettingsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [accountId, setAccountId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -63,7 +65,7 @@ export function DexcomSettingsScreen() {
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>CREDENTIALS</Text>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
           Credentials are stored on the server and never returned to the app after saving.
         </Text>

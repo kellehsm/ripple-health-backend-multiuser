@@ -4,6 +4,7 @@ import Svg, { Polyline, Line, Text as SvgText, Rect } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { CyclingImage } from '../components/CyclingExerciseImage';
@@ -137,6 +138,7 @@ function HRChart({ samples, theme }: { samples: Array<{ recorded_at: string; bpm
 
 export function ExerciseDetailScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const route = useRoute<any>();
   const { sessionId } = route.params as { sessionId: string };
   const ink = theme.ink;
@@ -171,7 +173,7 @@ export function ExerciseDetailScreen() {
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
       {/* Header stats */}
-      <View style={[styles.headerCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.headerCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <View style={styles.statRow}>
           <View style={styles.stat}>
             <Text style={[styles.statValue, { color: ink }]}>
@@ -213,7 +215,7 @@ export function ExerciseDetailScreen() {
 
       {/* Zone bar */}
       {hasZones && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>TIME IN ZONE</Text>
           <ZoneBar summary={session.hr_summary!} theme={theme} />
         </View>
@@ -221,7 +223,7 @@ export function ExerciseDetailScreen() {
 
       {/* HR chart */}
       {session.hr_samples.length >= 2 && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>HEART RATE</Text>
           <HRChart samples={session.hr_samples} theme={theme} />
           {!hasZones && (
@@ -235,12 +237,12 @@ export function ExerciseDetailScreen() {
       {/* Exercise list */}
       <Text style={[styles.sectionLabel, { color: theme.textSoft, marginTop: 4 }]}>EXERCISES LOGGED</Text>
       {session.entries.length === 0 ? (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <Text style={{ color: theme.textSoft, fontSize: 13 }}>No exercises logged in this session.</Text>
         </View>
       ) : (
         session.entries.map((entry) => (
-          <View key={entry.id} style={[styles.exerciseCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View key={entry.id} style={[styles.exerciseCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             <CyclingImage
               images={entry.exercise.images ?? []}
               style={styles.exerciseImage}

@@ -2,6 +2,7 @@ import React from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
+import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -9,6 +10,7 @@ import { RootStackParamList } from "../../navigation/types";
 
 export function AppearanceScreen() {
   const { theme, mode, toggle } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
@@ -16,7 +18,7 @@ export function AppearanceScreen() {
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
     >
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Color mode</Text>
 
         {(["light", "dark"] as const).map((m) => (
@@ -51,14 +53,14 @@ export function AppearanceScreen() {
         ))}
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Accent themes</Text>
         <Text style={[styles.comingSoon, { color: theme.textSoft }]}>
           Additional accent colour themes coming soon.
         </Text>
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.sectionTitle, { color: theme.textStrong }]}>Backgrounds & Transparency</Text>
         <Pressable
           style={[styles.modeRow, { borderColor: theme.cardBorder }]}

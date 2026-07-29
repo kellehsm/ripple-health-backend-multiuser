@@ -15,6 +15,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ShadowCard } from "../components/ShadowCard";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { onSolid } from "../theme/colorUtils";
 import { api } from "../api/client";
 import { formatDisplayDate } from "../utils/dateUtils";
@@ -75,6 +76,7 @@ function BookShelf({
   progress: Record<string, Progress>;
 }) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
 
@@ -124,7 +126,7 @@ function BookShelf({
   for (let i = 0; i < allBooks.length; i += PER_ROW) rows.push(allBooks.slice(i, i + PER_ROW));
 
   return (
-    <View style={{ borderWidth: 2, borderColor: ink, borderRadius: 18, overflow: "hidden", backgroundColor: theme.card, marginBottom: 4 }}>
+    <View style={{ borderWidth: 2, borderColor: ink, borderRadius: 18, overflow: "hidden", backgroundColor: cardBg, marginBottom: 4 }}>
       <View style={{ paddingHorizontal: SHELF_PAD, paddingTop: 10, paddingBottom: 6, flexDirection: "row", alignItems: "center" }}>
         <Text style={{ fontSize: 9, fontWeight: "900", letterSpacing: 0.8, color: theme.textSoft }}>📚 YOUR SHELF</Text>
         <Text style={{ fontSize: 9, color: theme.textSoft, flex: 1, textAlign: "right" }}>
@@ -214,7 +216,7 @@ function BookShelf({
               {/* Inline popover — appears between books and plank when a book in this row is selected (Feature 8) */}
               {selectedBook && (
                 <View style={{
-                  backgroundColor: theme.card,
+                  backgroundColor: cardBg,
                   borderWidth: 2,
                   borderColor: ink,
                   borderRadius: 14,
@@ -288,6 +290,7 @@ function StarRating({ rating }: { rating: number }) {
 
 export function CompletedScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
   const styles = useMemo(() => makeStyles(ink), [ink]);
 

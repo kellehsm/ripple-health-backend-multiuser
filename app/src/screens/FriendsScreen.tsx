@@ -14,6 +14,7 @@ import { onSolid } from "../theme/colorUtils";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { toast } from "../lib/toast";
 import { FeatureTour, TourStep } from "../components/FeatureTour";
@@ -57,6 +58,7 @@ const CATEGORIES: SocialCategory[] = ["steps", "exercise", "hobbies", "books"];
 
 function FriendsEmptyState({ onPress }: { onPress: () => void }) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const c = theme.teal.solid;
   return (
     <View style={{ alignItems: "center", paddingVertical: 48 }}>
@@ -84,6 +86,7 @@ function FriendsEmptyState({ onPress }: { onPress: () => void }) {
 
 export function FriendsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
 
   const [username, setUsernameState] = useState<string | null>(null);
@@ -293,7 +296,7 @@ export function FriendsScreen() {
             </View>
             <Pressable
               onPress={() => { setEditingUsername(true); setUsernameInput(username); }}
-              style={[styles.smallBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
+              style={[styles.smallBtn, { borderColor: theme.ink, backgroundColor: cardBg }]}
             >
               <Ionicons name="pencil-outline" size={14} color={theme.textStrong} />
               <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700", marginLeft: 4 }}>Edit</Text>
@@ -314,7 +317,7 @@ export function FriendsScreen() {
                 placeholderTextColor={theme.textSoft}
                 autoCapitalize="none"
                 autoCorrect={false}
-                style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card, flex: 1 }]}
+                style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg, flex: 1 }]}
               />
               <Pressable
                 onPress={handleSaveUsername}
@@ -330,7 +333,7 @@ export function FriendsScreen() {
               {editingUsername && (
                 <Pressable
                   onPress={() => { setEditingUsername(false); setUsernameInput(""); }}
-                  style={[styles.actionBtn, { backgroundColor: theme.card, borderColor: theme.ink }]}
+                  style={[styles.actionBtn, { backgroundColor: cardBg, borderColor: theme.ink }]}
                 >
                   <Text style={[styles.actionBtnText, { color: theme.textSoft }]}>CANCEL</Text>
                 </Pressable>
@@ -355,7 +358,7 @@ export function FriendsScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
-            style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card, flex: 1 }]}
+            style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg, flex: 1 }]}
           />
           <Pressable
             onPress={handleSendRequest}
@@ -378,7 +381,7 @@ export function FriendsScreen() {
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>
             FRIEND REQUESTS ({requests.length})
           </Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
             {requests.map((req, i) => (
               <View key={req.connection_id}>
                 {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
@@ -404,7 +407,7 @@ export function FriendsScreen() {
                   <Pressable
                     onPress={() => handleDecline(req.connection_id)}
                     disabled={actingOnRequest === req.connection_id}
-                    style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                    style={[styles.smallBtn, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
                   >
                     <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: "600" }}>Decline</Text>
                   </Pressable>
@@ -418,13 +421,13 @@ export function FriendsScreen() {
       {/* My Friends */}
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>MY FRIENDS</Text>
       {loading ? (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 20 }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 20 }]}>
           <ActivityIndicator color={theme.teal.bar} />
         </View>
       ) : friends.length === 0 ? (
         <FriendsEmptyState onPress={() => Haptics.selectionAsync()} />
       ) : (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           {friends.map((friend, i) => (
             <View key={friend.connection_id}>
               {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
@@ -456,7 +459,7 @@ export function FriendsScreen() {
                 <Pressable
                   onPress={() => handleNudge(friend)}
                   disabled={nudgingSent === friend.connection_id}
-                  style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  style={[styles.smallBtn, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
                 >
                   {nudgingSent === friend.connection_id ? (
                     <ActivityIndicator size="small" color={theme.teal.fg} />
@@ -473,11 +476,11 @@ export function FriendsScreen() {
       {/* Friend Activity Feed */}
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>FRIEND ACTIVITY</Text>
       {activityFeed.length === 0 ? (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 12 }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 12 }]}>
           <Text style={{ color: theme.textSoft, fontSize: 13 }}>Quiet week so far — no streaks to celebrate yet.</Text>
         </View>
       ) : (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           {activityFeed.map((entry, i) => (
             <View key={entry.user_id}>
               {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
@@ -514,7 +517,7 @@ export function FriendsScreen() {
           <Pressable
             key={cat}
             onPress={() => navigation.navigate("Leaderboard", { category: cat })}
-            style={[styles.leaderboardCard, { backgroundColor: theme.card, borderColor: theme.ink }]}
+            style={[styles.leaderboardCard, { backgroundColor: cardBg, borderColor: theme.ink }]}
           >
             <Ionicons name={CATEGORY_ICON[cat]} size={26} color={theme.teal.solid} />
             <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "800", marginTop: 6, textAlign: "center" }}>

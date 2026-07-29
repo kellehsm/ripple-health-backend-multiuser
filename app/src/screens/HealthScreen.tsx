@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import Svg, { Line, Polyline, Text as SvgText } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { MetricCard } from "../components/MetricCard";
 import { api } from "../api/client";
@@ -31,6 +32,7 @@ function toY(mgdl: number): number {
 // Steps/sleep/water/heart rate come from Health Connect. Glucose from Dexcom.
 export function HealthScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [glucoseData, setGlucoseData] = useState<GlucoseReading[]>([]);
   const [chartWidth, setChartWidth] = useState(300);
 
@@ -73,7 +75,7 @@ export function HealthScreen() {
         <MetricCard label="Heart rate" value="68 bpm" icon="pulse" colorKey="red" />
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Glucose today</Text>
 
         {/* Current reading box */}

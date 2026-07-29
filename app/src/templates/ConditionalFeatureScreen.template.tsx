@@ -18,12 +18,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 import { useFeatures } from "../context/FeaturesContext";
 import { RootStackParamList } from "../navigation/types";
 
 export function ConditionalFeatureScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const { medsEnabled, cycleEnabled } = useFeatures();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -58,7 +60,7 @@ export function ConditionalFeatureScreenTemplate() {
     >
       {/* ── Medications section (only when medsEnabled) ── */}
       {medsEnabled && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <View style={styles.cardHeader}>
             <View style={[styles.sectionIcon, { backgroundColor: theme.pink.bg }]}>
               <Ionicons name="medical" size={18} color={theme.pink.fg} />
@@ -89,7 +91,7 @@ export function ConditionalFeatureScreenTemplate() {
 
       {/* ── Cycle tracking section (only when cycleEnabled) ── */}
       {cycleEnabled && (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
           <View style={styles.cardHeader}>
             <View style={[styles.sectionIcon, { backgroundColor: theme.pink.bg }]}>
               <Ionicons name="sync-circle" size={18} color={theme.pink.fg} />

@@ -14,10 +14,12 @@ import React, { useState } from "react";
 import { ScrollView, View, Text, Switch, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 
 export function SettingsDetailScreenTemplate() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [toggle1, setToggle1] = useState(true);
   const [toggle2, setToggle2] = useState(false);
   const [choice, setChoice] = useState<"a" | "b">("a");
@@ -28,7 +30,7 @@ export function SettingsDetailScreenTemplate() {
       contentContainerStyle={styles.content}
     >
       {/* ── Config card: Toggle switches ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Feature toggles</Text>
         <Text style={[styles.cardBody, { color: theme.textSoft }]}>
           Short explanation of what these toggles control and why they matter.
@@ -63,7 +65,7 @@ export function SettingsDetailScreenTemplate() {
       </View>
 
       {/* ── Config card: Radio choice ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Choose an option</Text>
 
         {(["a", "b"] as const).map((opt) => (
@@ -96,7 +98,7 @@ export function SettingsDetailScreenTemplate() {
       </View>
 
       {/* ── Status / info card (read-only) ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Connection status</Text>
 
         <View style={[styles.statusRow, { borderTopColor: theme.cardBorder }]}>
@@ -127,7 +129,7 @@ export function SettingsDetailScreenTemplate() {
       )}
 
       {/* ── Destructive actions card — always last, always red ── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.red.fg }]}>Danger zone</Text>
 
         <Pressable style={[styles.destructiveBtn, { borderColor: theme.red.fg }]}>

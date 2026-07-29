@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { formatDisplayDate } from '../utils/dateUtils';
@@ -35,6 +36,7 @@ const CHANGE_LABEL: Record<string, string> = {
 
 export function MedicationHistoryScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const route = useRoute<any>();
   const { medicationId, medicationName } = route.params as { medicationId: string; medicationName: string };
   const ink = theme.ink;
@@ -80,7 +82,7 @@ export function MedicationHistoryScreen() {
                 )}
               </View>
 
-              <View style={[styles.entryCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <View style={[styles.entryCard, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
                 <View style={styles.entryHeader}>
                   <Text style={[styles.changeType, { color: theme.textStrong }]}>
                     {CHANGE_LABEL[entry.change_type] ?? entry.change_type}

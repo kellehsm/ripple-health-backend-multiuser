@@ -10,6 +10,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import {
   DASHBOARD_CARDS,
   type CardId,
@@ -25,6 +26,7 @@ type Props = {
 
 export function DashboardEditorModal({ visible, layout, onSave, onCancel }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
 
   const [order, setOrder] = useState<CardId[]>(layout.order);
@@ -117,7 +119,7 @@ export function DashboardEditorModal({ visible, layout, onSave, onCancel }: Prop
                 style={[
                   styles.row,
                   {
-                    backgroundColor: theme.card,
+                    backgroundColor: cardBg,
                     borderColor: isHidden ? theme.cardBorder : ink,
                     opacity: isHidden ? 0.5 : 1,
                   },

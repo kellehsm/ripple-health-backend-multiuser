@@ -13,6 +13,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { setUsername, updateSharingPrefs } from "../api/friends";
 import { toast } from "../lib/toast";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -40,6 +41,7 @@ const SHARE_CATEGORIES = [
 
 export function FriendsOnboardingScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const navigation = useNavigation<any>();
 
   const [step, setStep] = useState<Step>("welcome");
@@ -122,7 +124,7 @@ export function FriendsOnboardingScreen() {
             <Text style={[s.subtitle, { color: theme.textSoft }]}>
               Compare steps, books, hobbies, and exercise with friends — and challenge each other to reach goals.
             </Text>
-            <View style={[s.privacyBox, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <View style={[s.privacyBox, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
               <Ionicons name="lock-closed-outline" size={16} color={theme.textSoft} style={{ marginTop: 2 }} />
               <Text style={{ color: theme.textSoft, fontSize: 13, flex: 1, lineHeight: 19 }}>
                 Only steps, exercise, hobbies, and books are ever shared. Your glucose, mood, sleep, finance, and all other data stays completely private — always.
@@ -150,7 +152,7 @@ export function FriendsOnboardingScreen() {
               placeholderTextColor={theme.textSoft}
               autoCapitalize="none"
               autoCorrect={false}
-              style={[s.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
+              style={[s.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: cardBg }]}
             />
             <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, alignSelf: "flex-start" }}>
               3–20 characters, letters/numbers/underscores only.
@@ -179,7 +181,7 @@ export function FriendsOnboardingScreen() {
               {SHARE_CATEGORIES.map(({ key, label, icon, desc }) => (
                 <View
                   key={key}
-                  style={[s.shareRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  style={[s.shareRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}
                 >
                   <View style={[s.shareIcon, { backgroundColor: theme.teal.tint }]}>
                     <Ionicons name={icon} size={20} color={theme.teal.fg} />

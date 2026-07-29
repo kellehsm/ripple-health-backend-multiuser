@@ -1,16 +1,18 @@
 import React from "react";
 import { ScrollView, View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { fonts } from "../theme/typography";
 
 // Manual entry now; source='goldfinch_import' rows can appear here later
 // without any UI changes once the Goldfinch export/webhook exists.
 export function FinanceScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
 
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Spending this week</Text>
         <Text style={{ color: theme.green.sub, fontSize: 12, marginTop: 4, fontFamily: fonts.regular }}>$212 of $300 budget</Text>
         <View style={[styles.progressTrack, { backgroundColor: theme.green.bg }]}>
@@ -18,7 +20,7 @@ export function FinanceScreen() {
         </View>
       </View>
 
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Stress-spend correlation</Text>
         {/* TODO: chart spending vs. inverted mood score over the last 14-30 days */}
         <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 10, fontFamily: fonts.regular }}>

@@ -16,6 +16,7 @@ import { LoginLogo } from "../components/LoginLogo";
 import { api } from "../api/client";
 import { setToken } from "../lib/auth";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { ShadowCard } from "../components/ShadowCard";
 
 interface Props {
@@ -25,6 +26,7 @@ interface Props {
 
 export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -181,7 +183,7 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
             <Animated.View style={{ marginBottom: 14, opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }] }}>
               <Text style={[styles.label, { color: theme.ink }]}>EMAIL</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink, color: theme.textStrong }]}
+                style={[styles.input, { backgroundColor: cardBg, borderColor: theme.ink, color: theme.textStrong }]}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -196,7 +198,7 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
             <Animated.View style={{ marginBottom: 8, opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }] }}>
               <Text style={[styles.label, { color: theme.ink }]}>PASSWORD</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink, color: theme.textStrong }]}
+                style={[styles.input, { backgroundColor: cardBg, borderColor: theme.ink, color: theme.textStrong }]}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry

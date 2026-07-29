@@ -7,6 +7,7 @@ import { LoadingIndicator } from "../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { useCardBg } from "../theme/AppSettingsContext";
 import { api } from "../api/client";
 import { InsightCard, Insight } from "../components/InsightCard";
 import { UndoBanner } from "../components/UndoBanner";
@@ -80,6 +81,7 @@ const TYPE_GROUPS: { label: string; types: string[]; emoji: string }[] = [
 
 export function InsightsScreen() {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const ink = theme.ink;
   const card = theme.card;
 
@@ -358,7 +360,7 @@ export function InsightsScreen() {
           {showDismissed && (
             <View style={{ gap: 8, marginTop: 6 }}>
               {dismissed.map(insight => (
-                <View key={insight.id} style={[styles.dismissedRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                <View key={insight.id} style={[styles.dismissedRow, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
                   <Text style={{ color: theme.textSoft, fontSize: 13, flex: 1, lineHeight: 18 }}>{insight.title}</Text>
                   <Pressable
                     onPress={() => handleUndismiss(insight.id)}

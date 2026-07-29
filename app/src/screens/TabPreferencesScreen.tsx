@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { useCardBg } from "../theme/AppSettingsContext";
 import { ThemedIcon } from '../theme/iconRegistry';
 import { useTabPreferences } from '../hooks/useTabPreferences';
 import { ModuleId, MODULE_DEFINITIONS, TabPreferences, MAX_SELECTED_MODULES } from '../types/tabPreferences';
@@ -14,6 +15,7 @@ interface TabPreferencesScreenProps {
 
 export function TabPreferencesScreen({ onDone, mode, onCancel }: TabPreferencesScreenProps) {
   const { theme } = useTheme();
+  const cardBg = useCardBg();
   const { preferences, loading, save } = useTabPreferences();
 
   const [selected, setSelected] = useState<ModuleId[]>(preferences.selectedModules);
@@ -116,7 +118,7 @@ export function TabPreferencesScreen({ onDone, mode, onCancel }: TabPreferencesS
           <Pressable
             style={[
               styles.subToggle,
-              { backgroundColor: theme.card, borderColor: medication ? theme.coral.solid : theme.cardBorder, borderWidth: medication ? 2 : 1 },
+              { backgroundColor: cardBg, borderColor: medication ? theme.coral.solid : theme.cardBorder, borderWidth: medication ? 2 : 1 },
             ]}
             onPress={() => toggleHealthSub('medication')}
           >
@@ -125,7 +127,7 @@ export function TabPreferencesScreen({ onDone, mode, onCancel }: TabPreferencesS
           <Pressable
             style={[
               styles.subToggle,
-              { backgroundColor: theme.card, borderColor: cycle ? theme.coral.solid : theme.cardBorder, borderWidth: cycle ? 2 : 1 },
+              { backgroundColor: cardBg, borderColor: cycle ? theme.coral.solid : theme.cardBorder, borderWidth: cycle ? 2 : 1 },
             ]}
             onPress={() => toggleHealthSub('cycle')}
           >
@@ -144,7 +146,7 @@ export function TabPreferencesScreen({ onDone, mode, onCancel }: TabPreferencesS
       <View style={styles.actions}>
         {mode === 'settings' && onCancel && (
           <Pressable
-            style={[styles.cancelBtn, { borderColor: ink, backgroundColor: theme.card, shadowColor: "rgba(60,40,20,0.1)" }]}
+            style={[styles.cancelBtn, { borderColor: ink, backgroundColor: cardBg, shadowColor: "rgba(60,40,20,0.1)" }]}
             onPress={onCancel}
           >
             <Text style={[styles.cancelBtnText, { color: ink }]}>Cancel</Text>
