@@ -14,6 +14,7 @@ import { MealsScreen } from "../screens/MealsScreen";
 import { MedCycleScreen } from "../screens/MedCycleScreen";
 import { useTheme } from "../theme/ThemeContext";
 import { useFeatures } from "../context/FeaturesContext";
+import { useIsTablet } from "../hooks/useIsTablet";
 import { RootStackParamList } from "./types";
 
 const Tab = createBottomTabNavigator();
@@ -45,6 +46,7 @@ function CustomTabBar({ state, navigation, insets }: BottomTabBarProps) {
   const { theme, toggle, mode } = useTheme();
   const { medsEnabled, cycleEnabled } = useFeatures();
   const medCycleConfig = useMedCycleConfig(medsEnabled, cycleEnabled);
+  const isTablet = useIsTablet();
 
   const TAB_CONFIGS: Record<string, TabConfig> = {
     Health:   { icon: "heart",      tint: (t) => t.red.sub,   label: "Health" },
@@ -54,6 +56,94 @@ function CustomTabBar({ state, navigation, insets }: BottomTabBarProps) {
     Finance:  { icon: "wallet",     tint: (t) => t.brown.sub, label: "Finance" },
     MedCycle: medCycleConfig,
   };
+
+  const makeOnPress = (route: typeof state.routes[number], isFocused: boolean) => () => {
+    const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  if (isTablet) {
+    return (
+      <View
+        style={{
+          width: 80,
+          backgroundColor: theme.page,
+          borderRightWidth: 0.5,
+          borderRightColor: theme.cardBorder,
+          paddingTop: (insets.top || 0) + 16,
+          paddingBottom: (insets.bottom || 0) + 16,
+          alignItems: "center",
+          gap: 4,
+        }}
+      >
+        {state.routes.map((route, index) => {
+          const cfg = TAB_CONFIGS[route.name] ?? { icon: "ellipse" as const, tint: () => "#888", label: route.name };
+          const isFocused = state.index === index;
+          const isCenter = !!cfg.isCenter;
+          const onPress = makeOnPress(route, isFocused);
+
+          if (isCenter) {
+            return (
+              <Pressable
+                key={route.key}
+                onPress={onPress}
+                style={{ marginBottom: 8 }}
+              >
+                <View
+                  style={{
+                    width: CIRCLE_SIZE,
+                    height: CIRCLE_SIZE,
+                    borderRadius: CIRCLE_SIZE / 2,
+                    backgroundColor: isFocused ? theme.teal.bar : theme.teal.tint,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    elevation: isFocused ? 6 : 2,
+                    shadowColor: "#000",
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: isFocused ? 0.18 : 0.08,
+                    shadowRadius: 5,
+                  }}
+                >
+                  <Ionicons name="home" size={24} color="#ffffff" />
+                </View>
+              </Pressable>
+            );
+          }
+
+          const iconColor = isFocused ? cfg.tint(theme) : theme.textSoft;
+          return (
+            <Pressable
+              key={route.key}
+              onPress={onPress}
+              style={{
+                alignItems: "center",
+                paddingVertical: 8,
+                paddingHorizontal: 4,
+                borderRadius: 12,
+                backgroundColor: isFocused ? theme.teal.tint : "transparent",
+                width: 68,
+              }}
+            >
+              <Ionicons name={cfg.icon} size={22} color={iconColor} />
+              <Text
+                numberOfLines={1}
+                style={{ fontSize: 10, color: iconColor, marginTop: 3, fontFamily: fonts.medium, textAlign: "center" }}
+              >
+                {cfg.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={toggle}>
+          <Ionicons name={mode === "light" ? "moon" : "sunny"} size={18} color={theme.textSoft} />
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -73,13 +163,7 @@ function CustomTabBar({ state, navigation, insets }: BottomTabBarProps) {
         const isCenter = !!cfg.isCenter;
         const isLast = index === state.routes.length - 1;
         const iconColor = isCenter ? "#ffffff" : isFocused ? cfg.tint(theme) : theme.textSoft;
-
-        const onPress = () => {
-          const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
-          }
-        };
+        const onPress = makeOnPress(route, isFocused);
 
         return (
           <React.Fragment key={route.key}>
@@ -126,7 +210,6 @@ function CustomTabBar({ state, navigation, insets }: BottomTabBarProps) {
         );
       })}
 
-      {/* Dark-mode toggle lives in the top-right corner of the tab bar area */}
       <Pressable
         onPress={toggle}
         style={{ position: "absolute", right: 12, top: 8 }}
@@ -150,6 +233,7 @@ function SettingsHeaderButton() {
 export function RootTabs() {
   const { theme } = useTheme();
   const { medsEnabled, cycleEnabled, featuresLoaded } = useFeatures();
+  const isTablet = useIsTablet();
   const showMedCycle = featuresLoaded && (medsEnabled || cycleEnabled);
 
   const medCycleTitle = medsEnabled && cycleEnabled ? "Med / Cycle"
@@ -163,6 +247,7 @@ export function RootTabs() {
         headerStyle: { backgroundColor: theme.page },
         headerTitleStyle: { color: theme.textStrong },
         headerShadowVisible: false,
+        tabBarPosition: isTablet ? "left" : "bottom",
       }}
     >
       <Tab.Screen name="Health" component={HealthScreen} />
