@@ -272,7 +272,9 @@ async function syncTransactionsForItem(
     const res = await plaidClient.transactionsSync(req);
     const { added, modified, removed, next_cursor, has_more } = res.data;
 
-    // Upsert new and modified transactions into spending_entries
+    // Collect eligible upserts, then bulk-insert in chunks of 500
+    type TxRow = [string, number, string, string, string, string, string];
+    const toUpsert: TxRow[] = [];
     for (const tx of [...added, ...modified]) {
       // Skip transfers/income — these aren't expenses
       const primaryCategory = tx.personal_finance_category?.primary ?? "";
@@ -281,28 +283,39 @@ async function syncTransactionsForItem(
       }
       // Plaid: positive amount = money leaving the account (expense)
       if (tx.amount <= 0) continue;
+      toUpsert.push([
+        user_id,
+        tx.amount,
+        mapPlaidCategory(tx.personal_finance_category, tx.name),
+        tx.merchant_name ?? tx.name,
+        tx.name,
+        tx.transaction_id,
+        tx.date + "T00:00:00Z",
+      ]);
+    }
 
+    const CHUNK = 500;
+    for (let i = 0; i < toUpsert.length; i += CHUNK) {
+      const chunk = toUpsert.slice(i, i + CHUNK);
+      const params: any[] = [];
+      const valueClauses = chunk.map((row) => {
+        const base = params.length + 1;
+        params.push(...row);
+        return `($${base},$${base+1},$${base+2},$${base+3},$${base+4},'plaid',$${base+5},$${base+6})`;
+      });
       await query(
         `INSERT INTO spending_entries
            (user_id, amount, category, merchant_name, notes, source, plaid_transaction_id, logged_at)
-         VALUES ($1, $2, $3, $4, $5, 'plaid', $6, $7)
+         VALUES ${valueClauses.join(",")}
          ON CONFLICT (plaid_transaction_id) DO UPDATE SET
            amount        = EXCLUDED.amount,
            category      = EXCLUDED.category,
            merchant_name = EXCLUDED.merchant_name,
            notes         = EXCLUDED.notes`,
-        [
-          user_id,
-          tx.amount,
-          mapPlaidCategory(tx.personal_finance_category, tx.name),
-          tx.merchant_name ?? tx.name,
-          tx.name,
-          tx.transaction_id,
-          tx.date + "T00:00:00Z",
-        ]
+        params
       );
-      totalAdded++;
     }
+    totalAdded += toUpsert.length;
 
     // Remove transactions Plaid says were deleted/reversed
     for (const tx of removed) {

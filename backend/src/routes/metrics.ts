@@ -100,32 +100,48 @@ export default async function metricsRoutes(app: FastifyInstance) {
     );
 
     const thisWeekRows = await query<any>(
-      `SELECT
-         d::date AS date,
-         TRIM(TO_CHAR(d, 'Dy')) AS day_label,
-         CASE WHEN d::date > current_date THEN 0
-           ELSE COALESCE(
-             (SELECT ${aggFn}(value) FROM metric_logs WHERE metric_id = $1 AND logged_at::date = d::date),
-             0
-           )
-         END AS total,
-         (d::date = current_date) AS is_today,
-         (d::date > current_date) AS is_future
-       FROM generate_series($2::date, $2::date + INTERVAL '6 days', INTERVAL '1 day') AS d
-       ORDER BY d`,
+      `WITH day_series AS (
+         SELECT generate_series($2::date, $2::date + INTERVAL '6 days', INTERVAL '1 day')::date AS d
+       ),
+       day_agg AS (
+         SELECT logged_at::date AS d, ${aggFn}(value) AS total
+         FROM metric_logs
+         WHERE metric_id = $1
+           AND logged_at::date >= $2::date
+           AND logged_at::date <= $2::date + INTERVAL '6 days'
+         GROUP BY logged_at::date
+       )
+       SELECT
+         ds.d::date AS date,
+         TRIM(TO_CHAR(ds.d, 'Dy')) AS day_label,
+         CASE WHEN ds.d > current_date THEN 0 ELSE COALESCE(da.total, 0) END AS total,
+         (ds.d = current_date) AS is_today,
+         (ds.d > current_date) AS is_future
+       FROM day_series ds
+       LEFT JOIN day_agg da ON da.d = ds.d
+       ORDER BY ds.d`,
       [metricId, weekStart]
     );
 
     const lastWeekRows = await query<any>(
-      `SELECT
-         d::date AS date,
-         TRIM(TO_CHAR(d, 'Dy')) AS day_label,
-         COALESCE(
-           (SELECT ${aggFn}(value) FROM metric_logs WHERE metric_id = $1 AND logged_at::date = d::date),
-           0
-         ) AS total
-       FROM generate_series($2::date - INTERVAL '7 days', $2::date - INTERVAL '1 day', INTERVAL '1 day') AS d
-       ORDER BY d`,
+      `WITH day_series AS (
+         SELECT generate_series($2::date - INTERVAL '7 days', $2::date - INTERVAL '1 day', INTERVAL '1 day')::date AS d
+       ),
+       day_agg AS (
+         SELECT logged_at::date AS d, ${aggFn}(value) AS total
+         FROM metric_logs
+         WHERE metric_id = $1
+           AND logged_at::date >= $2::date - INTERVAL '7 days'
+           AND logged_at::date < $2::date
+         GROUP BY logged_at::date
+       )
+       SELECT
+         ds.d::date AS date,
+         TRIM(TO_CHAR(ds.d, 'Dy')) AS day_label,
+         COALESCE(da.total, 0) AS total
+       FROM day_series ds
+       LEFT JOIN day_agg da ON da.d = ds.d
+       ORDER BY ds.d`,
       [metricId, weekStart]
     );
 

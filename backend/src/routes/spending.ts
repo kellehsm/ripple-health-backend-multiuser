@@ -7,7 +7,7 @@ export default async function spendingRoutes(app: FastifyInstance) {
     const { since } = req.query as any;
     if (since) {
       return query(
-        `SELECT * FROM spending_entries WHERE user_id = $1 AND logged_at >= $2 ORDER BY logged_at DESC`,
+        `SELECT * FROM spending_entries WHERE user_id = $1 AND logged_at >= $2 ORDER BY logged_at DESC LIMIT 2000`,
         [user_id, since]
       );
     }

@@ -163,7 +163,7 @@ export default async function cycleRoutes(app: FastifyInstance) {
     const flowRows = await query<any>(
       `SELECT log_date::text FROM cycle_day_logs
        WHERE user_id = $1 AND flow_intensity != 'none' AND flow_intensity IS NOT NULL
-       ORDER BY log_date ASC`,
+       ORDER BY log_date ASC LIMIT 180`,
       [user_id]
     );
 
@@ -250,7 +250,7 @@ export default async function cycleRoutes(app: FastifyInstance) {
     const flowRows = await query<any>(
       `SELECT log_date::text FROM cycle_day_logs
        WHERE user_id = $1 AND flow_intensity != 'none' AND flow_intensity IS NOT NULL
-       ORDER BY log_date ASC`,
+       ORDER BY log_date ASC LIMIT 36`,
       [user_id]
     );
 
@@ -275,7 +275,7 @@ export default async function cycleRoutes(app: FastifyInstance) {
     const flowRows = await query<any>(
       `SELECT log_date::text FROM cycle_day_logs
        WHERE user_id = $1 AND flow_intensity != 'none' AND flow_intensity IS NOT NULL
-       ORDER BY log_date ASC`,
+       ORDER BY log_date ASC LIMIT 36`,
       [user_id]
     );
     const flowDays = flowRows.map((r: any) => r.log_date);

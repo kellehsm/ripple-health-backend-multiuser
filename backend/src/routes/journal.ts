@@ -59,30 +59,72 @@ export default async function journalRoutes(app: FastifyInstance) {
     const { days: daysStr } = req.query as any;
     const days = Math.min(Math.max(parseInt(daysStr ?? "7", 10) || 7, 7), 90);
     const rows = await query<any>(
-      `SELECT
-         d::date AS date,
-         (SELECT AVG(mood_score)
-          FROM journal_entries
-          WHERE user_id = $1 AND logged_at::date = d::date AND entry_type != 'moment') AS avg_mood,
-         (SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time))) / 3600.0, 0)
-          FROM sleep_sessions
-          WHERE user_id = $1 AND end_time::date = d::date) AS sleep_hours,
-         (SELECT COALESCE(SUM(amount), 0)
-          FROM spending_entries
-          WHERE user_id = $1 AND logged_at::date = d::date) AS total_spent,
-         (SELECT COALESCE(MAX(ml.value), 0)
-          FROM metric_logs ml
-          JOIN metrics m ON m.id = ml.metric_id
-          WHERE m.user_id = $1 AND m.name = 'steps' AND ml.logged_at::date = d::date) AS steps,
-         (SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60.0), 0)
-          FROM exercise_sessions
-          WHERE user_id = $1 AND ended_at IS NOT NULL AND started_at::date = d::date) AS exercise_minutes
-       FROM generate_series(
-         current_date - ($2 - 1) * interval '1 day',
-         current_date,
-         interval '1 day'
-       ) AS d
-       ORDER BY d`,
+      `WITH
+         date_series AS (
+           SELECT generate_series(
+             current_date - ($2 - 1) * interval '1 day',
+             current_date,
+             interval '1 day'
+           )::date AS day
+         ),
+         mood_agg AS (
+           SELECT logged_at::date AS day, AVG(mood_score) AS avg_mood
+           FROM journal_entries
+           WHERE user_id = $1
+             AND logged_at >= current_date - ($2 - 1) * interval '1 day'
+             AND logged_at < current_date + interval '1 day'
+             AND entry_type != 'moment'
+           GROUP BY logged_at::date
+         ),
+         sleep_agg AS (
+           SELECT end_time::date AS day,
+                  COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time))) / 3600.0, 0) AS sleep_hours
+           FROM sleep_sessions
+           WHERE user_id = $1
+             AND end_time >= current_date - ($2 - 1) * interval '1 day'
+             AND end_time < current_date + interval '1 day'
+           GROUP BY end_time::date
+         ),
+         spending_agg AS (
+           SELECT logged_at::date AS day, COALESCE(SUM(amount), 0) AS total_spent
+           FROM spending_entries
+           WHERE user_id = $1
+             AND logged_at >= current_date - ($2 - 1) * interval '1 day'
+             AND logged_at < current_date + interval '1 day'
+           GROUP BY logged_at::date
+         ),
+         steps_agg AS (
+           SELECT ml.logged_at::date AS day, COALESCE(MAX(ml.value), 0) AS steps
+           FROM metric_logs ml
+           JOIN metrics m ON m.id = ml.metric_id
+           WHERE m.user_id = $1 AND m.name = 'steps'
+             AND ml.logged_at >= current_date - ($2 - 1) * interval '1 day'
+             AND ml.logged_at < current_date + interval '1 day'
+           GROUP BY ml.logged_at::date
+         ),
+         exercise_agg AS (
+           SELECT started_at::date AS day,
+                  COALESCE(SUM(EXTRACT(EPOCH FROM (ended_at - started_at)) / 60.0), 0) AS exercise_minutes
+           FROM exercise_sessions
+           WHERE user_id = $1 AND ended_at IS NOT NULL
+             AND started_at >= current_date - ($2 - 1) * interval '1 day'
+             AND started_at < current_date + interval '1 day'
+           GROUP BY started_at::date
+         )
+       SELECT
+         ds.day AS date,
+         m.avg_mood,
+         COALESCE(sl.sleep_hours, 0) AS sleep_hours,
+         COALESCE(sp.total_spent, 0) AS total_spent,
+         COALESCE(st.steps, 0) AS steps,
+         COALESCE(ex.exercise_minutes, 0) AS exercise_minutes
+       FROM date_series ds
+       LEFT JOIN mood_agg m ON m.day = ds.day
+       LEFT JOIN sleep_agg sl ON sl.day = ds.day
+       LEFT JOIN spending_agg sp ON sp.day = ds.day
+       LEFT JOIN steps_agg st ON st.day = ds.day
+       LEFT JOIN exercise_agg ex ON ex.day = ds.day
+       ORDER BY ds.day`,
       [user_id, days]
     );
     return rows.map((r: any) => ({

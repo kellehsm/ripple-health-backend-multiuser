@@ -4,62 +4,77 @@ import { query } from "../db.js";
 // Only these categories are permitted — privacy boundary
 const ALLOWED_CATEGORIES = new Set(["steps", "exercise", "hobbies", "books"]);
 
-// Compute a user's progress for a given category scoped to a date range.
-// Returns a numeric value: steps sum, exercise count, hobbies sum, books count.
-async function computeProgress(
-  user_id: string,
+// Batch-compute progress for a list of {userId, challengeId} entries all sharing the
+// same category and date range. Returns a Map keyed by "challengeId:userId".
+async function computeProgressBatch(
+  entries: Array<{ userId: string; challengeId: string }>,
   category: string,
   start_date: string,
   end_date: string
-): Promise<number> {
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (entries.length === 0) return result;
+
+  const userIds = entries.map(e => e.userId);
+
+  let rows: Array<{ user_id: string; value: string }> = [];
+
   if (category === "steps") {
-    const rows = await query<any>(
-      `SELECT COALESCE(SUM(ml.value), 0)::numeric AS value
+    rows = await query<any>(
+      `SELECT m.user_id, COALESCE(SUM(ml.value), 0)::numeric AS value
        FROM metrics m
        JOIN metric_logs ml ON ml.metric_id = m.id
-       WHERE m.user_id = $1
+       WHERE m.user_id = ANY($1::uuid[])
          AND m.name = 'steps'
          AND ml.logged_at::date >= $2
-         AND ml.logged_at::date <= $3`,
-      [user_id, start_date, end_date]
+         AND ml.logged_at::date <= $3
+       GROUP BY m.user_id`,
+      [userIds, start_date, end_date]
     );
-    return Number(rows[0]?.value ?? 0);
-  }
-  if (category === "exercise") {
-    const rows = await query<any>(
-      `SELECT COUNT(*)::numeric AS value
+  } else if (category === "exercise") {
+    rows = await query<any>(
+      `SELECT user_id, COUNT(*)::numeric AS value
        FROM exercise_sessions
-       WHERE user_id = $1
+       WHERE user_id = ANY($1::uuid[])
          AND started_at::date >= $2
-         AND started_at::date <= $3`,
-      [user_id, start_date, end_date]
+         AND started_at::date <= $3
+       GROUP BY user_id`,
+      [userIds, start_date, end_date]
     );
-    return Number(rows[0]?.value ?? 0);
-  }
-  if (category === "hobbies") {
-    const rows = await query<any>(
-      `SELECT COALESCE(SUM(amount), 0)::numeric AS value
+  } else if (category === "hobbies") {
+    rows = await query<any>(
+      `SELECT user_id, COALESCE(SUM(amount), 0)::numeric AS value
        FROM hobby_logs
-       WHERE user_id = $1
+       WHERE user_id = ANY($1::uuid[])
          AND logged_at::date >= $2
-         AND logged_at::date <= $3`,
-      [user_id, start_date, end_date]
+         AND logged_at::date <= $3
+       GROUP BY user_id`,
+      [userIds, start_date, end_date]
     );
-    return Number(rows[0]?.value ?? 0);
-  }
-  if (category === "books") {
-    const rows = await query<any>(
-      `SELECT COUNT(*)::numeric AS value
+  } else if (category === "books") {
+    rows = await query<any>(
+      `SELECT user_id, COUNT(*)::numeric AS value
        FROM books
-       WHERE user_id = $1
+       WHERE user_id = ANY($1::uuid[])
          AND status = 'finished'
          AND finished_at >= $2
-         AND finished_at <= $3`,
-      [user_id, start_date, end_date]
+         AND finished_at <= $3
+       GROUP BY user_id`,
+      [userIds, start_date, end_date]
     );
-    return Number(rows[0]?.value ?? 0);
   }
-  return 0;
+
+  // Build a per-user value map
+  const valueByUser = new Map<string, number>();
+  for (const row of rows) {
+    valueByUser.set(row.user_id, Number(row.value));
+  }
+
+  // Map each entry to its result
+  for (const e of entries) {
+    result.set(`${e.challengeId}:${e.userId}`, valueByUser.get(e.userId) ?? 0);
+  }
+  return result;
 }
 
 export default async function challengesRoutes(app: FastifyInstance) {
@@ -81,22 +96,33 @@ export default async function challengesRoutes(app: FastifyInstance) {
       [me]
     );
 
-    // Attach my_progress for each challenge
-    const result = await Promise.all(
-      challenges.map(async (c: any) => {
-        const my_progress = await computeProgress(
-          me,
-          c.category,
-          c.start_date instanceof Date
-            ? c.start_date.toISOString().slice(0, 10)
-            : String(c.start_date).slice(0, 10),
-          c.end_date instanceof Date
-            ? c.end_date.toISOString().slice(0, 10)
-            : String(c.end_date).slice(0, 10)
-        );
-        return { ...c, my_progress };
-      })
-    );
+    // Attach my_progress for each challenge using a single batch query per unique
+    // category+date-range group, avoiding N per-challenge round trips.
+    // Group challenges by category+start+end so we can batch them together.
+    type ChalGroup = { category: string; start: string; end: string; ids: string[] };
+    const groups = new Map<string, ChalGroup>();
+    for (const c of challenges) {
+      const startStr = c.start_date instanceof Date ? c.start_date.toISOString().slice(0, 10) : String(c.start_date).slice(0, 10);
+      const endStr   = c.end_date   instanceof Date ? c.end_date.toISOString().slice(0, 10)   : String(c.end_date).slice(0, 10);
+      const key = `${c.category}|${startStr}|${endStr}`;
+      if (!groups.has(key)) groups.set(key, { category: c.category, start: startStr, end: endStr, ids: [] });
+      groups.get(key)!.ids.push(c.id);
+    }
+
+    // For each group, run one batch query (all challenges share same me user_id here)
+    const progressMap = new Map<string, number>();
+    for (const g of groups.values()) {
+      const entries = g.ids.map(id => ({ userId: me, challengeId: id }));
+      const batchResult = await computeProgressBatch(entries, g.category, g.start, g.end);
+      for (const [k, v] of batchResult) progressMap.set(k, v);
+    }
+
+    const result = challenges.map((c: any) => {
+      const startStr = c.start_date instanceof Date ? c.start_date.toISOString().slice(0, 10) : String(c.start_date).slice(0, 10);
+      const endStr   = c.end_date   instanceof Date ? c.end_date.toISOString().slice(0, 10)   : String(c.end_date).slice(0, 10);
+      const my_progress = progressMap.get(`${c.id}:${me}`) ?? 0;
+      return { ...c, start_date: startStr, end_date: endStr, my_progress };
+    });
 
     return result;
   });
@@ -204,21 +230,19 @@ export default async function challengesRoutes(app: FastifyInstance) {
       [id]
     );
 
-    // Compute progress for each participant
-    const participantsWithProgress = await Promise.all(
-      participants.map(async (p: any) => {
-        const progress = await computeProgress(p.user_id, challenge.category, startStr, endStr);
-        return {
-          user_id: p.user_id,
-          display_name: p.username ?? p.email,
-          email: p.email,
-          username: p.username,
-          joined_at: p.joined_at,
-          progress,
-          is_me: p.user_id === me,
-        };
-      })
-    );
+    // Compute progress for all participants in one batch query
+    const batchEntries = participants.map((p: any) => ({ userId: p.user_id, challengeId: challenge.id }));
+    const batchProgress = await computeProgressBatch(batchEntries, challenge.category, startStr, endStr);
+
+    const participantsWithProgress = participants.map((p: any) => ({
+      user_id: p.user_id,
+      display_name: p.username ?? p.email,
+      email: p.email,
+      username: p.username,
+      joined_at: p.joined_at,
+      progress: batchProgress.get(`${challenge.id}:${p.user_id}`) ?? 0,
+      is_me: p.user_id === me,
+    }));
 
     return {
       id: challenge.id,

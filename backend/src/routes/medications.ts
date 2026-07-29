@@ -490,7 +490,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       `SELECT mh.id, mh.change_type, mh.old_value, mh.new_value, mh.reason, mh.changed_by, mh.changed_at
        FROM medication_history mh JOIN medications m ON m.id = mh.medication_id
        WHERE mh.medication_id = $1 AND m.user_id = $2
-       ORDER BY mh.changed_at DESC`,
+       ORDER BY mh.changed_at DESC LIMIT 200`,
       [id, user_id]
     );
   });
@@ -516,49 +516,69 @@ export default async function medicationsRoutes(app: FastifyInstance) {
 
     await ensureDefaultCategories(user_id);
 
-    let imported = 0;
+    // Pre-fetch ALL existing prescribers for this user once, to avoid N per-row lookups
+    const existingPrescribers = await query<any>(
+      `SELECT id, lower(name) AS name_lower FROM medication_prescribers WHERE user_id = $1`,
+      [user_id]
+    );
+    const prescriberMap = new Map<string, string>(); // lower(name) → id
+    for (const p of existingPrescribers) {
+      prescriberMap.set(p.name_lower, p.id);
+    }
+
+    // Parse all valid rows first
+    type ParsedRow = {
+      name: string;
+      dosage: string | null;
+      notes: string | null;
+      prescrName: string;
+      slots: Array<{ time_of_day: string; specific_time: string | null }>;
+    };
+    const parsed: ParsedRow[] = [];
     for (const row of rows as Record<string, string>[]) {
       const name = (row[mapping.name ?? ""] ?? "").trim();
       if (!name) continue;
+      parsed.push({
+        name,
+        dosage:    (row[mapping.dosage     ?? ""] ?? "").trim() || null,
+        notes:     (row[mapping.notes      ?? ""] ?? "").trim() || null,
+        prescrName:(row[mapping.prescriber ?? ""] ?? "").trim(),
+        slots:     normalizeSchedule((row[mapping.schedule ?? ""] ?? "").trim()),
+      });
+    }
 
-      const dosage     = (row[mapping.dosage     ?? ""] ?? "").trim() || null;
-      const schedStr   = (row[mapping.schedule   ?? ""] ?? "").trim();
-      const prescrName = (row[mapping.prescriber ?? ""] ?? "").trim();
-      const notes      = (row[mapping.notes      ?? ""] ?? "").trim() || null;
-
-      // Resolve or create prescriber
-      let prescriber_id: string | null = null;
-      if (prescrName) {
-        const existing = await query<any>(
-          `SELECT id FROM medication_prescribers WHERE user_id = $1 AND lower(name) = lower($2) LIMIT 1`,
-          [user_id, prescrName]
+    // Resolve prescribers: create any that don't exist yet (insert on first encounter)
+    for (const r of parsed) {
+      if (!r.prescrName) continue;
+      const key = r.prescrName.toLowerCase();
+      if (!prescriberMap.has(key)) {
+        const [p] = await query<any>(
+          `INSERT INTO medication_prescribers (user_id, name) VALUES ($1, $2) RETURNING id`,
+          [user_id, r.prescrName]
         );
-        if (existing[0]) {
-          prescriber_id = existing[0].id;
-        } else {
-          const [p] = await query<any>(
-            `INSERT INTO medication_prescribers (user_id, name) VALUES ($1, $2) RETURNING id`,
-            [user_id, prescrName]
-          );
-          prescriber_id = p.id;
-        }
+        prescriberMap.set(key, p.id);
       }
+    }
+
+    // Insert medications one-by-one (we need the returned ID for slots and history)
+    let imported = 0;
+    for (const r of parsed) {
+      const prescriber_id = r.prescrName ? (prescriberMap.get(r.prescrName.toLowerCase()) ?? null) : null;
 
       const [med] = await query<any>(
         `INSERT INTO medications (user_id, name, dosage, notes, prescriber_id)
          VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [user_id, name, dosage, notes, prescriber_id]
+        [user_id, r.name, r.dosage, r.notes, prescriber_id]
       );
 
-      const slots = normalizeSchedule(schedStr);
-      if (slots.length > 0) {
-        await insertSlots(med.id, slots);
+      if (r.slots.length > 0) {
+        await insertSlots(med.id, r.slots);
       }
 
       await query(
         `INSERT INTO medication_history (medication_id, change_type, new_value)
          VALUES ($1, 'added', $2)`,
-        [med.id, name]
+        [med.id, r.name]
       );
 
       imported++;

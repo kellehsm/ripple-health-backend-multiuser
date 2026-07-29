@@ -107,88 +107,125 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
     const backup: any = await fileRes.json();
 
     const counts: Record<string, number> = {};
+    const CHUNK = 500;
 
-    async function ins(sql: string, vals: any[]): Promise<number> {
-      const result = await query<any>(sql, vals);
-      return (result as any).rowCount ?? 0;
+    // Bulk-insert helper: chunks rows into groups of CHUNK and builds multi-row VALUES.
+    // Returns total inserted count. Rows that conflict are silently skipped (DO NOTHING).
+    async function bulkInsert(
+      tableName: string,
+      cols: string[],
+      rows: any[],
+      rowMapper: (r: any) => any[]
+    ): Promise<number> {
+      if (rows.length === 0) return 0;
+      let total = 0;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const params: any[] = [];
+        const valueClauses = chunk.map((r) => {
+          const vals = rowMapper(r);
+          const start = params.length + 1;
+          params.push(...vals);
+          return `(${vals.map((_, j) => `$${start + j}`).join(",")})`;
+        });
+        try {
+          const res = await query<any>(
+            `INSERT INTO ${tableName} (${cols.join(",")}) VALUES ${valueClauses.join(",")} ON CONFLICT (id) DO NOTHING`,
+            params
+          );
+          total += (res as any).rowCount ?? 0;
+        } catch (_) {}
+      }
+      return total;
     }
 
     // glucose_readings
-    let n = 0;
-    for (const r of backup.glucose ?? []) {
-      try { n += await ins(`INSERT INTO glucose_readings (id,user_id,recorded_at,mg_dl,trend,source) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.recorded_at, r.mg_dl, r.trend, r.source ?? "dexcom"]); } catch (_) {}
-    }
-    counts.glucose_readings = n;
+    counts.glucose_readings = await bulkInsert(
+      "glucose_readings",
+      ["id","user_id","recorded_at","mg_dl","trend","source"],
+      backup.glucose ?? [],
+      (r) => [r.id, user_id, r.recorded_at, r.mg_dl, r.trend, r.source ?? "dexcom"]
+    );
 
     // meals
-    n = 0;
-    for (const r of backup.meals ?? []) {
-      try { n += await ins(`INSERT INTO meals (id,user_id,logged_at,name,meal_type,carbs_g,sugar_g,calories,source_db,source_food_id,context) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.logged_at, r.name, r.meal_type, r.carbs_g, r.sugar_g, r.calories, r.source_db, r.source_food_id, r.context ?? null]); } catch (_) {}
-    }
-    counts.meals = n;
+    counts.meals = await bulkInsert(
+      "meals",
+      ["id","user_id","logged_at","name","meal_type","carbs_g","sugar_g","calories","source_db","source_food_id","context"],
+      backup.meals ?? [],
+      (r) => [r.id, user_id, r.logged_at, r.name, r.meal_type, r.carbs_g, r.sugar_g, r.calories, r.source_db, r.source_food_id, r.context ?? null]
+    );
 
     // journal_entries
-    n = 0;
-    for (const r of backup.journal ?? []) {
-      try { n += await ins(`INSERT INTO journal_entries (id,user_id,logged_at,mood_score,entry_text,context) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.logged_at, r.mood_score, r.entry_text, r.context ?? null]); } catch (_) {}
-    }
-    counts.journal_entries = n;
+    counts.journal_entries = await bulkInsert(
+      "journal_entries",
+      ["id","user_id","logged_at","mood_score","entry_text","context"],
+      backup.journal ?? [],
+      (r) => [r.id, user_id, r.logged_at, r.mood_score, r.entry_text, r.context ?? null]
+    );
 
     // spending_entries
-    n = 0;
-    for (const r of backup.spending ?? []) {
-      try { n += await ins(`INSERT INTO spending_entries (id,user_id,logged_at,amount,category,source) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.logged_at, r.amount, r.category, r.source ?? "manual"]); } catch (_) {}
-    }
-    counts.spending_entries = n;
+    counts.spending_entries = await bulkInsert(
+      "spending_entries",
+      ["id","user_id","logged_at","amount","category","source"],
+      backup.spending ?? [],
+      (r) => [r.id, user_id, r.logged_at, r.amount, r.category, r.source ?? "manual"]
+    );
 
     // books
-    n = 0;
-    for (const r of backup.books ?? []) {
-      try { n += await ins(`INSERT INTO books (id,user_id,title,author,cover_url,total_pages,status,rating,started_at,finished_at,total_chapters,current_chapter) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.title, r.author, r.cover_url, r.total_pages, r.status, r.rating, r.started_at, r.finished_at, r.total_chapters, r.current_chapter]); } catch (_) {}
-    }
-    counts.books = n;
+    counts.books = await bulkInsert(
+      "books",
+      ["id","user_id","title","author","cover_url","total_pages","status","rating","started_at","finished_at","total_chapters","current_chapter"],
+      backup.books ?? [],
+      (r) => [r.id, user_id, r.title, r.author, r.cover_url, r.total_pages, r.status, r.rating, r.started_at, r.finished_at, r.total_chapters, r.current_chapter]
+    );
 
     // hobbies (must come before hobby_logs so FK references resolve)
-    n = 0;
-    for (const r of backup.hobbies ?? []) {
-      try { n += await ins(`INSERT INTO hobbies (id,user_id,name,unit_label,icon,color_key) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.name, r.unit_label, r.icon, r.color_key]); } catch (_) {}
-    }
-    counts.hobbies = n;
+    counts.hobbies = await bulkInsert(
+      "hobbies",
+      ["id","user_id","name","unit_label","icon","color_key"],
+      backup.hobbies ?? [],
+      (r) => [r.id, user_id, r.name, r.unit_label, r.icon, r.color_key]
+    );
 
     // hobby_logs (hobby_id references hobbies.id which we just restored)
-    n = 0;
-    for (const r of backup.hobby_logs ?? []) {
-      try { n += await ins(`INSERT INTO hobby_logs (id,hobby_id,logged_at,amount,rating,note) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`, [r.id, r.hobby_id, r.logged_at, r.amount, r.rating, r.note]); } catch (_) {}
-    }
-    counts.hobby_logs = n;
+    counts.hobby_logs = await bulkInsert(
+      "hobby_logs",
+      ["id","hobby_id","logged_at","amount","rating","note"],
+      backup.hobby_logs ?? [],
+      (r) => [r.id, r.hobby_id, r.logged_at, r.amount, r.rating, r.note]
+    );
 
     // sleep_sessions
-    n = 0;
-    for (const r of backup.sleep_sessions ?? []) {
-      try { n += await ins(`INSERT INTO sleep_sessions (id,user_id,start_time,end_time,quality_score,source) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.start_time, r.end_time, r.quality_score, r.source ?? "health_connect"]); } catch (_) {}
-    }
-    counts.sleep_sessions = n;
+    counts.sleep_sessions = await bulkInsert(
+      "sleep_sessions",
+      ["id","user_id","start_time","end_time","quality_score","source"],
+      backup.sleep_sessions ?? [],
+      (r) => [r.id, user_id, r.start_time, r.end_time, r.quality_score, r.source ?? "health_connect"]
+    );
 
     // heart_rate_readings
-    n = 0;
-    for (const r of backup.heart_rate ?? []) {
-      try { n += await ins(`INSERT INTO heart_rate_readings (id,user_id,recorded_at,bpm,source) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.recorded_at, r.bpm, r.source ?? "health_connect"]); } catch (_) {}
-    }
-    counts.heart_rate_readings = n;
+    counts.heart_rate_readings = await bulkInsert(
+      "heart_rate_readings",
+      ["id","user_id","recorded_at","bpm","source"],
+      backup.heart_rate ?? [],
+      (r) => [r.id, user_id, r.recorded_at, r.bpm, r.source ?? "health_connect"]
+    );
 
     // metrics (must come before metric_logs)
-    n = 0;
-    for (const r of backup.metrics ?? []) {
-      try { n += await ins(`INSERT INTO metrics (id,user_id,name,value_type,unit,icon,color_key) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`, [r.id, user_id, r.name, r.value_type, r.unit, r.icon, r.color_key]); } catch (_) {}
-    }
-    counts.metrics = n;
+    counts.metrics = await bulkInsert(
+      "metrics",
+      ["id","user_id","name","value_type","unit","icon","color_key"],
+      backup.metrics ?? [],
+      (r) => [r.id, user_id, r.name, r.value_type, r.unit, r.icon, r.color_key]
+    );
 
     // metric_logs (metric_id references metrics.id which we just restored)
-    n = 0;
-    for (const r of backup.metric_logs ?? []) {
-      try { n += await ins(`INSERT INTO metric_logs (id,metric_id,logged_at,value,note) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (id) DO NOTHING`, [r.id, r.metric_id, r.logged_at, r.value, r.note]); } catch (_) {}
-    }
-    counts.metric_logs = n;
+    counts.metric_logs = await bulkInsert(
+      "metric_logs",
+      ["id","metric_id","logged_at","value","note"],
+      backup.metric_logs ?? [],
+      (r) => [r.id, r.metric_id, r.logged_at, r.value, r.note]
+    );
 
     return { ok: true, counts };
   });
