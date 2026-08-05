@@ -64,11 +64,11 @@ export default async function booksRoutes(app: FastifyInstance) {
 
   app.post("/", async (req) => {
     const user_id = req.user_id;
-    const { title, author, cover_url, total_pages, total_chapters } = req.body as any;
+    const { title, author, cover_url, total_pages, total_chapters, hardcover_id } = req.body as any;
     const rows = await query(
-      `INSERT INTO books (user_id, title, author, cover_url, total_pages, total_chapters, started_at)
-       VALUES ($1,$2,$3,$4,$5,$6, current_date) RETURNING *`,
-      [user_id, title, author, cover_url, total_pages, total_chapters ?? null]
+      `INSERT INTO books (user_id, title, author, cover_url, total_pages, total_chapters, hardcover_id, started_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7, current_date) RETURNING *`,
+      [user_id, title, author, cover_url, total_pages, total_chapters ?? null, hardcover_id ?? null]
     );
     return rows[0];
   });

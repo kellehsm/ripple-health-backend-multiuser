@@ -46,11 +46,13 @@ import plaidRoutes from "./routes/plaid.js";
 import friendsRoutes from "./routes/friends.js";
 import challengesRoutes from "./routes/challenges.js";
 import socialNotificationsRoutes from "./routes/social-notifications.js";
+import hardcoverRoutes from "./routes/hardcover.js";
 import { requireAuth } from "./middleware/auth.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
 import { runInsightsJob } from "./jobs/insightsJob.js";
 import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
+import { runHardcoverSyncJob } from "./jobs/hardcover-sync.js";
 import cron from "node-cron";
 import { query } from "./db.js";
 import { estYesterday } from "./lib/estDate.js";
@@ -123,6 +125,7 @@ async function main() {
   await app.register(friendsRoutes, { prefix: "/api/friends" });
   await app.register(challengesRoutes, { prefix: "/api/challenges" });
   await app.register(socialNotificationsRoutes, { prefix: "/api/social-notifications" });
+  await app.register(hardcoverRoutes, { prefix: "/api/hardcover" });
 
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
@@ -205,6 +208,10 @@ async function main() {
     });
     app.log.info("Nightly Google Drive backup scheduled at 2:00 AM");
   }
+
+  // Hardcover two-way sync — every 4 hours for all connected users
+  cron.schedule("0 */4 * * *", () => void runHardcoverSyncJob(app.log));
+  app.log.info("Hardcover sync scheduled (every 4 hours)");
 }
 
 main().catch((err) => {

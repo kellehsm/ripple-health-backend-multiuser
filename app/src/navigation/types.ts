@@ -5,6 +5,7 @@ export type RootStackParamList = {
   SettingsAppearance: undefined;
   SettingsNotifications: undefined;
   SettingsIntegrations: undefined;
+  SettingsHardcover: undefined;
   SettingsDataBackup: undefined;
   SettingsPrivacySecurity: undefined;
   SettingsHelpAbout: undefined;

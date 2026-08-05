@@ -11,6 +11,11 @@ export default async function settingsRoutes(app: FastifyInstance) {
       const { share_password, ...rest } = settings.dexcom;
       settings.dexcom = { ...rest, share_password_set: !!share_password };
     }
+    // Mask Hardcover token: return a boolean instead of the value
+    if (settings.hardcover) {
+      const { api_token, ...rest } = settings.hardcover;
+      settings.hardcover = { ...rest, token_set: !!api_token };
+    }
     return settings;
   });
 

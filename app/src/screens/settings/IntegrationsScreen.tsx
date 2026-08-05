@@ -1,9 +1,16 @@
-import React from "react";
+import React, { useCallback, useState } from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/core";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useTheme } from "../../theme/ThemeContext";
 import { useCardBg } from "../../theme/AppSettingsContext";
 import { fonts } from "../../theme/typography";
+import { RootStackParamList } from "../../navigation/types";
+import { api } from "../../api/client";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 function IntegrationRow({
   label,
@@ -47,7 +54,7 @@ function IntegrationRow({
         <Text style={[styles.rowSub, { color: theme.textSoft }]}>{subtitle}</Text>
       </View>
       <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
-      <Ionicons name="chevron-forward" size={14} color={theme.textSoft} />
+      {onPress && <Ionicons name="chevron-forward" size={14} color={theme.textSoft} />}
     </Pressable>
   );
 }
@@ -55,6 +62,14 @@ function IntegrationRow({
 export function IntegrationsScreen() {
   const { theme } = useTheme();
   const cardBg = useCardBg();
+  const navigation = useNavigation<Nav>();
+  const [hardcoverConnected, setHardcoverConnected] = useState(false);
+
+  useFocusEffect(useCallback(() => {
+    api.hardcoverStatus()
+      .then((s) => setHardcoverConnected(s.connected))
+      .catch(() => {});
+  }, []));
 
   return (
     <ScrollView
@@ -66,7 +81,7 @@ export function IntegrationsScreen() {
           Connected services
         </Text>
         <Text style={[styles.note, { color: theme.textSoft }]}>
-          Tap a service to configure or reconnect.
+          Tap a service to configure or reconnect. All integrations are optional.
         </Text>
       </View>
 
@@ -93,6 +108,13 @@ export function IntegrationsScreen() {
         subtitle="Financial data sync"
         icon="wallet-outline"
         status="not_set_up"
+      />
+      <IntegrationRow
+        label="Hardcover"
+        subtitle="Reading progress sync · optional"
+        icon="book-outline"
+        status={hardcoverConnected ? "connected" : "not_set_up"}
+        onPress={() => navigation.navigate("SettingsHardcover")}
       />
     </ScrollView>
   );

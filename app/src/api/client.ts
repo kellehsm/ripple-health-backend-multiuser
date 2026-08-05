@@ -48,4 +48,13 @@ export const api = {
   getSettings: () => request(`/settings`),
   updateSettings: (patch: Record<string, unknown>) =>
     request(`/settings`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  hardcoverStatus: (): Promise<{ connected: boolean; last_synced_at: string | null }> =>
+    request(`/hardcover/status`),
+  hardcoverConnect: (api_token: string): Promise<{ ok: boolean; username: string }> =>
+    request(`/hardcover/connect`, { method: "POST", body: JSON.stringify({ api_token }) }),
+  hardcoverDisconnect: (): Promise<{ ok: boolean }> =>
+    request(`/hardcover/disconnect`, { method: "DELETE" }),
+  hardcoverSync: (): Promise<{ books_checked: number; pushed: number; pulled: number; errors: number }> =>
+    request(`/hardcover/sync`, { method: "POST" }),
 };
