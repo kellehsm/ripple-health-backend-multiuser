@@ -66,8 +66,8 @@ export function IntegrationsScreen() {
   const [hardcoverConnected, setHardcoverConnected] = useState(false);
 
   useFocusEffect(useCallback(() => {
-    api.hardcoverStatus()
-      .then((s) => setHardcoverConnected(s.connected))
+    api.getSettings()
+      .then((s: any) => setHardcoverConnected(!!s?.hardcover?.token_set))
       .catch(() => {});
   }, []));
 

@@ -23,10 +23,10 @@ export function HardcoverSettingsScreen() {
 
   useFocusEffect(useCallback(() => {
     setLoading(true);
-    api.hardcoverStatus()
-      .then((s) => {
-        setConnected(s.connected);
-        setLastSynced(s.last_synced_at ?? null);
+    api.getSettings()
+      .then((s: any) => {
+        setConnected(!!s?.hardcover?.token_set);
+        setLastSynced(s?.hardcover?.last_synced_at ?? null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
