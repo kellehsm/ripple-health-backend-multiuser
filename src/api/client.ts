@@ -180,6 +180,9 @@ export const api = {
   },
 
   // ── Food ──────────────────────────────────────────────────────────────────
+  getPassioKey: function (): Promise<{ key?: string; error?: string }> {
+    return request("/food/passio-key");
+  },
   searchFood: function (q: string) {
     return request("/food/search?q=" + encodeURIComponent(q));
   },

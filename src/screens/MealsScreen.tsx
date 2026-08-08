@@ -30,6 +30,7 @@ import { api } from "../api/client";
 import { Swipeable } from "react-native-gesture-handler";
 import { SPACING, RADIUS } from "../theme/tokens";
 import { BarcodeScannerModal } from "../components/BarcodeScannerModal";
+import { PhotoScannerModal } from "../components/PhotoScannerModal";
 import { invalidateBarcodeCache } from "../utils/barcodeCache";
 import { RecipeBuilderModal, Recipe } from "../components/RecipeBuilderModal";
 import { toast, Msg } from "../lib/toast";
@@ -753,6 +754,7 @@ export function MealsScreen() {
 
   const [scannerVisible, setScannerVisible] = useState(false);
   const [subScannerVisible, setSubScannerVisible] = useState(false);
+  const [photoScannerVisible, setPhotoScannerVisible] = useState(false);
   const [pendingFood, setPendingFood] = useState<PendingFood | null>(null);
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
   const [frequentMeals, setFrequentMeals] = useState<FrequentMeal[]>([]);
@@ -1484,13 +1486,20 @@ export function MealsScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.belowSearchRow}>
+        <View style={[styles.belowSearchRow, { flexWrap: "wrap" }]}>
           <Pressable
             onPress={function () { setScannerVisible(true); }}
             style={styles.secondaryBtn}
           >
             <Ionicons name="barcode-outline" size={15} color={ink} />
             <Text style={styles.secondaryBtnText}>SCAN BARCODE</Text>
+          </Pressable>
+          <Pressable
+            onPress={function () { setPhotoScannerVisible(true); }}
+            style={styles.secondaryBtn}
+          >
+            <Ionicons name="camera-outline" size={15} color={ink} />
+            <Text style={styles.secondaryBtnText}>SCAN A PHOTO</Text>
           </Pressable>
           <Pressable
             onPress={function () {
@@ -1829,6 +1838,11 @@ export function MealsScreen() {
         onManual={function () {
           setPendingSub({ name: "", substance_type: "alcohol", caffeine_mg: null, abv_percent: null, volume_ml: null, source_db: "manual" });
         }}
+      />
+      <PhotoScannerModal
+        visible={photoScannerVisible}
+        onClose={function () { setPhotoScannerVisible(false); }}
+        onResult={function (food) { handleSelectFood(food); }}
       />
       <RecipeBuilderModal
         visible={showRecipeBuilder}

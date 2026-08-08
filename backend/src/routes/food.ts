@@ -2,6 +2,13 @@ import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 
 export default async function foodRoutes(app: FastifyInstance) {
+  // ── Passio API key (served to authenticated app clients) ───────────────────
+  app.get("/passio-key", async () => {
+    const key = process.env.PASSIO_API_KEY;
+    if (!key) return { error: "PASSIO_API_KEY not configured" };
+    return { key };
+  });
+
   // ── Text search (USDA Foundation + SR Legacy) ──────────────────────────────
 
   app.get("/search", async (req) => {
