@@ -121,24 +121,38 @@ export async function syncHealthData(): Promise<SyncResult> {
     errors.push("Sleep: " + (e?.message ?? "unknown error"));
   }
 
-  // Heart rate
+  // Heart rate — read a rolling 7-day window so Samsung Health's delayed
+  // backfill (records tagged with older timestamps) still gets picked up.
+  // Backend dedupes via ON CONFLICT (user_id, recorded_at).
   try {
-    const result = await readRecords("HeartRate", {
-      timeRangeFilter: {
-        operator: "between",
-        startTime: startOfDay.toISOString(),
-        endTime: now.toISOString(),
-      },
-    });
-    const readings = (result.records as any[]).flatMap((r) =>
-      (r.samples ?? []).map((s: any) => ({
-        recorded_at: s.time,
-        bpm: s.beatsPerMinute,
-      }))
-    );
+    const hrWindowStart = new Date(now);
+    hrWindowStart.setDate(hrWindowStart.getDate() - 7);
+    const readings: Array<{ recorded_at: string; bpm: number }> = [];
+    let recordCount = 0;
+    let pageToken: string | undefined;
+    do {
+      const result: any = await readRecords("HeartRate", {
+        timeRangeFilter: {
+          operator: "between",
+          startTime: hrWindowStart.toISOString(),
+          endTime: now.toISOString(),
+        },
+        pageToken,
+      } as any);
+      recordCount += (result.records as any[]).length;
+      for (const r of result.records as any[]) {
+        for (const s of r.samples ?? []) {
+          readings.push({ recorded_at: s.time, bpm: s.beatsPerMinute });
+        }
+      }
+      pageToken = result.pageToken;
+    } while (pageToken);
+
     if (readings.length > 0) {
       await api.syncHeartRate(readings);
       heartRate = readings[readings.length - 1].bpm;
+    } else {
+      errors.push(`Heart rate: 0 samples in last 7d (${recordCount} records)`);
     }
   } catch (e: any) {
     errors.push("Heart rate: " + (e?.message ?? "unknown error"));
