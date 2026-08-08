@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const AlcoholVsMoodRule: InsightRule = {
   id: "alcohol_vs_mood",
@@ -15,7 +16,7 @@ export const AlcoholVsMoodRule: InsightRule = {
          FROM substance_logs
          WHERE user_id = $1
            AND substance_type = 'alcohol'
-           AND logged_at >= CURRENT_DATE - 61
+           AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS + 1}
        ),
        mood_days AS (
          SELECT
@@ -23,7 +24,7 @@ export const AlcoholVsMoodRule: InsightRule = {
            (summary_data->'mood'->>'averageScore')::numeric AS avg_mood
          FROM daily_summaries
          WHERE user_id = $1
-           AND date >= CURRENT_DATE - 60
+           AND date >= CURRENT_DATE - ${LOOKBACK_DAYS}
            AND summary_data->'mood'->>'averageScore' IS NOT NULL
        )
        SELECT
@@ -43,8 +44,8 @@ export const AlcoholVsMoodRule: InsightRule = {
 
     if (afterAlcoholDays.length < 4 || afterNoAlcoholDays.length < 8) return null;
 
-    const avgMoodAfterAlcohol = afterAlcoholDays.reduce((s, r) => s + Number(r.avg_mood), 0) / afterAlcoholDays.length;
-    const avgMoodAfterNone = afterNoAlcoholDays.reduce((s, r) => s + Number(r.avg_mood), 0) / afterNoAlcoholDays.length;
+    const avgMoodAfterAlcohol = avgOf(afterAlcoholDays,   r => Number(r.avg_mood));
+    const avgMoodAfterNone    = avgOf(afterNoAlcoholDays, r => Number(r.avg_mood));
 
     const diff = avgMoodAfterAlcohol - avgMoodAfterNone;
     if (Math.abs(diff) < 0.2) return null;

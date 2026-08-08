@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS } from "./ruleHelper.js";
 
 export const MoodVariabilityRule: InsightRule = {
   id: "mood_variability",
@@ -11,7 +12,7 @@ export const MoodVariabilityRule: InsightRule = {
       `SELECT (summary_data->'mood'->>'averageScore')::numeric AS avg_mood
        FROM daily_summaries
        WHERE user_id = $1
-         AND date >= CURRENT_DATE - 60
+         AND date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND summary_data->'mood'->>'averageScore' IS NOT NULL
        ORDER BY date DESC`,
       [userId]

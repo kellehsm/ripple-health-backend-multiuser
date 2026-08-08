@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const StepsVsMoodRule: InsightRule = {
   id: "steps_vs_mood",
@@ -14,7 +15,7 @@ export const StepsVsMoodRule: InsightRule = {
          (summary_data->'mood'->>'averageScore')::numeric AS avg_mood
        FROM daily_summaries
        WHERE user_id = $1
-         AND date >= CURRENT_DATE - 60
+         AND date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND summary_data->'activity'->>'steps' IS NOT NULL
          AND (summary_data->'activity'->>'steps')::numeric > 0
          AND summary_data->'mood'->>'averageScore' IS NOT NULL
@@ -31,8 +32,8 @@ export const StepsVsMoodRule: InsightRule = {
 
     if (lowStepDays.length < 6 || highStepDays.length < 6) return null;
 
-    const avgMoodHigh = highStepDays.reduce((s, r) => s + Number(r.avg_mood), 0) / highStepDays.length;
-    const avgMoodLow  = lowStepDays.reduce((s, r) => s + Number(r.avg_mood), 0) / lowStepDays.length;
+    const avgMoodHigh = avgOf(highStepDays, r => Number(r.avg_mood));
+    const avgMoodLow  = avgOf(lowStepDays,  r => Number(r.avg_mood));
 
     const diff = avgMoodHigh - avgMoodLow;
     if (Math.abs(diff) < 0.15) return null;
@@ -45,8 +46,8 @@ export const StepsVsMoodRule: InsightRule = {
 
     const direction = diff > 0 ? "higher" : "lower";
 
-    const avgStepsHigh = highStepDays.reduce((s, r) => s + Number(r.steps), 0) / highStepDays.length;
-    const avgStepsLow  = lowStepDays.reduce((s, r) => s + Number(r.steps), 0) / lowStepDays.length;
+    const avgStepsHigh = avgOf(highStepDays, r => Number(r.steps));
+    const avgStepsLow  = avgOf(lowStepDays,  r => Number(r.steps));
 
     return {
       title: `Mood tends to be ${direction} on high-step days`,

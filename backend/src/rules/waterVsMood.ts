@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const WaterVsMoodRule: InsightRule = {
   id: "water_vs_mood",
@@ -14,7 +15,7 @@ export const WaterVsMoodRule: InsightRule = {
          (summary_data->'mood'->>'averageScore')::numeric AS avg_mood
        FROM daily_summaries
        WHERE user_id = $1
-         AND date >= CURRENT_DATE - 60
+         AND date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND summary_data->'hydration'->>'glasses' IS NOT NULL
          AND (summary_data->'hydration'->>'glasses')::numeric > 0
          AND summary_data->'mood'->>'averageScore' IS NOT NULL
@@ -31,8 +32,8 @@ export const WaterVsMoodRule: InsightRule = {
 
     if (lowHydrationDays.length < 5 || highHydrationDays.length < 5) return null;
 
-    const avgMoodHigh = highHydrationDays.reduce((s, r) => s + Number(r.avg_mood), 0) / highHydrationDays.length;
-    const avgMoodLow  = lowHydrationDays.reduce((s, r) => s + Number(r.avg_mood), 0) / lowHydrationDays.length;
+    const avgMoodHigh = avgOf(highHydrationDays, r => Number(r.avg_mood));
+    const avgMoodLow  = avgOf(lowHydrationDays,  r => Number(r.avg_mood));
 
     const diff = avgMoodHigh - avgMoodLow;
     if (Math.abs(diff) < 0.15) return null;
@@ -45,8 +46,8 @@ export const WaterVsMoodRule: InsightRule = {
 
     const direction = diff > 0 ? "higher" : "lower";
 
-    const avgGlassesHigh = highHydrationDays.reduce((s, r) => s + Number(r.glasses), 0) / highHydrationDays.length;
-    const avgGlassesLow  = lowHydrationDays.reduce((s, r) => s + Number(r.glasses), 0) / lowHydrationDays.length;
+    const avgGlassesHigh = avgOf(highHydrationDays, r => Number(r.glasses));
+    const avgGlassesLow  = avgOf(lowHydrationDays,  r => Number(r.glasses));
 
     return {
       title: `Mood tends to be ${direction} on well-hydrated days`,

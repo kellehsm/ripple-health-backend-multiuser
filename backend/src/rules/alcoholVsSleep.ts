@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const AlcoholVsSleepRule: InsightRule = {
   id: "alcohol_vs_sleep",
@@ -18,7 +19,7 @@ export const AlcoholVsSleepRule: InsightRule = {
          SELECT DATE(end_time) AS day, AVG(quality_score) AS avg_sleep_quality
          FROM sleep_sessions
          WHERE user_id = $1
-           AND end_time >= CURRENT_DATE - 60
+           AND end_time >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY DATE(end_time)
        ) s
        LEFT JOIN (
@@ -27,7 +28,7 @@ export const AlcoholVsSleepRule: InsightRule = {
          WHERE user_id = $1
            AND substance_type = 'alcohol'
            AND volume_ml > 0
-           AND logged_at >= CURRENT_DATE - 60
+           AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
        ) a ON a.day = s.day
        ORDER BY s.day DESC`,
       [userId]
@@ -40,8 +41,8 @@ export const AlcoholVsSleepRule: InsightRule = {
 
     if (alcoholDays.length < 5 || noAlcoholDays.length < 5) return null;
 
-    const avgSleepAlcohol = alcoholDays.reduce((s, r) => s + Number(r.avg_sleep_quality), 0) / alcoholDays.length;
-    const avgSleepNoAlcohol = noAlcoholDays.reduce((s, r) => s + Number(r.avg_sleep_quality), 0) / noAlcoholDays.length;
+    const avgSleepAlcohol   = avgOf(alcoholDays,   r => Number(r.avg_sleep_quality));
+    const avgSleepNoAlcohol = avgOf(noAlcoholDays, r => Number(r.avg_sleep_quality));
 
     const diff = avgSleepAlcohol - avgSleepNoAlcohol;
     if (Math.abs(diff) < 0.15) return null;

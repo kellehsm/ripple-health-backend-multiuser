@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, tertileSplit, avgOf } from "./ruleHelper.js";
 
 export const CaffeineVsGlucoseRule: InsightRule = {
   id: "caffeine_vs_glucose",
@@ -18,10 +19,10 @@ export const CaffeineVsGlucoseRule: InsightRule = {
          SELECT logged_at::date AS day, SUM(caffeine_mg) AS total_caffeine
          FROM (
            SELECT logged_at, caffeine_mg FROM meals
-           WHERE user_id = $1 AND caffeine_mg IS NOT NULL AND logged_at >= CURRENT_DATE - 60
+           WHERE user_id = $1 AND caffeine_mg IS NOT NULL AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            UNION ALL
            SELECT logged_at, caffeine_mg FROM substance_logs
-           WHERE user_id = $1 AND substance_type = 'caffeine' AND logged_at >= CURRENT_DATE - 60
+           WHERE user_id = $1 AND substance_type = 'caffeine' AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          ) combined
          GROUP BY logged_at::date
        ) c
@@ -35,20 +36,13 @@ export const CaffeineVsGlucoseRule: InsightRule = {
     if (rows.length < 21) return null;
 
     // Split into high (top 33%) vs low (bottom 33%) caffeine days
-    const sorted = [...rows].sort((a, b) => Number(a.total_caffeine) - Number(b.total_caffeine));
-    const bottom33Idx = Math.floor(sorted.length / 3);
-    const top33Idx = Math.ceil((sorted.length * 2) / 3);
-
-    const lowThreshold = Number(sorted[bottom33Idx - 1].total_caffeine);
-    const highThreshold = Number(sorted[top33Idx].total_caffeine);
-
-    const lowCaffeineDays = rows.filter(r => Number(r.total_caffeine) <= lowThreshold);
-    const highCaffeineDays = rows.filter(r => Number(r.total_caffeine) >= highThreshold);
+    const { lowGroup: lowCaffeineDays, highGroup: highCaffeineDays } =
+      tertileSplit(rows, r => Number(r.total_caffeine));
 
     if (lowCaffeineDays.length < 4 || highCaffeineDays.length < 4) return null;
 
-    const avgGlucoseHigh = highCaffeineDays.reduce((s, r) => s + Number(r.avg_glucose), 0) / highCaffeineDays.length;
-    const avgGlucoseLow = lowCaffeineDays.reduce((s, r) => s + Number(r.avg_glucose), 0) / lowCaffeineDays.length;
+    const avgGlucoseHigh = avgOf(highCaffeineDays, r => Number(r.avg_glucose));
+    const avgGlucoseLow  = avgOf(lowCaffeineDays,  r => Number(r.avg_glucose));
 
     const diff = avgGlucoseHigh - avgGlucoseLow;
     if (Math.abs(diff) < 5) return null;
@@ -57,8 +51,8 @@ export const CaffeineVsGlucoseRule: InsightRule = {
     const sampleSize = Math.min(lowCaffeineDays.length, highCaffeineDays.length);
     const { score, label } = calcConfidence(sampleSize, effectRatio);
 
-    const avgCaffeineHigh = highCaffeineDays.reduce((s, r) => s + Number(r.total_caffeine), 0) / highCaffeineDays.length;
-    const avgCaffeineLow = lowCaffeineDays.reduce((s, r) => s + Number(r.total_caffeine), 0) / lowCaffeineDays.length;
+    const avgCaffeineHigh = avgOf(highCaffeineDays, r => Number(r.total_caffeine));
+    const avgCaffeineLow  = avgOf(lowCaffeineDays,  r => Number(r.total_caffeine));
 
     // diff = high - low: if positive, glucose is higher on high-caffeine days
     const direction = diff > 0 ? "higher" : "lower";

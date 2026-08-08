@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 const FIXED_CATEGORIES = [
   'Rent / Mortgage',
@@ -32,12 +33,12 @@ export const SpendingVsGlucoseRule: InsightRule = {
            SUM(amount) AS total
          FROM spending_entries
          WHERE user_id = $1
-           AND logged_at >= CURRENT_DATE - 60
+           AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            AND category NOT IN (${FIXED_CATEGORIES.map((_, i) => `$${i + 2}`).join(", ")})
          GROUP BY logged_at::date
        ) se ON se.day = ds.date
        WHERE ds.user_id = $1
-         AND ds.date >= CURRENT_DATE - 60
+         AND ds.date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND ds.summary_data->'glucose'->>'averageGlucose' IS NOT NULL
          AND COALESCE(se.total, 0) > 0
        ORDER BY ds.date DESC`,
@@ -58,8 +59,8 @@ export const SpendingVsGlucoseRule: InsightRule = {
 
     if (highGlucoseDays.length < 4 || lowGlucoseDays.length < 4) return null;
 
-    const avgSpendHighGlucose = highGlucoseDays.reduce((s, r) => s + Number(r.total_spend), 0) / highGlucoseDays.length;
-    const avgSpendLowGlucose  = lowGlucoseDays.reduce((s, r) => s + Number(r.total_spend), 0) / lowGlucoseDays.length;
+    const avgSpendHighGlucose = avgOf(highGlucoseDays, r => Number(r.total_spend));
+    const avgSpendLowGlucose  = avgOf(lowGlucoseDays,  r => Number(r.total_spend));
 
     const diff = avgSpendHighGlucose - avgSpendLowGlucose; // positive = more spending on high-glucose days
     if (Math.abs(diff) < 3) return null;
@@ -71,8 +72,8 @@ export const SpendingVsGlucoseRule: InsightRule = {
       effectRatio
     );
 
-    const avgGlucoseHigh = highGlucoseDays.reduce((s, r) => s + Number(r.avg_glucose), 0) / highGlucoseDays.length;
-    const avgGlucoseLow  = lowGlucoseDays.reduce((s, r) => s + Number(r.avg_glucose), 0) / lowGlucoseDays.length;
+    const avgGlucoseHigh = avgOf(highGlucoseDays, r => Number(r.avg_glucose));
+    const avgGlucoseLow  = avgOf(lowGlucoseDays,  r => Number(r.avg_glucose));
 
     const spendDir = diff > 0 ? "higher" : "lower";
     const absDiff  = Math.abs(diff);

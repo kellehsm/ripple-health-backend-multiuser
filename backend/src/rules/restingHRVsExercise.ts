@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const RestingHRVsExerciseRule: InsightRule = {
   id: "resting_hr_vs_exercise",
@@ -13,7 +14,7 @@ export const RestingHRVsExerciseRule: InsightRule = {
          SELECT DISTINCT DATE(started_at) AS day
          FROM exercise_sessions
          WHERE user_id = $1
-           AND started_at >= CURRENT_DATE - 60
+           AND started_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            AND ended_at IS NOT NULL
        )
        SELECT
@@ -23,7 +24,7 @@ export const RestingHRVsExerciseRule: InsightRule = {
        FROM heart_rate_readings hr
        LEFT JOIN ex_days ex ON ex.day = DATE(hr.recorded_at)
        WHERE hr.user_id = $1
-         AND hr.recorded_at >= CURRENT_DATE - 60
+         AND hr.recorded_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
        GROUP BY DATE(hr.recorded_at)
        ORDER BY date DESC`,
       [userId]
@@ -36,8 +37,8 @@ export const RestingHRVsExerciseRule: InsightRule = {
 
     if (exerciseDays.length < 6 || noExerciseDays.length < 6) return null;
 
-    const avgHrExercise   = exerciseDays.reduce((s, r) => s + r.resting_hr, 0) / exerciseDays.length;
-    const avgHrNoExercise = noExerciseDays.reduce((s, r) => s + r.resting_hr, 0) / noExerciseDays.length;
+    const avgHrExercise   = avgOf(exerciseDays,   r => r.resting_hr);
+    const avgHrNoExercise = avgOf(noExerciseDays, r => r.resting_hr);
 
     // diff > 0 means resting HR is higher on no-exercise days (typical pattern)
     const diff = avgHrNoExercise - avgHrExercise;

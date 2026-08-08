@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 const FIXED_CATEGORIES = [
   'Rent / Mortgage',
@@ -26,7 +27,7 @@ export const SpendingVsExerciseRule: InsightRule = {
            SUM(amount) AS total
          FROM spending_entries
          WHERE user_id = $1
-           AND logged_at >= CURRENT_DATE - 60
+           AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            AND category NOT IN (${FIXED_CATEGORIES.map((_, i) => `$${i + 2}`).join(", ")})
          GROUP BY logged_at::date
        ),
@@ -34,7 +35,7 @@ export const SpendingVsExerciseRule: InsightRule = {
          SELECT DISTINCT started_at::date AS day
          FROM exercise_sessions
          WHERE user_id = $1
-           AND started_at >= CURRENT_DATE - 60
+           AND started_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            AND ended_at IS NOT NULL
        )
        SELECT
@@ -54,8 +55,8 @@ export const SpendingVsExerciseRule: InsightRule = {
 
     if (exerciseDays.length < 5 || noExerciseDays.length < 5) return null;
 
-    const avgExercise   = exerciseDays.reduce((s, r) => s + r.total, 0) / exerciseDays.length;
-    const avgNoExercise = noExerciseDays.reduce((s, r) => s + r.total, 0) / noExerciseDays.length;
+    const avgExercise   = avgOf(exerciseDays,   r => r.total);
+    const avgNoExercise = avgOf(noExerciseDays, r => r.total);
 
     const diff = avgNoExercise - avgExercise; // positive = higher on no-exercise days
     if (Math.abs(diff) < 2) return null;

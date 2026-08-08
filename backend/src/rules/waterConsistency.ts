@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const WaterConsistencyRule: InsightRule = {
   id: "water_consistency",
@@ -14,7 +15,7 @@ export const WaterConsistencyRule: InsightRule = {
          EXTRACT(DOW FROM ds.date) AS dow
        FROM daily_summaries ds
        WHERE ds.user_id = $1
-         AND ds.date >= CURRENT_DATE - 60
+         AND ds.date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND ds.summary_data->'hydration'->>'glasses' IS NOT NULL
        ORDER BY ds.date DESC`,
       [userId]
@@ -28,8 +29,8 @@ export const WaterConsistencyRule: InsightRule = {
 
     if (weekendDays.length < 4 || weekdayDays.length < 10) return null;
 
-    const avgWeekend  = weekendDays.reduce((s, r) => s + Number(r.glasses), 0) / weekendDays.length;
-    const avgWeekday  = weekdayDays.reduce((s, r) => s + Number(r.glasses), 0) / weekdayDays.length;
+    const avgWeekend = avgOf(weekendDays, r => Number(r.glasses));
+    const avgWeekday = avgOf(weekdayDays, r => Number(r.glasses));
 
     const diff = avgWeekday - avgWeekend;
     if (Math.abs(diff) < 1) return null; // less than 1 glass difference, not notable

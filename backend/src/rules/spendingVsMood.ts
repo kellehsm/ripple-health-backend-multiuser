@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const SpendingVsMoodRule: InsightRule = {
   id: "spending_vs_mood",
@@ -16,11 +17,11 @@ export const SpendingVsMoodRule: InsightRule = {
        LEFT JOIN (
          SELECT logged_at::date AS day, SUM(amount) AS total
          FROM spending_entries
-         WHERE user_id = $1 AND logged_at >= CURRENT_DATE - 60
+         WHERE user_id = $1 AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY logged_at::date
        ) se ON se.day = ds.date
        WHERE ds.user_id = $1
-         AND ds.date >= CURRENT_DATE - 60
+         AND ds.date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND ds.summary_data->'mood'->>'averageScore' IS NOT NULL
        ORDER BY ds.date DESC`,
       [userId]
@@ -40,8 +41,8 @@ export const SpendingVsMoodRule: InsightRule = {
 
     if (highSpendDays.length < 4 || lowSpendDays.length < 4) return null;
 
-    const avgMoodHighSpend = highSpendDays.reduce((s, r) => s + Number(r.avg_mood), 0) / highSpendDays.length;
-    const avgMoodLowSpend  = lowSpendDays.reduce((s, r) => s + Number(r.avg_mood), 0) / lowSpendDays.length;
+    const avgMoodHighSpend = avgOf(highSpendDays, r => Number(r.avg_mood));
+    const avgMoodLowSpend  = avgOf(lowSpendDays,  r => Number(r.avg_mood));
 
     const diff = avgMoodHighSpend - avgMoodLowSpend;
     if (Math.abs(diff) < 0.25) return null;
@@ -49,8 +50,8 @@ export const SpendingVsMoodRule: InsightRule = {
     const effectRatio = Math.abs(diff) / 4;
     const { score, label } = calcConfidence(Math.min(highSpendDays.length, lowSpendDays.length), effectRatio);
 
-    const avgHighSpend = highSpendDays.reduce((s, r) => s + Number(r.total_spend), 0) / highSpendDays.length;
-    const avgLowSpend  = lowSpendDays.reduce((s, r) => s + Number(r.total_spend), 0) / lowSpendDays.length;
+    const avgHighSpend = avgOf(highSpendDays, r => Number(r.total_spend));
+    const avgLowSpend  = avgOf(lowSpendDays,  r => Number(r.total_spend));
 
     const moodDir  = diff > 0 ? "higher" : "lower";
     const spendDir = diff > 0 ? "higher" : "lower";

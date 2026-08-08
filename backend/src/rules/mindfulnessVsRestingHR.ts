@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const MindfulnessVsRestingHRRule: InsightRule = {
   id: "mindfulness_vs_resting_hr",
@@ -14,7 +15,7 @@ export const MindfulnessVsRestingHRRule: InsightRule = {
          FROM metric_logs ml
          JOIN metrics m ON m.id = ml.metric_id
          WHERE m.user_id = $1 AND m.name = 'mindfulness'
-           AND ml.logged_at >= CURRENT_DATE - 60
+           AND ml.logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY DATE(ml.logged_at)
        ),
        hr_days AS (
@@ -23,7 +24,7 @@ export const MindfulnessVsRestingHRRule: InsightRule = {
            MIN(bpm) AS resting_hr
          FROM heart_rate_readings
          WHERE user_id = $1
-           AND recorded_at >= CURRENT_DATE - 60
+           AND recorded_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY DATE(recorded_at)
        )
        SELECT
@@ -40,8 +41,8 @@ export const MindfulnessVsRestingHRRule: InsightRule = {
 
     if (mindfulnessDays.length < 5 || noMindfulnessDays.length < 5) return null;
 
-    const avgHrMindfulness   = mindfulnessDays.reduce((s, r) => s + Number(r.resting_hr), 0) / mindfulnessDays.length;
-    const avgHrNoMindfulness = noMindfulnessDays.reduce((s, r) => s + Number(r.resting_hr), 0) / noMindfulnessDays.length;
+    const avgHrMindfulness   = avgOf(mindfulnessDays,   r => Number(r.resting_hr));
+    const avgHrNoMindfulness = avgOf(noMindfulnessDays, r => Number(r.resting_hr));
 
     // positive diff = mindfulness days have lower HR (better)
     const diff = avgHrNoMindfulness - avgHrMindfulness;

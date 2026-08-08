@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { tertileSplit, avgOf } from "./ruleHelper.js";
 
 // 4-node causal chain: poor sleep → less exercise → lower mood → higher spending.
 // Verifies each of the 3 links plus the end-to-end effect.
@@ -46,21 +47,19 @@ export const ChainSleepExerciseMoodSpendingRule: InsightRule = {
     const exDays   = rows.filter(r => r.has_exercise);
     const noExDays = rows.filter(r => !r.has_exercise);
     if (exDays.length < 5 || noExDays.length < 5) return null;
-    const moodEx   = exDays.reduce((s, r) => s + Number(r.avg_mood), 0) / exDays.length;
-    const moodNoEx = noExDays.reduce((s, r) => s + Number(r.avg_mood), 0) / noExDays.length;
+    const moodEx   = avgOf(exDays,   r => Number(r.avg_mood));
+    const moodNoEx = avgOf(noExDays, r => Number(r.avg_mood));
     if (moodEx - moodNoEx < 0.25) return null;
 
     // Link 3: lower mood → higher spending
-    const sorted = [...rows].sort((a, b) => Number(a.avg_mood) - Number(b.avg_mood));
-    const bottomMood = sorted.slice(0, Math.floor(sorted.length / 3));
-    const topMood    = sorted.slice(Math.ceil(sorted.length * 2 / 3));
-    const spendLowMood  = bottomMood.reduce((s, r) => s + Number(r.total_spend), 0) / bottomMood.length;
-    const spendHighMood = topMood.reduce((s, r) => s + Number(r.total_spend), 0) / topMood.length;
+    const { lowGroup: bottomMood, highGroup: topMood } = tertileSplit(rows, r => Number(r.avg_mood));
+    const spendLowMood  = avgOf(bottomMood, r => Number(r.total_spend));
+    const spendHighMood = avgOf(topMood,    r => Number(r.total_spend));
     if (spendLowMood - spendHighMood < 3) return null;
 
     // End-to-end: poor sleep days vs good sleep days spending
-    const spendPoor = poorSleep.reduce((s, r) => s + Number(r.total_spend), 0) / poorSleep.length;
-    const spendGood = goodSleep.reduce((s, r) => s + Number(r.total_spend), 0) / goodSleep.length;
+    const spendPoor = avgOf(poorSleep, r => Number(r.total_spend));
+    const spendGood = avgOf(goodSleep, r => Number(r.total_spend));
     if (spendPoor - spendGood < 2) return null;
 
     const { score, label } = calcConfidence(

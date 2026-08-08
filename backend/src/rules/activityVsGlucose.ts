@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const ActivityVsGlucoseRule: InsightRule = {
   id: "activity_vs_glucose",
@@ -13,7 +14,7 @@ export const ActivityVsGlucoseRule: InsightRule = {
          (summary_data->'glucose'->>'average')::numeric AS avg_glucose
        FROM daily_summaries
        WHERE user_id = $1
-         AND date >= CURRENT_DATE - 60
+         AND date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND summary_data->'activity'->>'steps' IS NOT NULL
          AND summary_data->'glucose'->>'average' IS NOT NULL
          AND (summary_data->'glucose'->>'average')::numeric > 0`,
@@ -27,8 +28,8 @@ export const ActivityVsGlucoseRule: InsightRule = {
 
     if (activedays.length < 5 || sedentaryDays.length < 5) return null;
 
-    const avgGlucoseActive   = activedays.reduce((s, r) => s + Number(r.avg_glucose), 0) / activedays.length;
-    const avgGlucoseSedentary = sedentaryDays.reduce((s, r) => s + Number(r.avg_glucose), 0) / sedentaryDays.length;
+    const avgGlucoseActive    = avgOf(activedays,    r => Number(r.avg_glucose));
+    const avgGlucoseSedentary = avgOf(sedentaryDays, r => Number(r.avg_glucose));
 
     const diff = avgGlucoseSedentary - avgGlucoseActive; // positive = active days lower
     if (Math.abs(diff) < 5) return null; // less than 5 mg/dL not notable

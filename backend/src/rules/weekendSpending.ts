@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const WeekendSpendingRule: InsightRule = {
   id: "weekend_spending",
@@ -13,7 +14,7 @@ export const WeekendSpendingRule: InsightRule = {
          SUM(amount) AS total,
          EXTRACT(DOW FROM logged_at) AS dow
        FROM spending_entries
-       WHERE user_id = $1 AND logged_at >= CURRENT_DATE - 60
+       WHERE user_id = $1 AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
        GROUP BY logged_at::date, EXTRACT(DOW FROM logged_at)
        ORDER BY date DESC`,
       [userId]
@@ -26,8 +27,8 @@ export const WeekendSpendingRule: InsightRule = {
 
     if (weekendDays.length < 4 || weekdayDays.length < 10) return null;
 
-    const avgWeekend = weekendDays.reduce((s, r) => s + Number(r.total), 0) / weekendDays.length;
-    const avgWeekday = weekdayDays.reduce((s, r) => s + Number(r.total), 0) / weekdayDays.length;
+    const avgWeekend = avgOf(weekendDays, r => Number(r.total));
+    const avgWeekday = avgOf(weekdayDays, r => Number(r.total));
 
     const diff = avgWeekend - avgWeekday;
     if (Math.abs(diff) < 5) return null; // less than $5 difference, not notable

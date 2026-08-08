@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const LateMealsVsSleepRule: InsightRule = {
   id: "late_meals_vs_sleep",
@@ -12,7 +13,7 @@ export const LateMealsVsSleepRule: InsightRule = {
       `SELECT DISTINCT DATE(logged_at)::text AS date
        FROM meals
        WHERE user_id = $1
-         AND logged_at >= CURRENT_DATE - 60
+         AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND EXTRACT(HOUR FROM logged_at) >= 21
        ORDER BY date DESC`,
       [userId]
@@ -24,7 +25,7 @@ export const LateMealsVsSleepRule: InsightRule = {
       `SELECT DISTINCT DATE(logged_at)::text AS date
        FROM meals
        WHERE user_id = $1
-         AND logged_at >= CURRENT_DATE - 60
+         AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
        ORDER BY date DESC`,
       [userId]
     );
@@ -59,8 +60,8 @@ export const LateMealsVsSleepRule: InsightRule = {
 
     if (lateSleepData.length < 5 || earlySleepData.length < 5) return null;
 
-    const avgQualityLate  = lateSleepData.reduce((s, r) => s + Number(r.quality), 0) / lateSleepData.length;
-    const avgQualityEarly = earlySleepData.reduce((s, r) => s + Number(r.quality), 0) / earlySleepData.length;
+    const avgQualityLate  = avgOf(lateSleepData,  r => Number(r.quality));
+    const avgQualityEarly = avgOf(earlySleepData, r => Number(r.quality));
 
     // diff = early - late; positive means earlier meals → better sleep
     const diff = avgQualityEarly - avgQualityLate;

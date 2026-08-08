@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const MedicationVsMoodRule: InsightRule = {
   id: "medication_vs_mood",
@@ -32,7 +33,7 @@ export const MedicationVsMoodRule: InsightRule = {
          AND mdl.log_date = ds.date
          AND mdl.status = 'taken'
        WHERE ds.user_id = $1
-         AND ds.date >= CURRENT_DATE - 60
+         AND ds.date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND ds.summary_data->'mood'->>'averageScore' IS NOT NULL
        GROUP BY ds.date, ds.summary_data
        ORDER BY ds.date DESC`,
@@ -46,8 +47,8 @@ export const MedicationVsMoodRule: InsightRule = {
 
     if (adherentDays.length < 4 || nonAdherentDays.length < 4) return null;
 
-    const avgMoodAdherent    = adherentDays.reduce((s, r) => s + Number(r.avg_mood), 0) / adherentDays.length;
-    const avgMoodNonAdherent = nonAdherentDays.reduce((s, r) => s + Number(r.avg_mood), 0) / nonAdherentDays.length;
+    const avgMoodAdherent    = avgOf(adherentDays,    r => Number(r.avg_mood));
+    const avgMoodNonAdherent = avgOf(nonAdherentDays, r => Number(r.avg_mood));
 
     const diff = avgMoodAdherent - avgMoodNonAdherent;
     if (Math.abs(diff) < 0.2) return null;

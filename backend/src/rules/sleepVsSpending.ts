@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, tertileSplit, avgOf } from "./ruleHelper.js";
 
 export const SleepVsSpendingRule: InsightRule = {
   id: "sleep_vs_spending",
@@ -17,7 +18,7 @@ export const SleepVsSpendingRule: InsightRule = {
          SELECT logged_at::date AS day, SUM(amount) AS total
          FROM spending_entries
          WHERE user_id = $1
-           AND logged_at >= CURRENT_DATE - 60
+           AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            AND category NOT IN (
              'Rent / Mortgage', 'Utilities', 'Home', 'Health', 'health',
              'Subscriptions', 'subscriptions', 'Income / Transfer'
@@ -25,7 +26,7 @@ export const SleepVsSpendingRule: InsightRule = {
          GROUP BY logged_at::date
        ) se ON se.day = ds.date
        WHERE ds.user_id = $1
-         AND ds.date >= CURRENT_DATE - 60
+         AND ds.date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND ds.summary_data->'sleep'->>'averageQuality' IS NOT NULL
          AND COALESCE(se.total, 0) > 0
        ORDER BY ds.date DESC`,
@@ -34,21 +35,14 @@ export const SleepVsSpendingRule: InsightRule = {
 
     if (rows.length < 21) return null;
 
-    // Sort by sleep quality to find tertile thresholds
-    const sorted = [...rows].sort((a, b) => Number(a.sleep_quality) - Number(b.sleep_quality));
-    const bottom33Idx = Math.floor(sorted.length / 3);
-    const top33Idx = Math.ceil((sorted.length * 2) / 3);
-
-    const poorThreshold = Number(sorted[bottom33Idx - 1].sleep_quality);
-    const goodThreshold = Number(sorted[top33Idx].sleep_quality);
-
-    const poorSleepDays = rows.filter(r => Number(r.sleep_quality) <= poorThreshold);
-    const goodSleepDays = rows.filter(r => Number(r.sleep_quality) >= goodThreshold);
+    // Split by sleep quality into poor (bottom 33%) and good (top 33%) tertiles
+    const { lowGroup: poorSleepDays, highGroup: goodSleepDays } =
+      tertileSplit(rows, r => Number(r.sleep_quality));
 
     if (poorSleepDays.length < 4 || goodSleepDays.length < 4) return null;
 
-    const avgSpendPoor = poorSleepDays.reduce((s, r) => s + Number(r.impulse_spend), 0) / poorSleepDays.length;
-    const avgSpendGood = goodSleepDays.reduce((s, r) => s + Number(r.impulse_spend), 0) / goodSleepDays.length;
+    const avgSpendPoor = avgOf(poorSleepDays, r => Number(r.impulse_spend));
+    const avgSpendGood = avgOf(goodSleepDays, r => Number(r.impulse_spend));
 
     const diff = avgSpendPoor - avgSpendGood;
     if (Math.abs(diff) < 2) return null;

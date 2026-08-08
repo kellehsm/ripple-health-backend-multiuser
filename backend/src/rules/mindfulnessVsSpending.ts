@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const MindfulnessVsSpendingRule: InsightRule = {
   id: "mindfulness_vs_spending",
@@ -13,7 +14,7 @@ export const MindfulnessVsSpendingRule: InsightRule = {
          FROM metric_logs ml
          JOIN metrics m ON m.id = ml.metric_id
          WHERE m.user_id = $1 AND m.name = 'mindfulness'
-           AND ml.logged_at >= CURRENT_DATE - 60
+           AND ml.logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY DATE(ml.logged_at)
        ),
        spend_days AS (
@@ -22,7 +23,7 @@ export const MindfulnessVsSpendingRule: InsightRule = {
            SUM(amount) AS total_spend
          FROM spending_entries
          WHERE user_id = $1
-           AND logged_at >= CURRENT_DATE - 60
+           AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY logged_at::date
        )
        SELECT
@@ -38,8 +39,8 @@ export const MindfulnessVsSpendingRule: InsightRule = {
 
     if (mindfulnessDays.length < 5 || noMindfulnessDays.length < 5) return null;
 
-    const avgSpendMindfulness   = mindfulnessDays.reduce((s, r) => s + Number(r.total_spend), 0) / mindfulnessDays.length;
-    const avgSpendNoMindfulness = noMindfulnessDays.reduce((s, r) => s + Number(r.total_spend), 0) / noMindfulnessDays.length;
+    const avgSpendMindfulness   = avgOf(mindfulnessDays,   r => Number(r.total_spend));
+    const avgSpendNoMindfulness = avgOf(noMindfulnessDays, r => Number(r.total_spend));
 
     // positive diff = mindfulness days have lower spending
     const diff = avgSpendNoMindfulness - avgSpendMindfulness;

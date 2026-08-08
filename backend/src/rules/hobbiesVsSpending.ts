@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS } from "./ruleHelper.js";
 
 const FIXED_CATEGORIES = [
   'Rent / Mortgage',
@@ -25,7 +26,7 @@ export const HobbiesVsSpendingRule: InsightRule = {
          COALESCE((summary_data->'productivity'->>'hobbySessions')::numeric, 0) AS hobby_sessions
        FROM daily_summaries
        WHERE user_id = $1
-         AND date >= CURRENT_DATE - 60
+         AND date >= CURRENT_DATE - ${LOOKBACK_DAYS}
        ORDER BY date DESC`,
       [userId]
     );
@@ -39,7 +40,7 @@ export const HobbiesVsSpendingRule: InsightRule = {
          SUM(amount) AS total
        FROM spending_entries
        WHERE user_id = $1
-         AND logged_at >= CURRENT_DATE - 60
+         AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND (category IS NULL OR category NOT IN (${FIXED_CATEGORIES.map((_, i) => `$${i + 2}`).join(", ")}))
        GROUP BY logged_at::date`,
       [userId, ...FIXED_CATEGORIES]

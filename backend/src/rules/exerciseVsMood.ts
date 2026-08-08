@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const ExerciseVsMoodRule: InsightRule = {
   id: "exercise_vs_mood",
@@ -12,7 +13,7 @@ export const ExerciseVsMoodRule: InsightRule = {
          SELECT DISTINCT DATE(started_at) AS day
          FROM exercise_sessions
          WHERE user_id = $1
-           AND started_at >= CURRENT_DATE - 60
+           AND started_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            AND ended_at IS NOT NULL
        )
        SELECT
@@ -22,7 +23,7 @@ export const ExerciseVsMoodRule: InsightRule = {
        FROM daily_summaries ds
        LEFT JOIN ex_days ex ON ex.day = ds.date
        WHERE ds.user_id = $1
-         AND ds.date >= CURRENT_DATE - 60
+         AND ds.date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND ds.summary_data->'mood'->>'averageScore' IS NOT NULL
        ORDER BY ds.date DESC`,
       [userId]
@@ -35,8 +36,8 @@ export const ExerciseVsMoodRule: InsightRule = {
 
     if (exerciseDays.length < 8 || noExerciseDays.length < 8) return null;
 
-    const avgMoodExercise   = exerciseDays.reduce((s, r) => s + r.avg_mood, 0) / exerciseDays.length;
-    const avgMoodNoExercise = noExerciseDays.reduce((s, r) => s + r.avg_mood, 0) / noExerciseDays.length;
+    const avgMoodExercise   = avgOf(exerciseDays,   r => r.avg_mood);
+    const avgMoodNoExercise = avgOf(noExerciseDays, r => r.avg_mood);
 
     const diff = avgMoodExercise - avgMoodNoExercise;
     if (Math.abs(diff) < 0.2) return null;

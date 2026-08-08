@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, tertileSplit, avgOf } from "./ruleHelper.js";
 
 export const CaffeineVsSleepRule: InsightRule = {
   id: "caffeine_vs_sleep",
@@ -18,10 +19,10 @@ export const CaffeineVsSleepRule: InsightRule = {
          SELECT logged_at::date AS day, SUM(caffeine_mg) AS total_caffeine
          FROM (
            SELECT logged_at, caffeine_mg FROM meals
-           WHERE user_id = $1 AND caffeine_mg IS NOT NULL AND logged_at >= CURRENT_DATE - 60
+           WHERE user_id = $1 AND caffeine_mg IS NOT NULL AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            UNION ALL
            SELECT logged_at, caffeine_mg FROM substance_logs
-           WHERE user_id = $1 AND substance_type = 'caffeine' AND logged_at >= CURRENT_DATE - 60
+           WHERE user_id = $1 AND substance_type = 'caffeine' AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          ) combined
          GROUP BY logged_at::date
        ) c
@@ -29,7 +30,7 @@ export const CaffeineVsSleepRule: InsightRule = {
          SELECT DATE(end_time) AS day, AVG(quality_score) AS avg_sleep_quality
          FROM sleep_sessions
          WHERE user_id = $1
-           AND end_time >= CURRENT_DATE - 60
+           AND end_time >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY DATE(end_time)
        ) s ON s.day = c.day
        ORDER BY c.day DESC`,
@@ -39,20 +40,13 @@ export const CaffeineVsSleepRule: InsightRule = {
     if (rows.length < 21) return null;
 
     // Split into high (top 33%) vs low (bottom 33%) caffeine days
-    const sorted = [...rows].sort((a, b) => Number(a.total_caffeine) - Number(b.total_caffeine));
-    const bottom33Idx = Math.floor(sorted.length / 3);
-    const top33Idx = Math.ceil((sorted.length * 2) / 3);
-
-    const lowThreshold = Number(sorted[bottom33Idx - 1].total_caffeine);
-    const highThreshold = Number(sorted[top33Idx].total_caffeine);
-
-    const lowCaffeineDays = rows.filter(r => Number(r.total_caffeine) <= lowThreshold);
-    const highCaffeineDays = rows.filter(r => Number(r.total_caffeine) >= highThreshold);
+    const { lowGroup: lowCaffeineDays, highGroup: highCaffeineDays } =
+      tertileSplit(rows, r => Number(r.total_caffeine));
 
     if (lowCaffeineDays.length < 5 || highCaffeineDays.length < 5) return null;
 
-    const avgSleepLow = lowCaffeineDays.reduce((s, r) => s + Number(r.avg_sleep_quality), 0) / lowCaffeineDays.length;
-    const avgSleepHigh = highCaffeineDays.reduce((s, r) => s + Number(r.avg_sleep_quality), 0) / highCaffeineDays.length;
+    const avgSleepLow  = avgOf(lowCaffeineDays,  r => Number(r.avg_sleep_quality));
+    const avgSleepHigh = avgOf(highCaffeineDays, r => Number(r.avg_sleep_quality));
 
     const diff = avgSleepHigh - avgSleepLow;
     if (Math.abs(diff) < 0.2) return null;
@@ -61,8 +55,8 @@ export const CaffeineVsSleepRule: InsightRule = {
     const sampleSize = Math.min(lowCaffeineDays.length, highCaffeineDays.length);
     const { score, label } = calcConfidence(sampleSize, effectRatio);
 
-    const avgCaffeineHigh = highCaffeineDays.reduce((s, r) => s + Number(r.total_caffeine), 0) / highCaffeineDays.length;
-    const avgCaffeineLow = lowCaffeineDays.reduce((s, r) => s + Number(r.total_caffeine), 0) / lowCaffeineDays.length;
+    const avgCaffeineHigh = avgOf(highCaffeineDays, r => Number(r.total_caffeine));
+    const avgCaffeineLow  = avgOf(lowCaffeineDays,  r => Number(r.total_caffeine));
 
     // diff = high - low: if negative, sleep is lower on high-caffeine days
     const direction = diff > 0 ? "higher" : "lower";

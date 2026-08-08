@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const MealSkippingVsMoodRule: InsightRule = {
   id: "meal_skipping_vs_mood",
@@ -14,7 +15,7 @@ export const MealSkippingVsMoodRule: InsightRule = {
          (summary_data->'mood'->>'averageScore')::numeric AS avg_mood
        FROM daily_summaries
        WHERE user_id = $1
-         AND date >= CURRENT_DATE - 60
+         AND date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND summary_data->'nutrition'->>'mealCount' IS NOT NULL
          AND summary_data->'mood'->>'averageScore' IS NOT NULL
        ORDER BY date DESC`,
@@ -29,8 +30,8 @@ export const MealSkippingVsMoodRule: InsightRule = {
 
     if (lowMealDays.length < 4 || normalMealDays.length < 8) return null;
 
-    const avgMoodLow    = lowMealDays.reduce((s, r) => s + Number(r.avg_mood), 0) / lowMealDays.length;
-    const avgMoodNormal = normalMealDays.reduce((s, r) => s + Number(r.avg_mood), 0) / normalMealDays.length;
+    const avgMoodLow    = avgOf(lowMealDays,    r => Number(r.avg_mood));
+    const avgMoodNormal = avgOf(normalMealDays, r => Number(r.avg_mood));
 
     // diff > 0 means normal meals → better mood
     const diff = avgMoodNormal - avgMoodLow;

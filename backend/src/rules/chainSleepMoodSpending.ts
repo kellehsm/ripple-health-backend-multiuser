@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { tertileSplit, avgOf } from "./ruleHelper.js";
 
 // Detects a 3-node causal chain: poor sleep → lower mood → higher spending.
 // Tests each link independently and requires both links to be significant.
@@ -45,24 +46,22 @@ export const ChainSleepMoodSpendingRule: InsightRule = {
     const goodSleep  = data.filter(r => r.sleep_min >= 420);
     if (poorSleep.length < 6 || goodSleep.length < 6) return null;
 
-    const avgMoodPoor  = poorSleep.reduce((s, r) => s + r.avg_mood, 0) / poorSleep.length;
-    const avgMoodGood  = goodSleep.reduce((s, r) => s + r.avg_mood, 0) / goodSleep.length;
+    const avgMoodPoor = avgOf(poorSleep, r => r.avg_mood);
+    const avgMoodGood = avgOf(goodSleep, r => r.avg_mood);
     const sleepMoodGap = avgMoodGood - avgMoodPoor;
     if (sleepMoodGap < 0.3) return null; // link 1 not strong enough
 
     // ── Link 2: lower mood → higher spending ──────────────────────────────────
-    const sorted = [...data].sort((a, b) => a.avg_mood - b.avg_mood);
-    const bottomMood = sorted.slice(0, Math.floor(sorted.length / 3));
-    const topMood    = sorted.slice(Math.ceil(sorted.length * 2 / 3));
+    const { lowGroup: bottomMood, highGroup: topMood } = tertileSplit(data, r => r.avg_mood);
 
-    const avgSpendLowMood  = bottomMood.reduce((s, r) => s + r.total_spend, 0) / bottomMood.length;
-    const avgSpendHighMood = topMood.reduce((s, r) => s + r.total_spend, 0) / topMood.length;
+    const avgSpendLowMood  = avgOf(bottomMood, r => r.total_spend);
+    const avgSpendHighMood = avgOf(topMood,    r => r.total_spend);
     const moodSpendGap     = avgSpendLowMood - avgSpendHighMood;
     if (moodSpendGap < 3) return null; // link 2 not strong enough
 
     // ── End-to-end: poor sleep → higher spending (confirms chain) ─────────────
-    const avgSpendPoorSleep = poorSleep.reduce((s, r) => s + r.total_spend, 0) / poorSleep.length;
-    const avgSpendGoodSleep = goodSleep.reduce((s, r) => s + r.total_spend, 0) / goodSleep.length;
+    const avgSpendPoorSleep = avgOf(poorSleep, r => r.total_spend);
+    const avgSpendGoodSleep = avgOf(goodSleep, r => r.total_spend);
     const endToEndGap       = avgSpendPoorSleep - avgSpendGoodSleep;
 
     if (endToEndGap < 2) return null; // chain doesn't hold end-to-end

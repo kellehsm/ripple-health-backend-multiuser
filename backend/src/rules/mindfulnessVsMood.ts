@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
 
 export const MindfulnessVsMoodRule: InsightRule = {
   id: "mindfulness_vs_mood",
@@ -13,7 +14,7 @@ export const MindfulnessVsMoodRule: InsightRule = {
          FROM metric_logs ml
          JOIN metrics m ON m.id = ml.metric_id
          WHERE m.user_id = $1 AND m.name = 'mindfulness'
-           AND ml.logged_at >= CURRENT_DATE - 60
+           AND ml.logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY DATE(ml.logged_at)
        )
        SELECT
@@ -22,7 +23,7 @@ export const MindfulnessVsMoodRule: InsightRule = {
        FROM daily_summaries ds
        LEFT JOIN mindfulness_days md ON md.day = ds.date
        WHERE ds.user_id = $1
-         AND ds.date >= CURRENT_DATE - 60
+         AND ds.date >= CURRENT_DATE - ${LOOKBACK_DAYS}
          AND ds.summary_data->'mood'->>'averageScore' IS NOT NULL`,
       [userId]
     );
@@ -32,8 +33,8 @@ export const MindfulnessVsMoodRule: InsightRule = {
 
     if (mindfulnessDays.length < 5 || noMindfulnessDays.length < 5) return null;
 
-    const avgMoodMindfulness   = mindfulnessDays.reduce((s, r) => s + Number(r.mood_score), 0) / mindfulnessDays.length;
-    const avgMoodNoMindfulness = noMindfulnessDays.reduce((s, r) => s + Number(r.mood_score), 0) / noMindfulnessDays.length;
+    const avgMoodMindfulness   = avgOf(mindfulnessDays,   r => Number(r.mood_score));
+    const avgMoodNoMindfulness = avgOf(noMindfulnessDays, r => Number(r.mood_score));
 
     const diff = avgMoodMindfulness - avgMoodNoMindfulness;
     if (Math.abs(diff) < 0.25) return null;
