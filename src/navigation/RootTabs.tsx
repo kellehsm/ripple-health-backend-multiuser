@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, View, Text } from "react-native";
+import { Pressable, View, Text, StyleSheet } from "react-native";
 import * as Haptics from "expo-haptics";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
@@ -47,6 +47,7 @@ import { ChallengesScreen } from "../screens/ChallengesScreen";
 import { ChallengeDetailScreen } from "../screens/ChallengeDetailScreen";
 import { NewChallengeScreen } from "../screens/NewChallengeScreen";
 import { SocialSettingsScreen } from "../screens/settings/SocialSettingsScreen";
+import { CardImageSplitterScreen } from "../screens/CardImageSplitterScreen";
 import { MedicationRemindersScreen } from "../screens/settings/MedicationRemindersScreen";
 import { BottomNav } from "../components/BottomNav";
 import { useTabPreferences } from "../hooks/useTabPreferences";
@@ -56,6 +57,22 @@ import { ModuleId } from "../types/tabPreferences";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+function SettingsTitle({ title }: { title: string }) {
+  const { theme } = useTheme();
+  return (
+    <View style={settingsHeaderStyles.container}>
+      <Text style={[settingsHeaderStyles.breadcrumb, { color: theme.textSoft }]}>Settings ›</Text>
+      <Text style={[settingsHeaderStyles.title, { color: theme.textStrong }]}>{title}</Text>
+    </View>
+  );
+}
+
+const settingsHeaderStyles = StyleSheet.create({
+  container: { alignItems: "flex-start" },
+  breadcrumb: { fontSize: 10, fontWeight: "700", letterSpacing: 0.4, lineHeight: 13 },
+  title: { fontSize: 18, fontWeight: "800", lineHeight: 22 },
+});
 
 // Map module IDs ↔ tab route names
 const MODULE_TO_ROUTE: Record<ModuleId | 'home', string> = {
@@ -206,18 +223,19 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="CustomizeDashboard" component={CustomizeDashboardScreen} options={{ title: "Customize Dashboard" }} />
         <Stack.Screen name="GlobalSearch" component={GlobalSearchScreen} options={{ title: "Search" }} />
         <Stack.Screen name="Help" component={HelpScreen} options={{ title: "Help & FAQ" }} />
-        <Stack.Screen name="SettingsAppearance" component={AppearanceSettingsScreen} options={{ title: "Appearance" }} />
-        <Stack.Screen name="SettingsHealthConnect" component={HealthConnectSettingsScreen} options={{ title: "Health Connect" }} />
-        <Stack.Screen name="SettingsDexcom" component={DexcomSettingsScreen} options={{ title: "Dexcom" }} />
-        <Stack.Screen name="SettingsNotifications" component={NotificationsSettingsScreen} options={{ title: "Notifications" }} />
-        <Stack.Screen name="SettingsTracking" component={TrackingSettingsScreen} options={{ title: "Always-on Tracking" }} />
-        <Stack.Screen name="SettingsSecurity" component={SecuritySettingsScreen} options={{ title: "App Lock" }} />
-        <Stack.Screen name="SettingsPreferences" component={PreferencesSettingsScreen} options={{ title: "Preferences" }} />
-        <Stack.Screen name="SettingsExportBackup" component={ExportBackupSettingsScreen} options={{ title: "Export & Backup" }} />
-        <Stack.Screen name="SettingsBanks" component={BanksSettingsScreen} options={{ title: "Connected Banks" }} />
+        <Stack.Screen name="SettingsAppearance" component={AppearanceSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Appearance" /> }} />
+        <Stack.Screen name="CardImageSplitter" component={CardImageSplitterScreen} options={{ headerTitle: () => <SettingsTitle title="Dashboard Image Split" /> }} />
+        <Stack.Screen name="SettingsHealthConnect" component={HealthConnectSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Health Connect" /> }} />
+        <Stack.Screen name="SettingsDexcom" component={DexcomSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Dexcom" /> }} />
+        <Stack.Screen name="SettingsNotifications" component={NotificationsSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Notifications" /> }} />
+        <Stack.Screen name="SettingsTracking" component={TrackingSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Always-on Tracking" /> }} />
+        <Stack.Screen name="SettingsSecurity" component={SecuritySettingsScreen} options={{ headerTitle: () => <SettingsTitle title="App Lock" /> }} />
+        <Stack.Screen name="SettingsPreferences" component={PreferencesSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Preferences" /> }} />
+        <Stack.Screen name="SettingsExportBackup" component={ExportBackupSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Export & Backup" /> }} />
+        <Stack.Screen name="SettingsBanks" component={BanksSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Connected Banks" /> }} />
         <Stack.Screen name="ExerciseSession" component={ExerciseSessionScreen} options={{ title: "Workout Session" }} />
         <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} options={{ title: "Session Details" }} />
-        <Stack.Screen name="MedicationReminders" component={MedicationRemindersScreen} options={{ title: "Medication Reminders" }} />
+        <Stack.Screen name="MedicationReminders" component={MedicationRemindersScreen} options={{ headerTitle: () => <SettingsTitle title="Medication Reminders" /> }} />
         <Stack.Screen name="MedicationImport" component={MedicationImportScreen} options={{ title: "Import Medications" }} />
         <Stack.Screen name="MedicationHistory" component={MedicationHistoryScreen} options={({ route }: any) => ({ title: route.params?.medicationName ?? "Medication History" })} />
         <Stack.Screen name="Experiments" component={ExperimentScreen} options={{ title: "Experiments" }} />
@@ -227,8 +245,8 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="Challenges" component={ChallengesScreen} options={{ title: "Challenges" }} />
         <Stack.Screen name="ChallengeDetail" component={ChallengeDetailScreen} options={{ title: "Challenge" }} />
         <Stack.Screen name="NewChallenge" component={NewChallengeScreen} options={{ title: "New Challenge" }} />
-        <Stack.Screen name="SettingsSocial" component={SocialSettingsScreen} options={{ title: "Friend Sharing" }} />
-        <Stack.Screen name="SettingsCustomizeTabs" options={{ title: "Customize Tabs" }}>
+        <Stack.Screen name="SettingsSocial" component={SocialSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Friend Sharing" /> }} />
+        <Stack.Screen name="SettingsCustomizeTabs" options={{ headerTitle: () => <SettingsTitle title="Customize Tabs" /> }}>
           {({ navigation }) => (
             <TabPreferencesScreen
               mode="settings"

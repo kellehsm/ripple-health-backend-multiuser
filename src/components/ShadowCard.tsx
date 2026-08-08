@@ -1,11 +1,12 @@
-import React, { useRef, useEffect } from "react";
-import { View, ViewStyle, StyleProp, Pressable, Animated, StyleSheet } from "react-native";
+import React, { useRef, useEffect, useState } from "react";
+import { View, ViewStyle, StyleProp, Pressable, Animated, StyleSheet, Image } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../theme/ThemeContext";
 import { useAppSettings } from "../theme/AppSettingsContext";
 import { hexWithAlpha } from "../theme/colorUtils";
 import { layeredShadow, hardOffset, ShadowSize } from "../theme/styleUtils";
 import { ThemedSurface, useCardBackground, useTileBackground } from "../theme/pageTemplates";
+import type { CardImageBg } from "../theme/AppSettingsContext";
 import { SPRING_STANDARD } from "../theme/motion";
 
 // Lazy-load BlurView so the app doesn't crash when expo-glass-effect isn't
@@ -16,6 +17,27 @@ try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   BlurView = require("expo-glass-effect").GlassView ?? require("expo-blur").BlurView ?? null;
 } catch { /* not installed yet — blur is a no-op */ }
+
+function SplitImageOverlay({ bg, borderRadius }: { bg: CardImageBg; borderRadius: number }) {
+  const [h, setH] = useState(0);
+  const imgHeight = h > 0 ? h / bg.hFraction : 0;
+  const imgTop = h > 0 ? -(bg.yFraction / bg.hFraction) * h : 0;
+  return (
+    <View
+      style={[StyleSheet.absoluteFill, { overflow: "hidden", borderRadius }]}
+      pointerEvents="none"
+      onLayout={(e) => setH(e.nativeEvent.layout.height)}
+    >
+      {h > 0 && (
+        <Image
+          source={{ uri: bg.uri }}
+          style={{ position: "absolute", left: 0, right: 0, height: imgHeight, top: imgTop }}
+          resizeMode="cover"
+        />
+      )}
+    </View>
+  );
+}
 
 interface ShadowCardProps {
   children?: React.ReactNode;
@@ -88,6 +110,8 @@ export function ShadowCard({
     : cardOpacity;
   const blurEnabled = BlurView !== null && objectId ? (perObjectGlassBlur[objectId] ?? false) : false;
   const blurIntensity = 40;
+  const { cardBgImages } = useAppSettings();
+  const splitBg = cardId ? (cardBgImages[cardId] ?? null) : null;
   const cardBg = useCardBackground(cardId ?? "");
   const tileBg = useTileBackground(tileId ?? "");
   const bgOverride = cardId ? cardBg : (tileId ? tileBg : null);
@@ -214,7 +238,9 @@ export function ShadowCard({
           style={[StyleSheet.absoluteFill, { backgroundColor: resolvedBg, borderRadius: radius }]}
         />
       )}
-      {(cardId || tileId) && (
+      {splitBg ? (
+        <SplitImageOverlay bg={splitBg} borderRadius={radius} />
+      ) : (cardId || tileId) && (
         <ThemedSurface
           elementId={(cardId ?? tileId)!}
           kind={cardId ? "card" : "tile"}

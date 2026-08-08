@@ -44,6 +44,7 @@ import { ScreenBackground } from "../components/ScreenBackground";
 import { ThemedIcon, moodScoreEmoji } from '../theme/iconRegistry';
 import { ThemedSurface } from '../theme/pageTemplates';
 import { WeeklyDigestModal } from "../components/WeeklyDigestModal";
+import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -618,10 +619,82 @@ export function OverviewScreen() {
     if (raw !== null) setScrub({ x, mgDl: Math.round(raw), yestMgDl: yestRaw !== null ? Math.round(yestRaw) : null, time: t });
   }
 
-  const load = useCallback(async function () {
-    try {
-      const today = new Date().toISOString().split("T")[0];
+  const applyOverviewData = useCallback(function (data: {
+    entries: JournalEntry[];
+    weeklyArr: WeeklyDay[];
+    patternEvents: PatternEvent[];
+    dig: WeeklyDigest | null;
+    mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number;
+    glucSt: GlucoseStatus | null;
+    meals: any[];
+    stepsVal: number | null;
+    sleep: any;
+    dse: any;
+    activeInsights: Insight[];
+    tirPct: number | null;
+    dayGlucoseData: GlucoseReading[];
+    dayEventsData: DayEvent[];
+    yesterdayGlucoseData: GlucoseReading[];
+    wCount: number;
+  }) {
+    setTodayEntries(data.entries);
+    setWeeklyData(data.weeklyArr);
+    setWeekMoods(data.weeklyArr.map(d => ({ date: d.date, score: d.avg_mood })));
+    setPatternEvents(data.patternEvents);
+    setDigest(data.dig);
+    if (data.dig) maybeFireWeeklyDigest(data.dig).catch(() => {});
+    setStreak(data.mealStreak);
+    setAllStreaks([
+      { label: "Meals",    icon: "🍽",  count: data.mealStreak,     color: (t: any) => t.teal.solid },
+      { label: "Mood",     icon: "😊",  count: data.moodStreak,     color: (t: any) => t.violet?.solid ?? t.purple.solid },
+      { label: "Steps",    icon: "👟",  count: data.stepsStreak,    color: (t: any) => t.teal.solid },
+      { label: "Exercise", icon: "🏋️", count: data.exerciseStreak, color: (t: any) => t.coral.solid },
+      { label: "Reading",  icon: "📚",  count: data.readingStreak,  color: (t: any) => t.amber.solid },
+    ].filter(s => s.count >= 2));
+    setGlucoseStatus(data.glucSt);
+    setTodayMeals(data.meals);
+    setStepsCount(data.stepsVal);
+    setTirPercent(data.tirPct);
+    setSleepStats(data.sleep ?? null);
+    setWaterCount(data.wCount);
+    setDailySummary(data.dse ?? null);
+    setAllInsights(data.activeInsights);
+    setTopInsight(data.activeInsights[0] ?? null);
+    setDayGlucose(data.dayGlucoseData);
+    setDayEvents(data.dayEventsData);
+    setYesterdayGlucose(data.yesterdayGlucoseData);
+  }, []);
 
+  const load = useCallback(async function () {
+    const today = new Date().toISOString().split("T")[0];
+    const cacheKey = `overview:main:${today}`;
+
+    const cached = getCached<{
+      entries: JournalEntry[];
+      weeklyArr: WeeklyDay[];
+      patternEvents: PatternEvent[];
+      dig: WeeklyDigest | null;
+      mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number;
+      glucSt: GlucoseStatus | null;
+      meals: any[];
+      stepsVal: number | null;
+      sleep: any;
+      dse: any;
+      activeInsights: Insight[];
+      tirPct: number | null;
+      dayGlucoseData: GlucoseReading[];
+      dayEventsData: DayEvent[];
+      yesterdayGlucoseData: GlucoseReading[];
+      wCount: number;
+    }>(cacheKey);
+
+    if (cached) {
+      applyOverviewData(cached);
+      setLoading(false);
+      return;
+    }
+
+    try {
       const dayMs = 24 * 60 * 60 * 1000;
       const nowMs = Date.now();
       const [entries, weekly, pattern, dig, day, streakData, glucSt, meals, steps, sleep, dse, insightsList, yestGluc, tirRes] =
@@ -651,40 +724,50 @@ export function OverviewScreen() {
         const waterMetric = await api.getOrCreateWaterMetric();
         if (waterMetric?.id) {
           const logs: any[] = await api.todaysWaterCount(waterMetric.id);
-          const todayStr = new Date().toDateString();
+          const todayDateStr = new Date().toDateString();
           wCount = Array.isArray(logs)
             ? logs
-                .filter(l => new Date(l.logged_at).toDateString() === todayStr)
+                .filter(l => new Date(l.logged_at).toDateString() === todayDateStr)
                 .reduce((sum, l) => sum + Number(l.value), 0)
             : 0;
         }
       } catch (_) {}
 
-      setTodayEntries(Array.isArray(entries) ? entries : []);
-      const weeklyArr: WeeklyDay[] = Array.isArray(weekly) ? weekly : [];
-      setWeeklyData(weeklyArr);
-      setWeekMoods(weeklyArr.map(d => ({ date: d.date, score: d.avg_mood })));
-      setPatternEvents(Array.isArray(pattern) ? pattern : []);
-      setDigest(dig ?? null);
-      if (dig) maybeFireWeeklyDigest(dig).catch(() => {});
       const mealStreak     = Number(streakData?.meal_streak     ?? 0);
       const moodStreak     = Number(streakData?.mood_streak     ?? 0);
       const stepsStreak    = Number(streakData?.steps_streak    ?? 0);
       const exerciseStreak = Number(streakData?.exercise_streak ?? 0);
       const readingStreak  = Number(streakData?.reading_streak  ?? 0);
       const stepsVal = steps?.steps ?? null;
-      setStreak(mealStreak);
-      setAllStreaks([
-        { label: "Meals",    icon: "🍽",  count: mealStreak,     color: (t: any) => t.teal.solid },
-        { label: "Mood",     icon: "😊",  count: moodStreak,     color: (t: any) => t.violet?.solid ?? t.purple.solid },
-        { label: "Steps",    icon: "👟",  count: stepsStreak,    color: (t: any) => t.teal.solid },
-        { label: "Exercise", icon: "🏋️", count: exerciseStreak, color: (t: any) => t.coral.solid },
-        { label: "Reading",  icon: "📚",  count: readingStreak,  color: (t: any) => t.amber.solid },
-      ].filter(s => s.count >= 2));
-      setGlucoseStatus(glucSt);
-      setTodayMeals(Array.isArray(meals) ? meals : []);
-      setStepsCount(stepsVal);
-      setTirPercent(tirRes?.tir_percent ?? null);
+      const weeklyArr: WeeklyDay[] = Array.isArray(weekly) ? weekly : [];
+      const activeInsights: Insight[] = Array.isArray(insightsList) ? insightsList : [];
+      const yestArray = Array.isArray(yestGluc) ? yestGluc : [];
+      const yesterdayGlucoseData = yestArray.map((r: GlucoseReading) => ({
+        ...r,
+        recorded_at: new Date(new Date(r.recorded_at).getTime() + dayMs).toISOString(),
+      }));
+
+      const payload = {
+        entries: Array.isArray(entries) ? entries : [],
+        weeklyArr,
+        patternEvents: Array.isArray(pattern) ? pattern : [],
+        dig: dig ?? null,
+        mealStreak, moodStreak, stepsStreak, exerciseStreak, readingStreak,
+        glucSt,
+        meals: Array.isArray(meals) ? meals : [],
+        stepsVal,
+        sleep,
+        dse,
+        activeInsights,
+        tirPct: tirRes?.tir_percent ?? null,
+        dayGlucoseData: day && Array.isArray(day.glucose) ? day.glucose : [],
+        dayEventsData: day && Array.isArray(day.events) ? day.events : [],
+        yesterdayGlucoseData,
+        wCount,
+      };
+
+      setCached(cacheKey, payload);
+      applyOverviewData(payload);
 
       // Milestone checks — fire at most one celebration per load
       const candidates = await Promise.all([
@@ -694,22 +777,6 @@ export function OverviewScreen() {
       ]);
       const winner = candidates.find(c => c?.isNew);
       if (winner) setMilestoneMessage(milestoneCopy(winner));
-      setSleepStats(sleep ?? null);
-      setWaterCount(wCount);
-      setDailySummary(dse ?? null);
-      const activeInsights: Insight[] = Array.isArray(insightsList) ? insightsList : [];
-      setAllInsights(activeInsights);
-      setTopInsight(activeInsights[0] ?? null);
-
-      if (day) {
-        setDayGlucose(Array.isArray(day.glucose) ? day.glucose : []);
-        setDayEvents(Array.isArray(day.events) ? day.events : []);
-      }
-      const yestArray = Array.isArray(yestGluc) ? yestGluc : [];
-      setYesterdayGlucose(yestArray.map((r: GlucoseReading) => ({
-        ...r,
-        recorded_at: new Date(new Date(r.recorded_at).getTime() + dayMs).toISOString(),
-      })));
 
       api.crossMetric().then((cm: any) => { if (cm) setCrossMetricData(cm); }).catch(() => {});
     } catch {
@@ -717,11 +784,12 @@ export function OverviewScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyOverviewData]);
 
   async function handleRefresh() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(true);
+    invalidateCache(`overview:main:${new Date().toISOString().split("T")[0]}`);
     try { await load(); } finally { setRefreshing(false); }
   }
 

@@ -33,6 +33,7 @@ import { SectionEditorModal, SectionDef } from "../components/SectionEditorModal
 import { FeatureTour, TourStep } from "../components/FeatureTour";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { Swipeable } from "react-native-gesture-handler";
+import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 
 const LIFE_SECTIONS: SectionDef[] = [
   { id: 'books',       label: 'Books & Reading', description: 'Currently reading list and book search' },
@@ -221,7 +222,16 @@ export function LifeScreen() {
     | { type: "hobby"; data: Hobby; timer: ReturnType<typeof setTimeout> };
   const [undoInfo, setUndoInfo] = useState<UndoInfo | null>(null);
 
-  const loadBooks = useCallback(async () => {
+  const loadBooks = useCallback(async (forceRefresh = false) => {
+    if (!forceRefresh) {
+      const cached = getCached<{ books: Book[]; progress: Record<string, Progress> }>('life:books');
+      if (cached) {
+        setBooks(cached.books);
+        setProgress(cached.progress);
+        setLoadingBooks(false);
+        return;
+      }
+    }
     setLoadingBooks(true);
     try {
       const data = await api.books("reading");
@@ -232,7 +242,9 @@ export function LifeScreen() {
           return [b.id, p] as [string, Progress];
         })
       );
-      setProgress(Object.fromEntries(entries));
+      const progressMap = Object.fromEntries(entries);
+      setProgress(progressMap);
+      setCached('life:books', { books: data, progress: progressMap });
     } catch {
       // non-critical — user sees empty list with empty state
     } finally {
@@ -240,7 +252,21 @@ export function LifeScreen() {
     }
   }, []);
 
-  const loadHobbies = useCallback(async function () {
+  const loadHobbies = useCallback(async function (forceRefresh = false) {
+    if (!forceRefresh) {
+      const cached = getCached<{
+        hobbies: Hobby[];
+        hobbyStats: Record<string, HobbyStats>;
+        hobbyStreaks: Record<string, number>;
+      }>('life:hobbies');
+      if (cached) {
+        setHobbies(cached.hobbies);
+        setHobbyStats(cached.hobbyStats);
+        setHobbyStreaks(cached.hobbyStreaks);
+        setLoadingHobbies(false);
+        return;
+      }
+    }
     setLoadingHobbies(true);
     setHobbyListError(null);
     try {
@@ -264,8 +290,11 @@ export function LifeScreen() {
           })
         ),
       ]);
-      setHobbyStats(Object.fromEntries(statsEntries));
-      setHobbyStreaks(Object.fromEntries(logsEntries));
+      const statsMap = Object.fromEntries(statsEntries);
+      const streaksMap = Object.fromEntries(logsEntries);
+      setHobbyStats(statsMap);
+      setHobbyStreaks(streaksMap);
+      setCached('life:hobbies', { hobbies: list, hobbyStats: statsMap, hobbyStreaks: streaksMap });
     } catch (e: any) {
       setHobbyListError((e as Error).message || "Failed to load hobbies");
     } finally {
@@ -273,10 +302,19 @@ export function LifeScreen() {
     }
   }, []);
 
-  const loadCompletedCount = useCallback(async () => {
+  const loadCompletedCount = useCallback(async (forceRefresh = false) => {
+    if (!forceRefresh) {
+      const cached = getCached<number>('life:completedCount');
+      if (cached !== null) {
+        setCompletedCount(cached);
+        return;
+      }
+    }
     try {
       const data = await api.completed();
-      setCompletedCount(Array.isArray(data) ? data.length : 0);
+      const count = Array.isArray(data) ? data.length : 0;
+      setCached('life:completedCount', count);
+      setCompletedCount(count);
     } catch (_) {
       setCompletedCount(0);
     }
@@ -302,7 +340,7 @@ export function LifeScreen() {
 
   async function handleRefresh() {
     setRefreshing(true);
-    try { await Promise.all([loadBooks(), loadHobbies(), loadCompletedCount()]); } finally { setRefreshing(false); }
+    try { await Promise.all([loadBooks(true), loadHobbies(true), loadCompletedCount(true)]); } finally { setRefreshing(false); }
   }
 
   async function handleSearch() {
@@ -326,6 +364,7 @@ export function LifeScreen() {
         cover_url: result.cover_url,
         total_pages: result.total_pages,
       });
+      invalidateCache('life:books');
       setSearchText("");
       setSearchResults([]);
       toast("Book added.");
@@ -340,12 +379,14 @@ export function LifeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await api.logPages(bookId, pages);
+      invalidateCache('life:books');
       const p = await api.bookProgress(bookId);
       setProgress((prev) => ({ ...prev, [bookId]: p }));
       if (p.percent_complete != null && p.percent_complete >= 100) {
         await api.updateBook(bookId, { status: "finished" });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast("Finished! Moved to Completed.");
+        invalidateCache('life:completedCount');
         loadBooks();
         loadCompletedCount();
       } else {
@@ -366,6 +407,8 @@ export function LifeScreen() {
   async function handleMarkBookFinished(bookId: string) {
     try {
       await api.updateBook(bookId, { status: "finished" });
+      invalidateCache('life:books');
+      invalidateCache('life:completedCount');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast("Marked as finished!");
       loadBooks();
@@ -382,7 +425,10 @@ export function LifeScreen() {
     setBooks((prev) => prev.filter((b) => b.id !== bookId));
     const timer = setTimeout(async () => {
       setUndoInfo(null);
-      try { await api.deleteBook(bookId); }
+      try {
+        await api.deleteBook(bookId);
+        invalidateCache('life:books');
+      }
       catch { toast("Couldn't delete that book. Try again.", "error"); loadBooks(); }
     }, 4000);
     setUndoInfo({ type: "book", data: deleted, timer });
@@ -396,6 +442,8 @@ export function LifeScreen() {
         onPress: async () => {
           try {
             await api.updateHobby(hobbyId, { status: "completed" });
+            invalidateCache('life:hobbies');
+            invalidateCache('life:completedCount');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             toast("Hobby completed!");
             loadHobbies();
@@ -415,7 +463,10 @@ export function LifeScreen() {
     setHobbies((prev) => prev.filter((h) => h.id !== hobbyId));
     const timer = setTimeout(async () => {
       setUndoInfo(null);
-      try { await api.deleteHobby(hobbyId); }
+      try {
+        await api.deleteHobby(hobbyId);
+        invalidateCache('life:hobbies');
+      }
       catch { toast("Couldn't delete that hobby. Try again.", "error"); loadHobbies(); }
     }, 4000);
     setUndoInfo({ type: "hobby", data: deleted, timer });
@@ -458,7 +509,7 @@ export function LifeScreen() {
       icon: "star",
       color_key: "coral",
     })
-      .then(function () { setHobbyName(""); loadHobbies(); })
+      .then(function () { invalidateCache('life:hobbies'); setHobbyName(""); loadHobbies(); })
       .catch(function (e: Error) { setCreateHobbyError(e.message || "Failed to create hobby"); })
       .finally(function () { setCreatingHobby(false); });
   }
@@ -474,6 +525,7 @@ export function LifeScreen() {
     const hobbyName = hobbies.find(h => h.id === hobbyId)?.name ?? "hobby";
     try {
       await api.logHobby(hobbyId, amount, undefined, undefined);
+      invalidateCache('life:hobbies');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast(`Logged ${amount} min for ${hobbyName} today.`);
       const [s, logs] = await Promise.all([

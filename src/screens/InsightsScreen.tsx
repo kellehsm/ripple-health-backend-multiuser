@@ -12,6 +12,7 @@ import { InsightCard, Insight } from "../components/InsightCard";
 import { UndoBanner } from "../components/UndoBanner";
 import { TooltipBubble } from "../components/TooltipBubble";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
+import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 
 function SkeletonPulse({ style }: { style?: object }) {
   const opacity = useRef(new Animated.Value(0.4)).current;
@@ -102,6 +103,17 @@ export function InsightsScreen() {
   const staggerRef = useRef<Animated.CompositeAnimation | null>(null);
 
   async function load(showRefresh = false) {
+    if (!showRefresh) {
+      const cached = getCached<{ active: Insight[]; dismissed: Insight[] }>('insights:list');
+      if (cached) {
+        setInsights(cached.active);
+        setDismissed(cached.dismissed);
+        setAnimationKey(k => k + 1);
+        isFirstLoad.current = false;
+        setLoading(false);
+        return;
+      }
+    }
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
@@ -113,6 +125,7 @@ export function InsightsScreen() {
       const dismissedList: Insight[] = Array.isArray(history)
         ? history.filter((i: any) => i.dismissed && !activeIds.has(i.id))
         : [];
+      setCached('insights:list', { active: activeList, dismissed: dismissedList });
       setInsights(activeList);
       setDismissed(dismissedList);
       setAnimationKey(k => k + 1);
@@ -171,7 +184,8 @@ export function InsightsScreen() {
     setRegenerating(true);
     try {
       await api.regenerateInsights();
-      await load();
+      invalidateCache('insights:list');
+      await load(true);
     } catch (_) {}
     setRegenerating(false);
   }

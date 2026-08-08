@@ -14,6 +14,7 @@ import { useTabPreferences } from '../hooks/useTabPreferences';
 import { TooltipBubble } from '../components/TooltipBubble';
 import { hasSeenTooltip, markTooltipSeen } from '../utils/tooltipSeen';
 import { WorkoutPlannerModal, PlanExercise } from '../components/WorkoutPlannerModal';
+import { getCached, setCached, invalidateCache } from '../utils/staleCache';
 
 interface WorkoutSuggestion {
   type: string;
@@ -166,6 +167,22 @@ export function ExerciseScreen() {
       navigation.navigate('Home');
       return () => { cancelled = true; };
     }
+
+    const cached = getCached<{
+      wizardDone: boolean;
+      sessions: ExerciseSession[];
+      suggestion: WorkoutSuggestion | null;
+      activeProgram: ActiveProgram | null;
+    }>('exercise:main');
+    if (cached) {
+      setWizardDone(cached.wizardDone);
+      setSessions(cached.sessions);
+      setSuggestion(cached.suggestion);
+      setActiveProgram(cached.activeProgram);
+      setLoading(false);
+      return () => { cancelled = true; };
+    }
+
     setLoading(true);
     Promise.all([
       api.getWorkoutWizardStatus().catch(() => ({ complete: false })),
@@ -174,10 +191,20 @@ export function ExerciseScreen() {
       api.listWorkoutPrograms().catch(() => []),
     ]).then(([status, sessionList, sug, progs]) => {
       if (!cancelled) {
-        setWizardDone(status.complete === true);
-        setSessions(sessionList ?? []);
-        setSuggestion(sug ?? null);
-        setActiveProgram((progs as any[]).find((p: any) => p.is_active) ?? null);
+        const wizardDoneVal = status.complete === true;
+        const sessionsVal: ExerciseSession[] = sessionList ?? [];
+        const sugVal: WorkoutSuggestion | null = sug ?? null;
+        const activeProgramVal: ActiveProgram | null = (progs as any[]).find((p: any) => p.is_active) ?? null;
+        setCached('exercise:main', {
+          wizardDone: wizardDoneVal,
+          sessions: sessionsVal,
+          suggestion: sugVal,
+          activeProgram: activeProgramVal,
+        });
+        setWizardDone(wizardDoneVal);
+        setSessions(sessionsVal);
+        setSuggestion(sugVal);
+        setActiveProgram(activeProgramVal);
       }
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -185,6 +212,7 @@ export function ExerciseScreen() {
 
   async function handleBeginWorkout(queue: PlanExercise[]) {
     const session = await api.startExerciseSession();
+    invalidateCache('exercise:main');
     setPlannerVisible(false);
     navigation.navigate('ExerciseSession', {
       sessionId: session.id,

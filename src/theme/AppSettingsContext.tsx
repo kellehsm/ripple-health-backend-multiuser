@@ -18,6 +18,13 @@ export const CARD_OPACITY_MIN = 0.00;
 export const CARD_OPACITY_MAX = 1.0;
 const DEFAULT_OPACITY = 1.0;
 
+/** Per-card split-image background. yFraction/hFraction are 0–1 fractions of the source image. */
+export type CardImageBg = {
+  uri: string;
+  yFraction: number;
+  hFraction: number;
+};
+
 type AppSettings = {
   shadowsEnabled: boolean;
   fontFamily: FontFamilyKey;
@@ -26,6 +33,7 @@ type AppSettings = {
   cardOpacityManualOverride: boolean;
   perObjectOpacity: Record<string, number>;
   perObjectGlassBlur: Record<string, boolean>;
+  cardBgImages: Record<string, CardImageBg>;
 };
 
 type AppSettingsContextValue = AppSettings & {
@@ -37,6 +45,8 @@ type AppSettingsContextValue = AppSettings & {
   setObjectOpacity: (id: string, value: number) => void;
   resetObjectOpacity: (id: string) => void;
   setObjectGlassBlur: (id: string, enabled: boolean) => void;
+  setCardBgImages: (imgs: Record<string, CardImageBg>) => void;
+  clearCardBgImages: () => void;
 };
 
 // ─── Storage keys ──────────────────────────────────────────────────────────────
@@ -48,6 +58,7 @@ const KEY_CARD_OPACITY       = "ripple_card_opacity";
 const KEY_OPACITY_OVERRIDE   = "ripple_card_opacity_override";
 const KEY_OBJ_OPACITY        = "ripple_per_object_opacity";
 const KEY_OBJ_GLASS_BLUR     = "ripple_per_object_glass_blur";
+const KEY_CARD_BG_IMAGES     = "ripple_card_bg_images";
 
 // ─── Context ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +70,7 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   cardOpacityManualOverride: false,
   perObjectOpacity: {},
   perObjectGlassBlur: {},
+  cardBgImages: {},
   setShadowsEnabled: () => {},
   setFontFamily: () => {},
   setFontSizeScale: () => {},
@@ -67,6 +79,8 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   setObjectOpacity: () => {},
   resetObjectOpacity: () => {},
   setObjectGlassBlur: () => {},
+  setCardBgImages: () => {},
+  clearCardBgImages: () => {},
 });
 
 export function AppSettingsProvider({ children }: { children: React.ReactNode }) {
@@ -79,6 +93,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   const [cardOpacityManualOverride, setCardOpacityManualOverrideState] = useState(false);
   const [perObjectOpacity, setPerObjectOpacityState] = useState<Record<string, number>>({});
   const [perObjectGlassBlur, setPerObjectGlassBlurState] = useState<Record<string, boolean>>({});
+  const [cardBgImages, setCardBgImagesState] = useState<Record<string, CardImageBg>>({});
 
   // Ref so palette-change effect can read current override without stale closure
   const manualOverrideRef = useRef(false);
@@ -86,7 +101,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   // ── Load persisted settings on mount ──────────────────────────────────────
   useEffect(() => {
     const load = async () => {
-      const [shadows, ff, scale, opacity, override, objOpacity, objGlass] = await Promise.all([
+      const [shadows, ff, scale, opacity, override, objOpacity, objGlass, cardBgImgs] = await Promise.all([
         AsyncStorage.getItem(KEY_SHADOWS),
         AsyncStorage.getItem(KEY_FONT_FAMILY),
         AsyncStorage.getItem(KEY_FONT_SCALE),
@@ -94,6 +109,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
         AsyncStorage.getItem(KEY_OPACITY_OVERRIDE),
         AsyncStorage.getItem(KEY_OBJ_OPACITY),
         AsyncStorage.getItem(KEY_OBJ_GLASS_BLUR),
+        AsyncStorage.getItem(KEY_CARD_BG_IMAGES),
       ]);
 
       if (shadows !== null) setShadowsEnabledState(shadows !== "false");
@@ -118,6 +134,9 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
       }
       if (objGlass) {
         try { setPerObjectGlassBlurState(JSON.parse(objGlass)); } catch {}
+      }
+      if (cardBgImgs) {
+        try { setCardBgImagesState(JSON.parse(cardBgImgs)); } catch {}
       }
 
       // Backend sync (non-blocking; overrides AsyncStorage if server has a value)
@@ -208,13 +227,24 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     });
   }, []);
 
+  const setCardBgImages = useCallback((imgs: Record<string, CardImageBg>) => {
+    setCardBgImagesState(imgs);
+    AsyncStorage.setItem(KEY_CARD_BG_IMAGES, JSON.stringify(imgs)).catch(() => {});
+  }, []);
+
+  const clearCardBgImages = useCallback(() => {
+    setCardBgImagesState({});
+    AsyncStorage.removeItem(KEY_CARD_BG_IMAGES).catch(() => {});
+  }, []);
+
   return (
     <AppSettingsContext.Provider
       value={{
         shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride,
-        perObjectOpacity, perObjectGlassBlur,
+        perObjectOpacity, perObjectGlassBlur, cardBgImages,
         setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity,
         setObjectOpacity, resetObjectOpacity, setObjectGlassBlur,
+        setCardBgImages, clearCardBgImages,
       }}
     >
       {children}

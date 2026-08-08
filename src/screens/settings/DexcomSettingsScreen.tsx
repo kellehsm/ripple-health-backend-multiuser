@@ -13,6 +13,8 @@ export function DexcomSettingsScreen() {
   const [region, setRegion] = useState<"us" | "ous">("us");
   const [passwordSet, setPasswordSet] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [connError, setConnError] = useState<string | null>(null);
+  const [connSuccess, setConnSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     api.getSettings().then((s) => {
@@ -32,6 +34,8 @@ export function DexcomSettingsScreen() {
       return;
     }
 
+    setConnError(null);
+    setConnSuccess(null);
     setSaving(true);
     try {
       if (password) {
@@ -46,15 +50,12 @@ export function DexcomSettingsScreen() {
       setPassword("");
       setPasswordSet(true);
       api.glucoseSyncShare().catch(() => {});
-      Alert.alert(
-        "Connected",
-        password ? "Dexcom credentials verified and saved. Syncing now…" : "Dexcom settings updated."
-      );
+      setConnSuccess(password ? "Credentials verified and saved. Syncing now…" : "Dexcom settings updated.");
     } catch (e: any) {
       const raw = e?.message ?? "Failed to save.";
       // Strip "API error 4xx: " prefix Fastify adds before showing to user
       const msg = raw.replace(/^API error \d+: /, "");
-      Alert.alert("Connection Failed", msg);
+      setConnError(msg);
     } finally {
       setSaving(false);
     }
@@ -104,6 +105,21 @@ export function DexcomSettingsScreen() {
           ))}
         </View>
 
+        {connError && (
+          <View style={[styles.inlineBanner, { backgroundColor: theme.coral.tint, borderColor: theme.coral.solid }]}>
+            <Ionicons name="alert-circle-outline" size={15} color={theme.coral.fg} style={{ flexShrink: 0 }} />
+            <Text style={{ color: theme.coral.fg, fontSize: 12, flex: 1, marginLeft: 8 }}>{connError}</Text>
+            <Pressable onPress={() => setConnError(null)} hitSlop={8}>
+              <Ionicons name="close" size={14} color={theme.coral.fg} />
+            </Pressable>
+          </View>
+        )}
+        {connSuccess && (
+          <View style={[styles.inlineBanner, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
+            <Ionicons name="checkmark-circle-outline" size={15} color={theme.teal.fg} style={{ flexShrink: 0 }} />
+            <Text style={{ color: theme.teal.fg, fontSize: 12, flex: 1, marginLeft: 8 }}>{connSuccess}</Text>
+          </View>
+        )}
         <Pressable onPress={handleSave} disabled={saving}
           style={[styles.btn, { backgroundColor: theme.teal.bg, borderColor: theme.teal.sub }]}>
           {saving ? <LoadingIndicator size="small" color={theme.teal.fg} /> : <Text style={{ color: theme.teal.fg, fontWeight: "500" }}>Save credentials</Text>}
@@ -121,5 +137,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, marginTop: 8 },
   input: { borderWidth: 2, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, marginTop: 4 },
   chip: { borderWidth: 2, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 7 },
+  inlineBanner: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, marginTop: 4 },
   btn: { borderWidth: 2, borderRadius: 16, paddingVertical: 10, alignItems: "center", marginTop: 8 },
 });

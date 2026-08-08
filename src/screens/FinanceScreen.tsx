@@ -25,6 +25,7 @@ import notifee from "@notifee/react-native";
 import { CH_SPENDING } from "../lib/smartNotifications";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { formatDayHeader, formatTime, todayStr } from "../utils/dateUtils";
+import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 
 const FINANCE_SECTIONS: SectionDef[] = [
   { id: 'totals',       label: 'Total spent',              description: 'Spending total card with add button' },
@@ -187,6 +188,15 @@ export function FinanceScreen() {
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   async function load(isRefresh = false) {
+    if (!isRefresh) {
+      const cached = getCached<{ entries: SpendingEntry[]; suggestion: typeof moodSuggestion }>('finance:spending');
+      if (cached) {
+        setEntries(cached.entries);
+        if (cached.suggestion?.spending_id) setMoodSuggestion(cached.suggestion);
+        setLoading(false);
+        return;
+      }
+    }
     if (isRefresh) setRefreshing(true);
     else if (!entries.length) setLoading(true);
     try {
@@ -195,9 +205,12 @@ export function FinanceScreen() {
         api.spending(since),
         api.spendingMoodSuggest().catch(() => null),
       ]);
-      setEntries(Array.isArray(data) ? data : []);
-      if (suggestion && suggestion.spending_id) {
-        setMoodSuggestion(suggestion);
+      const entryList = Array.isArray(data) ? data : [];
+      const sug = (suggestion && suggestion.spending_id) ? suggestion : null;
+      setCached('finance:spending', { entries: entryList, suggestion: sug });
+      setEntries(entryList);
+      if (sug) {
+        setMoodSuggestion(sug);
       }
     } catch {
       toast("Couldn't load spending.", "error");
@@ -365,6 +378,7 @@ export function FinanceScreen() {
         logged_at: addDate + "T12:00:00.000Z",
         source: "manual",
       });
+      invalidateCache('finance:spending');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowAdd(false);
       resetAdd();
@@ -405,6 +419,7 @@ export function FinanceScreen() {
     setEditSubmitting(true);
     try {
       await api.patchSpending(editEntry.id, { category: editCategory, notes: editNotes.trim() || null });
+      invalidateCache('finance:spending');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setEditEntry(null);
       await load();
@@ -426,6 +441,7 @@ export function FinanceScreen() {
         onPress: async () => {
           try {
             await api.deleteSpending(editEntry.id);
+            invalidateCache('finance:spending');
             setEditEntry(null);
             await load();
             toast("Deleted.");

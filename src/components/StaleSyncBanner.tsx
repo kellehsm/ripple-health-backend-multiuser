@@ -7,9 +7,10 @@ import { useTheme } from "../theme/ThemeContext";
 interface Props {
   message: string;
   onDismiss: () => void;
+  onRetry?: () => void;
 }
 
-export function StaleSyncBanner({ message, onDismiss }: Props) {
+export function StaleSyncBanner({ message, onDismiss, onRetry }: Props) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(80)).current;
@@ -47,6 +48,11 @@ export function StaleSyncBanner({ message, onDismiss }: Props) {
     >
       <Ionicons name="cloud-offline-outline" size={18} color={theme.amber.fg} style={{ marginRight: 10, flexShrink: 0 }} />
       <Text style={[styles.text, { color: theme.amber.fg, flex: 1 }]}>{message}</Text>
+      {onRetry && (
+        <Pressable onPress={() => { onRetry(); dismiss(); }} hitSlop={12} style={{ marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, borderWidth: 1.5, borderColor: theme.amber.solid }}>
+          <Text style={{ color: theme.amber.fg, fontSize: 12, fontWeight: "700" }}>Retry</Text>
+        </Pressable>
+      )}
       <Pressable onPress={dismiss} hitSlop={12} style={{ marginLeft: 8 }}>
         <Ionicons name="close" size={16} color={theme.amber.fg} />
       </Pressable>

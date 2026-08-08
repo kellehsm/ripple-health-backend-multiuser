@@ -33,6 +33,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { ThemedSurface } from "../theme/pageTemplates";
 import { type SleepStages } from "../lib/healthConnect";
+import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 
 type GlucoseReading = {
   recorded_at: string;
@@ -354,12 +355,57 @@ export function HealthScreen() {
   const mindfulnessScale = useRef(new Animated.Value(1)).current;
   const entranceAnim = useRef(new Animated.Value(0)).current;
 
-  const loadStepsAndSleep = useCallback(async function () {
+  const loadStepsAndSleep = useCallback(async function (forceRefresh = false) {
     const _now = new Date();
     const today = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+    const cacheKey = `health:stepsAndSleep:${today}`;
+
+    if (!forceRefresh) {
+      const cached = getCached<{
+        stepsCount: number | null;
+        stepsMetricId: string | null;
+        stepsWeekTotal: number | null;
+        weekStepsStart: number;
+        sleepDisplay: string | null;
+        sleepStatLine: string | null;
+        sleepAvgSecs: number | null;
+        sleepWeekDays: { date: string; seconds: number }[];
+      }>(cacheKey);
+      if (cached) {
+        setStepsCount(cached.stepsCount);
+        setStepsMetricId(cached.stepsMetricId);
+        setStepsWeekTotal(cached.stepsWeekTotal);
+        setWeekStepsStart(cached.weekStepsStart);
+        setSleepDisplay(cached.sleepDisplay);
+        setSleepStatLine(cached.sleepStatLine);
+        if (cached.sleepAvgSecs !== null) setSleepAvgSecs(cached.sleepAvgSecs);
+        setSleepWeekDays(cached.sleepWeekDays);
+        // still load step goal from AsyncStorage (fast, local)
+        try {
+          const saved = await AsyncStorage.getItem("ripple_step_goal");
+          if (saved) { setStepGoal(Number(saved)); setShowGoalNudge(false); }
+          else {
+            const dismissed = await AsyncStorage.getItem("ripple_step_goal_nudge_dismissed");
+            setShowGoalNudge(dismissed !== "true");
+          }
+        } catch (_) {}
+        return;
+      }
+    }
+
+    let stepsCountVal: number | null = null;
+    let stepsMetricIdVal: string | null = null;
+    let stepsWeekTotalVal: number | null = null;
+    let weekStepsStartVal = 1;
+    let sleepDisplayVal: string | null = null;
+    let sleepStatLineVal: string | null = null;
+    let sleepAvgSecsVal: number | null = null;
+    let sleepWeekDaysVal: { date: string; seconds: number }[] = [];
+
     try {
       const s = await api.stepsToday(today);
-      setStepsCount(s?.steps ?? null);
+      stepsCountVal = s?.steps ?? null;
+      setStepsCount(stepsCountVal);
       lastSyncTimeRef.current = Date.now();
       setLastSyncMinutes(0);
     } catch (e) {
@@ -368,18 +414,21 @@ export function HealthScreen() {
     try {
       const stepsList = await api.getStepsMetric();
       if (stepsList && stepsList.length > 0) {
-        setStepsMetricId(stepsList[0].id);
+        stepsMetricIdVal = stepsList[0].id;
+        setStepsMetricId(stepsMetricIdVal);
         const settings = await api.getSettings().catch(() => null);
-        const wsd = settings?.week_start?.steps ?? 1;
-        setWeekStepsStart(wsd);
-        const weekly = await api.stepsWeeklyTotal(stepsList[0].id, wsd);
-        setStepsWeekTotal(weekly?.week_total ?? null);
+        weekStepsStartVal = settings?.week_start?.steps ?? 1;
+        setWeekStepsStart(weekStepsStartVal);
+        const weekly = await api.stepsWeeklyTotal(stepsList[0].id, weekStepsStartVal);
+        stepsWeekTotalVal = weekly?.week_total ?? null;
+        setStepsWeekTotal(stepsWeekTotalVal);
       }
     } catch (_) {}
     try {
       const session = await api.sleepToday(today);
       if (session?.start_time && session?.end_time) {
-        setSleepDisplay(formatSleepDuration(session.start_time, session.end_time));
+        sleepDisplayVal = formatSleepDuration(session.start_time, session.end_time);
+        setSleepDisplay(sleepDisplayVal);
       } else {
         setSleepDisplay(null);
       }
@@ -395,15 +444,22 @@ export function HealthScreen() {
       };
       const yest = stats?.yesterday_seconds > 0 ? fmt(stats.yesterday_seconds) : "--";
       const avg = stats?.seven_day_average_seconds > 0 ? fmt(stats.seven_day_average_seconds) : "--";
-      setSleepStatLine("Yesterday: " + yest + " · 7d avg: " + avg);
-      if (stats?.seven_day_average_seconds > 0) setSleepAvgSecs(stats.seven_day_average_seconds);
-      if (Array.isArray(stats?.week_days)) setSleepWeekDays(stats.week_days);
+      sleepStatLineVal = "Yesterday: " + yest + " · 7d avg: " + avg;
+      setSleepStatLine(sleepStatLineVal);
+      if (stats?.seven_day_average_seconds > 0) {
+        sleepAvgSecsVal = stats.seven_day_average_seconds;
+        setSleepAvgSecs(sleepAvgSecsVal);
+      }
+      if (Array.isArray(stats?.week_days)) {
+        sleepWeekDaysVal = stats.week_days;
+        setSleepWeekDays(sleepWeekDaysVal);
+      }
     } catch (e) {
       console.error("Failed to load sleep stats", e);
     }
     try {
-      const cached = await AsyncStorage.getItem("ripple_sleep_stages");
-      if (cached) setSleepStages(JSON.parse(cached));
+      const cachedStages = await AsyncStorage.getItem("ripple_sleep_stages");
+      if (cachedStages) setSleepStages(JSON.parse(cachedStages));
     } catch (_) {}
     try {
       const saved = await AsyncStorage.getItem("ripple_step_goal");
@@ -415,37 +471,78 @@ export function HealthScreen() {
         setShowGoalNudge(dismissed !== "true");
       }
     } catch (_) {}
+
+    setCached(cacheKey, {
+      stepsCount: stepsCountVal,
+      stepsMetricId: stepsMetricIdVal,
+      stepsWeekTotal: stepsWeekTotalVal,
+      weekStepsStart: weekStepsStartVal,
+      sleepDisplay: sleepDisplayVal,
+      sleepStatLine: sleepStatLineVal,
+      sleepAvgSecs: sleepAvgSecsVal,
+      sleepWeekDays: sleepWeekDaysVal,
+    });
   }, []);
 
-  const loadWater = useCallback(async function () {
+  const loadWater = useCallback(async function (forceRefresh = false) {
+    const today = new Date().toDateString();
+    const cacheKey = `health:water:${today}`;
+    if (!forceRefresh) {
+      const cached = getCached<{ metricId: string; count: number; statLine: string | null }>(cacheKey);
+      if (cached) {
+        setWaterMetricId(cached.metricId);
+        setWaterCount(cached.count);
+        if (cached.statLine) setWaterStatLine(cached.statLine);
+        return;
+      }
+    }
     try {
       const metric = await api.getOrCreateWaterMetric();
       setWaterMetricId(metric.id);
       const logs = await api.todaysWaterCount(metric.id);
-      setWaterCount(sumTodayLogs(Array.isArray(logs) ? logs : []));
+      const count = sumTodayLogs(Array.isArray(logs) ? logs : []);
+      setWaterCount(count);
+      let statLine: string | null = null;
       try {
         const stats = await api.waterStats(metric.id);
         const yest = stats?.yesterday_total > 0 ? stats.yesterday_total + " glasses" : "--";
         const avg = stats?.seven_day_average > 0 ? Math.round(stats.seven_day_average) + " glasses" : "--";
-        setWaterStatLine("Yesterday: " + yest + " · 7d avg: " + avg);
+        statLine = "Yesterday: " + yest + " · 7d avg: " + avg;
+        setWaterStatLine(statLine);
       } catch (_) {}
+      setCached(cacheKey, { metricId: metric.id, count, statLine });
     } catch (e) {
       console.error("Failed to load water data", e);
     }
   }, []);
 
   const loadHeartRate = useCallback(async function (hours: number) {
+    const nowHour = new Date().toISOString().slice(0, 13); // hour-granularity bucket
+    const cacheKey = `health:heartRate:${hours}h:${nowHour}`;
+    const cached = getCached<{ readings: HRReading[]; sevenDay: HRReading[] }>(cacheKey);
+    if (cached) {
+      setHrReadings(cached.readings);
+      setHr7DayReadings(cached.sevenDay);
+      return;
+    }
     setHrLoading(true);
     try {
       const now = new Date();
       const start = new Date(now.getTime() - hours * 60 * 60 * 1000);
       const readings = await api.heartRateRange(start.toISOString(), now.toISOString());
-      setHrReadings(Array.isArray(readings) ? readings : []);
+      const readingList = Array.isArray(readings) ? readings : [];
+      setHrReadings(readingList);
       // Fetch 7-day data for trend comparison (independent of selected window)
       const sevenDayStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       api.heartRateRange(sevenDayStart.toISOString(), now.toISOString())
-        .then(function (d) { setHr7DayReadings(Array.isArray(d) ? d : []); })
-        .catch(function () {});
+        .then(function (d) {
+          const sevenDay = Array.isArray(d) ? d : [];
+          setHr7DayReadings(sevenDay);
+          setCached(cacheKey, { readings: readingList, sevenDay });
+        })
+        .catch(function () {
+          setCached(cacheKey, { readings: readingList, sevenDay: [] });
+        });
     } catch (e) {
       console.error("Failed to load heart rate", e);
     } finally {
@@ -457,7 +554,7 @@ export function HealthScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(true);
     try {
-      await Promise.all([load(rangeHours), loadWater(), loadStepsAndSleep(), loadHeartRate(hrRangeHours)]);
+      await Promise.all([load(rangeHours), loadWater(true), loadStepsAndSleep(true), loadHeartRate(hrRangeHours)]);
       setLastRefreshed(new Date());
     } finally {
       setRefreshing(false);
@@ -471,6 +568,7 @@ export function HealthScreen() {
     Animated.timing(waterFlashAnim, { toValue: 0, duration: 500, useNativeDriver: true }).start();
     try {
       await api.logWater(waterMetricId);
+      invalidateCache(`health:water:${new Date().toDateString()}`);
       const logs = await api.todaysWaterCount(waterMetricId);
       const newCount = sumTodayLogs(Array.isArray(logs) ? logs : []);
       const wasAtGoal = prevWaterRef.current >= waterGoal;

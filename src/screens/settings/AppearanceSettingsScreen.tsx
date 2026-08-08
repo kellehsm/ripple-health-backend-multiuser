@@ -1,6 +1,8 @@
 import React, { useRef, useState, useCallback } from "react";
 import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder, Modal, TouchableWithoutFeedback } from "react-native";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAppSettings, CARD_OPACITY_MIN, CARD_OPACITY_MAX } from "../../theme/AppSettingsContext";
 import { PALETTES, PALETTE_GROUPS } from "../../theme/palettes";
@@ -266,6 +268,7 @@ const THUMB_SIZE = 26;
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function AppearanceSettingsScreen() {
+  const navigation = useNavigation<any>();
   const { theme, paletteId, setPalette } = useTheme();
   const {
     shadowsEnabled, setShadowsEnabled,
@@ -491,6 +494,19 @@ export function AppearanceSettingsScreen() {
         </View>
       </View>
 
+      {/* ── Card image splitter ─────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 20 }]}>CARD BACKGROUNDS</Text>
+      <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
+        Split a photo across all your Home dashboard cards to create a mosaic wallpaper effect.
+      </Text>
+      <Pressable
+        onPress={() => navigation.navigate("CardImageSplitter")}
+        style={[styles.card, styles.navRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+      >
+        <Ionicons name="images-outline" size={20} color={theme.teal.solid} style={{ marginRight: 12 }} />
+        <Text style={[styles.paletteName, { color: theme.textStrong }]}>Split Image to Cards</Text>
+        <Ionicons name="chevron-forward" size={18} color={theme.textSoft} />
+      </Pressable>
 
     </ScrollView>
   );
@@ -511,6 +527,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 13,
+  },
+  navRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   paletteName: { flex: 1, fontSize: 14, fontWeight: "600" },
   checkmark: { fontSize: 18, fontWeight: "700", width: 22, textAlign: "center" },
