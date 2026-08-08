@@ -171,18 +171,20 @@ export function LifeScreen() {
     if (!preferences.selectedModules.includes('hobbies')) {
       navigation.navigate('Home');
     }
+    let cancelled = false;
     hasSeenTooltip("life").then(seen => {
-      if (!seen) {
+      if (!cancelled && !seen) {
         setShowTooltip(true);
         markTooltipSeen("life");
       }
     });
     hasSeenTooltip("life-tour").then(seen => {
-      if (!seen) { markTooltipSeen("life-tour"); setTimeout(() => setShowTour(true), 600); }
+      if (!cancelled && !seen) { markTooltipSeen("life-tour"); setTimeout(() => setShowTour(true), 600); }
     });
     api.getSettings().then((s: any) => {
-      setHiddenSections(s?.life_hidden_sections ?? []);
+      if (!cancelled) setHiddenSections(s?.life_hidden_sections ?? []);
     }).catch(() => {});
+    return () => { cancelled = true; };
   }, [prefsLoading, preferences.selectedModules]));
 
   async function handleSaveSections(newHidden: string[]) {

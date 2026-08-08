@@ -29,11 +29,14 @@ import { MoodPageSheet } from "../components/MoodPageSheet";
 import { MilestoneBanner } from "../components/MilestoneBanner";
 import { checkMilestone, milestoneCopy } from "../utils/milestones";
 import { resolveLayout, type DashboardLayout, type CardId } from "../constants/dashboardCards";
+import { BUCKET_ORDER, BUCKET_LABEL, type MoodBucket } from "../constants";
 import { TooltipBubble } from "../components/TooltipBubble";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
 import { DashboardEditorModal } from "../components/DashboardEditorModal";
 import { FeatureTour, type TourStep } from "../components/FeatureTour";
 import { useFocusEffect } from "@react-navigation/native";
+import { fmtTime, fmtDayLabel, fmtSleep, todayStr } from "../utils/dateUtils";
+import { computeTIR, weekGlucoseAvg, interpolateGlucose, glucoseY as glucoseYBase, eventX as eventXBase } from "../utils/glucoseMetrics";
 import { maybeFireWeeklyDigest } from "../lib/smartNotifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFastStatus, startFast, stopFast, formatElapsed, FastStatus } from "../lib/fastingTimer";
@@ -95,17 +98,11 @@ type WeeklyDigest = {
 type GlucoseStatus = { hasData: boolean; mg_dl: number | null; arrow: string | null };
 type SleepStats = { yesterday_seconds: number; seven_day_average_seconds: number };
 
-type Bucket = "morning" | "afternoon" | "evening" | "night";
+// Bucket is an alias for MoodBucket imported from constants
+type Bucket = MoodBucket;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const BUCKET_ORDER: Bucket[] = ["morning", "afternoon", "evening", "night"];
-const BUCKET_LABEL: Record<Bucket, string> = {
-  morning: "Morning",
-  afternoon: "Afternoon",
-  evening: "Evening",
-  night: "Night",
-};
+// BUCKET_ORDER and BUCKET_LABEL imported from ../constants
 
 const SCREEN_W = Dimensions.get("window").width;
 const CHART_W = SCREEN_W - 64;
@@ -134,65 +131,13 @@ function getGreeting(): { text: string; emojiSlot: string } {
   return           { text: "Good evening",   emojiSlot: "greeting.evening"   };
 }
 
-function fmtTime(iso: string): string {
-  const d = new Date(iso);
-  return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
-}
-
-function fmtDayLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
-  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
-}
-
-function fmtSleep(seconds: number): string {
-  if (seconds <= 0) return "--";
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  if (m === 0) return h + "h";
-  return h + "h " + m + "m";
-}
-
-function computeTIR(readings: GlucoseReading[]): number | null {
-  if (readings.length < 3) return null;
-  const inRange = readings.filter(r => Number(r.mg_dl) >= 70 && Number(r.mg_dl) <= 180).length;
-  return Math.round((inRange / readings.length) * 100);
-}
-
-function weekGlucoseAvg(glucose_by_tod: WeeklyDigest["glucose_by_tod"]): number | null {
-  let totalWeighted = 0;
-  let totalCount = 0;
-  for (const v of Object.values(glucose_by_tod)) {
-    if (v) { totalWeighted += v.avg * v.count; totalCount += v.count; }
-  }
-  return totalCount > 0 ? Math.round(totalWeighted / totalCount) : null;
-}
-
-function interpolateGlucose(readings: GlucoseReading[], t: number): number | null {
-  if (readings.length === 0) return null;
-  let before: GlucoseReading | null = null;
-  let after: GlucoseReading | null = null;
-  for (const r of readings) {
-    const rt = new Date(r.recorded_at).getTime();
-    if (rt <= t) before = r;
-    else if (!after) after = r;
-  }
-  if (!before && !after) return null;
-  if (!before) return Number(after!.mg_dl);
-  if (!after) {
-    return (t - new Date(before.recorded_at).getTime()) <= 20 * 60 * 1000 ? Number(before.mg_dl) : null;
-  }
-  const bt = new Date(before.recorded_at).getTime();
-  const at = new Date(after.recorded_at).getTime();
-  return Number(before.mg_dl) + ((t - bt) / (at - bt)) * (Number(after.mg_dl) - Number(before.mg_dl));
-}
-
+// Screen-local wrappers that bind chart constants to the generic util functions
 function glucoseY(val: number, minVal: number, maxVal: number): number {
-  const usableH = CHART_H - PAD_T - PAD_B;
-  return PAD_T + usableH - ((val - minVal) / (maxVal - minVal)) * usableH;
+  return glucoseYBase(val, minVal, maxVal, CHART_H, PAD_T, PAD_B);
 }
 
 function eventX(t: number, windowStart: number, windowEnd: number): number {
-  return PAD_L + ((t - windowStart) / (windowEnd - windowStart)) * (CHART_W - PAD_L);
+  return eventXBase(t, windowStart, windowEnd, CHART_W, PAD_L);
 }
 
 function streakMotivationMessage(maxStreak: number): string | null {
@@ -816,18 +761,20 @@ export function OverviewScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
+    let cancelled = false;
     hasSeenTooltip("overview").then(seen => {
-      if (!seen) {
+      if (!cancelled && !seen) {
         setShowTooltip(true);
         markTooltipSeen("overview");
       }
     });
     hasSeenTooltip("home-tour").then(seen => {
-      if (!seen) {
+      if (!cancelled && !seen) {
         markTooltipSeen("home-tour");
         setTimeout(() => setShowTour(true), 600);
       }
     });
+    return () => { cancelled = true; };
   }, []));
 
   // Greeting crossfade: fade in on focus, reset instantly on blur
@@ -857,7 +804,7 @@ export function OverviewScreen() {
   // Auto-show mood modal once per time period when no entry exists yet
   useEffect(function () {
     if (loading) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayStr();
     const key = today + "-" + currentBucket;
     if (moodModalShownKeyRef.current === key) return;
     if (!entryPerPeriod[currentBucket]) {
@@ -881,10 +828,14 @@ export function OverviewScreen() {
 
   // Pinned insights — load on focus
   useFocusEffect(useCallback(() => {
+    let cancelled = false;
     AsyncStorage.getItem("pinned_insight_ids").then((raw) => {
-      const ids: string[] = raw ? JSON.parse(raw) : [];
-      setPinnedIds(new Set(ids));
+      if (!cancelled) {
+        const ids: string[] = raw ? JSON.parse(raw) : [];
+        setPinnedIds(new Set(ids));
+      }
     }).catch(() => {});
+    return () => { cancelled = true; };
   }, []));
 
   // Streak pills stagger-fade whenever allStreaks changes

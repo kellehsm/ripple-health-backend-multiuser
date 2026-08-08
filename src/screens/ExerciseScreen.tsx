@@ -154,16 +154,17 @@ export function ExerciseScreen() {
   const [dayLoading, setDayLoading] = useState(false);
 
   useFocusEffect(useCallback(() => {
+    let cancelled = false;
     hasSeenTooltip("exercise").then(seen => {
-      if (!seen) {
+      if (!cancelled && !seen) {
         setShowTooltip(true);
         markTooltipSeen("exercise");
       }
     });
-    if (prefsLoading) return;
+    if (prefsLoading) return () => { cancelled = true; };
     if (!preferences.selectedModules.includes('exercise')) {
       navigation.navigate('Home');
-      return;
+      return () => { cancelled = true; };
     }
     setLoading(true);
     Promise.all([
@@ -172,11 +173,14 @@ export function ExerciseScreen() {
       api.getExerciseSuggestion().catch(() => null),
       api.listWorkoutPrograms().catch(() => []),
     ]).then(([status, sessionList, sug, progs]) => {
-      setWizardDone(status.complete === true);
-      setSessions(sessionList ?? []);
-      setSuggestion(sug ?? null);
-      setActiveProgram((progs as any[]).find((p: any) => p.is_active) ?? null);
-    }).finally(() => setLoading(false));
+      if (!cancelled) {
+        setWizardDone(status.complete === true);
+        setSessions(sessionList ?? []);
+        setSuggestion(sug ?? null);
+        setActiveProgram((progs as any[]).find((p: any) => p.is_active) ?? null);
+      }
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [prefsLoading, preferences.selectedModules]));
 
   async function handleBeginWorkout(queue: PlanExercise[]) {

@@ -15,6 +15,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { toast } from "../lib/toast";
 import { createChallenge, getFriends, Friend, SocialCategory } from "../api/friends";
+import { formatDateLocal, addDaysToDate } from "../utils/dateUtils";
 
 const CATEGORIES: { id: SocialCategory; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: "steps",    label: "Steps",    icon: "footsteps-outline" },
@@ -23,25 +24,13 @@ const CATEGORIES: { id: SocialCategory; label: string; icon: keyof typeof Ionico
   { id: "books",    label: "Books",    icon: "book-outline" },
 ];
 
-function formatDateLocal(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return y + "-" + m + "-" + d;
-}
-
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
 
 export function NewChallengeScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
 
   const today = new Date();
-  const defaultEnd = addDays(today, 7);
+  const defaultEnd = addDaysToDate(today, 7);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<SocialCategory>("steps");
@@ -222,7 +211,7 @@ export function NewChallengeScreen() {
               key={opt.label}
               onPress={() => {
                 const s = new Date(startDate || formatDateLocal(today));
-                setEndDate(formatDateLocal(addDays(s, opt.days)));
+                setEndDate(formatDateLocal(addDaysToDate(s, opt.days)));
               }}
               style={[styles.chip, { borderColor: theme.ink, backgroundColor: theme.card }]}
             >

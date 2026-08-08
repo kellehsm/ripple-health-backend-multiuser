@@ -418,13 +418,15 @@ export function MindfulnessScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      let cancelled = false;
       hasSeenTooltip("mindfulness").then(seen => {
-        if (!seen) {
+        if (!cancelled && !seen) {
           setShowTooltip(true);
           markTooltipSeen("mindfulness");
         }
       });
-      getTodayCompletedSections().then(setTodayDone);
+      getTodayCompletedSections().then((done) => { if (!cancelled) setTodayDone(done); });
+      return () => { cancelled = true; };
     }, [])
   );
 

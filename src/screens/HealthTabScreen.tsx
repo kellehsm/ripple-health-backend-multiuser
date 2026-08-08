@@ -24,6 +24,8 @@ import { SectionEditorModal, SectionDef } from '../components/SectionEditorModal
 import { FeatureTour, TourStep } from '../components/FeatureTour';
 import { hasSeenTooltip, markTooltipSeen } from '../utils/tooltipSeen';
 import { ShadowCard } from '../components/ShadowCard';
+import { addDays, fmtDate, todayStr, getWeekStart } from '../utils/dateUtils';
+import { FLOW_OPTIONS, FLOW_COLORS } from '../constants';
 
 const HEALTH_SECTIONS: SectionDef[] = [
   { id: 'cycle_tab',    label: 'Cycle tracking', description: 'Menstrual cycle calendar and logging' },
@@ -147,39 +149,14 @@ function nextDoseCallout(medications: Medication[]): string | null {
   return m > 0 ? `${earliest.name} in ${h}h ${m}m` : `${earliest.name} in ${h}h`;
 }
 
-const FLOW_OPTIONS = ['none', 'spotting', 'light', 'medium', 'heavy'];
-
-// Wellness-palette flow colors (no red/pink)
-const FLOW_COLORS: Record<string, string> = {
-  none:     'transparent',
-  spotting: '#EDD5C8',
-  light:    '#F5C4B3',
-  medium:   '#E8A89A',
-  heavy:    '#C48070',
-};
 
 
-function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 function getPhaseLabel(cycleDay: number): string {
   if (cycleDay <= 5) return 'Menstrual';
   if (cycleDay <= 11) return 'Follicular';
   if (cycleDay <= 16) return 'Ovulatory';
   return 'Luteal';
-}
-
-function getWeekStart(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - d.getDay());
-  return d.toISOString().slice(0, 10);
 }
 
 // ─── OverviewBlocks ──────────────────────────────────────────────────────────
@@ -203,7 +180,7 @@ function OverviewBlocks({
 
   useEffect(() => {
     const weekStart = getWeekStart();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayStr();
     Promise.all([
       api.getMedications().catch(() => [] as Medication[]),
       api.getCyclePrediction().catch(() => null),
@@ -1335,7 +1312,7 @@ function CycleDayLogModal({
         <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: theme.ink }]}>
           <View style={modalStyles.header}>
             <Text style={[modalStyles.title, { color: theme.textStrong }]}>
-              {formatDate(date)}
+              {fmtDate(date)}
             </Text>
             <Pressable onPress={onClose}><Text style={{ color: theme.textSoft, fontSize: 22 }}>✕</Text></Pressable>
           </View>
@@ -1530,7 +1507,7 @@ function MonthCalendar({
   const lastDay = new Date(year, month + 1, 0);
   const startDow = firstDay.getDay();
   const daysInMonth = lastDay.getDate();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
 
   useEffect(() => {
     const from = firstDay.toISOString().slice(0, 10);
@@ -1769,7 +1746,7 @@ function CycleView({ theme }: { theme: any }) {
     try { await api.dismissCycleInstructionCard(); } catch {}
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
 
   // Regularity: check last 3 cycle lengths
   let cycleRegularity: 'Consistent' | 'Irregular' | null = null;
@@ -1931,7 +1908,7 @@ function CycleView({ theme }: { theme: any }) {
           {history.slice(0, 6).map((h, i) => (
             <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: 'rgba(0,0,0,0.06)' }}>
               <Text style={{ color: theme.textSoft, fontSize: 13 }}>
-                {formatDate(h.start)} – {formatDate(h.end)}
+                {fmtDate(h.start)} – {fmtDate(h.end)}
               </Text>
               <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: '700' }}>
                 {h.length_days}d
@@ -2100,12 +2077,14 @@ export function HealthTabScreen() {
   ];
 
   useFocusEffect(useCallback(() => {
+    let cancelled = false;
     api.getSettings().then((s: any) => {
-      setHiddenSections(s?.health_hidden_sections ?? []);
+      if (!cancelled) setHiddenSections(s?.health_hidden_sections ?? []);
     }).catch(() => {});
     hasSeenTooltip("health-tour").then(seen => {
-      if (!seen) { markTooltipSeen("health-tour"); setTimeout(() => setShowTour(true), 600); }
+      if (!cancelled && !seen) { markTooltipSeen("health-tour"); setTimeout(() => setShowTour(true), 600); }
     });
+    return () => { cancelled = true; };
   }, []));
 
   async function handleSaveSections(newHidden: string[]) {

@@ -39,11 +39,12 @@ const PERIOD_META: Record<MoodPeriod, { label: string; emoji: string }> = {
   night:     { label: "Night",     emoji: "🌙" },
 };
 
-const BUCKET_ORDER: MoodPeriod[] = ["morning", "afternoon", "evening", "night"];
+const BUCKET_ORDER: MoodPeriod[] = MOOD_BUCKET_ORDER as MoodPeriod[];
 
 const SCORE_EMOJI: Record<number, string> = { 5: "😃", 4: "🙂", 3: "😐", 2: "😕", 1: "😣" };
 
 import { MOOD_CATEGORIES } from "../constants/moodCategories";
+import { BUCKET_ORDER as MOOD_BUCKET_ORDER } from "../constants";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -40,11 +40,9 @@ import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
 import { SectionEditorModal, SectionDef } from "../components/SectionEditorModal";
 import { FeatureTour, TourStep } from "../components/FeatureTour";
 import { ScreenBackground } from "../components/ScreenBackground";
+import { formatNutrition } from "../utils/nutritionFormatter";
+import { MEALS_SECTIONS } from "../constants";
 
-const MEALS_SECTIONS: SectionDef[] = [
-  { id: 'your_usual', label: 'Your Usual',    description: 'Quick-add from saved meals and recipes' },
-  { id: 'booze',      label: 'Alcohol',       description: 'Alcohol logging section' },
-];
 
 // ── Substance types ───────────────────────────────────────────────────────────
 
@@ -431,21 +429,6 @@ function buildMiniPoints(
     .join(" ");
 }
 
-function formatNutrition(
-  carbs_g: number | null,
-  sugar_g: number | null,
-  calories: number | null,
-  caffeine_mg?: number | null,
-  sodium_mg?: number | null,
-): string {
-  const parts: string[] = [];
-  if (calories != null) parts.push(calories + " cal");
-  if (carbs_g != null) parts.push(carbs_g + "g carbs");
-  if (sugar_g != null) parts.push(sugar_g + "g sugar");
-  if (sodium_mg != null) parts.push(sodium_mg + "mg sodium");
-  if (caffeine_mg != null) parts.push(caffeine_mg + "mg caffeine");
-  return parts.join(" · ");
-}
 
 function MacroEditForm({
   initial,
@@ -722,18 +705,20 @@ export function MealsScreen() {
     if (!preferences.selectedModules.includes('meals')) {
       navigation.navigate('Home');
     }
+    let cancelled = false;
     hasSeenTooltip("meals").then(seen => {
-      if (!seen) {
+      if (!cancelled && !seen) {
         setShowTooltip(true);
         markTooltipSeen("meals");
       }
     });
     hasSeenTooltip("meals-tour").then(seen => {
-      if (!seen) { markTooltipSeen("meals-tour"); setTimeout(() => setShowTour(true), 600); }
+      if (!cancelled && !seen) { markTooltipSeen("meals-tour"); setTimeout(() => setShowTour(true), 600); }
     });
     api.getSettings().then((s: any) => {
-      setHiddenSections(s?.meals_hidden_sections ?? []);
+      if (!cancelled) setHiddenSections(s?.meals_hidden_sections ?? []);
     }).catch(() => {});
+    return () => { cancelled = true; };
   }, [prefsLoading, preferences.selectedModules]));
 
   async function handleSaveSections(newHidden: string[]) {

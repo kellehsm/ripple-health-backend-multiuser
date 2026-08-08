@@ -96,6 +96,7 @@ export function InsightsScreen() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [animationKey, setAnimationKey] = useState(0);
   const isFirstLoad = useRef(true);
+  const loadCancelledRef = useRef(false);
   // Per-card animation values for stagger entrance
   const cardAnims = useRef<Animated.Value[]>([]);
   const staggerRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -106,6 +107,7 @@ export function InsightsScreen() {
     setError(null);
     try {
       const [active, history] = await Promise.all([api.getInsights(), api.getInsightHistory()]);
+      if (loadCancelledRef.current) return;
       const activeList: Insight[] = Array.isArray(active) ? active : [];
       const activeIds = new Set(activeList.map((i: Insight) => i.id));
       const dismissedList: Insight[] = Array.isArray(history)
@@ -116,21 +118,22 @@ export function InsightsScreen() {
       setAnimationKey(k => k + 1);
       isFirstLoad.current = false;
     } catch (e: any) {
-      setError("Couldn't load insights — pull to retry.");
+      if (!loadCancelledRef.current) setError("Couldn't load insights — pull to retry.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!loadCancelledRef.current) { setLoading(false); setRefreshing(false); }
     }
   }
 
   useFocusEffect(useCallback(() => {
+    loadCancelledRef.current = false;
     hasSeenTooltip("insights").then(seen => {
-      if (!seen) {
+      if (!loadCancelledRef.current && !seen) {
         setShowTooltip(true);
         markTooltipSeen("insights");
       }
     });
     load();
+    return () => { loadCancelledRef.current = true; };
   }, []));
 
   async function handleDismiss(id: string) {

@@ -65,10 +65,12 @@ export function TrackingSettingsScreen() {
   }, []);
 
   useFocusEffect(useCallback(() => {
+    let cancelled = false;
     checkPermissions();
     AsyncStorage.getItem(STEP_GOAL_KEY).then((v) => {
-      if (v) setStepGoal(Number(v));
+      if (!cancelled && v) setStepGoal(Number(v));
     }).catch(() => {});
+    return () => { cancelled = true; };
   }, [checkPermissions]));
 
   async function handleToggle(value: boolean) {

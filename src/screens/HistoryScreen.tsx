@@ -8,6 +8,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { ShadowCard } from "../components/ShadowCard";
+import { formatDate } from "../utils/dateUtils";
 
 
 type FilterMode = "glucose" | "meals" | "mood" | "spending";
@@ -69,10 +70,6 @@ export function HistoryScreen() {
     } finally {
       setLoading(false);
     }
-  }
-
-  function formatDate(str: string): string {
-    return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
 
   const MODES: FilterMode[] = ["glucose", "meals", "mood", "spending"];

@@ -42,15 +42,21 @@ export function SettingsScreen() {
 
   // Cancel legacy expo-notifications on every Settings open
   useFocusEffect(useCallback(() => {
+    let cancelled = false;
     Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
     setJourneyLoading(true);
-    api.journey().then(setJourney).catch(() => {}).finally(() => setJourneyLoading(false));
-    getMuteUntil().then(setMuteUntil).catch(() => {});
-    AsyncStorage.getItem("fasting_timer_enabled").then((v) => setFastingEnabled(v === "1")).catch(() => {});
+    api.journey()
+      .then((j) => { if (!cancelled) setJourney(j); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setJourneyLoading(false); });
+    getMuteUntil().then((v) => { if (!cancelled) setMuteUntil(v); }).catch(() => {});
+    AsyncStorage.getItem("fasting_timer_enabled").then((v) => { if (!cancelled) setFastingEnabled(v === "1"); }).catch(() => {});
     AsyncStorage.getItem("last_json_backup").then(v => {
+      if (cancelled) return;
       if (!v) { setBackupNudge(true); return; }
       setBackupNudge((Date.now() - parseInt(v)) / 86400000 > 30);
     }).catch(() => {});
+    return () => { cancelled = true; };
   }, []));
 
   async function handleFastingToggle(value: boolean) {

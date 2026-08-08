@@ -165,11 +165,13 @@ export function ExerciseDetailScreen() {
   const [showInstructions, setShowInstructions] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
+    let cancelled = false;
     setLoading(true);
     api.getExerciseSession(sessionId)
-      .then(setSession)
+      .then((data) => { if (!cancelled) setSession(data); })
       .catch(() => {})
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [sessionId]));
 
   if (loading) {

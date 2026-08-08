@@ -33,7 +33,13 @@ export function ExportBackupSettingsScreen() {
     try { setDriveStatus(await api.getDriveStatus()); } catch (_) {}
   }, []);
 
-  useFocusEffect(useCallback(() => { loadDriveStatus(); }, [loadDriveStatus]));
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    api.getDriveStatus()
+      .then((status) => { if (!cancelled) setDriveStatus(status); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []));
 
   async function handleExportReport() {
     setExporting(true);

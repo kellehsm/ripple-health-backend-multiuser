@@ -24,6 +24,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import notifee from "@notifee/react-native";
 import { CH_SPENDING } from "../lib/smartNotifications";
 import { ScreenBackground } from "../components/ScreenBackground";
+import { formatDayHeader, formatTime, todayStr } from "../utils/dateUtils";
 
 const FINANCE_SECTIONS: SectionDef[] = [
   { id: 'totals',       label: 'Total spent',              description: 'Spending total card with add button' },
@@ -99,20 +100,6 @@ function localDateStr(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatDayHeader(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  const today = startOfToday();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (date.getTime() === today.getTime()) return "Today";
-  if (date.getTime() === yesterday.getTime()) return "Yesterday";
-  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
 
 function groupByDay(entries: SpendingEntry[]): [string, SpendingEntry[]][] {
   const map: Record<string, SpendingEntry[]> = {};
@@ -121,10 +108,6 @@ function groupByDay(entries: SpendingEntry[]): [string, SpendingEntry[]][] {
     (map[day] ??= []).push(e);
   }
   return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]));
-}
-
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -238,21 +221,25 @@ export function FinanceScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      let cancelled = false;
       hasSeenTooltip("finance").then(seen => {
-        if (!seen) {
+        if (!cancelled && !seen) {
           setShowTooltip(true);
           markTooltipSeen("finance");
         }
       });
       hasSeenTooltip("finance-tour").then(seen => {
-        if (!seen) { markTooltipSeen("finance-tour"); setTimeout(() => setShowTour(true), 600); }
+        if (!cancelled && !seen) { markTooltipSeen("finance-tour"); setTimeout(() => setShowTour(true), 600); }
       });
       api.getSettings().then((s: any) => {
-        setHiddenSections(s?.finance_hidden_sections ?? []);
-        setDailyBudget(s?.smart_notifications?.spending_alerts?.daily_budget ?? 100);
+        if (!cancelled) {
+          setHiddenSections(s?.finance_hidden_sections ?? []);
+          setDailyBudget(s?.smart_notifications?.spending_alerts?.daily_budget ?? 100);
+        }
       }).catch(() => {});
       load();
       syncPlaid();
+      return () => { cancelled = true; };
     }, [])
   );
 

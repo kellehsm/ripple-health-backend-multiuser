@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   ScrollView,
   View,
@@ -15,6 +15,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { toast } from "../lib/toast";
+import { todayStr, fmtDate, fmtDateRange } from "../utils/dateUtils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,18 +45,6 @@ type ExperimentResults = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function fmtDate(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function fmtDateRange(start: string, end: string): string {
-  return fmtDate(start) + " – " + fmtDate(end);
-}
 
 function statusColor(status: string, theme: any): string {
   if (status === "active") return theme.teal.solid;
@@ -114,20 +103,24 @@ export function ExperimentScreen() {
   const [results, setResults] = useState<ExperimentResults | null>(null);
   const [resultsExperiment, setResultsExperiment] = useState<Experiment | null>(null);
 
+  const loadCancelledRef = useRef(false);
+
   async function loadExperiments() {
     setLoading(true);
     try {
       const data = await api.getExperiments();
-      setExperiments(Array.isArray(data) ? data : []);
+      if (!loadCancelledRef.current) setExperiments(Array.isArray(data) ? data : []);
     } catch {
-      toast("Couldn't load experiments.", "error");
+      if (!loadCancelledRef.current) toast("Couldn't load experiments.", "error");
     } finally {
-      setLoading(false);
+      if (!loadCancelledRef.current) setLoading(false);
     }
   }
 
   useFocusEffect(useCallback(() => {
+    loadCancelledRef.current = false;
     loadExperiments();
+    return () => { loadCancelledRef.current = true; };
   }, []));
 
   async function handleRefresh() {

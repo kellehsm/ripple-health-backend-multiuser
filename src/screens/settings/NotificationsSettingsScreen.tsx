@@ -102,10 +102,16 @@ export function NotificationsSettingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      api.getTabPreferences().then((p: any) => setCycleEnabled(p?.health?.cycle ?? false)).catch(() => {});
+      let cancelled = false;
+      api.getTabPreferences()
+        .then((p: any) => { if (!cancelled) setCycleEnabled(p?.health?.cycle ?? false); })
+        .catch(() => {});
       if (Platform.OS === "android" && notifee) {
-        notifee.isBatteryOptimizationEnabled().then((on: boolean) => setBatteryOptEnabled(on)).catch(() => {});
+        notifee.isBatteryOptimizationEnabled()
+          .then((on: boolean) => { if (!cancelled) setBatteryOptEnabled(on); })
+          .catch(() => {});
       }
+      return () => { cancelled = true; };
     }, [])
   );
 

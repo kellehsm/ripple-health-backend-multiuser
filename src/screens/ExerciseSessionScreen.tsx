@@ -157,8 +157,13 @@ export function ExerciseSessionScreen() {
   }, [sessionId]);
 
   useFocusEffect(useCallback(() => {
-    loadSession();
-  }, [loadSession]));
+    let cancelled = false;
+    api.getExerciseSession(sessionId)
+      .then((s) => { if (!cancelled) setEntries(s.entries ?? []); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingEntries(false); });
+    return () => { cancelled = true; };
+  }, [sessionId]));
 
   useEffect(() => () => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }

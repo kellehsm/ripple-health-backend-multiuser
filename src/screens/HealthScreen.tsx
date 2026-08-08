@@ -666,8 +666,9 @@ export function HealthScreen() {
   );
 
   useFocusEffect(useCallback(function () {
+    let cancelled = false;
     hasSeenTooltip("health").then(seen => {
-      if (!seen) {
+      if (!cancelled && !seen) {
         setShowTooltip(true);
         markTooltipSeen("health");
       }
@@ -686,7 +687,7 @@ export function HealthScreen() {
           const age = now - new Date(item.lastAt).getTime();
           if (age > item.thresholdH * 60 * 60 * 1000) {
             const notify = await shouldNotifyStale(item.key);
-            if (notify) {
+            if (notify && !cancelled) {
               const ageH = Math.round(age / 3600000);
               setStaleBannerMessage(`${item.label} data hasn't synced in ${ageH}h. You may want to check your connection.`);
               await markStaleNotified(item.key);
@@ -696,6 +697,7 @@ export function HealthScreen() {
         }
       })
       .catch(function () {});
+    return function () { cancelled = true; };
   }, []));
 
   useEffect(function () {
@@ -1500,6 +1502,7 @@ export function HealthScreen() {
       <StaleSyncBanner
         message={staleBannerMessage}
         onDismiss={() => setStaleBannerMessage(null)}
+        onRetry={() => { load(rangeHours); setStaleBannerMessage(null); }}
       />
     ) : null}
     </View>

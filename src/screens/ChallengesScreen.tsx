@@ -11,7 +11,9 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
+import { EmptyState } from "../components/EmptyState";
 import { getChallenges, Challenge, SocialCategory } from "../api/friends";
+import { todayStr, fmtDateRange } from "../utils/dateUtils";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -25,12 +27,6 @@ function daysRemaining(endDate: string): number {
   const now = new Date();
   const diff = end.getTime() - now.getTime();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-}
-
-function formatDateRange(start: string, end: string): string {
-  const s = new Date(start).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const e = new Date(end).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return s + " – " + e;
 }
 
 export function ChallengesScreen() {
@@ -52,7 +48,7 @@ export function ChallengesScreen() {
     }, [])
   );
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
   const active = challenges.filter((c) => c.end_date >= today && c.start_date <= today);
   const upcoming = challenges.filter((c) => c.start_date > today);
   const past = challenges.filter((c) => c.end_date < today);
@@ -95,7 +91,7 @@ export function ChallengesScreen() {
           <View style={[styles.metaBadge, { backgroundColor: isPast ? theme.card : theme.teal.tint, borderColor: isPast ? theme.cardBorder : theme.teal.solid }]}>
             <Ionicons name="calendar-outline" size={12} color={isPast ? theme.textSoft : theme.teal.fg} />
             <Text style={{ color: isPast ? theme.textSoft : theme.teal.fg, fontSize: 11, marginLeft: 4 }}>
-              {isPast ? "Ended " + formatDateRange(challenge.start_date, challenge.end_date) : days + " day" + (days === 1 ? "" : "s") + " left"}
+              {isPast ? "Ended " + fmtDateRange(challenge.start_date, challenge.end_date) : days + " day" + (days === 1 ? "" : "s") + " left"}
             </Text>
           </View>
         </View>
@@ -111,17 +107,12 @@ export function ChallengesScreen() {
             <ActivityIndicator color={theme.purple.solid} size="large" />
           </View>
         ) : challenges.length === 0 ? (
-          <ShadowCard padding={20}>
-            <View style={{ alignItems: "center", gap: 12 }}>
-              <Ionicons name="trophy-outline" size={44} color={theme.purple.solid} />
-              <Text style={{ color: theme.textStrong, fontSize: 17, fontWeight: "800", textAlign: "center" }}>
-                No challenges yet
-              </Text>
-              <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center" }}>
-                Create a challenge to compete with friends on steps, exercise, hobbies, or books.
-              </Text>
-            </View>
-          </ShadowCard>
+          <EmptyState
+            icon="🏆"
+            title="No challenges yet"
+            subtitle="Create a challenge to compete with friends on steps, exercise, hobbies, or books."
+            action={{ label: "Create challenge", onPress: () => navigation.navigate("NewChallenge") }}
+          />
         ) : (
           <>
             {active.length > 0 && (

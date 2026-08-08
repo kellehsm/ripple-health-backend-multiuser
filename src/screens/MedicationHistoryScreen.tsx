@@ -4,6 +4,7 @@ import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
+import { formatDateWithTime } from '../utils/dateUtils';
 
 interface HistoryEntry {
   id: string;
@@ -31,12 +32,6 @@ const CHANGE_LABEL: Record<string, string> = {
   stopped: 'Stopped',
 };
 
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
-    ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-}
-
 export function MedicationHistoryScreen() {
   const { theme } = useTheme();
   const route = useRoute<any>();
@@ -47,11 +42,13 @@ export function MedicationHistoryScreen() {
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(useCallback(() => {
+    let cancelled = false;
     setLoading(true);
     api.getMedicationHistory(medicationId)
-      .then((rows) => setHistory(rows ?? []))
-      .catch(() => setHistory([]))
-      .finally(() => setLoading(false));
+      .then((rows) => { if (!cancelled) setHistory(rows ?? []); })
+      .catch(() => { if (!cancelled) setHistory([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [medicationId]));
 
   if (loading) {
@@ -89,7 +86,7 @@ export function MedicationHistoryScreen() {
                   <Text style={[styles.changeType, { color: theme.textStrong }]}>
                     {CHANGE_LABEL[entry.change_type] ?? entry.change_type}
                   </Text>
-                  <Text style={[styles.date, { color: theme.textSoft }]}>{formatDate(entry.changed_at)}</Text>
+                  <Text style={[styles.date, { color: theme.textSoft }]}>{formatDateWithTime(entry.changed_at)}</Text>
                 </View>
 
                 {(entry.old_value || entry.new_value) && (

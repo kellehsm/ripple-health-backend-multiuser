@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
 import { api } from "../api/client";
+import { formatDate } from "../utils/dateUtils";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -272,9 +273,6 @@ function BookShelf({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatDate(str: string): string {
-  return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
 
 function StarRating({ rating }: { rating: number }) {
   return (

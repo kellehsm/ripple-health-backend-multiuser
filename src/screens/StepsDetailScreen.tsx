@@ -10,6 +10,7 @@ import { useRoute } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { WeekComparisonChart, ChartDayData } from "../components/WeekComparisonChart";
+import { DAY_NAMES } from "../utils/dateUtils";
 
 type MonthWeek = {
   week_offset: number;
@@ -44,10 +45,6 @@ type BreakdownData = {
   last_week_average: number;
 };
 
-const DAY_NAMES: Record<string, string> = {
-  Mon: "Monday", Tue: "Tuesday", Wed: "Wednesday", Thu: "Thursday",
-  Fri: "Friday", Sat: "Saturday", Sun: "Sunday",
-};
 
 function fmt(n: number): string {
   return n.toLocaleString();

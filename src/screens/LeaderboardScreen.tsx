@@ -14,6 +14,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { getLeaderboard, getReactions, addReaction, LeaderboardEntry, Reaction, SocialCategory } from "../api/friends";
 import { toast } from "../lib/toast";
+import { getWeekStart } from "../utils/dateUtils";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -56,13 +57,6 @@ function formatValue(value: number, category: SocialCategory): string {
 const RANK_MEDALS = ["", "gold", "silver", "bronze"] as const;
 const RANK_COLORS = ["", "#F5B800", "#A8A8A8", "#C07A4A"];
 const REACTION_EMOJIS = ["🔥", "💪", "👏", "⭐", "🚀"] as const;
-
-function getWeekStart(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - d.getDay());
-  return d.toISOString().slice(0, 10);
-}
 
 export function LeaderboardScreen() {
   const { theme } = useTheme();

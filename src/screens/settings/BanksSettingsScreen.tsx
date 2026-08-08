@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -8,6 +8,7 @@ import { usePlaidLink } from "../../lib/plaidLink";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { EmptyState } from "../../components/EmptyState";
 import { toast } from "../../lib/toast";
+import { formatDate } from "../../utils/dateUtils";
 
 type PlaidItem = {
   item_id: string;
@@ -17,9 +18,9 @@ type PlaidItem = {
   connected_at: string;
 };
 
-function formatDate(iso: string | null): string {
+function formatDateOrNever(iso: string | null): string {
   if (!iso) return "never";
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return formatDate(iso);
 }
 
 export function BanksSettingsScreen() {
@@ -29,20 +30,25 @@ export function BanksSettingsScreen() {
   const [items, setItems] = useState<PlaidItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const loadCancelledRef = useRef(false);
 
   async function load() {
     setLoading(true);
     try {
       const data = await api.plaidGetItems();
-      setItems(Array.isArray(data) ? data : []);
+      if (!loadCancelledRef.current) setItems(Array.isArray(data) ? data : []);
     } catch {
-      toast("Couldn't load banks.", "error");
+      if (!loadCancelledRef.current) toast("Couldn't load banks.", "error");
     } finally {
-      setLoading(false);
+      if (!loadCancelledRef.current) setLoading(false);
     }
   }
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(useCallback(() => {
+    loadCancelledRef.current = false;
+    load();
+    return () => { loadCancelledRef.current = true; };
+  }, []));
 
   const { openLink, state: linkState } = usePlaidLink(() => {
     load();
@@ -143,7 +149,7 @@ export function BanksSettingsScreen() {
                     {item.institution_name ?? "Bank account"}
                   </Text>
                   <Text style={[s.bankMeta, { color: theme.textSoft }]}>
-                    Last synced {formatDate(item.last_synced_at)}
+                    Last synced {formatDateOrNever(item.last_synced_at)}
                   </Text>
                 </View>
                 <Pressable
