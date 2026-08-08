@@ -21,7 +21,7 @@
     "expo-haptics": "^57.0.1",
     "expo-linear-gradient": "~14.1.4",
     "expo-notifications": "^0.29.14",
-    "expo-secure-store": "~14.1.4",
+    "expo-secure-store": "~14.2.4",
     "expo-sqlite": "~15.1.4",
     "expo-status-bar": "~57.0.0",
     "react": "19.2.3",
@@ -33,7 +33,7 @@
     "react-native-svg": "^15.15.4"
   },
   "devDependencies": {
-    "@types/react": "~18.2.79",
+    "@types/react": "^19.1.1",
     "typescript": "^5.5.4"
   },
   "private": true

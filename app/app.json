@@ -1,5 +1,10 @@
 {
   "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "f6ab4794-178e-44cf-ae8a-0e2f888b71d3"
+      }
+    },
     "name": "Wellness",
     "slug": "wellness-app",
     "scheme": "wellness",
