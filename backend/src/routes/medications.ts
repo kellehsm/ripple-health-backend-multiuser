@@ -162,14 +162,16 @@ async function ensureDefaultCategories(user_id: string) {
 }
 
 async function insertSlots(medId: string, slots: any[]): Promise<void> {
-  await Promise.all(
-    slots.map((s, i) =>
-      query(
-        `INSERT INTO medication_schedule_slots (medication_id, time_of_day, specific_time, sort_order)
-         VALUES ($1, $2, $3, $4)`,
-        [medId, s.time_of_day, s.specific_time ?? null, i]
-      )
-    )
+  if (slots.length === 0) return;
+  const values: any[] = [];
+  const placeholders = slots.map((s, i) => {
+    const base = i * 4;
+    values.push(medId, s.time_of_day, s.specific_time ?? null, i);
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
+  });
+  await query(
+    `INSERT INTO medication_schedule_slots (medication_id, time_of_day, specific_time, sort_order) VALUES ${placeholders.join(", ")}`,
+    values
   );
 }
 
