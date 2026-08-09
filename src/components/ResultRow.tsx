@@ -35,7 +35,8 @@ type Props = {
 };
 
 export function ResultRow(props: Props) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
+  const isDark = !!theme.isDark;
   const { scale, onPressIn, onPressOut } = usePressScale("card");
   const ink = theme.ink;
 

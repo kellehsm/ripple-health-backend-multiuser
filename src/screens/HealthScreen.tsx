@@ -17,6 +17,9 @@ import { coloredShadow, layeredShadow } from "../theme/styleUtils";
 import { ShadowCard } from "../components/ShadowCard";
 import { Ionicons } from "@expo/vector-icons";
 import { MetricCard } from "../components/MetricCard";
+import { MetricChip, chipStyles } from "../components/MetricChip";
+import { RangeSelector } from "../components/RangeSelector";
+import { getMetricPalette } from "../lib/metricColors";
 import { DefinedTerm } from "../components/DefinedTerm";
 import { api } from "../api/client";
 
@@ -354,6 +357,13 @@ export function HealthScreen() {
   const lastSnappedRef = useRef<string | null>(null);
   const mindfulnessScale = useRef(new Animated.Value(1)).current;
   const entranceAnim = useRef(new Animated.Value(0)).current;
+  // Per-card stagger — each card gets its own value, kicked off with 60ms offset.
+  const chipEntranceAnim = useRef(new Animated.Value(0)).current;
+  const mindfulnessEntranceAnim = useRef(new Animated.Value(0)).current;
+  const glucoseEntranceAnim = useRef(new Animated.Value(0)).current;
+  const bottomCardsEntranceAnim = useRef(new Animated.Value(0)).current;
+  // Chart fade — briefly dips opacity when range changes so the swap is a smooth crossfade.
+  const chartFadeAnim = useRef(new Animated.Value(1)).current;
 
   const loadStepsAndSleep = useCallback(async function (forceRefresh = false) {
     const _now = new Date();
@@ -823,10 +833,24 @@ export function HealthScreen() {
   useEffect(function () { loadWater(); }, [loadWater]);
   useEffect(function () { loadStepsAndSleep(); }, [loadStepsAndSleep]);
 
-  // Entrance animation — fade+slide cards in on mount
+  // Entrance animation — fade+slide cards in on mount, staggered 60ms per card.
   useEffect(function () {
     Animated.timing(entranceAnim, { toValue: 1, duration: 420, useNativeDriver: true }).start();
+    Animated.stagger(60, [
+      Animated.timing(chipEntranceAnim,         { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.timing(mindfulnessEntranceAnim,  { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.timing(glucoseEntranceAnim,      { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.timing(bottomCardsEntranceAnim,  { toValue: 1, duration: 380, useNativeDriver: true }),
+    ]).start();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fade the glucose chart during range changes so the data swap looks like a crossfade
+  useEffect(function () {
+    Animated.sequence([
+      Animated.timing(chartFadeAnim, { toValue: 0.4, duration: 140, useNativeDriver: true }),
+      Animated.timing(chartFadeAnim, { toValue: 1,   duration: 220, useNativeDriver: true }),
+    ]).start();
+  }, [rangeHours]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Steps goal ring flash — fire when steps cross 10,000 (Feature 12)
   useEffect(function () {
@@ -910,10 +934,10 @@ export function HealthScreen() {
         />
       )}
       <Animated.View style={{
-        opacity: entranceAnim,
         transform: [{ translateY: entranceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
       }}>
       {/* Mindfulness button */}
+      <Animated.View style={{ opacity: mindfulnessEntranceAnim }}>
       <Pressable
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -949,6 +973,7 @@ export function HealthScreen() {
           <Text style={{ color: onSolid(theme.purple.solid), fontSize: 20, fontWeight: "800", opacity: 0.85 }}>›</Text>
         </Animated.View>
       </Pressable>
+      </Animated.View>
 
       {/* ── Step goal nudge banner ── */}
       {showGoalNudge && (
@@ -973,6 +998,7 @@ export function HealthScreen() {
       <SectionDivider label="METRICS · TODAY" />
 
       {/* ── Metric chip row ── */}
+      <Animated.View style={{ opacity: chipEntranceAnim }}>
       {(function () {
         const hrLast = hrReadings.length > 0 ? hrReadings[hrReadings.length - 1].bpm : null;
         const berryFg = (theme as any).berry?.fg ?? "#7A1F3C";
@@ -987,56 +1013,63 @@ export function HealthScreen() {
           ? (stepsCount >= 1000 ? (stepsCount / 1000).toFixed(1) + "k" : String(stepsCount))
           : "--";
         const goalLabel = stepGoal >= 1000 ? (stepGoal / 1000).toFixed(0) + "k" : String(stepGoal);
+        const glucoseMgDl = status?.hasData ? (status.mg_dl ?? null) : null;
+        const glucosePal = getMetricPalette("glucose", glucoseMgDl, theme as any);
+        const glucoseValueText = status?.hasData
+          ? (String(status.mg_dl) + (status.arrow ? " " + status.arrow : ""))
+          : "--";
         return (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: CHIP_GAP }}>
 
             {/* GLUCOSE chip */}
-            {(function () {
-              const mgDl = status?.hasData ? (status.mg_dl ?? null) : null;
-              const glucoseColor = mgDl === null
-                ? berrySolid
-                : mgDl >= 70 && mgDl <= 140
-                  ? "#27AE60"
-                  : mgDl <= 180
-                    ? "#E67E22"
-                    : "#C0392B";
-              const glucoseBg = mgDl === null
-                ? berryBg
-                : mgDl >= 70 && mgDl <= 140
-                  ? "#EAF7EE"
-                  : mgDl <= 180
-                    ? "#FEF5E7"
-                    : "#FDEDEC";
-              return (
-                <View style={[styles.metricChip, { borderColor: glucoseColor, backgroundColor: glucoseBg }]}>
-                  <Ionicons name="pulse" size={20} color={glucoseColor} />
-                  <Text style={[styles.chipVal, { color: glucoseColor }]}>
-                    {status?.hasData ? (String(status.mg_dl) + (status.arrow ? " " + status.arrow : "")) : "--"}
-                  </Text>
-                  {tirPct !== null && (
-                    <Text style={[styles.chipSub, { color: glucoseColor }]}>{tirPct}% in range</Text>
-                  )}
-                  <Text style={[styles.chipLabel, { color: theme.textSoft }]}>GLUCOSE</Text>
-                </View>
-              );
-            })()}
+            <MetricChip
+              borderColor={glucosePal.border}
+              backgroundColor={glucosePal.bg}
+              label="GLUCOSE"
+              accessibilityLabel={
+                glucoseMgDl !== null
+                  ? `Glucose ${glucoseMgDl} milligrams per deciliter${tirPct !== null ? `, ${tirPct} percent in range` : ""}`
+                  : "Glucose, no data"
+              }
+            >
+              <Ionicons name="pulse" size={20} color={glucosePal.fg} />
+              <Text style={[chipStyles.val, { color: glucosePal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                {glucoseValueText}
+              </Text>
+              {tirPct !== null && (
+                <Text style={[chipStyles.sub, { color: glucosePal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {tirPct}% in range
+                </Text>
+              )}
+            </MetricChip>
 
             {/* STEPS chip */}
-            <Pressable
-              style={[styles.metricChip, { borderColor: theme.teal.solid, backgroundColor: theme.teal.bg }]}
+            <MetricChip
+              borderColor={theme.teal.solid}
+              backgroundColor={theme.teal.bg}
+              label="STEPS"
+              accessibilityLabel={
+                stepsCount !== null
+                  ? `Steps ${stepsCount} of ${stepGoal} daily goal`
+                  : "Steps, loading"
+              }
               onPress={() => stepsMetricId && navigation.getParent()?.navigate("StepsDetail", { metricId: stepsMetricId, weekStartDay: weekStepsStart })}
             >
               <StepsRing steps={stepsCount} goal={stepGoal} color={theme.teal.solid} sub={theme.teal.sub} />
-              <Text style={[styles.chipVal, { color: theme.teal.fg }]}>{stepsLabel}</Text>
-              <Text style={[styles.chipSub, { color: theme.teal.sub }]}>of {goalLabel}</Text>
-              <Text style={[styles.chipLabel, { color: theme.textSoft }]}>STEPS</Text>
-            </Pressable>
+              <Text style={[chipStyles.val, { color: theme.teal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{stepsLabel}</Text>
+              <Text style={[chipStyles.sub, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>of {goalLabel}</Text>
+            </MetricChip>
 
             {/* SLEEP chip */}
-            <View style={[styles.metricChip, { borderColor: amberSolid, backgroundColor: amberBg }]}>
+            <MetricChip
+              borderColor={amberSolid}
+              backgroundColor={amberBg}
+              label="SLEEP"
+              accessibilityLabel={sleepDisplay ? `Sleep ${sleepDisplay} last night` : "Sleep, no data"}
+            >
               <Ionicons name="moon" size={20} color={amberSub} />
               {sleepDisplay ? (
-                <Text style={[styles.chipVal, { color: amberFg }]}>{sleepDisplay}</Text>
+                <Text style={[chipStyles.val, { color: amberFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{sleepDisplay}</Text>
               ) : (
                 <Svg width={28} height={34} viewBox="0 0 28 34" style={{ opacity: 0.25 }}>
                   <Path d="M14,2 C10,7 3,16 3,24 C3,30 8,34 14,34 C20,34 25,30 25,24 C25,16 18,7 14,2Z" fill={amberSolid} />
@@ -1058,23 +1091,28 @@ export function HealthScreen() {
                       const h = Math.max(2, Math.round(pct * MAX_H));
                       return (
                         <Rect key={i} x={i * (BAR_W + GAP)} y={MAX_H - h + 2} width={BAR_W} height={h}
-                          fill={amberSolid} opacity={pct > 0 ? 0.75 : 0.18} rx={1.5} />
+                          fill={amberSolid} opacity={pct > 0 ? 0.75 : 0.32} rx={1.5} />
                       );
                     })}
                   </Svg>
                 );
               })()}
-              <Text style={[styles.chipLabel, { color: theme.textSoft }]}>SLEEP</Text>
-            </View>
+            </MetricChip>
 
             {/* WATER chip — filling droplet shows progress, tap to log */}
-            <Pressable style={[styles.metricChip, { borderColor: theme.blue.solid, backgroundColor: theme.blue.bg, overflow: "hidden" }]} onPress={handleLogWater}>
+            <MetricChip
+              borderColor={theme.blue.solid}
+              backgroundColor={theme.blue.bg}
+              label="WATER"
+              overflow="hidden"
+              accessibilityLabel={`Water ${waterCount ?? 0} of ${waterGoal} glasses. Double-tap to log one glass.`}
+              onPress={handleLogWater}
+            >
               <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.blue.solid, opacity: waterFlashAnim, borderRadius: 11 }} pointerEvents="none" />
               <MiniDroplet count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
-              <Animated.Text style={[styles.chipSub, { color: theme.blue.sub, transform: [{ scale: waterCountScaleAnim }] }]}>
+              <Animated.Text style={[chipStyles.sub, { color: theme.blue.sub, transform: [{ scale: waterCountScaleAnim }] }]}>
                 {waterCount ?? 0}/{waterGoal}
               </Animated.Text>
-              <Text style={[styles.chipLabel, { color: theme.textSoft }]}>WATER</Text>
               <Text style={{ fontSize: 7, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap to log</Text>
               {/* Goal celebration overlay */}
               <Animated.View
@@ -1089,19 +1127,25 @@ export function HealthScreen() {
                 <Text style={{ fontSize: 22 }}>💧</Text>
                 <Text style={{ fontSize: 9, fontWeight: "900", color: theme.blue.sub, letterSpacing: 0.5 }}>GOAL!</Text>
               </Animated.View>
-            </Pressable>
+            </MetricChip>
 
             {/* HEART RATE chip */}
-            <Pressable style={[styles.metricChip, { borderColor: berrySub, backgroundColor: berryBg }]} onPress={() => navigation.getParent()?.navigate("HeartRateDetail")}>
+            <MetricChip
+              borderColor={berrySub}
+              backgroundColor={berryBg}
+              label="HEART"
+              accessibilityLabel={hrLast !== null ? `Heart rate ${hrLast} beats per minute` : "Heart rate, no data"}
+              onPress={() => navigation.getParent()?.navigate("HeartRateDetail")}
+            >
               <Ionicons name="heart" size={20} color={berrySub} />
-              <Text style={[styles.chipVal, { color: berryFg }]}>{hrLast !== null ? String(hrLast) : "--"}</Text>
-              <Text style={[styles.chipSub, { color: berrySub }]}>bpm</Text>
-              <Text style={[styles.chipLabel, { color: theme.textSoft }]}>HEART</Text>
-            </Pressable>
+              <Text style={[chipStyles.val, { color: berryFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{hrLast !== null ? String(hrLast) : "--"}</Text>
+              <Text style={[chipStyles.sub, { color: berrySub }]} allowFontScaling maxFontSizeMultiplier={1.3}>bpm</Text>
+            </MetricChip>
 
           </View>
         );
       })()}
+      </Animated.View>
 
       {lastRefreshed && (
         <Text style={{ fontSize: 9, fontWeight: "700", color: theme.textSoft, textAlign: "right", opacity: 0.7, marginTop: -4 }}>
@@ -1162,6 +1206,7 @@ export function HealthScreen() {
       <SectionDivider label="GLUCOSE" />
 
       {/* Glucose chart card */}
+      <Animated.View style={{ opacity: glucoseEntranceAnim }}>
       <ShadowCard size="hero" accent={theme.berry.solid} rotate={-0.5} padding={14} cardId="glucose_card">
         <View style={styles.cardHeaderRow}>
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Glucose</Text>
@@ -1194,36 +1239,28 @@ export function HealthScreen() {
         {/* Range selector + live glucose value inline */}
         {(function () {
           const mgDl = status?.hasData ? (status.mg_dl ?? null) : null;
-          const glucoseColor = mgDl === null ? theme.berry.solid
-            : mgDl >= 70 && mgDl <= 140 ? "#27AE60"
-            : mgDl <= 180 ? "#E67E22"
-            : "#C0392B";
+          const glucosePal2 = getMetricPalette("glucose", mgDl, theme as any);
           return (
             <View style={[styles.rangeRow, { justifyContent: "space-between", alignItems: "center" }]}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                {RANGE_OPTIONS.map(function (hrs) {
-                  const active = rangeHours === hrs;
-                  return (
-                    <Pressable
-                      key={hrs}
-                      onPress={function () { Haptics.selectionAsync(); setRangeHours(hrs); }}
-                      style={[styles.rangeBtn, { backgroundColor: active ? ink : card }]}
-                    >
-                      <Text style={[styles.rangeBtnText, { color: active ? "#ffffff" : ink }]}>{hrs}H</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <RangeSelector
+                value={rangeHours}
+                options={RANGE_OPTIONS}
+                onChange={setRangeHours}
+                label="Glucose range"
+              />
               {status?.hasData && mgDl !== null ? (
-                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
-                  <Text style={{ fontSize: 26, fontWeight: "900", color: glucoseColor, letterSpacing: -0.5 }}>
+                <View
+                  style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}
+                  accessibilityLabel={`Current glucose ${mgDl} milligrams per deciliter${status.delta != null ? `, delta ${status.delta > 0 ? "up" : "down"} ${Math.abs(status.delta)}` : ""}`}
+                >
+                  <Text style={{ fontSize: 26, fontWeight: "900", color: glucosePal2.fg, letterSpacing: -0.5 }} allowFontScaling maxFontSizeMultiplier={1.3}>
                     {mgDl}
                   </Text>
                   {status.arrow ? (
-                    <Text style={{ fontSize: 18, fontWeight: "700", color: glucoseColor }}>{status.arrow}</Text>
+                    <Text style={{ fontSize: 18, fontWeight: "700", color: glucosePal2.fg }} allowFontScaling maxFontSizeMultiplier={1.3}>{status.arrow}</Text>
                   ) : null}
                   {status.delta != null ? (
-                    <Text style={{ fontSize: 12, fontWeight: "800", color: status.delta > 0 ? "#C0392B" : "#27AE60", marginLeft: 2 }}>
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: status.delta > 0 ? "#C0392B" : "#27AE60", marginLeft: 2 }} allowFontScaling maxFontSizeMultiplier={1.3}>
                       {status.delta > 0 ? "+" : ""}{status.delta}
                     </Text>
                   ) : null}
@@ -1252,7 +1289,7 @@ export function HealthScreen() {
           </Text>
         ) : (
           <GestureDetector gesture={panGesture}>
-            <View
+            <Animated.View
               accessible={true}
               accessibilityRole="image"
               accessibilityLabel={
@@ -1260,6 +1297,7 @@ export function HealthScreen() {
                   ? `Glucose chart. Last reading ${status.mg_dl} mg/dL${status.arrow ? ", " + status.arrow : ""}${status.minutesSinceReading != null ? ", " + status.minutesSinceReading + " minutes ago" : ""}. ${todayReadings.filter(r => Number(r.mg_dl) < 70 || Number(r.mg_dl) > 180).length} readings out of the 70–180 mg/dL range in this window.`
                   : "Glucose chart. No readings in the current time window."
               }
+              style={{ opacity: chartFadeAnim }}
             >
               <Svg width={CHART_WIDTH} height={CHART_HEIGHT} style={{ marginTop: 12 }}>
                 {gridValues.map((v) => {
@@ -1394,7 +1432,7 @@ export function HealthScreen() {
                   </View>
                 </View>
               ) : null}
-            </View>
+            </Animated.View>
           </GestureDetector>
         )}
 
@@ -1507,8 +1545,10 @@ export function HealthScreen() {
           </Text>
         ) : null}
       </ShadowCard>
+      </Animated.View>
 
       {/* Heart Rate chart card */}
+      <Animated.View style={{ opacity: bottomCardsEntranceAnim }}>
       {(() => {
         const hrValues = hrReadings.map((r) => r.bpm);
         const hrMin = hrValues.length ? Math.min(...hrValues) - 5 : 40;
@@ -1563,18 +1603,12 @@ export function HealthScreen() {
               </View>
             ) : null}
             <View style={styles.rangeRow}>
-              {HR_RANGE_OPTIONS.map(function (hrs) {
-                const active = hrRangeHours === hrs;
-                return (
-                  <Pressable
-                    key={hrs}
-                    onPress={function () { Haptics.selectionAsync(); setHrRangeHours(hrs); }}
-                    style={[styles.rangeBtn, { backgroundColor: active ? ink : card }]}
-                  >
-                    <Text style={[styles.rangeBtnText, { color: active ? "#ffffff" : ink }]}>{hrs}H</Text>
-                  </Pressable>
-                );
-              })}
+              <RangeSelector
+                value={hrRangeHours}
+                options={HR_RANGE_OPTIONS}
+                onChange={setHrRangeHours}
+                label="Heart rate range"
+              />
             </View>
             {hrLoading ? (
               <LoadingIndicator style={{ marginVertical: 30 }} />
@@ -1592,6 +1626,7 @@ export function HealthScreen() {
           </ShadowCard>
         );
       })()}
+      </Animated.View>
 
       </Animated.View>
     </ScrollView>
@@ -1614,20 +1649,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
   halfCell: { width: HALF_CARD_WIDTH },
   tileLabel: { flexDirection: "row", alignItems: "center", gap: 4 },
   tileLabelText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
-  metricChip: {
-    width: CHIP_WIDTH,
-    borderRadius: 14,
-    borderWidth: 2.5,
-    backgroundColor: card,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    alignItems: "center",
-    gap: 3,
-    elevation: 3,
-  },
-  chipVal: { fontSize: 16, fontWeight: "900", letterSpacing: -0.3 },
-  chipSub: { fontSize: 9, fontWeight: "800" },
-  chipLabel: { fontSize: 8, fontWeight: "800", letterSpacing: 0.5 },
+  // metricChip / chipVal / chipSub / chipLabel now live in components/MetricChip.tsx
   card: {
     borderRadius: 22,
     borderWidth: 2,
@@ -1653,15 +1675,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
   },
   peakBadgeText: { fontSize: 10, fontWeight: "800", color: ink, letterSpacing: 0.5 },
   rangeRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-  rangeBtn: {
-    borderWidth: 2,
-    borderColor: ink,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    ...layeredShadow('card', isDark),
-  },
-  rangeBtnText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.4 },
+  // rangeBtn / rangeBtnText now live in components/RangeSelector.tsx
   glucoseCurrentBox: {
     borderRadius: 16,
     borderWidth: 2,

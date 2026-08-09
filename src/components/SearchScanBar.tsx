@@ -28,7 +28,8 @@ type Props = {
 export function SearchScanBar({
   placeholder, query, onQueryChange, onSubmit, searching, accentColor, actions, error, errorColor,
 }: Props) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
+  const isDark = !!theme.isDark;
   const ink = theme.ink;
   return (
     <View>

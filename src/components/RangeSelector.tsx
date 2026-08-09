@@ -14,7 +14,8 @@ type Props = {
 };
 
 export function RangeSelector({ value, options, onChange, suffix = "H", label = "Range" }: Props) {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
+  const isDark = !!theme.isDark;
   return (
     <View style={{ flexDirection: "row", gap: 8 }}>
       {options.map((hrs) => (
