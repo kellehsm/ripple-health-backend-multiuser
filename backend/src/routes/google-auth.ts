@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { fetchWithTimeout } from "../lib/http.js";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const APP_REDIRECT = "ripple://oauth";
@@ -21,7 +22,7 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
 
     try {
       const redirectUri = process.env.GOOGLE_REDIRECT_URI!;
-      const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
+      const tokenRes = await fetchWithTimeout(GOOGLE_TOKEN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -42,7 +43,7 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
       // On re-authorizations (e.g. reinstall), fall back to the one we already have stored.
       const refreshToken = tokens.refresh_token ?? existing.google_drive?.refresh_token;
       if (!refreshToken) {
-        app.log.error({ tokens }, "No refresh_token in Google response and none stored");
+        app.log.error({ userId, status: tokenRes.status }, "No refresh_token in Google response and none stored");
         return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=no_refresh_token`);
       }
 

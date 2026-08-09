@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { requireAuth } from "../middleware/auth.js";
 import { query } from "../db.js";
+import { fetchWithTimeout } from "../lib/http.js";
 
 const APPLICATION_ID = "d8665ade-9673-4e27-9ff6-92db4ce13d13";
 
@@ -47,7 +48,7 @@ export default async function dexcomVerifyRoutes(app: FastifyInstance) {
         let res: Response;
         let text: string;
         try {
-          res = await fetch(`${baseUrl}/General/LoginPublisherAccountByName`, {
+          res = await fetchWithTimeout(`${baseUrl}/General/LoginPublisherAccountByName`, {
             method: "POST",
             headers: DEXCOM_HEADERS,
             body: JSON.stringify({ accountName: username, password, applicationId: APPLICATION_ID }),
@@ -116,7 +117,7 @@ export default async function dexcomVerifyRoutes(app: FastifyInstance) {
       let res: Response;
       let text: string;
       try {
-        res = await fetch(`${baseUrl}/General/LoginPublisherAccountById`, {
+        res = await fetchWithTimeout(`${baseUrl}/General/LoginPublisherAccountById`, {
           method: "POST",
           headers: DEXCOM_HEADERS,
           body: JSON.stringify({ accountId: account_id, password, applicationId: APPLICATION_ID }),

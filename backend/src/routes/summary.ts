@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { getDailySummary, generateDailySummary } from "../services/dailySummaryService.js";
-import { estToday, estYesterday } from "../lib/estDate.js";
+import { estToday, estYesterday, estDayOfWeek, estDayOfWeekForDayStr } from "../lib/estDate.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -136,24 +136,21 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
     const mealFlags: Array<{ label: string }> = [];
     for (const m of highCarbRows) {
-      const d = new Date(m.logged_at);
-      const dayName = DAY_NAMES[d.getDay()];
+      const dayName = DAY_NAMES[estDayOfWeek(m.logged_at)];
       const typeLabel = m.meal_type ? " " + m.meal_type : "";
       const avgLabel = m.avg_carbs ? `, avg ${m.avg_carbs}g` : "";
       mealFlags.push({ label: `${dayName}${typeLabel}: ${m.carbs_g}g carbs${avgLabel}` });
     }
     for (const r of missingDayRows) {
       const dayStr = r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10);
-      const d = new Date(dayStr + "T12:00:00");
-      mealFlags.push({ label: `${DAY_NAMES[d.getDay()]}: no meals logged` });
+      mealFlags.push({ label: `${DAY_NAMES[estDayOfWeekForDayStr(dayStr)]}: no meals logged` });
     }
 
     const spendingSpikes = spendingRows.map((r: any) => {
       const dayStr = r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10);
-      const d = new Date(dayStr + "T12:00:00");
       const mult = Number(r.avg_daily) > 0 ? Math.round(Number(r.total) / Number(r.avg_daily)) : null;
       const multLabel = mult ? `, ${mult}x daily avg` : "";
-      return { label: `${DAY_NAMES[d.getDay()]}: $${Number(r.total).toFixed(0)}${multLabel}` };
+      return { label: `${DAY_NAMES[estDayOfWeekForDayStr(dayStr)]}: $${Number(r.total).toFixed(0)}${multLabel}` };
     });
 
     const hrCount = Number(hrRows[0]?.reading_count ?? 0);

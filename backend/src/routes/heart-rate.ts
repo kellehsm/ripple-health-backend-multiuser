@@ -26,7 +26,7 @@ export default async function heartRateRoutes(app: FastifyInstance) {
     const n = Math.min(Math.max(parseInt(days, 10) || 7, 1), 30);
     return query<any>(
       `SELECT
-         date_trunc('day', recorded_at AT TIME ZONE 'UTC')::date AS date,
+         date_trunc('day', recorded_at)::date AS date,
          MIN(bpm)::int   AS resting_bpm,
          MAX(bpm)::int   AS peak_bpm,
          ROUND(AVG(bpm))::int AS avg_bpm,

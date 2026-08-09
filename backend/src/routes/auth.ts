@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 import { signToken } from "../middleware/auth.js";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
@@ -85,34 +85,39 @@ export default async function authRoutes(app: FastifyInstance) {
       }
 
       const hash = await bcrypt.hash(password, 12);
+      // Wrap user creation + settings init in one transaction so we never
+      // leave a user row without its companion settings/prefs rows.
+      const client = await pool.connect();
       try {
-        const rows = await query<{ id: string }>(
+        await client.query("BEGIN");
+        const { rows } = await client.query<{ id: string }>(
           "INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id",
           [email.toLowerCase().trim(), hash]
         );
         const user = rows[0];
-        // Initialize per-user rows at account creation so GET handlers never need to lazy-init them
-        await Promise.all([
-          query(
-            "INSERT INTO user_settings (user_id, settings) VALUES ($1, $2::jsonb) ON CONFLICT DO NOTHING",
-            [user.id, JSON.stringify({})]
-          ),
-          query(
-            "INSERT INTO social_notification_prefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
-            [user.id]
-          ),
-          query(
-            "INSERT INTO friend_sharing_prefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
-            [user.id]
-          ),
-        ]);
+        await client.query(
+          "INSERT INTO user_settings (user_id, settings) VALUES ($1, $2::jsonb) ON CONFLICT DO NOTHING",
+          [user.id, JSON.stringify({})]
+        );
+        await client.query(
+          "INSERT INTO social_notification_prefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+          [user.id]
+        );
+        await client.query(
+          "INSERT INTO friend_sharing_prefs (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+          [user.id]
+        );
+        await client.query("COMMIT");
         const token = signToken(user.id);
         return { token, user_id: user.id };
       } catch (err: any) {
+        await client.query("ROLLBACK");
         if (err?.code === "23505") {
           return reply.status(409).send({ error: "An account with this email already exists." });
         }
         throw err;
+      } finally {
+        client.release();
       }
     }
   );

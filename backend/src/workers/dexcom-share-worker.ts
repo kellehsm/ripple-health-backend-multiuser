@@ -13,6 +13,7 @@
 
 import dotenv from "dotenv";
 import pg from "pg";
+import { fetchWithTimeout } from "../lib/http.js";
 
 dotenv.config();
 
@@ -69,7 +70,7 @@ async function login(userId: string, accountId: string, password: string, region
   const baseUrl = buildBaseUrl(region);
   log("INFO", "Authenticating with Dexcom Share", { userId });
 
-  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountById`, {
+  const res = await fetchWithTimeout(`${baseUrl}/General/LoginPublisherAccountById`, {
     method: "POST",
     headers: DEXCOM_HEADERS,
     body: JSON.stringify({ accountId, password, applicationId: APPLICATION_ID }),
@@ -100,7 +101,7 @@ async function login(userId: string, accountId: string, password: string, region
 async function loginByName(userId: string, accountName: string, password: string, region?: string): Promise<Session> {
   const baseUrl = buildBaseUrl(region);
   log("INFO", "Authenticating with Dexcom Share (name-based)", { userId });
-  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountByName`, {
+  const res = await fetchWithTimeout(`${baseUrl}/General/LoginPublisherAccountByName`, {
     method: "POST",
     headers: DEXCOM_HEADERS,
     body: JSON.stringify({ accountName, password, applicationId: APPLICATION_ID }),
@@ -148,7 +149,7 @@ async function fetchReadings(session: Session): Promise<RawReading[]> {
     `${session.baseUrl}/Publisher/ReadPublisherLatestGlucoseValues` +
     `?sessionId=${session.sessionId}&minutes=${FETCH_WINDOW_MINUTES}&maxCount=${MAX_READINGS}`;
 
-  const res = await fetch(url, { method: "POST", headers: DEXCOM_HEADERS });
+  const res = await fetchWithTimeout(url, { method: "POST", headers: DEXCOM_HEADERS });
   const text = await res.text();
 
   if (res.status === 500 && /SessionNotValid|SessionIdNotFound/i.test(text)) {

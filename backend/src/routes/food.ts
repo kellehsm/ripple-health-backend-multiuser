@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { fetchWithTimeout } from "../lib/http.js";
 
 export default async function foodRoutes(app: FastifyInstance) {
   // ── Passio API key (served to authenticated app clients) ───────────────────
@@ -21,7 +22,7 @@ export default async function foodRoutes(app: FastifyInstance) {
       q
     )}&pageSize=8&dataType=Foundation,SR%20Legacy`;
 
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) return { error: `USDA API error ${res.status}` };
     const data = await res.json();
 
@@ -97,7 +98,7 @@ export default async function foodRoutes(app: FastifyInstance) {
 
     if (apiKey) {
       try {
-        const searchRes = await fetch(
+        const searchRes = await fetchWithTimeout(
           `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${apiKey}`,
           {
             method: "POST",
@@ -109,7 +110,7 @@ export default async function foodRoutes(app: FastifyInstance) {
           const searchData = await searchRes.json();
           const match = (searchData.foods ?? []).find((f: any) => f.gtinUpc === code);
           if (match) {
-            const detailRes = await fetch(
+            const detailRes = await fetchWithTimeout(
               `https://api.nal.usda.gov/fdc/v1/food/${match.fdcId}?api_key=${apiKey}`
             );
             if (detailRes.ok) {
@@ -182,7 +183,7 @@ export default async function foodRoutes(app: FastifyInstance) {
     // 3. Open Food Facts — primary if USDA missed, or gap-filler for food merging
     try {
       const offUrl = `https://world.openfoodfacts.org/api/v2/product/${code}.json`;
-      const offRes = await fetch(offUrl);
+      const offRes = await fetchWithTimeout(offUrl);
 
       if (!offRes.ok) {
         if (usdaResult) return usdaResult;

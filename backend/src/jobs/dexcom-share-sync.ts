@@ -1,5 +1,6 @@
 import { pool, query } from "../db.js";
 import type { FastifyBaseLogger } from "fastify";
+import { fetchWithTimeout } from "../lib/http.js";
 
 // Dexcom Share application ID (public, fixed across all Share clients)
 const APPLICATION_ID = "d8665ade-9673-4e27-9ff6-92db4ce13d13";
@@ -68,7 +69,7 @@ async function resolveCredentials(userId: string, prefetchedDexcom?: Record<stri
 }
 
 async function loginWithId(baseUrl: string, accountId: string, password: string): Promise<string> {
-  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountById`, {
+  const res = await fetchWithTimeout(`${baseUrl}/General/LoginPublisherAccountById`, {
     method: "POST",
     headers: SHARE_HEADERS,
     body: JSON.stringify({ accountId, password, applicationId: APPLICATION_ID }),
@@ -84,7 +85,7 @@ async function loginWithId(baseUrl: string, accountId: string, password: string)
 }
 
 async function loginWithName(baseUrl: string, accountName: string, password: string): Promise<string> {
-  const res = await fetch(`${baseUrl}/General/LoginPublisherAccountByName`, {
+  const res = await fetchWithTimeout(`${baseUrl}/General/LoginPublisherAccountByName`, {
     method: "POST",
     headers: SHARE_HEADERS,
     body: JSON.stringify({ accountName, password, applicationId: APPLICATION_ID }),
@@ -134,7 +135,7 @@ async function fetchReadings(
     `${baseUrl}/Publisher/ReadPublisherLatestGlucoseValues` +
     `?sessionId=${encodeURIComponent(sessionId)}&minutes=10&maxCount=3`;
 
-  const res = await fetch(url, { method: "POST", headers: SHARE_HEADERS });
+  const res = await fetchWithTimeout(url, { method: "POST", headers: SHARE_HEADERS });
   const text = await res.text();
 
   // Dexcom returns HTTP 500 with a "SessionNotValid" / "SessionIdNotFound" body

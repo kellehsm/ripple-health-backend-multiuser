@@ -3,18 +3,27 @@ import { query } from "../db.js";
 import { syncDexcomShareGlucose } from "../jobs/dexcom-share-sync.js";
 import { estToday } from "../lib/estDate.js";
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
 export default async function glucoseRoutes(app: FastifyInstance) {
-  app.get("/", async (req) => {
+  app.get("/", async (req, reply) => {
     const user_id = req.user_id;
     const { date, start, end } = req.query as any;
 
     if (start && end) {
+      if (!ISO_RE.test(String(start)) || !ISO_RE.test(String(end))) {
+        return reply.status(400).send({ error: "start/end must be ISO 8601" });
+      }
       return query(
         `SELECT * FROM glucose_readings WHERE user_id = $1 AND recorded_at BETWEEN $2 AND $3 ORDER BY recorded_at`,
         [user_id, start, end]
       );
     }
     if (date) {
+      if (!DATE_RE.test(String(date))) {
+        return reply.status(400).send({ error: "date must be YYYY-MM-DD" });
+      }
       return query(
         `SELECT * FROM glucose_readings WHERE user_id = $1 AND recorded_at::date = $2 ORDER BY recorded_at`,
         [user_id, date]

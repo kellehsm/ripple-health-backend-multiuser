@@ -1,4 +1,5 @@
 import { query, pool } from "../db.js";
+import { fetchWithTimeout } from "../lib/http.js";
 
 const API_BASE = process.env.DEXCOM_API_BASE ?? "https://sandbox-api.dexcom.com";
 
@@ -16,7 +17,7 @@ async function getValidAccessToken(userId: string): Promise<string | null> {
     redirect_uri: process.env.DEXCOM_REDIRECT_URI!,
   });
 
-  const res = await fetch(`${API_BASE}/v2/oauth2/token`, {
+  const res = await fetchWithTimeout(`${API_BASE}/v2/oauth2/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
@@ -42,7 +43,7 @@ export async function syncDexcomGlucose(userId: string) {
   const fmt = (d: Date) => d.toISOString().slice(0, 19);
 
   const url = `${API_BASE}/v3/users/self/egvs?startDate=${fmt(startDate)}&endDate=${fmt(endDate)}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${accessToken}` } });
   if (!res.ok) return { error: `Dexcom EGV fetch failed: ${res.status}` };
 
   const data = await res.json();

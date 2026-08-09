@@ -48,6 +48,7 @@ import challengesRoutes from "./routes/challenges.js";
 import socialNotificationsRoutes from "./routes/social-notifications.js";
 import hardcoverRoutes from "./routes/hardcover.js";
 import { requireAuth } from "./middleware/auth.js";
+import { createDownloadToken } from "./lib/downloadTokens.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
 import { runInsightsJob } from "./jobs/insightsJob.js";
@@ -58,6 +59,16 @@ import { query } from "./db.js";
 import { estYesterday } from "./lib/estDate.js";
 
 dotenv.config();
+
+// Fail fast on missing critical env vars — silent misconfiguration causes
+// runtime errors deep inside handlers that are hard to trace.
+const REQUIRED_ENV = ["DATABASE_URL", "JWT_SECRET"];
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length > 0) {
+  // eslint-disable-next-line no-console
+  console.error(`[startup] Missing required env vars: ${missingEnv.join(", ")}`);
+  process.exit(1);
+}
 
 const app = Fastify({ logger: true });
 
@@ -127,6 +138,13 @@ async function main() {
   await app.register(socialNotificationsRoutes, { prefix: "/api/social-notifications" });
   await app.register(hardcoverRoutes, { prefix: "/api/hardcover" });
 
+  // Mints a short-lived (5 min), single-use token for URL-based downloads (?dl=...).
+  // Keeps the long-lived JWT out of URLs, browser history, and server access logs.
+  // Placed OUTSIDE /api/auth (public) so it goes through requireAuth.
+  app.post("/api/download-token", async (req) => {
+    return { token: createDownloadToken(req.user_id) };
+  });
+
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`Wellness multi-user API running on port ${port}`);
@@ -165,11 +183,13 @@ async function main() {
             app.log.info({ user_id, ...result }, "Dexcom Share sync: new readings");
           }
         } catch (err: any) {
-          app.log.error({ err: err?.message, user_id }, "Dexcom Share sync failed for user");
+          // Pass the Error itself so pino's built-in err serializer captures message + stack;
+          // never pass the dexcom settings object (contains share_password).
+          app.log.error({ err, user_id }, "Dexcom Share sync failed for user");
         }
       }
     } catch (err: any) {
-      app.log.error({ err: err?.message }, "Dexcom Share sync: failed to query users");
+      app.log.error({ err }, "Dexcom Share sync: failed to query users");
     }
   };
   cron.schedule("*/5 * * * *", () => void runDexcomShareSync());

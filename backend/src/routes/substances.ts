@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { pool, query } from "../db.js";
+import { fetchWithTimeout } from "../lib/http.js";
 
 // ── USDA nutrient field names ─────────────────────────────────────────────────
 const CAFFEINE_NUTRIENT = "Caffeine";
@@ -27,7 +28,7 @@ async function usdaSearch(q: string, type: SubstanceType): Promise<SearchResult[
     `&query=${encodeURIComponent(q)}&pageSize=14&dataType=Branded,Foundation,SR%20Legacy`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) return [];
     const data = await res.json();
 
@@ -68,7 +69,7 @@ async function offSearch(q: string, type: SubstanceType): Promise<SearchResult[]
     `&fields=product_name,generic_name,nutriments,code`;
 
   try {
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) return [];
     const data = await res.json();
 

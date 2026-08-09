@@ -29,14 +29,19 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
   app.post("/heart-rate", async (req) => {
     const user_id = req.user_id;
     const { readings } = req.body as any;
-    if (!readings?.length) return { ok: true, inserted: 0 };
+    if (!Array.isArray(readings) || readings.length === 0) return { ok: true, inserted: 0 };
+    // Filter out malformed rows before they reach the DB (NaN, missing fields).
+    const valid = readings.filter(
+      (r: any) => r && typeof r.recorded_at === "string" && Number.isFinite(Number(r.bpm))
+    );
+    if (valid.length === 0) return { ok: true, inserted: 0 };
     await query(
       `INSERT INTO heart_rate_readings (user_id, recorded_at, bpm)
        SELECT $1::uuid, unnest($2::timestamptz[]), unnest($3::int[])
        ON CONFLICT (user_id, recorded_at) DO NOTHING`,
-      [user_id, readings.map((r: any) => r.recorded_at), readings.map((r: any) => r.bpm)]
+      [user_id, valid.map((r: any) => r.recorded_at), valid.map((r: any) => Math.round(Number(r.bpm)))]
     );
-    return { ok: true, inserted: readings.length };
+    return { ok: true, inserted: valid.length };
   });
 
   app.post("/sleep", async (req) => {

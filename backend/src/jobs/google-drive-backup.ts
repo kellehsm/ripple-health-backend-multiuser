@@ -1,7 +1,8 @@
 import { query } from "../db.js";
+import { fetchWithTimeout } from "../lib/http.js";
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -12,7 +13,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
     }),
   });
   const data: any = await res.json();
-  if (!data.access_token) throw new Error("Token refresh failed: " + JSON.stringify(data));
+  if (!data.access_token) throw new Error(`Token refresh failed (status ${res.status})`);
   return data.access_token;
 }
 
@@ -64,7 +65,7 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
   const tail = `\r\n--${boundary}--`;
   const body = Buffer.concat([Buffer.from(metaPart), Buffer.from(dataPart), Buffer.from(payload), Buffer.from(tail)]);
 
-  const uploadRes = await fetch(
+  const uploadRes = await fetchWithTimeout(
     "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
     {
       method: "POST",
@@ -73,12 +74,13 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
         "Content-Type": `multipart/related; boundary=${boundary}`,
       },
       body,
-    }
+    },
+    30000,
   );
   if (!uploadRes.ok) throw new Error("Drive upload failed: " + (await uploadRes.text()));
 
   // Rotate — delete backups older than 14 days
-  const listRes = await fetch(
+  const listRes = await fetchWithTimeout(
     "https://www.googleapis.com/drive/v3/files?" +
       new URLSearchParams({
         q: "name contains 'ripple-backup-' and trashed=false",
@@ -94,7 +96,7 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
   );
   await Promise.all(
     toDelete.map((f: any) =>
-      fetch(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
+      fetchWithTimeout(`https://www.googleapis.com/drive/v3/files/${f.id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${accessToken}` },
       })

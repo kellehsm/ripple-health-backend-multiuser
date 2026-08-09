@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 
 export default async function booksRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
@@ -91,11 +91,27 @@ export default async function booksRoutes(app: FastifyInstance) {
   app.delete("/:id", async (req, reply) => {
     const user_id = req.user_id;
     const { id } = req.params as any;
-    // Collapse ownership check + delete; RETURNING id signals 404 if not found
-    const deleted = await query<any>(`DELETE FROM books WHERE id = $1 AND user_id = $2 RETURNING id`, [id, user_id]);
-    if (!deleted[0]) return reply.status(404).send({ error: "not found" });
-    await query(`DELETE FROM reading_logs WHERE book_id = $1`, [id]);
-    return { ok: true };
+    // Wrap in a transaction so a mid-delete crash never leaves orphaned reading_logs.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const del = await client.query(
+        `DELETE FROM books WHERE id = $1 AND user_id = $2 RETURNING id`,
+        [id, user_id]
+      );
+      if (del.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return reply.status(404).send({ error: "not found" });
+      }
+      await client.query(`DELETE FROM reading_logs WHERE book_id = $1`, [id]);
+      await client.query("COMMIT");
+      return { ok: true };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   });
 
   app.patch("/:bookId", async (req, reply) => {

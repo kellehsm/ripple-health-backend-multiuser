@@ -1,9 +1,10 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { backupToGoogleDrive } from "../jobs/google-drive-backup.js";
+import { fetchWithTimeout } from "../lib/http.js";
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -14,7 +15,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
     }),
   });
   const data: any = await res.json();
-  if (!data.access_token) throw new Error("Token refresh failed: " + JSON.stringify(data));
+  if (!data.access_token) throw new Error(`Token refresh failed (status ${res.status})`);
   return data.access_token;
 }
 
@@ -74,7 +75,7 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
     if (!gd?.refresh_token) throw new Error("Google Drive not connected");
 
     const accessToken = await refreshAccessToken(gd.refresh_token);
-    const listRes = await fetch(
+    const listRes = await fetchWithTimeout(
       "https://www.googleapis.com/drive/v3/files?" +
         new URLSearchParams({
           q: "name contains 'ripple-backup-' and name contains '.json' and trashed=false",
@@ -99,9 +100,10 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
 
     const accessToken = await refreshAccessToken(gd.refresh_token);
 
-    const fileRes = await fetch(
+    const fileRes = await fetchWithTimeout(
       `https://www.googleapis.com/drive/v3/files/${file_id}?alt=media`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+      30000,
     );
     if (!fileRes.ok) throw new Error("Drive download failed: " + (await fileRes.text()));
     const backup: any = await fileRes.json();

@@ -12,15 +12,22 @@ export function signToken(user_id: string): string {
 }
 
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Promise<void> {
-  // Primary: Authorization header. Fallback: ?token= query param (for URL-based downloads/PDFs).
-  const auth = req.headers.authorization;
-  const token = auth?.startsWith("Bearer ")
-    ? auth.slice(7)
-    : (req.query as any)?.token as string | undefined;
+  // URL-based downloads use a short-lived single-use ?dl= token minted via
+  // /api/auth/download-token. This keeps the long-lived JWT out of logs,
+  // browser history, and referer headers.
+  const dl = (req.query as any)?.dl as string | undefined;
+  if (dl) {
+    const user_id = redeemDownloadToken(dl);
+    if (!user_id) return reply.status(401).send({ error: "Invalid or expired download token" });
+    req.user_id = user_id;
+    return;
+  }
 
-  if (!token) {
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith("Bearer ")) {
     return reply.status(401).send({ error: "Unauthorized" });
   }
+  const token = auth.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET!) as { user_id: string };
     req.user_id = payload.user_id;

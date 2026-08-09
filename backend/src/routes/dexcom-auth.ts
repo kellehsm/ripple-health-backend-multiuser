@@ -1,17 +1,22 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { fetchWithTimeout } from "../lib/http.js";
+import { createOAuthState, consumeOAuthState } from "../lib/oauthStates.js";
 
 const API_BASE = process.env.DEXCOM_API_BASE ?? "https://sandbox-api.dexcom.com";
 
 export default async function dexcomAuthRoutes(app: FastifyInstance) {
   app.get("/login", { preHandler: [requireAuth] }, async (req, reply) => {
     const user_id = req.user_id;
+    // Random single-use state prevents CSRF: attacker can't craft a callback
+    // that binds their Dexcom tokens to another user_id.
+    const state = createOAuthState(user_id);
     const params = new URLSearchParams({
       client_id: process.env.DEXCOM_CLIENT_ID!,
       redirect_uri: process.env.DEXCOM_REDIRECT_URI!,
       response_type: "code",
-      state: user_id,
+      state,
       scope: "offline_access",
     });
     reply.redirect(`${API_BASE}/v2/oauth2/login?${params.toString()}`);
@@ -19,8 +24,11 @@ export default async function dexcomAuthRoutes(app: FastifyInstance) {
 
   app.get("/callback", async (req, reply) => {
     const { code, state } = req.query as any;
-    const user_id = state;
     if (!code) return { error: "no code returned from Dexcom" };
+    if (!state || typeof state !== "string") return { error: "missing state" };
+
+    const user_id = consumeOAuthState(state);
+    if (!user_id) return reply.code(400).send({ error: "invalid or expired state" });
 
     const body = new URLSearchParams({
       client_id: process.env.DEXCOM_CLIENT_ID!,
@@ -30,7 +38,7 @@ export default async function dexcomAuthRoutes(app: FastifyInstance) {
       redirect_uri: process.env.DEXCOM_REDIRECT_URI!,
     });
 
-    const res = await fetch(`${API_BASE}/v2/oauth2/token`, {
+    const res = await fetchWithTimeout(`${API_BASE}/v2/oauth2/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,

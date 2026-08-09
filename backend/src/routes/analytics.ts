@@ -17,7 +17,8 @@ export default async function analyticsRoutes(app: FastifyInstance) {
     async (req) => {
       const user_id = req.user_id;
       const { key, compare_to } = req.query;
-      const days = Math.min(Math.max(parseInt(req.query.days ?? "30", 10) || 30, 7), 90);
+      const parsedDays = parseInt(req.query.days ?? "30", 10);
+      const days = Math.min(Math.max(Number.isFinite(parsedDays) ? parsedDays : 30, 7), 90);
 
       if (!key || !compare_to) {
         return { error: "key and compare_to are required" };

@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { parse as csvParseSync } from "csv-parse/sync";
 import * as XLSX from "xlsx";
+import { fetchWithTimeout } from "../lib/http.js";
 
 const DEFAULT_COLOR_CATEGORIES = [
   { label: "Diabetes",                  color_hex: "#3B82F6" },
@@ -328,13 +329,13 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     const { name } = req.query as any;
     if (!name) return { rxcui: null, brand_name: null, generic_name: null, drug_class: null };
     try {
-      const r1 = await fetch(`https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${encodeURIComponent(name)}`);
+      const r1 = await fetchWithTimeout(`https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${encodeURIComponent(name)}`);
       const d1: any = await r1.json();
       const rxcui: string | null = d1?.idGroup?.rxnormId?.[0] ?? null;
       if (!rxcui) return { rxcui: null, brand_name: null, generic_name: null, drug_class: null };
       const [rBN, rIN] = await Promise.all([
-        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=BN`),
-        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=IN`),
+        fetchWithTimeout(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=BN`),
+        fetchWithTimeout(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=IN`),
       ]);
       const [dBN, dIN]: [any, any] = await Promise.all([rBN.json(), rIN.json()]);
       const brandNames: string[] = (dBN?.relatedGroup?.conceptGroup ?? [])
@@ -361,7 +362,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     if (cached && cached.expiresAt > Date.now()) return cached.results;
     try {
       const url = `https://clinicaltables.nlm.nih.gov/api/rxterms/v3/search?terms=${encodeURIComponent(q)}`;
-      const res = await fetch(url);
+      const res = await fetchWithTimeout(url);
       const data: any = await res.json();
       const displayStrings: string[][] = data[3] ?? [];
       const results = displayStrings.map((row) => row[0]).slice(0, 20);
@@ -386,7 +387,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     let rxcui: string | null = med.rxcui ?? null;
     if (!rxcui) {
       try {
-        const r1 = await fetch(`https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${encodeURIComponent(med.name)}`);
+        const r1 = await fetchWithTimeout(`https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${encodeURIComponent(med.name)}`);
         const d1: any = await r1.json();
         rxcui = d1?.idGroup?.rxnormId?.[0] ?? null;
       } catch { /* network error — return null */ }
@@ -398,8 +399,8 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     let genericNames: string[] = [];
     try {
       const [rBN, rIN] = await Promise.all([
-        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=BN`),
-        fetch(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=IN`),
+        fetchWithTimeout(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=BN`),
+        fetchWithTimeout(`https://rxnav.nlm.nih.gov/REST/rxcui/${rxcui}/related.json?tty=IN`),
       ]);
       const [dBN, dIN]: [any, any] = await Promise.all([rBN.json(), rIN.json()]);
       brandNames = dBN?.relatedGroup?.conceptGroup
@@ -448,10 +449,10 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     const DISCLAIMER = "Per the FDA-approved drug label. Talk to your prescriber about any questions.";
     try {
       let url = `https://api.fda.gov/drug/label.json?search=openfda.rxcui:%22${encodeURIComponent(rxcui)}%22&limit=1`;
-      let res = await fetch(url);
+      let res = await fetchWithTimeout(url);
       if (res.status === 404 && med.generic_name) {
         url = `https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22${encodeURIComponent(med.generic_name)}%22&limit=1`;
-        res = await fetch(url);
+        res = await fetchWithTimeout(url);
       }
       if (!res.ok) return { found: false };
 
