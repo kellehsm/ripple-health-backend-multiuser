@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 // High caffeine + low steps → significantly worse sleep than high caffeine + high steps.
 // The insight is that exercise appears to offset caffeine's sleep disruption.
@@ -35,8 +36,17 @@ export const TriCaffeineStepsSleepRule: InsightRule = {
     const highCaff = rows.filter(r => Number(r.caffeine_mg) >= caffThreshold);
     if (highCaff.length < 10) return null;
 
-    const highCaffHighSteps = highCaff.filter(r => Number(r.steps) >= 8000);
-    const highCaffLowSteps  = highCaff.filter(r => Number(r.steps) < 5000);
+    // Personal step bar — user's p67 (fallback 8k) for "high steps",
+    // p33 (fallback 5k) for "low steps".
+    const stepT = await personalThresholds(userId, [
+      { metric: "steps", kind: "high", fallback: 8000 },
+      { metric: "steps", kind: "low",  fallback: 5000 },
+    ]);
+    const stepHigh = stepT.steps_high.threshold;
+    const stepLow  = stepT.steps_low.threshold;
+
+    const highCaffHighSteps = highCaff.filter(r => Number(r.steps) >= stepHigh);
+    const highCaffLowSteps  = highCaff.filter(r => Number(r.steps) <  stepLow);
 
     if (highCaffHighSteps.length < 5 || highCaffLowSteps.length < 5) return null;
 

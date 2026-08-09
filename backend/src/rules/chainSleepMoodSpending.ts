@@ -1,6 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
-import { tertileSplit, avgOf } from "./ruleHelper.js";
+import { tertileSplit, avgOf, personalThresholds } from "./ruleHelper.js";
 
 // Detects a 3-node causal chain: poor sleep → lower mood → higher spending.
 // Tests each link independently and requires both links to be significant.
@@ -42,8 +42,18 @@ export const ChainSleepMoodSpendingRule: InsightRule = {
     const data = rows.map(parse);
 
     // ── Link 1: poor sleep → lower mood ───────────────────────────────────────
-    const poorSleep  = data.filter(r => r.sleep_min < 360);
-    const goodSleep  = data.filter(r => r.sleep_min >= 420);
+    // Personal cutoffs — user's p33/p67 for sleep if we have a baseline,
+    // otherwise the classic 6h/7h bounds.
+    const sleepT = await personalThresholds(userId, [
+      { metric: "sleep_secs", kind: "low",  fallback: 21600 },
+      { metric: "sleep_secs", kind: "high", fallback: 25200 },
+    ]);
+    const lowSleepMin  = sleepT.sleep_secs_low.threshold / 60;
+    const highSleepMin = sleepT.sleep_secs_high.threshold / 60;
+    const usedBaseline = sleepT.sleep_secs_low.usedBaseline && sleepT.sleep_secs_high.usedBaseline;
+
+    const poorSleep  = data.filter(r => r.sleep_min <  lowSleepMin);
+    const goodSleep  = data.filter(r => r.sleep_min >= highSleepMin);
     if (poorSleep.length < 6 || goodSleep.length < 6) return null;
 
     const avgMoodPoor = avgOf(poorSleep, r => r.avg_mood);
@@ -71,9 +81,13 @@ export const ChainSleepMoodSpendingRule: InsightRule = {
       Math.min(sleepMoodGap / 4, moodSpendGap / 30)
     );
 
+    const lowLabel  = `under ${(lowSleepMin / 60).toFixed(lowSleepMin % 60 === 0 ? 0 : 1)}h`;
+    const highLabel = `${(highSleepMin / 60).toFixed(highSleepMin % 60 === 0 ? 0 : 1)}+ hours`;
+    const personalNote = usedBaseline ? " (your typical short/long sleep bounds)" : "";
+
     return {
       title: "A chain links your sleep → mood → spending",
-      description: `Short nights appear to lower your mood, and lower-mood days tend to cost more. After under 6h of sleep, your mood averaged ${avgMoodPoor.toFixed(1)}/5 vs ${avgMoodGood.toFixed(1)}/5 on good nights. Low-mood days averaged $${Math.round(avgSpendLowMood)} vs $${Math.round(avgSpendHighMood)} on high-mood days — a $${Math.round(Math.abs(moodSpendGap))} difference. End-to-end: poor-sleep days cost $${Math.round(Math.abs(endToEndGap))} more than good-sleep days.`,
+      description: `Short nights are followed by lower-mood days, and lower-mood days tend to cost more. After ${lowLabel} of sleep${personalNote}, your mood averaged ${avgMoodPoor.toFixed(1)}/5 vs ${avgMoodGood.toFixed(1)}/5 after ${highLabel}. Low-mood days averaged $${Math.round(avgSpendLowMood)} vs $${Math.round(avgSpendHighMood)} on high-mood days — a $${Math.round(Math.abs(moodSpendGap))} difference. End-to-end: poor-sleep days cost $${Math.round(Math.abs(endToEndGap))} more than good-sleep days.`,
       confidence: label,
       confidenceScore: score,
       timesObserved: rows.length,

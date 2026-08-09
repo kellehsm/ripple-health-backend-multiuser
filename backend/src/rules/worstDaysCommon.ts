@@ -7,12 +7,12 @@
 
 import type { InsightRule, InsightResult } from "./types.js";
 import type { DayRow } from "../services/dayFrame.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 type Flag = { key: string; label: string; get(r: DayRow): boolean };
 
-const FLAGS: Flag[] = [
-  { key: "sleep_short",   label: "sleep under 6h",       get: r => (r.sleep_min ?? 999) < 360 },
-  { key: "sedentary",     label: "steps under 3,000",    get: r => (r.steps ?? 999999) < 3000 },
+// Non-personal flags (values are self-referential or symptom-defined).
+const STATIC_FLAGS: Flag[] = [
   { key: "drank",         label: "any alcohol",          get: r => (r.alcohol_g ?? 0) > 0 },
   { key: "no_hobby",      label: "no hobby",             get: r => !r.had_hobby },
   { key: "late_meal",     label: "a late meal",          get: r => !!r.late_meal },
@@ -34,6 +34,23 @@ export const WorstDaysCommonRule: InsightRule = {
   async runWithContext(ctx): Promise<InsightResult | null> {
     const rows = ctx.frame.rows.filter(r => r.mood_score != null);
     if (rows.length < 30) return null;
+
+    // Personal low-bar for sleep + steps — user's own p33 falls back to
+    // 6h / 3000 steps. Symmetric to habit_clusters using p67 as the high bar.
+    const t = await personalThresholds(ctx.userId, [
+      { metric: "sleep_secs", kind: "low",  fallback: 21600 },
+      { metric: "steps",      kind: "low",  fallback: 3000 },
+    ]);
+    const lowSleepMin = t.sleep_secs_low.threshold / 60;
+    const lowStep     = t.steps_low.threshold;
+    const dynamicFlags: Flag[] = [
+      { key: "sleep_short", label: `sleep under ${(lowSleepMin / 60).toFixed(lowSleepMin % 60 === 0 ? 0 : 1)}h`,
+        get: r => (r.sleep_min ?? 999) < lowSleepMin },
+      { key: "sedentary",   label: `steps under ${Math.round(lowStep).toLocaleString()}`,
+        get: r => (r.steps ?? 999999) < lowStep },
+    ];
+    const FLAGS: Flag[] = [...dynamicFlags, ...STATIC_FLAGS];
+
     const moods = rows.map(r => r.mood_score!).sort((a, b) => a - b);
     const cut = moods[Math.floor(rows.length * 0.2)];
     const bottomRows = rows.filter(r => r.mood_score! <= cut);

@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 // 4-metric synergy: days with good sleep + steps + water all met produce
 // significantly better mood than any single or double combo.
@@ -30,9 +31,18 @@ export const QuadSleepStepsWaterMoodRule: InsightRule = {
 
     if (rows.length < 30) return null;
 
+    // Personal cutoffs — sleep + steps from baselines, water goal per-row.
+    const t = await personalThresholds(userId, [
+      { metric: "sleep_secs", kind: "high", fallback: 25200 },
+      { metric: "steps",      kind: "high", fallback: 8000 },
+    ]);
+    const sleepMinCutoff = t.sleep_secs_high.threshold / 60;
+    const stepCutoff     = t.steps_high.threshold;
+    const isPersonal     = t.sleep_secs_high.usedBaseline && t.steps_high.usedBaseline;
+
     type R = typeof rows[0];
-    const metSleep = (r: R) => Number(r.sleep_min) >= 420;
-    const metSteps = (r: R) => Number(r.steps) >= 8000;
+    const metSleep = (r: R) => Number(r.sleep_min) >= sleepMinCutoff;
+    const metSteps = (r: R) => Number(r.steps) >= stepCutoff;
     const metWater = (r: R) => Number(r.glasses) >= Number(r.goal);
     const moodOf   = (r: R) => Number(r.avg_mood);
     const avg      = (arr: R[]) => arr.reduce((s, r) => s + moodOf(r), 0) / arr.length;
@@ -67,9 +77,13 @@ export const QuadSleepStepsWaterMoodRule: InsightRule = {
       moodWaterOnly != null ? `Water only: ${moodWaterOnly.toFixed(1)}` : null,
     ].filter(Boolean).join(", ");
 
+    const sleepLabel = `${(sleepMinCutoff / 60).toFixed(sleepMinCutoff % 60 === 0 ? 0 : 1)}+ hours of sleep`;
+    const stepLabel  = `${Math.round(stepCutoff).toLocaleString()}+ steps`;
+    const personalNote = isPersonal ? " (your typical strong-day cutoffs)" : "";
+
     return {
-      title: "Sleep + steps + water together produce your best mood days",
-      description: `When you hit all three — 7+ hours of sleep, 8,000+ steps, and your water goal — your mood averaged ${moodAllThree.toFixed(1)}/5. Missing all three: ${moodNone.toFixed(1)}/5. That's a ${diff.toFixed(1)}-point difference across ${allThree.length} triple-goal days.${twoNote}${oneNotes ? " Single habits: " + oneNotes + "." : ""}`,
+      title: "Sleep + steps + water together coincide with your best mood days",
+      description: `When you hit all three — ${sleepLabel}, ${stepLabel}, and your water goal${personalNote} — your mood averaged ${moodAllThree.toFixed(1)}/5. Missing all three: ${moodNone.toFixed(1)}/5. That's a ${diff.toFixed(1)}-point difference across ${allThree.length} triple-goal days.${twoNote}${oneNotes ? " Single habits: " + oneNotes + "." : ""}`,
       confidence: label,
       confidenceScore: score,
       timesObserved: rows.length,

@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalHighThreshold } from "./ruleHelper.js";
 
 // Tests whether hitting BOTH step goal AND hydration goal produces better mood
 // than the expected additive sum of each alone — a genuine interaction.
@@ -28,7 +29,12 @@ export const TriStepsWaterMoodRule: InsightRule = {
 
     if (rows.length < 28) return null;
 
-    const metSteps  = (r: typeof rows[0]) => Number(r.steps) >= 8000;
+    // Personal step target — user's own p67 if we have a baseline; the
+    // water target already comes per-row from user hydration settings.
+    const stepT = await personalHighThreshold(userId, "steps", 8000);
+    const stepCutoff = stepT.threshold;
+
+    const metSteps  = (r: typeof rows[0]) => Number(r.steps) >= stepCutoff;
     const metWater  = (r: typeof rows[0]) => Number(r.glasses) >= Number(r.goal);
     const mood      = (r: typeof rows[0]) => Number(r.avg_mood);
     const avg       = (arr: typeof rows) => arr.reduce((s, r) => s + mood(r), 0) / arr.length;
@@ -58,9 +64,12 @@ export const TriStepsWaterMoodRule: InsightRule = {
       ? ` The combination appears to be ${interaction.toFixed(1)} mood points stronger than the two habits would predict separately — a genuine synergy.`
       : "";
 
+    const stepLabel = `${Math.round(stepCutoff).toLocaleString()}+ steps`;
+    const personalNote = stepT.usedBaseline ? " (your typical strong-day step count)" : "";
+
     return {
-      title: "Hitting steps + water together lifts your mood more than either alone",
-      description: `On days you hit 8,000+ steps AND your water goal, your mood averaged ${moodBoth.toFixed(1)}/5 — vs ${moodNeither.toFixed(1)}/5 when you missed both. Steps alone: ${moodStepsOnly.toFixed(1)}/5. Water alone: ${moodWaterOnly.toFixed(1)}/5.${interactionNote}`,
+      title: "Hitting steps + water together tracks with higher mood than either alone",
+      description: `On days you hit ${stepLabel}${personalNote} AND your water goal, your mood averaged ${moodBoth.toFixed(1)}/5 — vs ${moodNeither.toFixed(1)}/5 when you missed both. Steps alone: ${moodStepsOnly.toFixed(1)}/5. Water alone: ${moodWaterOnly.toFixed(1)}/5.${interactionNote}`,
       confidence: label,
       confidenceScore: score,
       timesObserved: rows.length,

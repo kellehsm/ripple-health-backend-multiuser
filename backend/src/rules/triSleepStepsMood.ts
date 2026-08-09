@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 // Finds whether the COMBINATION of good sleep + high steps drives better mood
 // than either alone — a genuine 3-way interaction.
@@ -27,8 +28,19 @@ export const TriSleepStepsMoodRule: InsightRule = {
 
     if (rows.length < 28) return null;
 
-    const goodSleep = (r: typeof rows[0]) => Number(r.sleep_min) >= 420;
-    const highSteps = (r: typeof rows[0]) => Number(r.steps) >= 8000;
+    // Personal thresholds — user's own p67 for sleep/steps if a baseline
+    // exists, otherwise the classic 7h/8k cutoffs. Sleep baseline is in
+    // seconds so we convert to minutes to match the JSON column.
+    const t = await personalThresholds(userId, [
+      { metric: "sleep_secs", kind: "high", fallback: 25200 },
+      { metric: "steps",      kind: "high", fallback: 8000 },
+    ]);
+    const sleepMinCutoff = t.sleep_secs_high.threshold / 60;
+    const stepCutoff     = t.steps_high.threshold;
+    const isPersonal     = t.sleep_secs_high.usedBaseline && t.steps_high.usedBaseline;
+
+    const goodSleep = (r: typeof rows[0]) => Number(r.sleep_min) >= sleepMinCutoff;
+    const highSteps = (r: typeof rows[0]) => Number(r.steps) >= stepCutoff;
     const mood     = (r: typeof rows[0]) => Number(r.avg_mood);
 
     const both    = rows.filter(r => goodSleep(r) && highSteps(r));
@@ -64,9 +76,15 @@ export const TriSleepStepsMoodRule: InsightRule = {
       ? ` The two together appear to amplify each other — the mood boost is ${interaction.toFixed(1)} points above what either habit alone would predict.`
       : "";
 
+    // Describe cutoffs the way the user's own data defines them, not with
+    // a canned "7h + 8k" line that may not match their own normal.
+    const sleepLabel = `${(sleepMinCutoff / 60).toFixed(sleepMinCutoff % 60 === 0 ? 0 : 1)}+ hours`;
+    const stepLabel  = `${Math.round(stepCutoff).toLocaleString()}+ steps`;
+    const personalNote = isPersonal ? " (your typical strong-day cutoffs)" : "";
+
     return {
-      title: "Sleep + steps together produce your best moods",
-      description: `On days when you both slept 7+ hours and hit 8,000 steps, your average mood was ${bothFmt}/5 — versus ${neitherFmt}/5 on days with neither.${interactionNote} (${both.length} days with both vs ${neither.length} days with neither, over the last 90 days.)`,
+      title: "Sleep + steps together coincide with your best mood days",
+      description: `On days when you both slept ${sleepLabel} and hit ${stepLabel}${personalNote}, your average mood was ${bothFmt}/5 — versus ${neitherFmt}/5 on days with neither.${interactionNote} (${both.length} days with both vs ${neither.length} days with neither, over the last 90 days.)`,
       confidence: label,
       confidenceScore: score,
       timesObserved: rows.length,
@@ -82,6 +100,9 @@ export const TriSleepStepsMoodRule: InsightRule = {
         mood_steps_only: moodStepsOnly?.toFixed(1) ?? null,
         mood_gain_combined: gainBoth.toFixed(2),
         interaction_above_additive: interaction.toFixed(2),
+        sleep_min_cutoff: Math.round(sleepMinCutoff),
+        step_cutoff: Math.round(stepCutoff),
+        used_baseline: isPersonal,
       },
     };
   },

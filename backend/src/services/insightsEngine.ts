@@ -383,11 +383,9 @@ export async function runInsightsForUser(
 
         // MDE gate — if the rule declared a primary metric and reports an
         // effect that doesn't cross the minimum-detectable threshold, drop it.
+        // (Rank-biserial effect sizes are intentionally exempt — the MDE
+        // table is in native units, not correlation coefficients.)
         const metric = rule.primaryMetric ?? result.primaryMetric;
-        if (metric && result.effectSize != null) {
-          // For rank-biserial effect sizes (|r| range), the MDE table doesn't
-          // apply directly; skip the gate.
-        }
         if (metric && MDE[metric] != null && result.supportingData) {
           const diffKey = Object.keys(result.supportingData).find(k => /_difference$|^difference/.test(k));
           if (diffKey) {
@@ -463,7 +461,8 @@ export async function getActiveInsights(userId: string): Promise<StoredInsight[]
        AND dismissed = FALSE
        AND status = 'active'
        AND NOT (supporting_data ? 'duplicate_of')
-     ORDER BY COALESCE(rank_score, confidence_score / 100.0) DESC,
+     ORDER BY pinned DESC NULLS LAST,
+              COALESCE(rank_score, confidence_score / 100.0) DESC,
               last_confirmed DESC`,
     [userId]
   );

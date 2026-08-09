@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 // 4-metric interaction: caffeine + sleep quality → how these two together
 // modulate next-day mood and step count. Finds if high caffeine on poor sleep
@@ -38,10 +39,18 @@ export const QuadCaffeineSleepMoodStepsRule: InsightRule = {
     const caffThresh = Number(sorted[Math.floor(sorted.length * 0.6)].caffeine_mg);
     if (caffThresh < 50) return null;
 
+    // Personal short-sleep / long-sleep bounds — user's own p33/p67 fall back to 6h/7h.
+    const sleepT = await personalThresholds(userId, [
+      { metric: "sleep_secs", kind: "low",  fallback: 21600 },
+      { metric: "sleep_secs", kind: "high", fallback: 25200 },
+    ]);
+    const lowSleepMin  = sleepT.sleep_secs_low.threshold / 60;
+    const highSleepMin = sleepT.sleep_secs_high.threshold / 60;
+
     type R = typeof rows[0];
     const highCaff = (r: R) => Number(r.caffeine_mg) >= caffThresh;
-    const poorSleep = (r: R) => Number(r.sleep_min) < 360;
-    const goodSleep = (r: R) => Number(r.sleep_min) >= 420;
+    const poorSleep = (r: R) => Number(r.sleep_min) <  lowSleepMin;
+    const goodSleep = (r: R) => Number(r.sleep_min) >= highSleepMin;
 
     const worstCase = rows.filter(r => highCaff(r) && poorSleep(r));
     const bestCase  = rows.filter(r => !highCaff(r) && goodSleep(r));
@@ -73,7 +82,7 @@ export const QuadCaffeineSleepMoodStepsRule: InsightRule = {
     ].filter(Boolean).join(". ");
 
     return {
-      title: "High caffeine + poor sleep is your worst combination for energy and mood",
+      title: "High caffeine + poor sleep is associated with your worst energy and mood days",
       description: `Days with high caffeine (${Math.round(caffThresh)}mg+) AND under 6h sleep averaged ${moodWorst.toFixed(1)}/5 mood and ${Math.round(stepsWorst).toLocaleString()} steps. Your best days (lower caffeine + 7+ hours sleep): ${moodBest.toFixed(1)}/5 mood and ${Math.round(stepsBest).toLocaleString()} steps.${midLines ? " Mid-tiers: " + midLines + "." : ""}`,
       confidence: label,
       confidenceScore: score,

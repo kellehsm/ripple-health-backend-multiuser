@@ -67,8 +67,10 @@ export async function processEndedExperiments(): Promise<{ processed: number }> 
 
     const start = new Date(exp.start_date);
     const durMs = new Date(exp.end_date).getTime() - start.getTime();
+    // Split the boundary between windows so a reading at exactly `start`
+    // isn't counted in both means (SQL BETWEEN is inclusive on both ends).
     const beforeStart = new Date(start.getTime() - durMs).toISOString();
-    const beforeEnd = start.toISOString();
+    const beforeEnd = new Date(start.getTime() - 1).toISOString();
     const afterStart = start.toISOString();
     const afterEnd = new Date(exp.end_date).toISOString();
 

@@ -8,12 +8,12 @@
 
 import type { InsightRule, InsightResult } from "./types.js";
 import type { DayRow } from "../services/dayFrame.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 type Flag = { key: string; label: string; get(r: DayRow): boolean };
 
-const FLAGS: Flag[] = [
-  { key: "sleep7",   label: "sleep ≥ 7h",           get: r => (r.sleep_min ?? 0) >= 420 },
-  { key: "steps8k",  label: "steps ≥ 8,000",        get: r => (r.steps ?? 0) >= 8000 },
+// Static flags whose threshold doesn't depend on user data.
+const STATIC_FLAGS: Flag[] = [
   { key: "no_alc",   label: "no alcohol",           get: r => !r.alcohol_g },
   { key: "mind",     label: "mindfulness",          get: r => !!r.meditated },
   { key: "read",     label: "reading",              get: r => !!r.read_book },
@@ -46,6 +46,24 @@ export const HabitClustersRule: InsightRule = {
   async runWithContext(ctx): Promise<InsightResult | null> {
     const rows = ctx.frame.rows.filter(r => r.mood_score != null);
     if (rows.length < 30) return null;
+
+    // Personal sleep + step cutoffs — user's own p67, falling back to
+    // the classic 7h / 8k targets. Baseline machinery kicks in once the
+    // user has 10+ day-observations for each metric.
+    const t = await personalThresholds(ctx.userId, [
+      { metric: "sleep_secs", kind: "high", fallback: 25200 },
+      { metric: "steps",      kind: "high", fallback: 8000 },
+    ]);
+    const sleepMinCutoff = t.sleep_secs_high.threshold / 60;
+    const stepCutoff     = t.steps_high.threshold;
+    const dynamicFlags: Flag[] = [
+      { key: "sleep_hi", label: `sleep ≥ ${(sleepMinCutoff / 60).toFixed(sleepMinCutoff % 60 === 0 ? 0 : 1)}h`,
+        get: r => (r.sleep_min ?? 0) >= sleepMinCutoff },
+      { key: "steps_hi", label: `steps ≥ ${Math.round(stepCutoff).toLocaleString()}`,
+        get: r => (r.steps ?? 0) >= stepCutoff },
+    ];
+    const FLAGS: Flag[] = [...dynamicFlags, ...STATIC_FLAGS];
+
     const moods = rows.map(r => r.mood_score!).sort((a, b) => b - a);
     const cut = moods[Math.floor(rows.length * 0.2)];
     const topRows = rows.filter(r => r.mood_score! >= cut);

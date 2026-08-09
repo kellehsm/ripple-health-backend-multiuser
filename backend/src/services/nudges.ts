@@ -38,7 +38,8 @@ export async function pickNudgeForUser(userId: string): Promise<NudgeCandidate |
        AND ui.status = 'active' AND ui.dismissed = FALSE
        AND NOT (ui.supporting_data ? 'duplicate_of')
        AND (n.last_sent IS NULL OR n.last_sent < NOW() - ($2 || ' days')::interval)
-     ORDER BY COALESCE(ui.rank_score, ui.confidence_score / 100.0) DESC
+     ORDER BY ui.pinned DESC NULLS LAST,
+              COALESCE(ui.rank_score, ui.confidence_score / 100.0) DESC
      LIMIT 5`,
     [userId, String(NUDGE_COOLDOWN_DAYS)]
   );

@@ -11,6 +11,7 @@
 
 import type { InsightRule, InsightResult } from "./types.js";
 import type { DayRow } from "../services/dayFrame.js";
+import { personalHighThreshold } from "./ruleHelper.js";
 
 type BinaryMetric = {
   key: string;
@@ -18,12 +19,12 @@ type BinaryMetric = {
   get(r: DayRow): boolean;
 };
 
-const METRICS: BinaryMetric[] = [
+// Metrics whose predicate doesn't depend on a numeric threshold.
+const STATIC_METRICS: BinaryMetric[] = [
   { key: "meditated",    label: "mindfulness sessions", get: r => !!r.meditated },
   { key: "read",         label: "reading",              get: r => !!r.read_book },
   { key: "hobby",        label: "a hobby",              get: r => !!r.had_hobby },
   { key: "journaled",    label: "journaling",           get: r => !!r.journaled },
-  { key: "step_goal",    label: "your step goal",       get: r => (r.steps ?? 0) >= 8000 },
 ];
 
 export const StreakBrokenRule: InsightRule = {
@@ -40,6 +41,14 @@ export const StreakBrokenRule: InsightRule = {
     if (ctx.frame.rows.length < 14) return null;
     const rows = ctx.frame.rows;
     const last = rows[rows.length - 1];
+
+    // Step-goal predicate uses this user's personal p67 bar (falls back to 8k).
+    const stepT = await personalHighThreshold(ctx.userId, "steps", 8000);
+    const stepCutoff = stepT.threshold;
+    const METRICS: BinaryMetric[] = [
+      ...STATIC_METRICS,
+      { key: "step_goal", label: "your step goal", get: r => (r.steps ?? 0) >= stepCutoff },
+    ];
 
     // Prioritize: broken streaks (larger ones first), then comebacks.
     let bestBroken: { metric: BinaryMetric; length: number } | null = null;

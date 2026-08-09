@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 /**
  * "Best days" reverse-engineering.
@@ -62,6 +63,16 @@ export const BestDaysCommonRule: InsightRule = {
 
     if (rows.length < 30) return null;
 
+    // Personal cutoffs for the sleep/steps candidate behaviors.
+    const t = await personalThresholds(userId, [
+      { metric: "sleep_secs", kind: "high", fallback: 25200 },
+      { metric: "steps",      kind: "high", fallback: 8000 },
+    ]);
+    const sleepMinCutoff = t.sleep_secs_high.threshold / 60;
+    const stepCutoff     = t.steps_high.threshold;
+    const sleepLabel = `sleep ≥ ${(sleepMinCutoff / 60).toFixed(sleepMinCutoff % 60 === 0 ? 0 : 1)}h`;
+    const stepLabel  = `walked ${Math.round(stepCutoff).toLocaleString()}+ steps`;
+
     // Rank by overall_score descending; top 20% are "best days".
     const sorted = [...rows].sort((a, b) => (b.overall_score ?? 0) - (a.overall_score ?? 0));
     const topN = Math.max(6, Math.floor(sorted.length * 0.2));
@@ -69,10 +80,12 @@ export const BestDaysCommonRule: InsightRule = {
     const rest = sorted.slice(topN);
     if (best.length < 6 || rest.length < 6) return null;
 
-    // Candidate behaviors — (label, predicate)
+    // Candidate behaviors — (label, predicate). Sleep + step labels reflect
+    // this user's own high-day threshold, so users with a 6h/day baseline
+    // don't get shown "sleep ≥ 7h" as an unattainable target.
     const behaviors: Array<{ label: string; test: (r: typeof rows[0]) => boolean; positive: boolean }> = [
-      { label: "sleep ≥ 7h",              test: (r) => Number(r.sleep_min) >= 420, positive: true },
-      { label: "walked 8k+ steps",        test: (r) => Number(r.steps) >= 8000, positive: true },
+      { label: sleepLabel,                test: (r) => Number(r.sleep_min) >= sleepMinCutoff, positive: true },
+      { label: stepLabel,                 test: (r) => Number(r.steps) >= stepCutoff, positive: true },
       { label: "hit your water goal",     test: (r) => Number(r.glasses) >= Number(r.water_goal), positive: true },
       { label: "did any exercise",        test: (r) => r.had_exercise, positive: true },
       { label: "practiced mindfulness",   test: (r) => r.had_mindfulness, positive: true },

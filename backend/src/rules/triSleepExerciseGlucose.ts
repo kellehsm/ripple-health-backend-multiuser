@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalHighThreshold } from "./ruleHelper.js";
 
 // Asks: does the combination of good sleep + exercise reduce next-day glucose
 // more than either habit alone? Uses lag: checks next-day glucose.
@@ -48,7 +49,11 @@ export const TriSleepExerciseGlucoseRule: InsightRule = {
 
     if (paired.length < 20) return null;
 
-    const goodSleep = (r: Row) => r.sleep_min >= 420;
+    // Personal "good sleep" cutoff (user's own p67), falling back to 7h.
+    const sleepT = await personalHighThreshold(userId, "sleep_secs", 25200);
+    const sleepMinCutoff = sleepT.threshold / 60;
+
+    const goodSleep = (r: Row) => r.sleep_min >= sleepMinCutoff;
     const exercised = (r: Row) => r.has_exercise;
     const nextGlc   = (r: Row) => r.next_glucose;
     const avg = (arr: Row[]) => arr.reduce((s, r) => s + nextGlc(r), 0) / arr.length;
@@ -81,9 +86,12 @@ export const TriSleepExerciseGlucoseRule: InsightRule = {
       ? ` Exercise alone (without good sleep): ${Math.round(glucExOnly)} mg/dL.`
       : "";
 
+    const sleepLabel = `${(sleepMinCutoff / 60).toFixed(sleepMinCutoff % 60 === 0 ? 0 : 1)}+ hours`;
+    const personalNote = sleepT.usedBaseline ? " (your typical strong-sleep cutoff)" : "";
+
     return {
-      title: "Exercise + good sleep is your strongest glucose-lowering combo",
-      description: `The day after you both exercised and slept 7+ hours, your average glucose was ${Math.round(glucBoth)} mg/dL — vs ${Math.round(glucNeither)} mg/dL after days with neither.${sleepNote}${exNote} (${both.length} days with both vs ${neither.length} without, last 90 days.)`,
+      title: "Exercise + good sleep tracks with your lowest glucose days",
+      description: `The day after you both exercised and slept ${sleepLabel}${personalNote}, your average glucose was ${Math.round(glucBoth)} mg/dL — vs ${Math.round(glucNeither)} mg/dL after days with neither.${sleepNote}${exNote} (${both.length} days with both vs ${neither.length} without, last 90 days.)`,
       confidence: label,
       confidenceScore: score,
       timesObserved: paired.length,
@@ -98,6 +106,8 @@ export const TriSleepExerciseGlucoseRule: InsightRule = {
         next_day_glucose_sleep_only: glucSleepOnly != null ? Math.round(glucSleepOnly) : null,
         next_day_glucose_exercise_only: glucExOnly != null ? Math.round(glucExOnly) : null,
         glucose_reduction_mg_dl: Math.round(diff),
+        sleep_min_cutoff: Math.round(sleepMinCutoff),
+        used_baseline: sleepT.usedBaseline,
       },
     };
   },

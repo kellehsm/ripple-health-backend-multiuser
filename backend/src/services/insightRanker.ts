@@ -48,7 +48,10 @@ export async function rankAndPersist(userId: string): Promise<{ ranked: number }
     const ageDays = (now - new Date(row.first_detected).getTime()) / 86400000;
     const novelty = ageDays < 3 ? 1 : ageDays < 14 ? Math.max(0, 1 - (ageDays - 3) / 20) : 0.1;
     const actionable = ACTIONABLE_RULE_IDS.has(row.rule_id) ? 1 : 0;
-    const affinity = Math.max(0.1, Math.min(1.5, wMap.get(row.rule_id) ?? 1));
+    // Default 1.5 (the ceiling) for unrated rules so they aren't silently
+    // penalized ~13% vs a rule the user has "helpful"-rated. Only feedback
+    // should move a rule off the neutral top.
+    const affinity = Math.max(0.1, Math.min(1.5, wMap.get(row.rule_id) ?? 1.5));
     const untouchedDays = (now - new Date(row.last_confirmed).getTime()) / 86400000;
     const decay = untouchedDays > 21 ? 0.3 : 1;
 
@@ -128,9 +131,16 @@ export async function dedupInsights(userId: string): Promise<number> {
      WHERE user_id = $1 AND dismissed = FALSE AND status = 'active'`,
     [userId]
   );
+  // Only cluster rows that expose BOTH primary_metric AND direction — rows
+  // missing either land in a per-rule bucket so unrelated rules (medication,
+  // streaks, journaling…) don't get cross-deduped through a shared "?|?" key.
   const buckets = new Map<string, typeof rows>();
   for (const r of rows) {
-    const key = `${r.supporting_data?.primary_metric ?? "?"}|${r.supporting_data?.direction ?? "?"}`;
+    const metric = r.supporting_data?.primary_metric;
+    const direction = r.supporting_data?.direction;
+    const key = metric && direction
+      ? `${metric}|${direction}`
+      : `rule:${r.rule_id}`;
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key)!.push(r);
   }

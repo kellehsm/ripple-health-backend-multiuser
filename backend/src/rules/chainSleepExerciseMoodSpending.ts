@@ -1,6 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
-import { tertileSplit, avgOf } from "./ruleHelper.js";
+import { tertileSplit, avgOf, personalThresholds } from "./ruleHelper.js";
 
 // 4-node causal chain: poor sleep → less exercise → lower mood → higher spending.
 // Verifies each of the 3 links plus the end-to-end effect.
@@ -33,9 +33,17 @@ export const ChainSleepExerciseMoodSpendingRule: InsightRule = {
 
     if (rows.length < 35) return null;
 
+    const sleepT = await personalThresholds(userId, [
+      { metric: "sleep_secs", kind: "low",  fallback: 21600 },
+      { metric: "sleep_secs", kind: "high", fallback: 25200 },
+    ]);
+    const lowSleepMin  = sleepT.sleep_secs_low.threshold / 60;
+    const highSleepMin = sleepT.sleep_secs_high.threshold / 60;
+    const usedBaseline = sleepT.sleep_secs_low.usedBaseline && sleepT.sleep_secs_high.usedBaseline;
+
     type R = typeof rows[0];
-    const poorSleep = rows.filter(r => Number(r.sleep_min) < 360);
-    const goodSleep = rows.filter(r => Number(r.sleep_min) >= 420);
+    const poorSleep = rows.filter(r => Number(r.sleep_min) <  lowSleepMin);
+    const goodSleep = rows.filter(r => Number(r.sleep_min) >= highSleepMin);
     if (poorSleep.length < 6 || goodSleep.length < 6) return null;
 
     // Link 1: poor sleep → less exercise

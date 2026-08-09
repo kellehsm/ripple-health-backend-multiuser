@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 // 4-metric question: when ALL of sleep, steps, and mood are high, does glucose
 // stay in range more consistently? Measures the combined effect vs each factor alone.
@@ -32,10 +33,22 @@ export const QuadGlucoseSleepMoodStepsRule: InsightRule = {
 
     if (rows.length < 30) return null;
 
+    // Personal high-thresholds for sleep/steps/mood — falls back to the
+    // classic 7h/8k/3.5 targets when no baseline exists yet.
+    const t = await personalThresholds(userId, [
+      { metric: "sleep_secs", kind: "high", fallback: 25200 },
+      { metric: "steps",      kind: "high", fallback: 8000 },
+      { metric: "mood",       kind: "high", fallback: 3.5 },
+    ]);
+    const sleepMinCutoff = t.sleep_secs_high.threshold / 60;
+    const stepCutoff     = t.steps_high.threshold;
+    const moodCutoff     = t.mood_high.threshold;
+    const isPersonal = t.sleep_secs_high.usedBaseline && t.steps_high.usedBaseline && t.mood_high.usedBaseline;
+
     type R = typeof rows[0];
-    const goodSleep = (r: R) => Number(r.sleep_min) >= 420;
-    const goodSteps = (r: R) => Number(r.steps) >= 8000;
-    const goodMood  = (r: R) => Number(r.avg_mood) >= 3.5;
+    const goodSleep = (r: R) => Number(r.sleep_min) >= sleepMinCutoff;
+    const goodSteps = (r: R) => Number(r.steps) >= stepCutoff;
+    const goodMood  = (r: R) => Number(r.avg_mood) >= moodCutoff;
     const glucAvg   = (arr: R[]) => arr.reduce((s, r) => s + Number(r.glucose_avg), 0) / arr.length;
     const tirAvg    = (arr: R[]) => arr.reduce((s, r) => s + Number(r.time_in_range), 0) / arr.length;
 
@@ -73,9 +86,14 @@ export const QuadGlucoseSleepMoodStepsRule: InsightRule = {
       moodAlone.length >= 3 ? `Good mood alone: ${glucAvg(moodAlone).toFixed(0)} mg/dL avg` : null,
     ].filter(Boolean).join("; ");
 
+    const sleepLabel = `${(sleepMinCutoff / 60).toFixed(sleepMinCutoff % 60 === 0 ? 0 : 1)}+ hours`;
+    const stepLabel  = `${Math.round(stepCutoff).toLocaleString()}+ steps`;
+    const moodLabel  = `${moodCutoff.toFixed(1)}+/5`;
+    const personalNote = isPersonal ? " (your typical strong-day cutoffs)" : "";
+
     return {
-      title: "Sleep + movement + good mood together keep your glucose steadiest",
-      description: `On days when you slept 7+ hours, hit 8,000+ steps, AND had a good mood (3.5+/5), your average glucose was ${Math.round(glucGood)} mg/dL. When all three were off: ${Math.round(glucBad)} mg/dL — a ${Math.round(glucDiff)} mg/dL gap.${tirLine}${factorLines ? " For context: " + factorLines + "." : ""}`,
+      title: "Sleep + movement + good mood together coincide with your steadiest glucose",
+      description: `On days when you slept ${sleepLabel}, hit ${stepLabel}, AND had a good mood (${moodLabel})${personalNote}, your average glucose was ${Math.round(glucGood)} mg/dL. When all three were off: ${Math.round(glucBad)} mg/dL — a ${Math.round(glucDiff)} mg/dL gap.${tirLine}${factorLines ? " For context: " + factorLines + "." : ""}`,
       confidence: label,
       confidenceScore: score,
       timesObserved: rows.length,

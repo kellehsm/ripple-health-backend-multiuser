@@ -1,6 +1,7 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult } from "./types.js";
 import { estToday, estYesterday } from "../lib/estDate.js";
+import { personalHighThreshold } from "./ruleHelper.js";
 
 function streakInsight(streakType: string, count: number, unit: string, motivation: string): InsightResult {
   const confidenceScore = Math.min(100, count * 5);
@@ -119,7 +120,11 @@ export const StepGoalStreakRule: InsightRule = {
       [userId]
     );
 
-    const TARGET = 8000;
+    // Personal target — user's p67 step count if we have a baseline,
+    // otherwise the classic 8k. A 4k-step-baseline user shouldn't be told
+    // their streak "doesn't count" against an aspirational 8k line.
+    const targetT = await personalHighThreshold(userId, "steps", 8000);
+    const TARGET = Math.round(targetT.threshold);
     const qualifyingDays = rows
       .filter(r => Number(r.steps) >= TARGET)
       .map(r => (String(r.day).slice(0, 10)));
@@ -143,11 +148,12 @@ export const StepGoalStreakRule: InsightRule = {
 
     if (streak < 3) return null;
 
+    const personalNote = targetT.usedBaseline ? " (your personal high-step bar)" : "";
     return streakInsight(
       "step goal",
       streak,
       "day",
-      `You've hit ${TARGET.toLocaleString()}+ steps for ${streak} days in a row. Sustained activity patterns like this tend to show up positively across your other metrics.`
+      `You've hit ${TARGET.toLocaleString()}+ steps${personalNote} for ${streak} days in a row. Sustained activity patterns like this tend to show up positively across your other metrics.`
     );
   },
 };

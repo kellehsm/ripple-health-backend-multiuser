@@ -88,7 +88,7 @@ export const QuintAllMetricsRule: InsightRule = {
     const tierDesc = tiers.map(t => `${t.n}/5 goals: ${t.mood.toFixed(1)}/5 mood (${t.days.length} days)`).join(" → ");
 
     return {
-      title: "More goals met = noticeably better mood across 5 key metrics",
+      title: "More goals met tracks with noticeably better mood across 5 key metrics",
       description: `Across sleep, steps, water, mood tracking, and glucose targets — each additional goal met lifts your day. ${tierDesc}. Your "perfect day" (all 5) averaged ${moodFive.toFixed(1)}/5 mood vs ${moodZeroOne.toFixed(1)}/5 when most were missed.`,
       confidence: label,
       confidenceScore: score,

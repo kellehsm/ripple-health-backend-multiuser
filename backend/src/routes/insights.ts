@@ -141,7 +141,8 @@ export default async function insightsRoutes(app: FastifyInstance) {
        FROM user_insights
        WHERE user_id = $1 AND status = 'active' AND dismissed = FALSE
          AND NOT (supporting_data ? 'duplicate_of')
-       ORDER BY COALESCE(rank_score, confidence_score / 100.0) DESC
+       ORDER BY pinned DESC NULLS LAST,
+                COALESCE(rank_score, confidence_score / 100.0) DESC
        LIMIT 1`,
       [user_id]
     );
