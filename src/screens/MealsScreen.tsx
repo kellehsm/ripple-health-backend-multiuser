@@ -11,7 +11,8 @@ import {
   Alert,
   Dimensions,
   RefreshControl,
-  Animated
+  Animated,
+  Modal,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,6 +26,8 @@ import { onSolid } from "../theme/colorUtils";
 import { coloredShadow } from "../theme/styleUtils";
 import { ShadowCard } from "../components/ShadowCard";
 import { IconBadge } from "../components/IconBadge";
+import { SearchScanBar } from "../components/SearchScanBar";
+import { ResultRow } from "../components/ResultRow";
 import { api } from "../api/client";
 
 import { Swipeable } from "react-native-gesture-handler";
@@ -346,6 +349,10 @@ export function MealsScreen() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loadingMeals, setLoadingMeals] = useState(true);
   const [mealsError, setMealsError] = useState<string | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<MealType>>(() => new Set());
+  // Alcohol section starts collapsed — expand only on tap or if there are entries today
+  const [alcoholCollapsed, setAlcoholCollapsed] = useState(true);
+  const [showFoodReport, setShowFoodReport] = useState(false);
 
   const [scannerVisible, setScannerVisible] = useState(false);
   const [subScannerVisible, setSubScannerVisible] = useState(false);
@@ -839,38 +846,56 @@ export function MealsScreen() {
           <Ionicons name="pencil-outline" size={17} color={theme.textSoft} />
         </Pressable>
       </View>
-      {/* Totals strip */}
+      {/* Totals strip — horizontal scroll so it doesn't wrap awkwardly on small phones */}
       {totals !== null && (
-        <View style={styles.totalsRow}>
-          {totals.calories !== null ? (
-            <View style={[styles.totalBlock, { backgroundColor: theme.berry.solid }]}>
-              <Text style={[styles.totalBlockLabel, { color: onSolid(theme.berry.solid) }]}>CAL</Text>
-              <Text style={[styles.totalBlockValue, { color: onSolid(theme.berry.solid) }]} numberOfLines={1} adjustsFontSizeToFit>{totals.calories}</Text>
-            </View>
-          ) : null}
-          {totals.carbs !== null ? (
-            <View style={[styles.totalBlock, { backgroundColor: theme.teal.solid }]}>
-              <Text style={[styles.totalBlockLabel, { color: onSolid(theme.teal.solid) }]}>CARBS</Text>
-              <Text style={[styles.totalBlockValue, { color: onSolid(theme.teal.solid) }]} numberOfLines={1} adjustsFontSizeToFit>{totals.carbs}g</Text>
-            </View>
-          ) : null}
-          {totals.sugar !== null ? (
-            <View style={[styles.totalBlock, { backgroundColor: theme.coral.solid }]}>
-              <Text style={[styles.totalBlockLabel, { color: onSolid(theme.coral.solid) }]}>SUGAR</Text>
-              <Text style={[styles.totalBlockValue, { color: onSolid(theme.coral.solid) }]} numberOfLines={1} adjustsFontSizeToFit>{totals.sugar}g</Text>
-            </View>
-          ) : null}
-          {totals.sodium !== null ? (
-            <View style={[styles.totalBlock, { backgroundColor: theme.amber.solid }]}>
-              <Text style={[styles.totalBlockLabel, { color: onSolid(theme.amber.solid) }]}>SODIUM</Text>
-              <Text style={[styles.totalBlockValue, { color: onSolid(theme.amber.solid) }]} numberOfLines={1} adjustsFontSizeToFit>{totals.sodium}mg</Text>
-            </View>
-          ) : null}
-          {totals.caffeine !== null ? (
-            <View style={[styles.totalBlock, { backgroundColor: theme.violet.solid }]}>
-              <Text style={[styles.totalBlockLabel, { color: onSolid(theme.violet.solid) }]}>CAFFEINE</Text>
-              <Text style={[styles.totalBlockValue, { color: onSolid(theme.violet.solid) }]} numberOfLines={1} adjustsFontSizeToFit>{totals.caffeine}mg</Text>
-            </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }} style={{ flex: 1 }}>
+            {totals.calories !== null ? (
+              <View style={[styles.totalBlock, { backgroundColor: theme.berry.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Calories today ${totals.calories}`}>
+                <Ionicons name="flame" size={14} color={onSolid(theme.berry.solid)} />
+                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.berry.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>CAL</Text>
+                <Text style={[styles.totalBlockValue, { color: onSolid(theme.berry.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.calories}</Text>
+              </View>
+            ) : null}
+            {totals.carbs !== null ? (
+              <View style={[styles.totalBlock, { backgroundColor: theme.teal.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Carbs ${totals.carbs} grams`}>
+                <Ionicons name="nutrition-outline" size={14} color={onSolid(theme.teal.solid)} />
+                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.teal.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>CARBS</Text>
+                <Text style={[styles.totalBlockValue, { color: onSolid(theme.teal.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.carbs}g</Text>
+              </View>
+            ) : null}
+            {totals.sugar !== null ? (
+              <View style={[styles.totalBlock, { backgroundColor: theme.coral.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Sugar ${totals.sugar} grams`}>
+                <Ionicons name="cafe-outline" size={14} color={onSolid(theme.coral.solid)} />
+                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.coral.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>SUGAR</Text>
+                <Text style={[styles.totalBlockValue, { color: onSolid(theme.coral.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.sugar}g</Text>
+              </View>
+            ) : null}
+            {totals.sodium !== null ? (
+              <View style={[styles.totalBlock, { backgroundColor: theme.amber.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Sodium ${totals.sodium} milligrams`}>
+                <Ionicons name="water-outline" size={14} color={onSolid(theme.amber.solid)} />
+                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.amber.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>SODIUM</Text>
+                <Text style={[styles.totalBlockValue, { color: onSolid(theme.amber.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.sodium}mg</Text>
+              </View>
+            ) : null}
+            {totals.caffeine !== null ? (
+              <View style={[styles.totalBlock, { backgroundColor: theme.violet.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Caffeine ${totals.caffeine} milligrams`}>
+                <Ionicons name="flash-outline" size={14} color={onSolid(theme.violet.solid)} />
+                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.violet.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>CAFFEINE</Text>
+                <Text style={[styles.totalBlockValue, { color: onSolid(theme.violet.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.caffeine}mg</Text>
+              </View>
+            ) : null}
+          </ScrollView>
+          {foodReport.length >= 3 ? (
+            <Pressable
+              onPress={function () { Haptics.selectionAsync(); setShowFoodReport(true); }}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Open food impact insights"
+              style={{ padding: 8, borderRadius: 12, borderWidth: 1.5, borderColor: theme.berry.solid, backgroundColor: theme.berry.tint }}
+            >
+              <Ionicons name="analytics-outline" size={18} color={theme.berry.solid} />
+            </Pressable>
           ) : null}
         </View>
       )}
@@ -1065,55 +1090,25 @@ export function MealsScreen() {
           })}
         </View>
 
-        {/* Search field */}
-        <View style={styles.searchRow}>
-          <TextInput
-            placeholder="search food..."
-            value={searchQuery}
-            onChangeText={handleFoodQueryChange}
-            onSubmitEditing={() => handleSearch()}
-            style={[styles.textInput, { color: theme.textStrong, flex: 1 }]}
-            placeholderTextColor={theme.textSoft}
-          />
-          <Pressable style={[styles.actionBtn, { backgroundColor: theme.coral.solid }]} onPress={() => handleSearch()}>
-            {searching ? (
-              <LoadingIndicator color={onSolid(theme.coral.solid)} size="small" />
-            ) : (
-              <Text style={[styles.actionBtnText, { color: onSolid(theme.coral.solid) }]}>SEARCH</Text>
-            )}
-          </Pressable>
-        </View>
-
-        <View style={[styles.belowSearchRow, { flexWrap: "wrap" }]}>
-          <Pressable
-            onPress={function () { setScannerVisible(true); }}
-            style={styles.secondaryBtn}
-          >
-            <Ionicons name="barcode-outline" size={15} color={ink} />
-            <Text style={styles.secondaryBtnText}>SCAN BARCODE</Text>
-          </Pressable>
-          <Pressable
-            onPress={function () { setPhotoScannerVisible(true); }}
-            style={styles.secondaryBtn}
-          >
-            <Ionicons name="camera-outline" size={15} color={ink} />
-            <Text style={styles.secondaryBtnText}>SCAN A PHOTO</Text>
-          </Pressable>
-          <Pressable
-            onPress={function () {
+        {/* Search + scan bar */}
+        <SearchScanBar
+          placeholder="Search foods (pizza, salad…)"
+          query={searchQuery}
+          onQueryChange={handleFoodQueryChange}
+          onSubmit={() => handleSearch()}
+          searching={searching}
+          accentColor={theme.coral.solid}
+          error={searchError}
+          errorColor={theme.coral.sub}
+          actions={[
+            { label: "SCAN BARCODE", icon: "barcode-outline", onPress: () => setScannerVisible(true), accessibilityLabel: "Scan a food barcode" },
+            { label: "SCAN A PHOTO", icon: "image-outline",   onPress: () => setPhotoScannerVisible(true), accessibilityLabel: "Identify a food from a photo" },
+            { label: "+ ADD MANUALLY", onPress: () => {
               setPendingFood({ name: "", carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null, source_db: "manual" });
               setSearchResults([]);
-            }}
-            style={styles.secondaryBtn}
-            hitSlop={8}
-          >
-            <Text style={styles.secondaryBtnText}>+ ADD MANUALLY</Text>
-          </Pressable>
-        </View>
-
-        {searchError ? (
-          <Text style={{ color: theme.coral.sub, fontSize: 12, marginTop: 6 }}>{searchError}</Text>
-        ) : null}
+            }, accessibilityLabel: "Add a food manually" },
+          ]}
+        />
 
         {pendingFood ? (
           <MacroEditForm
@@ -1127,17 +1122,14 @@ export function MealsScreen() {
             {searchResults.map(function (food, i) {
               const nutrition = formatNutrition(food.carbs_g, food.sugar_g, food.calories, food.caffeine_mg, food.sodium_mg);
               return (
-                <Pressable
+                <ResultRow
                   key={food.source_food_id ?? String(i)}
+                  title={food.name}
+                  subtitle={nutrition ?? undefined}
                   onPress={function () { handleSelectFood(food); }}
-                  style={[styles.resultRow, { borderColor: ink }]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>{food.name}</Text>
-                    {nutrition ? <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 2 }}>{nutrition}</Text> : null}
-                  </View>
-                  <Ionicons name="create-outline" size={18} color={theme.coral.sub} />
-                </Pressable>
+                  accessibilityLabel={`Log ${food.name}${nutrition ? `, ${nutrition}` : ""}`}
+                  rightIcon={{ name: "create-outline", color: theme.coral.sub }}
+                />
               );
             })}
           </View>
@@ -1145,11 +1137,30 @@ export function MealsScreen() {
       </ShadowCard>
       </View>
 
-      {/* Alcohol */}
+      {/* Alcohol — collapsed by default unless there are entries today, so days
+          without drinks don't waste scroll space. */}
       {!hiddenSections.includes('booze') && (
       <ShadowCard size="card" bg={theme.purple.tint} accent={theme.purple.solid}>
-        <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Alcohol</Text>
+        <Pressable
+          onPress={function () {
+            Haptics.selectionAsync();
+            setAlcoholCollapsed(v => !v);
+          }}
+          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={`Alcohol section, ${subTotals.standard_drinks} standard drinks today. ${alcoholCollapsed ? "Collapsed" : "Expanded"}. Double tap to toggle.`}
+        >
+          <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0, flex: 1 }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Alcohol</Text>
+          {subTotals.standard_drinks > 0 ? (
+            <Text style={{ color: theme.purple.solid, fontSize: 11, fontWeight: "800" }}>
+              {subTotals.standard_drinks} STD
+            </Text>
+          ) : null}
+          <Ionicons name={alcoholCollapsed && subTotals.standard_drinks === 0 ? "chevron-down" : "chevron-up"} size={16} color={theme.textSoft} />
+        </Pressable>
 
+        {(alcoholCollapsed && subTotals.standard_drinks === 0) ? null : (
+        <View style={{ marginTop: 10 }}>
         {subTotals.standard_drinks > 0 && (
           <View style={[styles.totalBlock, { backgroundColor: theme.purple.solid, marginBottom: 10 }]}>
             <Text style={[styles.totalBlockLabel, { color: onSolid(theme.purple.solid) }]}>STD DRINKS TODAY</Text>
@@ -1157,60 +1168,36 @@ export function MealsScreen() {
           </View>
         )}
 
-        <View style={styles.searchRow}>
-          <TextInput
-            placeholder="search beer, wine, spirits..."
-            value={subQuery}
-            onChangeText={handleSubQueryChange}
-            onSubmitEditing={() => handleSubSearch()}
-            style={[styles.textInput, { color: theme.textStrong, flex: 1 }]}
-            placeholderTextColor={theme.textSoft}
-          />
-          <Pressable
-            style={[styles.actionBtn, { backgroundColor: theme.purple.solid }]}
-            onPress={() => handleSubSearch()}
-          >
-            {subSearching ? (
-              <LoadingIndicator color={onSolid(theme.purple.solid)} size="small" />
-            ) : (
-              <Text style={[styles.actionBtnText, { color: onSolid(theme.purple.solid) }]}>SEARCH</Text>
-            )}
-          </Pressable>
-        </View>
-
-        <View style={[styles.belowSearchRow, { marginBottom: 4 }]}>
-          <Pressable onPress={function () { setSubScannerVisible(true); }} style={styles.secondaryBtn}>
-            <Ionicons name="barcode-outline" size={15} color={ink} />
-            <Text style={styles.secondaryBtnText}>SCAN BARCODE</Text>
-          </Pressable>
-          <Pressable
-            onPress={function () {
+        <SearchScanBar
+          placeholder="Search by name (beer, wine, spirits…)"
+          query={subQuery}
+          onQueryChange={handleSubQueryChange}
+          onSubmit={() => handleSubSearch()}
+          searching={subSearching}
+          accentColor={theme.purple.solid}
+          error={subSearchError}
+          errorColor={theme.purple.sub}
+          actions={[
+            { label: "SCAN BARCODE", icon: "barcode-outline", onPress: () => setSubScannerVisible(true), accessibilityLabel: "Scan an alcohol product barcode" },
+            { label: "+ ADD MANUALLY", onPress: () => {
               setPendingSub({ name: "", substance_type: "alcohol", caffeine_mg: null, abv_percent: null, volume_ml: null, source_db: "manual" });
               setSubResults([]);
-            }}
-            style={styles.secondaryBtn}
-          >
-            <Text style={styles.secondaryBtnText}>+ ADD MANUALLY</Text>
-          </Pressable>
-        </View>
-
-        {subSearchError ? <Text style={{ color: theme.purple.sub, fontSize: 12, marginTop: 4 }}>{subSearchError}</Text> : null}
+            }, accessibilityLabel: "Add an alcohol entry manually" },
+          ]}
+        />
 
         {!pendingSub && subResults.length > 0 && (
           <View style={{ marginTop: 8, gap: 8 }}>
             {subResults.map(function (r, i) {
               return (
-                <Pressable
+                <ResultRow
                   key={r.source_food_id ?? String(i)}
+                  title={r.name}
+                  subtitle={r.abv_percent != null ? `${r.abv_percent}% ABV` : undefined}
                   onPress={function () { handleSelectSubResult(r); }}
-                  style={[styles.resultRow, { borderColor: ink }]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>{r.name}</Text>
-                    {r.abv_percent != null ? <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 2 }}>{r.abv_percent}% ABV</Text> : null}
-                  </View>
-                  <Ionicons name="create-outline" size={18} color={theme.purple.solid} />
-                </Pressable>
+                  accessibilityLabel={`Log ${r.name}${r.abv_percent != null ? `, ${r.abv_percent} percent alcohol` : ""}`}
+                  rightIcon={{ name: "create-outline", color: theme.purple.solid }}
+                />
               );
             })}
           </View>
@@ -1235,20 +1222,26 @@ export function MealsScreen() {
                 ? entry.abv_percent + "% · " + entry.volume_ml + "mL"
                 : "alcohol";
               return (
-                <View key={entry.id} style={[styles.resultRow, { borderColor: ink }]}>
-                  <IconBadge name="wine-outline" color={onSolid(theme.purple.solid)} bgColor={theme.purple.solid} size={14} containerSize={32} borderRadius={8} />
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>{entry.name || "Alcohol"}</Text>
-                    <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 1 }}>{detail}</Text>
-                  </View>
-                  <Pressable onPress={function () { handleDeleteSubstance(entry); }} hitSlop={8}>
-                    <Ionicons name="trash-outline" size={15} color={theme.coral.solid} />
-                  </Pressable>
-                </View>
+                <ResultRow
+                  key={entry.id}
+                  title={entry.name || "Alcohol"}
+                  subtitle={detail}
+                  accessibilityLabel={`${entry.name || "Alcohol"} entry, ${detail}`}
+                  badge={{ icon: "wine-outline", iconColor: onSolid(theme.purple.solid), bgColor: theme.purple.solid }}
+                  rightIcon={{
+                    name: "trash-outline",
+                    color: theme.coral.solid,
+                    size: 15,
+                    onPress: function () { handleDeleteSubstance(entry); },
+                    accessibilityLabel: `Delete ${entry.name || "alcohol"} entry`,
+                  }}
+                />
               );
             })}
           </View>
         ) : null}
+        </View>
+        )}
       </ShadowCard>
       )}
 
@@ -1262,11 +1255,47 @@ export function MealsScreen() {
         ) : null}
 
         {loadingMeals ? (
-          <LoadingIndicator style={{ marginTop: 10 }} />
+          <View style={{ marginTop: 10, gap: 8 }}>
+            <ShadowCard skeleton skeletonHeight={64} />
+            <ShadowCard skeleton skeletonHeight={64} />
+            <ShadowCard skeleton skeletonHeight={64} />
+          </View>
         ) : meals.length === 0 ? (
           <MealsEmptyState onPress={() => Haptics.selectionAsync()} />
         ) : (
-          meals.map(function (meal) {
+          MEAL_TYPES.filter(mt => meals.some(m => m.meal_type === mt)).map(function (groupType) {
+            const groupMeals = meals.filter(m => m.meal_type === groupType);
+            const isCollapsed = collapsedGroups.has(groupType);
+            const groupColor = mealSolidColor(groupType, theme);
+            const groupCals = groupMeals.reduce((s, m) => s + (m.calories ?? 0), 0);
+            return (
+              <View key={groupType} style={{ marginTop: 8 }}>
+                <Pressable
+                  onPress={function () {
+                    Haptics.selectionAsync();
+                    setCollapsedGroups(prev => {
+                      const next = new Set(prev);
+                      if (next.has(groupType)) next.delete(groupType); else next.add(groupType);
+                      return next;
+                    });
+                  }}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${groupType}, ${groupMeals.length} ${groupMeals.length === 1 ? "entry" : "entries"}, ${groupCals} calories. ${isCollapsed ? "Collapsed, double tap to expand" : "Expanded, double tap to collapse"}.`}
+                  hitSlop={6}
+                >
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: groupColor }} />
+                  <Text style={{ color: theme.textStrong, fontSize: 11, fontWeight: "900", letterSpacing: 0.6, flex: 1 }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    {groupType.toUpperCase()} · {groupMeals.length}
+                  </Text>
+                  {groupCals > 0 ? (
+                    <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "700" }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                      {groupCals} cal
+                    </Text>
+                  ) : null}
+                  <Ionicons name={isCollapsed ? "chevron-down" : "chevron-up"} size={14} color={theme.textSoft} />
+                </Pressable>
+                {isCollapsed ? null : groupMeals.map(function (meal) {
             const nutrition = formatNutrition(meal.carbs_g, meal.sugar_g, meal.calories, meal.caffeine_mg, meal.sodium_mg);
             const isExpanded = expandedMealId === meal.id;
             const isEditing = editingMealId === meal.id;
@@ -1350,78 +1379,96 @@ export function MealsScreen() {
                 </Animated.View>
               </Swipeable>
             );
+          })}
+              </View>
+            );
           })
         )}
       </ShadowCard>
       </View>
 
-      {/* Food Report card — only renders when we have enough data */}
-      {foodReport.length >= 3 && (function () {
-        const sorted = [...foodReport].sort((a, b) => b.avg_spike - a.avg_spike);
-        const spiky = sorted.slice(0, 5);
-        const stable = [...foodReport].sort((a, b) => a.avg_spike - b.avg_spike).slice(0, 5).filter(s => s.avg_spike <= 30);
-        const maxSpike = spiky[0]?.avg_spike ?? 1;
-        return (
-          <ShadowCard size="card" bg={theme.card} accent={theme.berry.solid} rotate={0.4} cardId="glucose_panel">
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <Ionicons name="analytics-outline" size={18} color={theme.berry.solid} />
-              <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>Food Report</Text>
-            </View>
-
-            {/* Highest spiking */}
-            <Text style={[styles.sectionLabel, { color: theme.coral.sub, marginBottom: 8 }]}>SPIKES GLUCOSE MOST</Text>
-            <View style={{ gap: 8, marginBottom: 16 }}>
-              {spiky.map(function (item, i) {
-                const barW = Math.max(6, Math.round((item.avg_spike / maxSpike) * 100));
-                const isHigh = item.avg_spike > 50;
-                const barColor = isHigh ? theme.coral.solid : item.avg_spike > 25 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
-                return (
-                  <View key={item.meal_name} style={{ gap: 4 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-                        <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", width: 14 }}>{i + 1}</Text>
-                        <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }} numberOfLines={1}>{item.meal_name}</Text>
-                      </View>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                        <Text style={{ color: barColor, fontSize: 13, fontWeight: "900" }}>+{item.avg_spike}</Text>
-                        <Text style={{ color: theme.textSoft, fontSize: 10 }}>mg/dL</Text>
-                        <Text style={{ color: theme.textSoft, fontSize: 10, marginLeft: 4 }}>×{item.sample_count}</Text>
-                      </View>
-                    </View>
-                    <View style={{ height: 5, backgroundColor: theme.cardBorder, borderRadius: 3, overflow: "hidden" }}>
-                      <View style={{ height: 5, width: barW + "%", backgroundColor: barColor, borderRadius: 3 }} />
-                    </View>
+      {/* Food Report — now surfaced as a modal via the insights button on the totals strip */}
+      <Modal
+        visible={showFoodReport && foodReport.length >= 3}
+        transparent
+        animationType="slide"
+        onRequestClose={function () { setShowFoodReport(false); }}
+      >
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} onPress={function () { setShowFoodReport(false); }}>
+          <Pressable
+            style={{ marginTop: "auto", backgroundColor: theme.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, maxHeight: "80%" }}
+            onPress={() => {}}
+          >
+            {(function () {
+              const sorted = [...foodReport].sort((a, b) => b.avg_spike - a.avg_spike);
+              const spiky = sorted.slice(0, 5);
+              const stable = [...foodReport].sort((a, b) => a.avg_spike - b.avg_spike).slice(0, 5).filter(s => s.avg_spike <= 30);
+              const maxSpike = spiky[0]?.avg_spike ?? 1;
+              return (
+                <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <Ionicons name="analytics-outline" size={18} color={theme.berry.solid} />
+                    <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0, flex: 1 }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Food Report</Text>
+                    <Pressable onPress={function () { setShowFoodReport(false); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close food report">
+                      <Ionicons name="close" size={20} color={theme.textSoft} />
+                    </Pressable>
                   </View>
-                );
-              })}
-            </View>
 
-            {/* Most stable */}
-            {stable.length > 0 && (
-              <>
-                <Text style={[styles.sectionLabel, { color: theme.teal.sub, marginBottom: 8 }]}>STAYS STABLE</Text>
-                <View style={{ gap: 6 }}>
-                  {stable.map(function (item, i) {
-                    return (
-                      <View key={item.meal_name} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <Ionicons name="checkmark-circle" size={14} color={theme.teal.solid} />
-                        <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }} numberOfLines={1}>{item.meal_name}</Text>
-                        <Text style={{ color: theme.teal.solid, fontSize: 12, fontWeight: "800" }}>+{item.avg_spike}</Text>
-                        <Text style={{ color: theme.textSoft, fontSize: 10 }}>mg/dL</Text>
-                        <Text style={{ color: theme.textSoft, fontSize: 10, marginLeft: 2 }}>×{item.sample_count}</Text>
+                  <Text style={[styles.sectionLabel, { color: theme.coral.sub, marginBottom: 8 }]}>SPIKES GLUCOSE MOST</Text>
+                  <View style={{ gap: 8, marginBottom: 16 }}>
+                    {spiky.map(function (item, i) {
+                      const barW = Math.max(6, Math.round((item.avg_spike / maxSpike) * 100));
+                      const isHigh = item.avg_spike > 50;
+                      const barColor = isHigh ? theme.coral.solid : item.avg_spike > 25 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
+                      return (
+                        <View key={item.meal_name} style={{ gap: 4 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                              <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", width: 14 }}>{i + 1}</Text>
+                              <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }} numberOfLines={1}>{item.meal_name}</Text>
+                            </View>
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                              <Text style={{ color: barColor, fontSize: 13, fontWeight: "900" }}>+{item.avg_spike}</Text>
+                              <Text style={{ color: theme.textSoft, fontSize: 10 }}>mg/dL</Text>
+                              <Text style={{ color: theme.textSoft, fontSize: 10, marginLeft: 4 }}>×{item.sample_count}</Text>
+                            </View>
+                          </View>
+                          <View style={{ height: 5, backgroundColor: theme.cardBorder, borderRadius: 3, overflow: "hidden" }}>
+                            <View style={{ height: 5, width: barW + "%", backgroundColor: barColor, borderRadius: 3 }} />
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+
+                  {stable.length > 0 && (
+                    <>
+                      <Text style={[styles.sectionLabel, { color: theme.teal.sub, marginBottom: 8 }]}>STAYS STABLE</Text>
+                      <View style={{ gap: 6 }}>
+                        {stable.map(function (item) {
+                          return (
+                            <View key={item.meal_name} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                              <Ionicons name="checkmark-circle" size={14} color={theme.teal.solid} />
+                              <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }} numberOfLines={1}>{item.meal_name}</Text>
+                              <Text style={{ color: theme.teal.solid, fontSize: 12, fontWeight: "800" }}>+{item.avg_spike}</Text>
+                              <Text style={{ color: theme.textSoft, fontSize: 10 }}>mg/dL</Text>
+                              <Text style={{ color: theme.textSoft, fontSize: 10, marginLeft: 2 }}>×{item.sample_count}</Text>
+                            </View>
+                          );
+                        })}
                       </View>
-                    );
-                  })}
-                </View>
-              </>
-            )}
+                    </>
+                  )}
 
-            <Text style={{ color: theme.textSoft, fontSize: 10, marginTop: 14, lineHeight: 14 }}>
-              Average glucose rise 45–105 min after eating. Based on {foodReport.length} foods across your history.
-            </Text>
-          </ShadowCard>
-        );
-      })()}
+                  <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 14, lineHeight: 16 }}>
+                    Average glucose rise 45–105 min after eating. Based on {foodReport.length} foods across your history.
+                  </Text>
+                </ScrollView>
+              );
+            })()}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <BarcodeScannerModal
         visible={scannerVisible}
@@ -1537,39 +1584,7 @@ function makeStyles(ink: string, card: string, border: string) {
     elevation: 2,
   },
 
-  searchRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  textInput: {
-    borderWidth: 2,
-    borderColor: ink,
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: card,
-    fontSize: 14,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  actionBtn: {
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: ink,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 72,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  actionBtnText: { fontWeight: "800", fontSize: 11, letterSpacing: 0.4 },
-
-  belowSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
+  // searchRow / textInput / actionBtn / belowSearchRow now live in components/SearchScanBar.tsx
   secondaryBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1588,20 +1603,7 @@ function makeStyles(ink: string, card: string, border: string) {
   },
   secondaryBtnText: { color: ink, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
 
-  resultRow: {
-    flexDirection: "row",
-    gap: 10,
-    borderWidth: 2,
-    borderRadius: 16,
-    padding: 10,
-    alignItems: "center",
-    backgroundColor: card,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
+  // resultRow now lives in components/ResultRow.tsx
 
   editForm: { marginTop: 12, gap: 8 },
   macroInputRow: { flexDirection: "row", gap: 6 },
