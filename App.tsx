@@ -177,6 +177,13 @@ export default function App() {
         if (enabled && !isCurrentlyUnlocked()) {
           setBiometricLocked(true);
         }
+        // Fire local notif if the insights engine surfaced anything new
+        // since our last visit. Cheap, rate-limited to one/day, silent on
+        // errors so it never breaks the resume flow.
+        try {
+          const { checkForNewInsightAlerts } = await import("./src/lib/insightAlerts");
+          checkForNewInsightAlerts();
+        } catch { /* module load failure — ignore */ }
       }
     });
     return () => appStateSub.remove();
