@@ -1,5 +1,8 @@
 import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import Svg, { Rect, Line } from "react-native-svg";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { useFeatureIntro } from "../onboarding/useFeatureIntro";
+import { findIntro } from "../onboarding/featureIntros";
 import {
   ScrollView, View, Text, TextInput, Pressable, StyleSheet,
   RefreshControl, Alert, Modal, KeyboardAvoidingView, Platform,
@@ -135,6 +138,8 @@ function FinanceEmptyState() {
 
 export function FinanceScreen() {
   const { theme } = useTheme();
+  const financeIntro = findIntro("finance")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(financeIntro.key);
   const ink = theme.ink;
 
   const getCategoryColor = (cat: string): string => {
@@ -913,6 +918,7 @@ export function FinanceScreen() {
         </KeyboardAvoidingView>
       </Modal>
       <FeatureTour steps={FINANCE_TOUR} visible={showTour} onDone={() => setShowTour(false)} scrollRef={scrollViewRef} scrollY={scrollOffsetRef.current} onExtraPadding={setTourPadding} />
+      <FeatureIntroSheet intro={financeIntro} visible={introVisible} onClose={dismissIntro} />
     </>
   );
 }

@@ -1,4 +1,7 @@
 import React, { useCallback, useState } from "react";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { useFeatureIntro } from "../onboarding/useFeatureIntro";
+import { findIntro } from "../onboarding/featureIntros";
 import {
   ScrollView,
   View,
@@ -32,6 +35,8 @@ function daysRemaining(endDate: string): number {
 export function ChallengesScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
+  const challengesIntro = findIntro("challenges")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(challengesIntro.key);
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +157,7 @@ export function ChallengesScreen() {
       >
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
+      <FeatureIntroSheet intro={challengesIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
   );
 }

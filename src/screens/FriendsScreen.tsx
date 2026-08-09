@@ -1,4 +1,7 @@
 import React, { useCallback, useRef, useState } from "react";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { useFeatureIntro } from "../onboarding/useFeatureIntro";
+import { findIntro } from "../onboarding/featureIntros";
 import {
   ScrollView,
   View,
@@ -85,6 +88,8 @@ function FriendsEmptyState({ onPress }: { onPress: () => void }) {
 export function FriendsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
+  const friendsIntro = findIntro("friends")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(friendsIntro.key);
 
   const [username, setUsernameState] = useState<string | null>(null);
   const [editingUsername, setEditingUsername] = useState(false);
@@ -552,6 +557,7 @@ export function FriendsScreen() {
       scrollY={scrollOffsetRef.current}
       onExtraPadding={setTourPadding}
     />
+    <FeatureIntroSheet intro={friendsIntro} visible={introVisible} onClose={dismissIntro} />
     </>
   );
 }

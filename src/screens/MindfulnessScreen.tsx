@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { useFeatureIntro } from "../onboarding/useFeatureIntro";
+import { findIntro } from "../onboarding/featureIntros";
 import {
   ScrollView,
   View,
@@ -408,6 +411,8 @@ function CircleBreathingAnimation({
 
 export function MindfulnessScreen() {
   const { theme } = useTheme();
+  const mindfulnessIntro = findIntro("mindfulness")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(mindfulnessIntro.key);
   const ink = theme.ink;
 
   const [activeSection, setActiveSection] = useState<Section | null>(null);
@@ -477,6 +482,7 @@ export function MindfulnessScreen() {
         </Animated.View>
       )}
     </ScrollView>
+    <FeatureIntroSheet intro={mindfulnessIntro} visible={introVisible} onClose={dismissIntro} />
     </LinearGradient>
   );
 }

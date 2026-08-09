@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
+import { useFeatureIntro } from '../onboarding/useFeatureIntro';
+import { findIntro } from '../onboarding/featureIntros';
 import {
   View,
   Text,
@@ -2140,6 +2143,8 @@ function SymptomsView({ theme }: { theme: any }) {
 export function HealthTabScreen() {
   const { theme } = useTheme();
   const { preferences } = useTabPreferences();
+  const healthIntro = findIntro("health")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(healthIntro.key);
   const { medication, cycle } = preferences.health;
   const bothEnabled = medication && cycle;
   const [activeSubTab, setActiveSubTab] = useState<SubTab>(medication ? 'medication' : 'cycle');
@@ -2235,6 +2240,7 @@ export function HealthTabScreen() {
         onCancel={() => setShowSectionEditor(false)}
       />
       <FeatureTour steps={HEALTH_TOUR_STEPS} visible={showTour} onDone={() => setShowTour(false)} scrollRef={scrollViewRef} scrollY={scrollOffsetRef.current} onExtraPadding={setTourPadding} />
+      <FeatureIntroSheet intro={healthIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
   );
 }

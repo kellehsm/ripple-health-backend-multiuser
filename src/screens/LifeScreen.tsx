@@ -2,6 +2,9 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import Svg, { Circle, Ellipse } from "react-native-svg";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTabPreferences } from "../hooks/useTabPreferences";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { useFeatureIntro } from "../onboarding/useFeatureIntro";
+import { findIntro } from "../onboarding/featureIntros";
 import {
   ScrollView,
   View,
@@ -145,6 +148,8 @@ function LifeEmptyState({ onPress }: { onPress: () => void }) {
 
 export function LifeScreen() {
   const { theme } = useTheme();
+  const lifeIntro = findIntro("life")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(lifeIntro.key);
   const ink = theme.ink;
   const card = theme.card;
   const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder), [ink, card, theme.cardBorder]);
@@ -953,6 +958,7 @@ export function LifeScreen() {
       onCancel={() => setShowSectionEditor(false)}
     />
     <FeatureTour steps={LIFE_TOUR} visible={showTour} onDone={() => setShowTour(false)} scrollRef={scrollViewRef} scrollY={scrollOffsetRef.current} onExtraPadding={setTourPadding} />
+    <FeatureIntroSheet intro={lifeIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
   );
 }

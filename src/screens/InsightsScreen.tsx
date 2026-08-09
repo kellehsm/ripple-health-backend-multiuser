@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { useFeatureIntro } from "../onboarding/useFeatureIntro";
+import { findIntro } from "../onboarding/featureIntros";
 import {
   Animated, Easing, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
 } from "react-native";
@@ -81,6 +84,8 @@ const TYPE_GROUPS: { label: string; types: string[]; emoji: string }[] = [
 
 export function InsightsScreen() {
   const { theme } = useTheme();
+  const insightsIntro = findIntro("insights")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(insightsIntro.key);
   const ink = theme.ink;
   const card = theme.card;
 
@@ -403,6 +408,7 @@ export function InsightsScreen() {
         theme={theme}
       />
     )}
+    <FeatureIntroSheet intro={insightsIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
   );
 }

@@ -14,6 +14,9 @@ import { reportError } from "../utils/errorReport";
 import { QUIET_PRESETS, muteFor, getMuteUntil, clearMute } from "../lib/muteNotifications";
 import { toast } from "../lib/toast";
 import Constants from "expo-constants";
+import { FEATURE_INTROS, type FeatureIntro } from "../onboarding/featureIntros";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { resetAllFeatureIntros } from "../onboarding/useFeatureIntro";
 
 const SUPPORT_EMAIL: string =
   (Constants.expoConfig?.extra as any)?.supportEmail ?? "support@ripple.test";
@@ -105,6 +108,8 @@ export function SettingsScreen() {
   }
 
   function nav(screen: string) { navigation.navigate(screen); }
+
+  const [openIntro, setOpenIntro] = useState<FeatureIntro | null>(null);
 
   // Returns true if any of the given labels/texts match the current search query
   function matches(...labels: string[]): boolean {
@@ -345,6 +350,39 @@ export function SettingsScreen() {
         </>
       )}
 
+      {/* Feature Guide */}
+      {matches("Feature Guide", "onboarding", "walkthrough", "learn", "tour", ...FEATURE_INTROS.map(f => f.name)) && (
+        <>
+          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>FEATURE GUIDE</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            {FEATURE_INTROS.filter(f => matches("Feature Guide", "learn", "tour", f.name)).map((f, i, arr) => (
+              <React.Fragment key={f.key}>
+                <MenuRow
+                  title={`${f.cards[0].emoji}  ${f.name}`}
+                  subtitle={f.cards[0].title}
+                  onPress={() => setOpenIntro(f)}
+                  theme={theme}
+                />
+                {i < arr.length - 1 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+              </React.Fragment>
+            ))}
+            {matches("Feature Guide", "reset", "show again") && (
+              <>
+                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+                <MenuRow
+                  title="Show all intros again"
+                  subtitle="Every feature intro will re-appear on next visit"
+                  onPress={() => {
+                    void resetAllFeatureIntros().then(() => toast("Feature intros reset"));
+                  }}
+                  theme={theme}
+                />
+              </>
+            )}
+          </View>
+        </>
+      )}
+
       {/* Help */}
       {matches("Help", "FAQ", "bug", "Report a Bug", "Contact", "developer", "email") && (
         <>
@@ -409,6 +447,13 @@ export function SettingsScreen() {
             />
           </View>
         </>
+      )}
+      {openIntro && (
+        <FeatureIntroSheet
+          intro={openIntro}
+          visible={true}
+          onClose={() => setOpenIntro(null)}
+        />
       )}
     </ScrollView>
   );

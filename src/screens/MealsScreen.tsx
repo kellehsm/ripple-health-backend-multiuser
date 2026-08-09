@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useTabPreferences } from "../hooks/useTabPreferences";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { useFeatureIntro } from "../onboarding/useFeatureIntro";
+import { findIntro } from "../onboarding/featureIntros";
 import {
   ScrollView,
   View,
@@ -293,6 +296,8 @@ export function MealsScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
   const { preferences, loading: prefsLoading } = useTabPreferences();
+  const mealsIntro = findIntro("meals")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(mealsIntro.key);
   const ink = theme.ink;
   const card = theme.card;
   const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder), [ink, card, theme.cardBorder]);
@@ -1569,6 +1574,7 @@ export function MealsScreen() {
       />
     )}
     <FeatureTour steps={MEALS_TOUR} visible={showTour} onDone={() => setShowTour(false)} scrollRef={scrollViewRef} scrollY={scrollOffsetRef.current} onExtraPadding={setTourPadding} />
+    <FeatureIntroSheet intro={mealsIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
   );
 }

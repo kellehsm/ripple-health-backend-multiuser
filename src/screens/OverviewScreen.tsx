@@ -1,4 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { useFeatureIntro } from "../onboarding/useFeatureIntro";
+import { findIntro } from "../onboarding/featureIntros";
 import {
   ScrollView,
   View,
@@ -391,6 +394,8 @@ const STEP = CORR_W / 7;
 export function OverviewScreen() {
   const { theme, mode } = useTheme();
   const navigation = useNavigation<any>();
+  const homeIntro = findIntro("home")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(homeIntro.key);
   const ink = theme.ink;
   const card = theme.card;
   const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder), [ink, card, theme.cardBorder]);
@@ -2183,6 +2188,7 @@ export function OverviewScreen() {
       scrollY={scrollOffsetRef.current}
       onExtraPadding={setTourPadding}
     />
+    <FeatureIntroSheet intro={homeIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
   );
 }

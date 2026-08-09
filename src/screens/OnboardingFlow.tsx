@@ -41,7 +41,7 @@ const WALK_PAGES: Array<{
   {
     emoji: "❤️",
     label: "HEALTH",
-    desc: "Live glucose from your Dexcom CGM, steps, sleep, and resting heart rate — synced automatically from Android Health Connect.",
+    desc: "Live glucose from your Dexcom CGM, steps, sleep, and heart rate — synced from Health Connect. Medications and cycle live here too.",
     accentKey: "teal",
   },
   {
@@ -60,6 +60,12 @@ const WALK_PAGES: Array<{
     emoji: "✨",
     label: "INSIGHTS",
     desc: "Ripple spots patterns across all your data — how meals shift glucose, when your mood dips, what drives your best weeks. Updated daily.",
+    accentKey: "violet",
+  },
+  {
+    emoji: "🧘",
+    label: "MINDFULNESS",
+    desc: "Guided breathing, body scans, grounding, and gratitude — each session logs quietly so you can see how it lines up with mood and sleep.",
     accentKey: "violet",
   },
   {
@@ -638,6 +644,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
       <MealsPreview key="meals" />,
       <HobbiesPreview key="hobbies" />,
       <InsightsPreview key="insights" />,
+      null,                            // MINDFULNESS — no bespoke preview
       <FinancePreview key="finance" />,
       <ExercisePreview key="exercise" />,
       <FriendsPreview key="friends" />,

@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Modal } from 'react-native';
+import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
+import { useFeatureIntro } from '../onboarding/useFeatureIntro';
+import { findIntro } from '../onboarding/featureIntros';
 import Svg, { Circle, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { onSolid } from '../theme/colorUtils';
@@ -125,6 +128,8 @@ export function ExerciseScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
   const { preferences, loading: prefsLoading } = useTabPreferences();
+  const exerciseIntro = findIntro("exercise")!;
+  const [introVisible, dismissIntro] = useFeatureIntro(exerciseIntro.key);
   const ink = theme.ink;
 
   const [showTooltip, setShowTooltip] = useState(false);
@@ -479,6 +484,7 @@ export function ExerciseScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+      <FeatureIntroSheet intro={exerciseIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
   );
 }
