@@ -34,6 +34,10 @@ type AppSettings = {
   perObjectOpacity: Record<string, number>;
   perObjectGlassBlur: Record<string, boolean>;
   cardBgImages: Record<string, CardImageBg>;
+  // Global fallback border color for ShadowCards that don't pass their own
+  // borderColor / accent. When null, falls back to theme.ink. Per-tile
+  // accent-colored borders (glucose = berry, steps = teal, etc.) always win.
+  cardOutlineColor: string | null;
 };
 
 type AppSettingsContextValue = AppSettings & {
@@ -47,6 +51,7 @@ type AppSettingsContextValue = AppSettings & {
   setObjectGlassBlur: (id: string, enabled: boolean) => void;
   setCardBgImages: (imgs: Record<string, CardImageBg>) => void;
   clearCardBgImages: () => void;
+  setCardOutlineColor: (v: string | null) => void;
 };
 
 // ─── Storage keys ──────────────────────────────────────────────────────────────
@@ -59,11 +64,12 @@ const KEY_OPACITY_OVERRIDE   = "ripple_card_opacity_override";
 const KEY_OBJ_OPACITY        = "ripple_per_object_opacity";
 const KEY_OBJ_GLASS_BLUR     = "ripple_per_object_glass_blur";
 const KEY_CARD_BG_IMAGES     = "ripple_card_bg_images";
+const KEY_CARD_OUTLINE_COLOR = "ripple_card_outline_color";
 
 // ─── Context ───────────────────────────────────────────────────────────────────
 
 const AppSettingsContext = createContext<AppSettingsContextValue>({
-  shadowsEnabled: true,
+  shadowsEnabled: false,
   fontFamily: DEFAULT_FONT_FAMILY,
   fontSizeScale: DEFAULT_FONT_SCALE,
   cardOpacity: DEFAULT_OPACITY,
@@ -71,6 +77,7 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   perObjectOpacity: {},
   perObjectGlassBlur: {},
   cardBgImages: {},
+  cardOutlineColor: null,
   setShadowsEnabled: () => {},
   setFontFamily: () => {},
   setFontSizeScale: () => {},
@@ -81,12 +88,15 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   setObjectGlassBlur: () => {},
   setCardBgImages: () => {},
   clearCardBgImages: () => {},
+  setCardOutlineColor: () => {},
 });
 
 export function AppSettingsProvider({ children }: { children: React.ReactNode }) {
   const { theme, paletteId } = useTheme();
 
-  const [shadowsEnabled, setShadowsEnabledState] = useState(true);
+  // Default OFF now — design moved to thick outlines instead of drop shadows.
+  const [shadowsEnabled, setShadowsEnabledState] = useState(false);
+  const [cardOutlineColor, setCardOutlineColorState] = useState<string | null>(null);
   const [fontFamily, setFontFamilyState] = useState<FontFamilyKey>(DEFAULT_FONT_FAMILY);
   const [fontSizeScale, setFontSizeScaleState] = useState<FontScalePreset>(DEFAULT_FONT_SCALE);
   const [cardOpacity, setCardOpacityState] = useState(DEFAULT_OPACITY);
@@ -101,7 +111,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   // ── Load persisted settings on mount ──────────────────────────────────────
   useEffect(() => {
     const load = async () => {
-      const [shadows, ff, scale, opacity, override, objOpacity, objGlass, cardBgImgs] = await Promise.all([
+      const [shadows, ff, scale, opacity, override, objOpacity, objGlass, cardBgImgs, outlineColor] = await Promise.all([
         AsyncStorage.getItem(KEY_SHADOWS),
         AsyncStorage.getItem(KEY_FONT_FAMILY),
         AsyncStorage.getItem(KEY_FONT_SCALE),
@@ -110,9 +120,13 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
         AsyncStorage.getItem(KEY_OBJ_OPACITY),
         AsyncStorage.getItem(KEY_OBJ_GLASS_BLUR),
         AsyncStorage.getItem(KEY_CARD_BG_IMAGES),
+        AsyncStorage.getItem(KEY_CARD_OUTLINE_COLOR),
       ]);
 
-      if (shadows !== null) setShadowsEnabledState(shadows !== "false");
+      // Only respect a persisted "true" — new default is off, so if nothing
+      // is saved we stay off even for users who had the old default.
+      if (shadows === "true") setShadowsEnabledState(true);
+      if (outlineColor) setCardOutlineColorState(outlineColor);
       if (ff !== null && FONT_FAMILY_KEYS.includes(ff as FontFamilyKey)) {
         setFontFamilyState(ff as FontFamilyKey);
       }
@@ -237,14 +251,23 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     AsyncStorage.removeItem(KEY_CARD_BG_IMAGES).catch(() => {});
   }, []);
 
+  const setCardOutlineColor = useCallback((v: string | null) => {
+    setCardOutlineColorState(v);
+    if (v === null) {
+      AsyncStorage.removeItem(KEY_CARD_OUTLINE_COLOR).catch(() => {});
+    } else {
+      AsyncStorage.setItem(KEY_CARD_OUTLINE_COLOR, v).catch(() => {});
+    }
+  }, []);
+
   return (
     <AppSettingsContext.Provider
       value={{
         shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride,
-        perObjectOpacity, perObjectGlassBlur, cardBgImages,
+        perObjectOpacity, perObjectGlassBlur, cardBgImages, cardOutlineColor,
         setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity,
         setObjectOpacity, resetObjectOpacity, setObjectGlassBlur,
-        setCardBgImages, clearCardBgImages,
+        setCardBgImages, clearCardBgImages, setCardOutlineColor,
       }}
     >
       {children}

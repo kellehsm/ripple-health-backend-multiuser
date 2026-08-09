@@ -1,52 +1,26 @@
-import { Platform } from "react-native";
-
 export type ShadowSize = "hero" | "card" | "tile";
 
-// Hard-offset amounts by size (the ink-colored offset layer lives in ShadowCard)
-const HARD: Record<ShadowSize, number> = { hero: 10, card: 7, tile: 4 };
-
-// Soft (atmospheric) shadow params per size
-const SOFT: Record<ShadowSize, { oy: number; r: number; opacity: number }> = {
-  hero: { oy: 20, r: 36, opacity: 0.32 },
-  card: { oy: 14, r: 24, opacity: 0.28 },
-  tile: { oy: 8,  r: 14, opacity: 0.22 },
-};
-
-const ELEVATION: Record<ShadowSize, number> = { hero: 24, card: 14, tile: 7 };
-
 /**
- * Soft/atmospheric shadow layer styles (used directly on View or via ShadowCard).
- * accentColor: pass a hex color for a colored glow instead of neutral black.
+ * NO-OPS BY DESIGN.
+ *
+ * The design system moved away from drop shadows to a thick-outline aesthetic
+ * (per-tile accent color as border). These functions retain their signatures so
+ * every existing call site keeps compiling — they just return empty objects
+ * and zero offsets. If you want depth back, that's a per-component decision;
+ * don't reintroduce global shadows through this file.
  */
 export function layeredShadow(
-  size: ShadowSize = "card",
-  isDark: boolean = false,
-  accentColor?: string,
-) {
-  const { oy, r, opacity } = SOFT[size];
-  const el = ELEVATION[size];
-  const sc = accentColor ?? "#000000";
-  const op = accentColor ? 0.45 : isDark ? opacity * 0.55 : opacity;
-
-  return Platform.select({
-    ios:     { shadowColor: sc, shadowOffset: { width: 0, height: oy }, shadowOpacity: op, shadowRadius: r },
-    android: { elevation: el, shadowColor: sc },
-    default: { shadowColor: sc, shadowOffset: { width: 0, height: oy }, shadowOpacity: op, shadowRadius: r, elevation: el },
-  })!;
+  _size: ShadowSize = "card",
+  _isDark: boolean = false,
+  _accentColor?: string,
+): Record<string, unknown> {
+  return {};
 }
 
-/** Pixel offset for the hard ink shadow layer (consumed by ShadowCard). */
-export function hardOffset(size: ShadowSize = "card"): number {
-  return HARD[size];
+export function hardOffset(_size: ShadowSize = "card"): number {
+  return 0;
 }
 
-// Legacy — kept for backward compat.
-export function coloredShadow(color: string, intensity: number = 1) {
-  return {
-    shadowColor: color,
-    shadowOffset: { width: 0, height: Math.round(6 * intensity) },
-    shadowOpacity: 0.18 * intensity,
-    shadowRadius: 12 * intensity,
-    elevation: Math.round(6 * intensity),
-  };
+export function coloredShadow(_color: string, _intensity: number = 1): Record<string, unknown> {
+  return {};
 }

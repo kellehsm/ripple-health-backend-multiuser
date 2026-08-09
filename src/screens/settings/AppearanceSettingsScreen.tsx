@@ -272,6 +272,7 @@ export function AppearanceSettingsScreen() {
   const { theme, paletteId, setPalette } = useTheme();
   const {
     shadowsEnabled, setShadowsEnabled,
+    cardOutlineColor, setCardOutlineColor,
     fontFamily, fontSizeScale, setFontFamily, setFontSizeScale,
     cardOpacity, cardOpacityManualOverride, setCardOpacity, resetCardOpacity,
   } = useAppSettings();
@@ -354,10 +355,61 @@ export function AppearanceSettingsScreen() {
       {/* ── Advanced (inside theme section) ────────────────────────── */}
       <AdvancedThemeMenu cardOpacity={cardOpacity} theme={theme} />
 
-      {/* ── Shadows ────────────────────────────────────────────────── */}
+      {/* ── Card outline color ─────────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 20 }]}>CARD OUTLINE</Text>
+      <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
+        Fallback border color for cards that don't have their own accent (glucose stays berry, steps stays teal, etc.). "Auto" uses the theme's default outline.
+      </Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, padding: 12 }]}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          {(() => {
+            const swatches: Array<{ label: string; value: string | null }> = [
+              { label: "Auto",   value: null },
+              { label: "Ink",    value: theme.ink },
+              { label: "Teal",   value: theme.teal.solid },
+              { label: "Coral",  value: theme.coral.solid },
+              { label: "Purple", value: theme.purple.solid },
+              { label: "Berry",  value: theme.berry.solid },
+              { label: "Amber",  value: theme.amber?.solid ?? "#f59e0b" },
+              { label: "Blue",   value: theme.blue.solid },
+            ];
+            return swatches.map(({ label, value }) => {
+              const selected = cardOutlineColor === value;
+              return (
+                <Pressable
+                  key={label}
+                  onPress={() => setCardOutlineColor(value)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${label} card outline${selected ? ", selected" : ""}`}
+                  accessibilityState={{ selected }}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 14,
+                    borderWidth: selected ? 4 : 2,
+                    borderColor: theme.ink,
+                    backgroundColor: value ?? "transparent",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {value === null && (
+                    <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "900" }}>AUTO</Text>
+                  )}
+                  {selected && value !== null && (
+                    <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "900" }}>✓</Text>
+                  )}
+                </Pressable>
+              );
+            });
+          })()}
+        </View>
+      </View>
+
+      {/* ── Shadows (advanced) ────────────────────────────────────── */}
       <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 20 }]}>{s.appearance_shadows_title}</Text>
       <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
-        {s.appearance_shadows_desc}
+        Shadows are off by default now — the design uses thick contrasting outlines instead. Turn back on if you preferred the layered-shadow look.
       </Text>
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <View style={styles.settingRow}>

@@ -103,7 +103,7 @@ export function ShadowCard({
   skipTransparency = false,
 }: ShadowCardProps) {
   const { theme } = useTheme();
-  const { shadowsEnabled, cardOpacity, perObjectOpacity, perObjectGlassBlur } = useAppSettings();
+  const { shadowsEnabled, cardOpacity, perObjectOpacity, perObjectGlassBlur, cardOutlineColor } = useAppSettings();
   const objectId = cardId ?? tileId;
   const effectiveOpacity = objectId && perObjectOpacity[objectId] !== undefined
     ? perObjectOpacity[objectId]
@@ -208,14 +208,21 @@ export function ShadowCard({
     ? (bg ?? theme.card)
     : hexWithAlpha(bg ?? theme.card, effectiveOpacity);
 
+  // Border color resolution: caller-supplied wins (per-tile accent), then the
+  // user's global "card outline color" fallback (set in Appearance settings),
+  // then the theme's ink color. When shadows are off we lean harder on the
+  // border for visual weight — bump width from 2.5 to 3.5.
+  const resolvedBorderColor = borderColor ?? cardOutlineColor ?? ink;
+  const resolvedBorderWidth = shadowsEnabled ? 2.5 : 3.5;
+
   const cardBody = (
     <View
       style={[
         {
           backgroundColor: blurEnabled ? "transparent" : resolvedBg,
           borderRadius: radius,
-          borderWidth: 2.5,
-          borderColor: borderColor ?? ink,
+          borderWidth: resolvedBorderWidth,
+          borderColor: resolvedBorderColor,
           padding,
           overflow: (cardId || tileId || blurEnabled) ? "hidden" : undefined,
           ...softShadow,

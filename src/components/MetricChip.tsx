@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     width: CHIP_WIDTH,
     height: CHIP_HEIGHT,
     borderRadius: 14,
-    borderWidth: 2.5,
+    borderWidth: 3,
     paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: "center",
