@@ -10,6 +10,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { ShadowCard } from '../components/ShadowCard';
+import { Swipeable } from 'react-native-gesture-handler';
 import { ExerciseSearchModal } from '../components/ExerciseSearchModal';
 import { PlanExercise } from '../components/WorkoutPlannerModal';
 import { fireRestTimerDone } from '../lib/smartNotifications';
@@ -205,18 +206,51 @@ export function ExerciseSessionScreen() {
   // wired up and show a hint instead of an empty timer-bar slot forever.
   const hrHintVisible = started && sessionHR.length === 0 && hrPollAttempts > 30;
 
+  // Pause offset — number of ms the session has been paused for. Used so `elapsed`
+  // stays continuous across pauses (start_epoch stays fixed, we subtract).
+  const pauseOffsetRef = useRef(0);
+  const pauseStartRef = useRef<number | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+
+  function startTicker() {
+    if (timerRef.current) return;
+    timerRef.current = setInterval(() => {
+      if (!startEpochRef.current) return;
+      const secs = Math.floor((Date.now() - startEpochRef.current - pauseOffsetRef.current) / 1000);
+      setElapsed(formatSecs(secs));
+    }, 1000);
+  }
+
   function handleStartWorkout() {
     if (started || timerRef.current) return;
     setStarted(true);
     startEpochRef.current = Date.now();
-    timerRef.current = setInterval(() => {
-      if (!startEpochRef.current) return;
-      const secs = Math.floor((Date.now() - startEpochRef.current) / 1000);
-      setElapsed(formatSecs(secs));
-    }, 1000);
+    pauseOffsetRef.current = 0;
+    startTicker();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     pollHR();
     hrPollRef.current = setInterval(pollHR, 1000);
+  }
+
+  function togglePause() {
+    if (!started) return;
+    Haptics.selectionAsync().catch(() => {});
+    if (isPaused) {
+      // Resume: add the pause duration to the offset, restart the ticker.
+      if (pauseStartRef.current !== null) {
+        pauseOffsetRef.current += Date.now() - pauseStartRef.current;
+        pauseStartRef.current = null;
+      }
+      startTicker();
+      if (!hrPollRef.current) hrPollRef.current = setInterval(pollHR, 1000);
+      setIsPaused(false);
+    } else {
+      // Pause: stop ticker + HR poll, remember when we paused.
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      if (hrPollRef.current) { clearInterval(hrPollRef.current); hrPollRef.current = null; }
+      pauseStartRef.current = Date.now();
+      setIsPaused(true);
+    }
   }
 
   const restElapsedRef = useRef(0);
@@ -468,19 +502,33 @@ export function ExerciseSessionScreen() {
             <Text style={styles.startBtnText} allowFontScaling maxFontSizeMultiplier={1.2}>▶  Start</Text>
           </Pressable>
         ) : (
-          <Pressable
-            onPress={handleFinish}
-            disabled={finishing}
-            style={[styles.finishBtn, { backgroundColor: theme.coral.solid, borderColor: ink }]}
-            accessibilityRole="button"
-            accessibilityLabel="Finish workout"
-            accessibilityState={{ busy: finishing }}
-          >
-            {finishing
-              ? <LoadingIndicator color="#fff" size="small" />
-              : <Text style={styles.finishBtnText} allowFontScaling maxFontSizeMultiplier={1.2}>Finish</Text>
-            }
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Pressable
+              onPress={togglePause}
+              style={[styles.pauseBtn, { borderColor: ink, backgroundColor: isPaused ? theme.teal.solid : theme.card }]}
+              accessibilityRole="button"
+              accessibilityLabel={isPaused ? "Resume workout timer" : "Pause workout timer"}
+              accessibilityState={{ selected: isPaused }}
+              hitSlop={4}
+            >
+              <Text style={{ color: isPaused ? '#fff' : ink, fontSize: 16, fontWeight: '900' }} allowFontScaling maxFontSizeMultiplier={1.2}>
+                {isPaused ? '▶' : '⏸'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={handleFinish}
+              disabled={finishing}
+              style={[styles.finishBtn, { backgroundColor: theme.coral.solid, borderColor: ink }]}
+              accessibilityRole="button"
+              accessibilityLabel="Finish workout"
+              accessibilityState={{ busy: finishing }}
+            >
+              {finishing
+                ? <LoadingIndicator color="#fff" size="small" />
+                : <Text style={styles.finishBtnText} allowFontScaling maxFontSizeMultiplier={1.2}>Finish</Text>
+              }
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -522,6 +570,26 @@ export function ExerciseSessionScreen() {
                 <Pressable
                   key={opt}
                   onPress={() => { Haptics.selectionAsync().catch(() => {}); startRestTimer(opt); }}
+                  onLongPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                    Alert.prompt?.(
+                      'Custom rest',
+                      'Rest duration in seconds',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Start',
+                          onPress: (text?: string) => {
+                            const n = parseInt(String(text ?? ''), 10);
+                            if (!isNaN(n) && n > 0 && n <= 900) startRestTimer(n);
+                          },
+                        },
+                      ],
+                      'plain-text',
+                      String(opt),
+                      'numeric',
+                    );
+                  }}
                   style={[styles.restOption, {
                     backgroundColor: theme.teal.solid,
                     borderColor: theme.teal.solid,
@@ -590,17 +658,31 @@ export function ExerciseSessionScreen() {
               <Text style={[styles.sectionLabel, { color: theme.textSoft, marginTop: 4 }]}>LOGGED</Text>
             )}
             {entries.map((entry) => (
-              <Pressable
+              <Swipeable
                 key={entry.id}
-                onLongPress={() => handleDeleteEntry(entry.id)}
-                style={[styles.entryCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                overshootRight={false}
+                friction={2}
+                renderRightActions={() => (
+                  <View style={{ justifyContent: 'center', paddingHorizontal: 18, backgroundColor: theme.coral.solid, borderRadius: 14, marginVertical: 4 }}>
+                    <Text style={{ color: '#fff', fontWeight: '900', fontSize: 13 }}>Remove</Text>
+                  </View>
+                )}
+                onSwipeableOpen={() => handleDeleteEntry(entry.id)}
               >
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.entryName, { color: theme.textStrong }]}>{entry.exercise.name}</Text>
-                  <Text style={[styles.entryDetail, { color: theme.teal.fg }]}>{entryLabel(entry)}</Text>
-                </View>
-                <Text style={{ color: theme.textSoft, fontSize: 11 }}>hold to remove</Text>
-              </Pressable>
+                <Pressable
+                  onLongPress={() => handleDeleteEntry(entry.id)}
+                  style={[styles.entryCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${entry.exercise.name}, ${entryLabel(entry)}`}
+                  accessibilityHint="Swipe left or long-press to remove"
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.entryName, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.3}>{entry.exercise.name}</Text>
+                    <Text style={[styles.entryDetail, { color: theme.teal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{entryLabel(entry)}</Text>
+                  </View>
+                  <Text style={{ color: theme.textSoft, fontSize: 11 }}>swipe to remove</Text>
+                </Pressable>
+              </Swipeable>
             ))}
           </>
         ) : planned.length === 0 ? (
@@ -666,6 +748,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   finishBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  pauseBtn: {
+    borderRadius: 18,
+    borderWidth: 2,
+    minHeight: 52,
+    minWidth: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
   activeCard: {
     flexDirection: 'row',
     alignItems: 'center',
