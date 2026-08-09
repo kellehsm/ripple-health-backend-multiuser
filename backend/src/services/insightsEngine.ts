@@ -55,6 +55,12 @@ import { ChainSleepExerciseMoodSpendingRule } from "../rules/chainSleepExerciseM
 import { QuadGlucoseSleepMoodStepsRule } from "../rules/quadGlucoseSleepMoodSteps.js";
 import { QuintAllMetricsRule } from "../rules/quintAllMetrics.js";
 import { QuadCaffeineSleepMoodStepsRule } from "../rules/quadCaffeineSleepMoodSteps.js";
+// Trend rules — recent 30d vs prior 30d
+import { TrendRestingHRRule } from "../rules/trendRestingHR.js";
+import { TrendSleepDurationRule } from "../rules/trendSleepDuration.js";
+import { TrendGlucoseVariabilityRule } from "../rules/trendGlucoseVariability.js";
+import { TrendStepsRule } from "../rules/trendSteps.js";
+import { TrendMoodRule } from "../rules/trendMood.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -117,6 +123,12 @@ export const ALL_RULES: InsightRule[] = [
   QuadGlucoseSleepMoodStepsRule,
   QuintAllMetricsRule,
   QuadCaffeineSleepMoodStepsRule,
+  // Trend rules
+  TrendRestingHRRule,
+  TrendSleepDurationRule,
+  TrendGlucoseVariabilityRule,
+  TrendStepsRule,
+  TrendMoodRule,
 ];
 
 export interface StoredInsight {
