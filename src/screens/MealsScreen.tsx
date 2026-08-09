@@ -13,6 +13,9 @@ import {
   RefreshControl,
   Animated,
   Modal,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -453,6 +456,13 @@ export function MealsScreen() {
     setSearchError(null);
     setSearchResults([]);
     setPendingFood(null);
+    // 15s watchdog so the spinner can't spin forever on a slow / dead network
+    const timeoutId = setTimeout(function () {
+      if (seq === foodSearchSeqRef.current) {
+        setSearching(false);
+        setSearchError("Search timed out. Check your connection and try again.");
+      }
+    }, 15000);
     api.searchFood(q)
       .then(function (data: FoodResult[]) {
         if (seq !== foodSearchSeqRef.current) return;
@@ -463,6 +473,7 @@ export function MealsScreen() {
         setSearchError(e.message || "Food search failed");
       })
       .finally(function () {
+        clearTimeout(timeoutId);
         if (seq === foodSearchSeqRef.current) setSearching(false);
       });
   }
@@ -694,6 +705,12 @@ export function MealsScreen() {
     setSubSearching(true);
     setSubSearchError(null);
     setPendingSub(null);
+    const timeoutId = setTimeout(function () {
+      if (seq === subSearchSeqRef.current) {
+        setSubSearching(false);
+        setSubSearchError("Search timed out. Check your connection and try again.");
+      }
+    }, 15000);
     api.searchSubstances(q, "alcohol")
       .then(function (data: SubstanceResult[]) {
         if (seq !== subSearchSeqRef.current) return;
@@ -704,6 +721,7 @@ export function MealsScreen() {
         setSubSearchError(e.message || "Search failed");
       })
       .finally(function () {
+        clearTimeout(timeoutId);
         if (seq === subSearchSeqRef.current) setSubSearching(false);
       });
   }
@@ -790,6 +808,15 @@ export function MealsScreen() {
 
   function handleToggleGlucose(meal: Meal) {
     if (editingMealId === meal.id) return;
+    // Smooth height animation on expand/collapse — feels less jarring than an instant flip
+    if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+    LayoutAnimation.configureNext(LayoutAnimation.create(
+      220,
+      LayoutAnimation.Types.easeInEaseOut,
+      LayoutAnimation.Properties.opacity,
+    ));
     if (expandedMealId === meal.id) { setExpandedMealId(null); return; }
     setExpandedMealId(meal.id);
     if (glucoseData[meal.id] !== undefined) return;
@@ -903,7 +930,7 @@ export function MealsScreen() {
       {/* Log a meal card */}
       <View ref={tourLogRef}>
       <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} rotate={-0.5} cardId="meal_log">
-        <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Log a meal</Text>
+        <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Log a meal</Text>
 
         {/* Frequent meals + recipes */}
         {/* Quick drinks row — always visible */}
@@ -974,6 +1001,9 @@ export function MealsScreen() {
                         Animated.spring(recipeScale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
                       }}
                       style={[styles.frequentChip, { backgroundColor: theme.teal.tint }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Log recipe ${recipe.name}${recipe.calories != null ? `, ${recipe.calories} calories` : ""}`}
+                      accessibilityHint="Double tap to log. Long press to edit the recipe."
                     >
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                         <Ionicons name="bookmark" size={11} color={theme.teal.fg} />
@@ -1036,8 +1066,11 @@ export function MealsScreen() {
                         Animated.spring(chipScale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
                       }}
                       style={[styles.frequentChip, { backgroundColor: cc.bg }]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Log ${meal.name}${meal.calories != null ? `, ${meal.calories} calories` : ""}${spike != null && spike > 30 ? `, averages ${spike} milligrams per deciliter glucose rise` : ""}`}
+                      accessibilityHint="Double tap to log. Long press to hide from your usuals."
                     >
-                      <Text style={{ color: cc.fg, fontSize: 13, fontWeight: "700" }} numberOfLines={1}>{meal.name}</Text>
+                      <Text style={{ color: cc.fg, fontSize: 13, fontWeight: "700" }} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>{meal.name}</Text>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3, flexWrap: "wrap" }}>
                         {spike != null && badgeBg != null && spike > 30 ? (
                           <View
@@ -1070,7 +1103,17 @@ export function MealsScreen() {
         ))}
 
         {/* Meal type selector */}
-        <View style={styles.chipRow}>
+        <View
+          style={styles.chipRow}
+          accessibilityLabel={`Meal type selector. Currently ${mealType}.`}
+        >
+          <Text
+            style={{ color: theme.textSoft, fontSize: 9, fontWeight: "800", letterSpacing: 0.5, marginRight: 4, alignSelf: "center" }}
+            allowFontScaling
+            maxFontSizeMultiplier={1.3}
+          >
+            FOR
+          </Text>
           {MEAL_TYPES.map(function (type) {
             const selected = mealType === type;
             return (
@@ -1081,8 +1124,11 @@ export function MealsScreen() {
                   styles.typeChip,
                   { backgroundColor: selected ? ink : card },
                 ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`Log as ${type}`}
               >
-                <Text style={{ color: selected ? "#ffffff" : ink, fontSize: 11, fontWeight: "800", letterSpacing: 0.3 }}>
+                <Text style={{ color: selected ? "#ffffff" : ink, fontSize: 11, fontWeight: "800", letterSpacing: 0.3 }} allowFontScaling maxFontSizeMultiplier={1.3}>
                   {type.toUpperCase()}
                 </Text>
               </Pressable>
@@ -1248,7 +1294,7 @@ export function MealsScreen() {
       {/* Today's meals list */}
       <View ref={tourHistoryRef}>
       <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} cardId="food_report">
-        <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Today's meals</Text>
+        <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Today's meals</Text>
 
         {mealsError ? (
           <Text style={{ color: theme.coral.sub, fontSize: 12, marginTop: 6 }}>{mealsError}</Text>
@@ -1339,12 +1385,18 @@ export function MealsScreen() {
                           <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 2 }}>{nutrition}</Text>
                         ) : null}
                       </View>
-                      <Ionicons
-                        name={isExpanded && !isEditing ? "chevron-up" : "pulse"}
-                        size={15}
-                        color={theme.berry.sub}
-                        style={{ marginLeft: 8 }}
-                      />
+                      <View
+                        style={{ marginLeft: 8, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 10, borderWidth: 1.5, borderColor: theme.berry.sub, backgroundColor: (theme as any).berry?.bg ?? "#FAE0E4" }}
+                        accessibilityLabel={isExpanded && !isEditing ? "Hide glucose response chart" : "Show glucose response chart"}
+                      >
+                        <Ionicons name="pulse" size={13} color={theme.berry.sub} />
+                        <Ionicons
+                          name="chevron-down"
+                          size={12}
+                          color={theme.berry.sub}
+                          style={{ transform: [{ rotate: isExpanded && !isEditing ? "180deg" : "0deg" }] }}
+                        />
+                      </View>
                     </Pressable>
 
                     <Pressable onPress={function () { handleOpenEdit(meal); }} style={styles.iconBtn} hitSlop={8}>
@@ -1434,7 +1486,7 @@ export function MealsScreen() {
                             </View>
                           </View>
                           <View style={{ height: 5, backgroundColor: theme.cardBorder, borderRadius: 3, overflow: "hidden" }}>
-                            <View style={{ height: 5, width: barW + "%", backgroundColor: barColor, borderRadius: 3 }} />
+                            <View style={{ height: 5, width: (`${barW}%` as `${number}%`), backgroundColor: barColor, borderRadius: 3 }} />
                           </View>
                         </View>
                       );
