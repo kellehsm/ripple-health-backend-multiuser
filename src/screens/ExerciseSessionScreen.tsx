@@ -9,6 +9,7 @@ import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/nativ
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
+import { ShadowCard } from '../components/ShadowCard';
 import { ExerciseSearchModal } from '../components/ExerciseSearchModal';
 import { PlanExercise } from '../components/WorkoutPlannerModal';
 import { fireRestTimerDone } from '../lib/smartNotifications';
@@ -425,8 +426,8 @@ export function ExerciseSessionScreen() {
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
             <View>
-              <Text style={[styles.timerLabel, { color: theme.textSoft }]}>SESSION TIME</Text>
-              <Text style={[styles.timer, { color: ink }]}>{elapsed}</Text>
+              <Text style={[styles.timerLabel, { color: theme.textSoft }]} allowFontScaling maxFontSizeMultiplier={1.3}>SESSION TIME</Text>
+              <Text style={[styles.timer, { color: ink }]} allowFontScaling maxFontSizeMultiplier={1.2} accessibilityLabel={`Session time ${elapsed}`}>{elapsed}</Text>
             </View>
             {liveHR ? (
               <View
@@ -491,7 +492,7 @@ export function ExerciseSessionScreen() {
         >
           <CyclingImage images={activeExercise.images} style={styles.activeImage} />
           <View style={styles.activeInfo}>
-            <Text style={[styles.activeName, { color: theme.textStrong }]} numberOfLines={2}>
+            <Text style={[styles.activeName, { color: theme.textStrong }]} numberOfLines={2} allowFontScaling maxFontSizeMultiplier={1.3}>
               {activeExercise.name}
             </Text>
             {activeExercise.primary_muscles.length > 0 && (
@@ -513,7 +514,7 @@ export function ExerciseSessionScreen() {
         <View style={[styles.restBanner, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.restLabel, { color: theme.teal.sub }]}>REST</Text>
-            <Text style={[styles.restTimer, { color: theme.teal.sub }]}>{formatSecs(restSeconds)}</Text>
+            <Text style={[styles.restTimer, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.2} accessibilityLabel={`Rest ${restSeconds} seconds remaining`}>{formatSecs(restSeconds)}</Text>
           </View>
           <View style={{ gap: 6, maxWidth: 160 }}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
@@ -560,7 +561,7 @@ export function ExerciseSessionScreen() {
               >
                 <CyclingImage images={ex.images} style={styles.plannedImage} />
                 <View style={styles.plannedInfo}>
-                  <Text style={[styles.plannedName, { color: theme.textStrong }]} numberOfLines={2}>
+                  <Text style={[styles.plannedName, { color: theme.textStrong }]} numberOfLines={2} allowFontScaling maxFontSizeMultiplier={1.3}>
                     {ex.name}
                   </Text>
                   {ex.primary_muscles.length > 0 && (
@@ -579,7 +580,10 @@ export function ExerciseSessionScreen() {
 
         {/* Logged entries */}
         {loadingEntries ? (
-          <View style={styles.center}><LoadingIndicator /></View>
+          <View style={{ gap: 8 }}>
+            <ShadowCard skeleton skeletonHeight={68} />
+            <ShadowCard skeleton skeletonHeight={68} />
+          </View>
         ) : entries.length > 0 ? (
           <>
             {planned.length > 0 && (

@@ -6,6 +6,7 @@ import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
+import { ShadowCard } from '../components/ShadowCard';
 import { formatDuration, entryLabel, suggestNextWeight } from '../utils/exerciseFormatters';
 
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
@@ -153,7 +154,14 @@ export function ExerciseDetailScreen() {
   }, [sessionId]));
 
   if (loading) {
-    return <View style={[styles.center, { backgroundColor: theme.page }]}><LoadingIndicator /></View>;
+    return (
+      <ScrollView contentContainerStyle={styles.content} style={{ backgroundColor: theme.page }}>
+        <ShadowCard skeleton skeletonHeight={110} />
+        <ShadowCard skeleton skeletonHeight={140} />
+        <ShadowCard skeleton skeletonHeight={90} />
+        <ShadowCard skeleton skeletonHeight={90} />
+      </ScrollView>
+    );
   }
 
   if (!session) {
