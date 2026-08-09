@@ -97,7 +97,7 @@ function HRSparkline({ readings, color }: { readings: Array<{ bpm: number }>; co
   }).join(' ');
   return (
     <Svg width={W} height={H} style={{ marginTop: 6 }}>
-      <Polyline points={pts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" opacity={0.8} />
+      <Polyline points={pts} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
     </Svg>
   );
 }

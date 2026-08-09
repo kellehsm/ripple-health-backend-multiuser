@@ -6,6 +6,7 @@ import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
+import { formatDuration, entryLabel, suggestNextWeight } from '../utils/exerciseFormatters';
 
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
@@ -60,30 +61,7 @@ interface SessionDetail {
   hr_samples: Array<{ recorded_at: string; bpm: number }>;
 }
 
-function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m} min`;
-}
-
-function entryLabel(entry: SessionEntry): string {
-  const wt = entry.weight_used ? ` @ ${entry.weight_used} lbs` : '';
-  if (entry.actual_reps_per_set && entry.actual_reps_per_set.length > 0) {
-    const arr = entry.actual_reps_per_set;
-    const allSame = arr.every((r) => r === arr[0]);
-    if (allSame) return `${arr.length} × ${arr[0]} reps${wt}`;
-    return `${arr.join('/')} reps${wt}`;
-  }
-  if (entry.sets && entry.reps) return `${entry.sets} × ${entry.reps} reps${wt}`;
-  if (entry.sets) return `${entry.sets} set${entry.sets > 1 ? 's' : ''}${wt}`;
-  if (entry.duration_seconds) {
-    const m = Math.floor(entry.duration_seconds / 60);
-    const s = entry.duration_seconds % 60;
-    return s > 0 ? `${m}m ${s}s` : `${m}m`;
-  }
-  return 'Logged';
-}
+// formatDuration / entryLabel now shared via utils/exerciseFormatters
 
 function ZoneBar({ summary, theme }: { summary: HRSummary; theme: any }) {
   const total = ZONES.reduce((sum, z) => sum + (summary.time_in_zone_seconds[z.name] ?? 0), 0);
@@ -275,10 +253,31 @@ export function ExerciseDetailScreen() {
                   </Text>
                 )}
                 {entry.all_sets_maxed === true && entry.weight_used != null && (
-                  <View style={[styles.progressionBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
-                    <Text style={[styles.progressionText, { color: theme.teal.sub }]}>
-                      All sets maxed — add weight next time
-                    </Text>
+                  <View
+                    style={[styles.progressionBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}
+                    accessibilityLabel={`All sets maxed. Try ${suggestNextWeight(entry as any, entry.target_rep_range_max) ?? entry.weight_used + 5} pounds next time.`}
+                  >
+                    <Text style={{ fontSize: 15 }}>🏆</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.progressionTitle, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                        All sets maxed!
+                      </Text>
+                      {(() => {
+                        const next = suggestNextWeight(entry as any, entry.target_rep_range_max);
+                        if (next && next > (entry.weight_used ?? 0)) {
+                          return (
+                            <Text style={[styles.progressionText, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                              Try {next} lbs next time
+                            </Text>
+                          );
+                        }
+                        return (
+                          <Text style={[styles.progressionText, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                            Consider adding weight next time
+                          </Text>
+                        );
+                      })()}
+                    </View>
                   </View>
                 )}
               </View>
@@ -356,14 +355,18 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   progressionBadge: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
+    alignSelf: 'stretch',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  progressionText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
+  progressionTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.2 },
+  progressionText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.2, marginTop: 1 },
   exerciseName: { fontSize: 14, fontWeight: '700' },
   exerciseMuscles: { fontSize: 11, textTransform: 'capitalize', marginTop: 2 },
   exerciseDetail: { fontSize: 13, fontWeight: '700' },
