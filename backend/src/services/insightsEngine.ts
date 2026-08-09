@@ -1,5 +1,10 @@
 import { query } from "../db.js";
-import type { InsightRule, InsightResult, UserCapabilities } from "../rules/types.js";
+import { estDayOfWeek } from "../lib/estDate.js";
+import type { InsightRule, InsightResult, RuleTier, UserCapabilities } from "../rules/types.js";
+import { buildDayFrame } from "./dayFrame.js";
+import { benjaminiHochberg, passesMDE, MDE } from "../rules/stats.js";
+import { rankAndPersist, dedupInsights } from "./insightRanker.js";
+import { archivedRuleIds } from "./ruleSunset.js";
 import { SleepVsMoodRule } from "../rules/sleepVsMood.js";
 import { ActivityVsGlucoseRule } from "../rules/activityVsGlucose.js";
 import { ReadingVsMoodRule } from "../rules/readingVsMood.js";
@@ -76,6 +81,23 @@ import { TrendSleepDurationRule } from "../rules/trendSleepDuration.js";
 import { TrendGlucoseVariabilityRule } from "../rules/trendGlucoseVariability.js";
 import { TrendStepsRule } from "../rules/trendSteps.js";
 import { TrendMoodRule } from "../rules/trendMood.js";
+// Phase-5 engine upgrade — new signal categories built on day-frame + stats
+import { AnomalyDailyRule } from "../rules/anomalyDaily.js";
+import { StreakBrokenRule } from "../rules/streakBroken.js";
+import { ForecastNextDayRule } from "../rules/forecastNextDay.js";
+import { RecoveryScoreRule } from "../rules/recoveryScore.js";
+import { MetabolicScoreRule } from "../rules/metabolicScore.js";
+import { WeeklyRhythmMoodRule, WeeklyRhythmSpendRule } from "../rules/weeklyRhythm.js";
+import { LagSleepGlucoseRule } from "../rules/lagSleepGlucose.js";
+import { ChangePointRule } from "../rules/changePoint.js";
+import { CaffeineDoseRule } from "../rules/caffeineDose.js";
+import { HabitClustersRule } from "../rules/habitClusters.js";
+import { WorstDaysCommonRule } from "../rules/worstDaysCommon.js";
+import { MealCompositionRule } from "../rules/mealComposition.js";
+import { SleepArchitectureRule } from "../rules/sleepArchitecture.js";
+import { RecoveryDayRule } from "../rules/recoveryDay.js";
+import { SymptomLagTriggerRule } from "../rules/symptomLagTrigger.js";
+import { SeasonalYoYRule } from "../rules/seasonalYoY.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -158,6 +180,24 @@ export const ALL_RULES: InsightRule[] = [
   TrendGlucoseVariabilityRule,
   TrendStepsRule,
   TrendMoodRule,
+  // Phase-5 upgrade rules
+  AnomalyDailyRule,
+  StreakBrokenRule,
+  ForecastNextDayRule,
+  RecoveryScoreRule,
+  MetabolicScoreRule,
+  WeeklyRhythmMoodRule,
+  WeeklyRhythmSpendRule,
+  LagSleepGlucoseRule,
+  ChangePointRule,
+  CaffeineDoseRule,
+  HabitClustersRule,
+  WorstDaysCommonRule,
+  MealCompositionRule,
+  SleepArchitectureRule,
+  RecoveryDayRule,
+  SymptomLagTriggerRule,
+  SeasonalYoYRule,
 ];
 
 export interface StoredInsight {
@@ -179,7 +219,22 @@ export interface StoredInsight {
   updated_at: string;
 }
 
-async function upsertInsight(userId: string, ruleId: string, type: string, result: InsightResult): Promise<void> {
+async function upsertInsight(userId: string, ruleId: string, type: string, result: InsightResult, extras: {
+  ruleVersion?: number;
+  actionable?: boolean;
+  clinicalRisk?: boolean;
+  primaryMetric?: string;
+}): Promise<void> {
+  const enrichedSupport = {
+    ...result.supportingData,
+    ...(result.pValue     != null ? { p_value:     result.pValue     } : {}),
+    ...(result.effectSize != null ? { effect_size: result.effectSize } : {}),
+    ...(result.ci95       != null ? { ci95:        result.ci95       } : {}),
+    ...(extras.ruleVersion     != null ? { rule_version:     extras.ruleVersion     } : {}),
+    ...(extras.actionable      != null ? { actionable:       extras.actionable      } : {}),
+    ...(extras.clinicalRisk    != null ? { clinical_risk:    extras.clinicalRisk    } : {}),
+    ...(extras.primaryMetric   != null ? { primary_metric:   extras.primaryMetric   } : {}),
+  };
   await query(
     `INSERT INTO user_insights
        (user_id, rule_id, type, title, description, confidence, confidence_score,
@@ -197,8 +252,24 @@ async function upsertInsight(userId: string, ruleId: string, type: string, resul
        updated_at       = NOW()`,
     [userId, ruleId, type, result.title, result.description,
      result.confidence, result.confidenceScore,
-     JSON.stringify(result.supportingData), result.timesObserved]
+     JSON.stringify(enrichedSupport), result.timesObserved]
   );
+}
+
+/**
+ * Which tier fires on this run.
+ *   daily      -> every night
+ *   semiweekly -> Mon + Thu (day-of-week 1 or 4)
+ *   weekly     -> Sun (day-of-week 0)
+ * A per-rule tier is skipped when its tier doesn't match the current day.
+ */
+function tierRunsToday(tier: RuleTier, now: Date, force: boolean): boolean {
+  if (force) return true;
+  if (tier === "daily") return true;
+  const dow = estDayOfWeek(now);
+  if (tier === "semiweekly") return dow === 1 || dow === 4;
+  if (tier === "weekly") return dow === 0;
+  return true;
 }
 
 async function markStale(userId: string, activeRuleIds: string[]): Promise<void> {
@@ -220,21 +291,32 @@ async function markStale(userId: string, activeRuleIds: string[]): Promise<void>
   );
 }
 
-// Run all rules for one user and upsert results
-export async function runInsightsForUser(userId: string): Promise<{ ran: number; found: number; errors: string[] }> {
+// Run all rules for one user and upsert results.
+// Options:
+//   force = true bypasses tier scheduling (e.g. manual /regenerate)
+export async function runInsightsForUser(
+  userId: string,
+  opts: { force?: boolean } = {},
+): Promise<{ ran: number; found: number; skipped: number; errors: string[]; runMs: number }> {
+  const runStart = Date.now();
   const errors: string[] = [];
   const foundRuleIds: string[] = [];
+  let skipped = 0;
 
   const [userRow] = await query<{ created_at: string }>(`SELECT created_at FROM users WHERE id = $1`, [userId]);
   const accountAgeDays = userRow
     ? (Date.now() - new Date(userRow.created_at).getTime()) / (1000 * 86400)
     : 0;
 
-  const eligibleRules = ALL_RULES.filter(rule => !rule.minDays || accountAgeDays >= rule.minDays);
-
-  // Mark everything stale FIRST so a partial run leaves insights hidden rather
-  // than leaving obsolete ones active if the process crashes mid-run.
-  await markStale(userId, []);
+  const now = new Date();
+  const archived = await archivedRuleIds().catch(() => new Set<string>());
+  const eligibleRules = ALL_RULES.filter(rule => {
+    if (archived.has(rule.id)) return false;
+    if (rule.minDays && accountAgeDays < rule.minDays) return false;
+    const tier: RuleTier = rule.tier ?? "semiweekly";
+    return tierRunsToday(tier, now, !!opts.force);
+  });
+  skipped = ALL_RULES.length - eligibleRules.length;
 
   // Pre-flight: fetch a single capability summary so rules can skip DB queries
   // when the user doesn't have the required data types.
@@ -267,28 +349,122 @@ export async function runInsightsForUser(userId: string): Promise<{ ran: number;
     medication_slots_count: parseInt(caps?.medication_slots_count ?? "0"),
   };
 
+  // Build the day-frame ONCE for this user — new-style rules read from it
+  // instead of re-issuing overlapping queries.
+  const frame = await buildDayFrame(userId, 120);
+
+  // Only mark stale AFTER we've collected candidates. This prevents a crash
+  // mid-run from wiping active insights. We use a "pending" bag + final
+  // atomic swap semantics via `markStale(userId, foundRuleIds)`.
+  type Candidate = {
+    rule: InsightRule;
+    result: InsightResult;
+    runtimeMs: number;
+  };
+  const candidates: Candidate[] = [];
+
   await Promise.allSettled(
     eligibleRules.map(async (rule) => {
+      const t0 = Date.now();
       try {
-        const result = await rule.run(userId, capabilities);
-        if (result) {
-          await upsertInsight(userId, rule.id, rule.type, result);
-          foundRuleIds.push(rule.id);
+        let result: InsightResult | null = null;
+        if (typeof rule.runWithContext === "function") {
+          result = await rule.runWithContext({
+            userId,
+            capabilities,
+            frame,
+            currentTier: rule.tier ?? "semiweekly",
+            now,
+          });
+        } else {
+          result = await rule.run(userId, capabilities);
         }
+        if (!result) return;
+
+        // MDE gate — if the rule declared a primary metric and reports an
+        // effect that doesn't cross the minimum-detectable threshold, drop it.
+        const metric = rule.primaryMetric ?? result.primaryMetric;
+        if (metric && result.effectSize != null) {
+          // For rank-biserial effect sizes (|r| range), the MDE table doesn't
+          // apply directly; skip the gate.
+        }
+        if (metric && MDE[metric] != null && result.supportingData) {
+          const diffKey = Object.keys(result.supportingData).find(k => /_difference$|^difference/.test(k));
+          if (diffKey) {
+            const rawDiff = Number((result.supportingData as any)[diffKey]);
+            if (Number.isFinite(rawDiff) && !passesMDE(metric, Math.abs(rawDiff))) return;
+          }
+        }
+
+        candidates.push({ rule, result, runtimeMs: Date.now() - t0 });
       } catch (err: any) {
         errors.push(`${rule.id}: ${err?.message ?? "unknown error"}`);
       }
     })
   );
 
-  return { ran: eligibleRules.length, found: foundRuleIds.length, errors };
+  // Multiple-comparison correction across every candidate that supplied a
+  // p-value. Candidates without a p-value pass through untouched (streaks,
+  // trends, adherence, etc. are descriptive, not hypothesis tests).
+  const withP = candidates.filter(c => c.result.pValue != null);
+  if (withP.length > 0) {
+    const passes = benjaminiHochberg(withP.map(c => c.result.pValue!), 0.10);
+    for (let i = 0; i < withP.length; i++) {
+      if (!passes[i]) {
+        (withP[i].result as any).__fdrRejected = true;
+      }
+    }
+  }
+  const surviving = candidates.filter(c => !(c.result as any).__fdrRejected);
+
+  // Now do the atomic swap: mark stale + upsert survivors + log stats.
+  await markStale(userId, surviving.map(c => c.rule.id));
+  for (const c of surviving) {
+    await upsertInsight(userId, c.rule.id, c.rule.type, c.result, {
+      ruleVersion:    c.rule.version,
+      actionable:     c.rule.actionable ?? c.result.actionable,
+      clinicalRisk:   c.rule.clinicalRisk ?? c.result.clinicalRisk,
+      primaryMetric:  c.rule.primaryMetric ?? c.result.primaryMetric,
+    });
+    foundRuleIds.push(c.rule.id);
+  }
+
+  // Observability — one row per rule per run, non-blocking.
+  Promise.all(
+    candidates.map(c => query(
+      `INSERT INTO insight_rule_runs (user_id, rule_id, rule_version, tier, runtime_ms, fired, fdr_rejected)
+       VALUES ($1, $2, $3, $4, $5, TRUE, $6)
+       ON CONFLICT DO NOTHING`,
+      [userId, c.rule.id, c.rule.version ?? 1, c.rule.tier ?? "semiweekly", c.runtimeMs, !!(c.result as any).__fdrRejected]
+    ).catch(() => {}))
+  ).catch(() => {});
+
+  // Post-run: dedup near-duplicates then rank + persist rank_score.
+  try {
+    await dedupInsights(userId);
+    await rankAndPersist(userId);
+  } catch (err: any) {
+    errors.push(`rank/dedup: ${err?.message ?? "unknown"}`);
+  }
+
+  return {
+    ran: eligibleRules.length,
+    found: foundRuleIds.length,
+    skipped,
+    errors,
+    runMs: Date.now() - runStart,
+  };
 }
 
 export async function getActiveInsights(userId: string): Promise<StoredInsight[]> {
   return query<StoredInsight>(
     `SELECT * FROM user_insights
-     WHERE user_id = $1 AND dismissed = FALSE AND status = 'active'
-     ORDER BY confidence_score DESC, last_confirmed DESC`,
+     WHERE user_id = $1
+       AND dismissed = FALSE
+       AND status = 'active'
+       AND NOT (supporting_data ? 'duplicate_of')
+     ORDER BY COALESCE(rank_score, confidence_score / 100.0) DESC,
+              last_confirmed DESC`,
     [userId]
   );
 }

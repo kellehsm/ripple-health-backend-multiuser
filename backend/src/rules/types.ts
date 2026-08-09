@@ -5,6 +5,15 @@ export interface InsightResult {
   confidenceScore: number;
   supportingData: Record<string, unknown>;
   timesObserved: number;
+  // Optional stats fields. Rules that use welchTTest/mannWhitneyU populate
+  // these so the engine can apply FDR correction and MDE gates uniformly.
+  pValue?: number;
+  effectSize?: number;
+  ci95?: [number, number];
+  // Rule-level metadata (defaults filled by engine if omitted).
+  actionable?: boolean;
+  clinicalRisk?: boolean;
+  primaryMetric?: string;   // e.g. "mood_score", "glucose_mg_dl"
 }
 
 // Pre-flight capability flags fetched once per user before running all rules.
@@ -18,11 +27,33 @@ export interface UserCapabilities {
   medication_slots_count: number; // 0 if no active slots
 }
 
+export type RuleTier = "daily" | "semiweekly" | "weekly";
+
 export interface InsightRule {
   readonly id: string;
   readonly type: string;
   readonly minDays: number;
+  // Bumped on any algorithm change so shadow-mode can compare versions.
+  readonly version?: number;
+  // Scheduling tier. Defaults to "semiweekly" for backwards compat.
+  readonly tier?: RuleTier;
+  // A/B variant tag. When null, the rule runs unconditionally.
+  readonly variant?: string;
+  // Rule-level metadata, mirrored onto the result for UI/ranking.
+  readonly actionable?: boolean;
+  readonly clinicalRisk?: boolean;
+  readonly primaryMetric?: string;
   run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null>;
+  // Optional context-aware entrypoint. Engine calls this when defined,
+  // otherwise falls back to run(). Frame-based rules should implement this
+  // so they skip their own DB queries.
+  runWithContext?(ctx: {
+    userId: string;
+    capabilities: UserCapabilities;
+    frame: import("../services/dayFrame.js").DayFrame;
+    currentTier: RuleTier;
+    now: Date;
+  }): Promise<InsightResult | null>;
 }
 
 export function confidenceFromScore(score: number): "low" | "moderate" | "high" | "very_high" {

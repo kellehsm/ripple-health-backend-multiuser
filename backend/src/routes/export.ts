@@ -302,4 +302,126 @@ export default async function exportRoutes(app: FastifyInstance) {
       .header("Content-Disposition", `attachment; filename="ripple-backup-${date}.json"`)
       .send(payload);
   });
+
+  /**
+   * GET /export/weekly-digest.pdf — a one-page summary of the past week's
+   * top insights + streaks + key metric shifts. Meant to be shared with a
+   * doctor or saved as a personal record.
+   */
+  app.get("/weekly-digest.pdf", async (req, reply: FastifyReply) => {
+    const user_id = req.user_id;
+
+    const insights = await query<any>(
+      `SELECT title, description, confidence, confidence_score, type
+       FROM user_insights
+       WHERE user_id = $1 AND status = 'active' AND dismissed = FALSE
+         AND NOT (supporting_data ? 'duplicate_of')
+       ORDER BY COALESCE(rank_score, confidence_score / 100.0) DESC
+       LIMIT 8`,
+      [user_id]
+    );
+
+    const trends = await query<{ date: string; summary_data: any }>(
+      `SELECT date::text AS date, summary_data
+       FROM daily_summaries
+       WHERE user_id = $1 AND date >= CURRENT_DATE - 7
+       ORDER BY date`,
+      [user_id]
+    );
+
+    const doc = new PDFDocument({ size: "LETTER", margin: 48 });
+    reply
+      .header("Content-Type", "application/pdf")
+      .header("Content-Disposition", `attachment; filename="ripple-weekly-digest-${new Date().toISOString().slice(0, 10)}.pdf"`);
+    doc.pipe(reply.raw);
+
+    doc.fontSize(24).fillColor("#111").text("Ripple Wellness — Weekly Digest", { align: "left" });
+    doc.moveDown(0.2);
+    doc.fontSize(11).fillColor("#666").text(fmtDate(new Date()));
+    doc.moveDown(1);
+
+    doc.fontSize(14).fillColor("#111").text("Top insights this week", { underline: false });
+    doc.moveDown(0.5);
+    if (insights.length === 0) {
+      doc.fontSize(10).fillColor("#666").text("No active insights yet — keep logging to build your pattern library.");
+    } else {
+      for (const i of insights) {
+        doc.fontSize(11).fillColor("#111").text(`• ${i.title}`);
+        doc.fontSize(9).fillColor("#555").text(i.description, { indent: 12 });
+        doc.fontSize(8).fillColor("#888").text(`   confidence: ${i.confidence} (${Number(i.confidence_score).toFixed(0)})`);
+        doc.moveDown(0.4);
+      }
+    }
+
+    doc.moveDown(0.6);
+    doc.fontSize(14).fillColor("#111").text("Key metric averages (last 7 days)");
+    doc.moveDown(0.3);
+
+    const avg = (key: string, sub: string) => {
+      const vals = trends
+        .map((t) => {
+          const v = t.summary_data?.[key]?.[sub];
+          return v != null ? Number(v) : null;
+        })
+        .filter((v): v is number => v != null && Number.isFinite(v));
+      return vals.length ? (vals.reduce((s, v) => s + v, 0) / vals.length) : null;
+    };
+
+    const rows: Array<[string, string]> = [
+      ["Sleep (min)",       avg("sleep", "minutes")?.toFixed(0) ?? "—"],
+      ["Steps",             avg("activity", "steps")?.toFixed(0) ?? "—"],
+      ["Mood (/5)",         avg("mood", "averageScore")?.toFixed(2) ?? "—"],
+      ["Glucose (mg/dL)",   avg("glucose", "average")?.toFixed(0) ?? "—"],
+      ["Water (glasses)",   avg("water", "glasses")?.toFixed(1) ?? "—"],
+    ];
+    for (const [label, val] of rows) {
+      doc.fontSize(10).fillColor("#111").text(label, { continued: true, width: 200 })
+         .fillColor("#555").text(`  ${val}`, { align: "left" });
+    }
+
+    doc.moveDown(1.4);
+    doc.fontSize(8).fillColor("#888").text(
+      "Descriptive summary only. This is not medical advice. Discuss any concerns with your healthcare provider.",
+      { align: "center", width: 480 }
+    );
+    doc.end();
+  });
+
+  /**
+   * GET /export/trends.csv?metric=<mood|steps|sleep|glucose>&days=90
+   * Daily rows for the requested metric.
+   */
+  app.get("/trends.csv", async (req, reply: FastifyReply) => {
+    const user_id = req.user_id;
+    const { metric = "steps", days = "90" } = req.query as any;
+    const daysNum = Math.min(365, Math.max(7, parseInt(String(days), 10) || 90));
+
+    const METRIC_PATH: Record<string, [string, string]> = {
+      mood:    ["mood", "averageScore"],
+      steps:   ["activity", "steps"],
+      sleep:   ["sleep", "minutes"],
+      glucose: ["glucose", "average"],
+      water:   ["water", "glasses"],
+      hr:      ["heartRate", "resting"],
+    };
+    const path = METRIC_PATH[String(metric)];
+    if (!path) return reply.code(400).send({ error: "unknown metric" });
+
+    const rows = await query<{ date: string; v: any }>(
+      `SELECT date::text AS date, summary_data->'${path[0]}'->>'${path[1]}' AS v
+       FROM daily_summaries
+       WHERE user_id = $1 AND date >= CURRENT_DATE - $2::int
+       ORDER BY date`,
+      [user_id, daysNum]
+    );
+
+    const csv = ["date,value"]
+      .concat(rows.map((r) => `${r.date},${r.v ?? ""}`))
+      .join("\n");
+
+    reply
+      .header("Content-Type", "text/csv")
+      .header("Content-Disposition", `attachment; filename="ripple-${metric}-${daysNum}d.csv"`)
+      .send(csv);
+  });
 }

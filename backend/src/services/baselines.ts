@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { winsorize } from "../rules/stats.js";
 
 /**
  * Per-user, per-metric rolling baselines used by the insights engine.
@@ -157,11 +158,14 @@ export async function recomputeBaselinesForUser(userId: string): Promise<{ metri
   for (const metric of METRIC_IDS) {
     try {
       const rows = await query<{ metric_value: number }>(metricQuery(metric), [userId]);
-      const values = rows.map((r) => Number(r.metric_value)).filter((v) => Number.isFinite(v));
-      if (values.length < MIN_SAMPLE_SIZE) {
-        results.push({ metric, sampleSize: values.length, wrote: false });
+      const rawValues = rows.map((r) => Number(r.metric_value)).filter((v) => Number.isFinite(v));
+      if (rawValues.length < MIN_SAMPLE_SIZE) {
+        results.push({ metric, sampleSize: rawValues.length, wrote: false });
         continue;
       }
+      // Winsorize at 2/98 pct so a single binge/crash day doesn't drag the
+      // tertile boundaries into meaningless territory.
+      const values = winsorize(rawValues, 0.02, 0.98);
       const sorted = [...values].sort((a, b) => a - b);
       const median = percentile(sorted, 0.5);
       const p33 = percentile(sorted, 0.33);
