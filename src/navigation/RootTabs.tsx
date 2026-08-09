@@ -34,6 +34,7 @@ import { SecuritySettingsScreen } from "../screens/settings/SecuritySettingsScre
 import { PreferencesSettingsScreen } from "../screens/settings/PreferencesSettingsScreen";
 import { ExportBackupSettingsScreen } from "../screens/settings/ExportBackupSettingsScreen";
 import { BanksSettingsScreen } from "../screens/settings/BanksSettingsScreen";
+import { HardcoverSettingsScreen } from "../screens/settings/HardcoverSettingsScreen";
 import { ExerciseSessionScreen } from "../screens/ExerciseSessionScreen";
 import { ExerciseDetailScreen } from "../screens/ExerciseDetailScreen";
 import { MedicationImportScreen } from "../screens/MedicationImportScreen";
@@ -233,6 +234,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="SettingsPreferences" component={PreferencesSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Preferences" /> }} />
         <Stack.Screen name="SettingsExportBackup" component={ExportBackupSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Export & Backup" /> }} />
         <Stack.Screen name="SettingsBanks" component={BanksSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Connected Banks" /> }} />
+        <Stack.Screen name="SettingsHardcover" component={HardcoverSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Hardcover" /> }} />
         <Stack.Screen name="ExerciseSession" component={ExerciseSessionScreen} options={{ title: "Workout Session" }} />
         <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} options={{ title: "Session Details" }} />
         <Stack.Screen name="MedicationReminders" component={MedicationRemindersScreen} options={{ headerTitle: () => <SettingsTitle title="Medication Reminders" /> }} />

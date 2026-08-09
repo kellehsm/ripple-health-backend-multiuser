@@ -180,7 +180,7 @@ export function SettingsScreen() {
       )}
 
       {/* Data Sources */}
-      {matches("Data Sources", "Health Connect", "Sync", "permissions", "Dexcom", "CGM", "Connected Banks", "Plaid", "transactions") && (
+      {matches("Data Sources", "Health Connect", "Sync", "permissions", "Dexcom", "CGM", "Connected Banks", "Plaid", "transactions", "Hardcover", "books", "reading") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>DATA SOURCES</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -198,6 +198,12 @@ export function SettingsScreen() {
             )}
             {matches("Connected Banks", "Plaid", "transactions", "auto-import") && (
               <MenuRow title="Connected Banks" subtitle="Plaid · auto-import transactions" onPress={() => nav("SettingsBanks")} theme={theme} />
+            )}
+            {matches("Connected Banks", "Plaid", "transactions", "auto-import") && matches("Hardcover", "books", "reading") && (
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+            )}
+            {matches("Hardcover", "books", "reading", "sync") && (
+              <MenuRow title="Hardcover" subtitle="Sync your book tracking with Hardcover.app" onPress={() => nav("SettingsHardcover")} theme={theme} />
             )}
           </View>
         </>
