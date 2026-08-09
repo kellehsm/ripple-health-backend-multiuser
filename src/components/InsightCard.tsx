@@ -5,6 +5,7 @@ import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
 import { ShadowCard } from "./ShadowCard";
+import { adaptiveInsight, softenInsight } from "../lib/softenInsight";
 
 export type Confidence = "low" | "moderate" | "high" | "very_high";
 
@@ -365,15 +366,15 @@ export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compa
 
       {/* Description — always visible */}
       {!compact && (
-        <Text style={[styles.description, { color: theme.textStrong }]}>{insight.description}</Text>
+        <Text style={[styles.description, { color: theme.textStrong }]}>{adaptiveInsight(insight.description, insight.confidence as any)}</Text>
       )}
       {compact && !expanded && (
         <Text style={[styles.description, { color: theme.textStrong }]} numberOfLines={2}>
-          {insight.description}
+          {adaptiveInsight(insight.description, insight.confidence as any)}
         </Text>
       )}
       {compact && expanded && (
-        <Text style={[styles.description, { color: theme.textStrong }]}>{insight.description}</Text>
+        <Text style={[styles.description, { color: theme.textStrong }]}>{adaptiveInsight(insight.description, insight.confidence as any)}</Text>
       )}
 
       {/* Expanded supporting data */}

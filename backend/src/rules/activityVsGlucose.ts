@@ -1,6 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
-import { LOOKBACK_DAYS, avgOf } from "./ruleHelper.js";
+import { LOOKBACK_DAYS, avgOf, personalThresholds } from "./ruleHelper.js";
 
 export const ActivityVsGlucoseRule: InsightRule = {
   id: "activity_vs_glucose",
@@ -23,8 +23,18 @@ export const ActivityVsGlucoseRule: InsightRule = {
 
     if (rows.length < 20) return null;
 
-    const activedays = rows.filter(r => Number(r.steps) >= 8000);
-    const sedentaryDays = rows.filter(r => Number(r.steps) < 4000);
+    // Personalized thresholds — p67 of your own steps = "active for you".
+    // Fallback: 8k / 4k (legacy globals).
+    const thr = await personalThresholds(userId, [
+      { metric: "steps", kind: "high", fallback: 8000 },
+      { metric: "steps", kind: "low",  fallback: 4000 },
+    ]);
+    const highCut = thr.steps_high.threshold;
+    const lowCut  = thr.steps_low.threshold;
+    const usedBaseline = thr.steps_high.usedBaseline;
+
+    const activedays = rows.filter(r => Number(r.steps) >= highCut);
+    const sedentaryDays = rows.filter(r => Number(r.steps) <= lowCut);
 
     if (activedays.length < 5 || sedentaryDays.length < 5) return null;
 
@@ -38,10 +48,11 @@ export const ActivityVsGlucoseRule: InsightRule = {
     const { score, label } = calcConfidence(Math.min(activedays.length, sedentaryDays.length), effectRatio);
 
     const direction = diff > 0 ? "lower" : "higher";
+    const highBand = usedBaseline ? `${Math.round(highCut).toLocaleString()}+ steps (your own top tier)` : "8,000+ steps";
 
     return {
       title: "Higher step days appear linked to steadier glucose",
-      description: `Over the last 60 days, on days with 8,000+ steps your average glucose was ${Math.round(avgGlucoseActive)} mg/dL, compared to ${Math.round(avgGlucoseSedentary)} mg/dL on low-activity days — a difference of ${Math.abs(diff).toFixed(0)} mg/dL.`,
+      description: `Over the last 60 days, on days with ${highBand} your average glucose was ${Math.round(avgGlucoseActive)} mg/dL, compared to ${Math.round(avgGlucoseSedentary)} mg/dL on low-activity days — a difference of ${Math.abs(diff).toFixed(0)} mg/dL.`,
       confidence: label,
       confidenceScore: score,
       timesObserved: rows.length,
@@ -53,6 +64,9 @@ export const ActivityVsGlucoseRule: InsightRule = {
         avg_glucose_sedentary: Math.round(avgGlucoseSedentary),
         difference_mg_dl: Math.abs(diff).toFixed(0),
         direction,
+        used_personalized_baseline: usedBaseline,
+        high_threshold: Math.round(highCut),
+        low_threshold: Math.round(lowCut),
       },
     };
   },

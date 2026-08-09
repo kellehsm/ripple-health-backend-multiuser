@@ -33,3 +33,35 @@ export function softenInsight(text: string | null | undefined): string {
   }
   return out;
 }
+
+export type Confidence = 'low' | 'moderate' | 'high' | 'very_high';
+
+/**
+ * Adaptive language: prefixes a lead-in that matches the confidence level so
+ * users can feel the difference between "n=8, small effect" and "n=90, large
+ * effect" without having to inspect the badge. `softenInsight()` still runs
+ * over the result so any lingering causal wording gets neutralized.
+ *
+ * Preserves the original prefix if the text already opens with an obvious
+ * hedge ("Tends to…", "Often…", "You may find that…") so we don't stack
+ * qualifiers awkwardly.
+ */
+const HEDGE_PREFIXES: Record<Confidence, string> = {
+  low:       'There may be a mild pattern: ',
+  moderate:  'You often see that ',
+  high:      'A consistent pattern shows ',
+  very_high: 'Strongly: ',
+};
+
+const ALREADY_HEDGED = /^(tends to|often|you (may|often|tend)|there (may|tends|appears)|a (mild|consistent|strong) pattern|strongly[:,])/i;
+
+export function adaptiveInsight(text: string | null | undefined, confidence: Confidence): string {
+  if (!text) return '';
+  const soft = softenInsight(text);
+  if (ALREADY_HEDGED.test(soft)) return soft;
+  const prefix = HEDGE_PREFIXES[confidence];
+  // Lowercase the first char of the original so the prefix reads naturally
+  // ("Strongly: your…" not "Strongly: Your…").
+  const body = soft.charAt(0).toLowerCase() + soft.slice(1);
+  return prefix + body;
+}

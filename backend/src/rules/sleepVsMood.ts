@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { bucketByBaseline } from "./ruleHelper.js";
 
 export const SleepVsMoodRule: InsightRule = {
   id: "sleep_vs_mood",
@@ -23,8 +24,19 @@ export const SleepVsMoodRule: InsightRule = {
 
     if (rows.length < 20) return null;
 
-    const highSleep = rows.filter(r => Number(r.sleep_min) >= 420); // 7h+
-    const lowSleep  = rows.filter(r => Number(r.sleep_min) < 360);  // <6h
+    // Baseline-aware split — "high" = p67 of your own sleep, "low" = p33.
+    // Falls back to the legacy 7h / 6h constants if we don't have a
+    // baseline yet.  Baseline is in seconds, so 420min * 60 = 25200s,
+    // 360min * 60 = 21600s for the fallback.
+    const split = await bucketByBaseline(
+      userId,
+      "sleep_secs",
+      rows,
+      (r) => Number(r.sleep_min) * 60,
+      { low: 21600, high: 25200 }
+    );
+    const highSleep = split.highGroup;
+    const lowSleep = split.lowGroup;
 
     if (highSleep.length < 6 || lowSleep.length < 6) return null;
 
@@ -40,10 +52,18 @@ export const SleepVsMoodRule: InsightRule = {
     const direction = diff > 0 ? "higher" : "lower";
     const avgH = avgMoodHigh.toFixed(1);
     const avgL = avgMoodLow.toFixed(1);
+    const highHrs = (split.highThreshold / 3600).toFixed(1);
+    const lowHrs  = (split.lowThreshold  / 3600).toFixed(1);
+    const bandNote = split.usedBaseline
+      ? `nights with ${highHrs}h+ sleep (your own top tier)`
+      : `nights with 7+ hours sleep`;
+    const lowNote = split.usedBaseline
+      ? `nights under ${lowHrs}h (your own bottom tier)`
+      : `nights under 6 hours`;
 
     return {
       title: "Longer sleep appears linked to better mood",
-      description: `Over the last 90 days, on days when you slept 7+ hours your average mood was ${avgH}/5, compared to ${avgL}/5 on days with under 6 hours — a difference of ${Math.abs(diff).toFixed(1)} points.`,
+      description: `Over the last 90 days, on ${bandNote} your average mood was ${avgH}/5, compared to ${avgL}/5 on ${lowNote} — a difference of ${Math.abs(diff).toFixed(1)} points.`,
       confidence: label,
       confidenceScore: score,
       timesObserved: rows.length,
@@ -55,6 +75,9 @@ export const SleepVsMoodRule: InsightRule = {
         avg_mood_low_sleep: avgL,
         mood_difference: diff.toFixed(2),
         direction,
+        used_personalized_baseline: split.usedBaseline,
+        high_threshold_hours: highHrs,
+        low_threshold_hours: lowHrs,
       },
     };
   },

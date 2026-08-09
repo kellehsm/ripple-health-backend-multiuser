@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
+import { personalThresholds } from "./ruleHelper.js";
 
 // 5-metric "perfect day" profile: sleep + steps + water + mood + glucose.
 // Finds whether your best-possible days (all 5 in range) are meaningfully
@@ -35,12 +36,27 @@ export const QuintAllMetricsRule: InsightRule = {
 
     if (rows.length < 40) return null;
 
+    // Personalized "goals met" thresholds — a "great day" for someone whose
+    // baseline is 6.5h sleep is not the same as for a 9h sleeper.
+    // Sleep p67 / Steps p67 / Mood p67 / Glucose p33 (lower is better).
+    // Water target still uses user's own configured goal (already personalized).
+    const thr = await personalThresholds(userId, [
+      { metric: "sleep_secs",  kind: "high", fallback: 420 * 60 },
+      { metric: "steps",       kind: "high", fallback: 8000 },
+      { metric: "mood",        kind: "high", fallback: 3.5 },
+      { metric: "glucose_avg", kind: "low",  fallback: 130 },
+    ]);
+    const sleepMinCut = thr.sleep_secs_high.threshold / 60;
+    const stepsCut    = thr.steps_high.threshold;
+    const moodCut     = thr.mood_high.threshold;
+    const glucoseCut  = thr.glucose_avg_low.threshold;
+
     type R = typeof rows[0];
-    const metSleep  = (r: R) => Number(r.sleep_min) >= 420;
-    const metSteps  = (r: R) => Number(r.steps) >= 8000;
+    const metSleep  = (r: R) => Number(r.sleep_min) >= sleepMinCut;
+    const metSteps  = (r: R) => Number(r.steps) >= stepsCut;
     const metWater  = (r: R) => Number(r.glasses) >= Number(r.goal);
-    const metMood   = (r: R) => Number(r.avg_mood) >= 3.5;
-    const metGluc   = (r: R) => Number(r.glucose_avg) <= 130;
+    const metMood   = (r: R) => Number(r.avg_mood) >= moodCut;
+    const metGluc   = (r: R) => Number(r.glucose_avg) <= glucoseCut;
     const goalsOf   = (r: R) => [metSleep(r), metSteps(r), metWater(r), metMood(r), metGluc(r)].filter(Boolean).length;
 
     // Bucket by number of goals met
