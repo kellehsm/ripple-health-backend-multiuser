@@ -6,6 +6,20 @@ import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
 import { ShadowCard } from "./ShadowCard";
 import { adaptiveInsight, softenInsight } from "../lib/softenInsight";
+import { api } from "../api/client";
+import { Alert } from "react-native";
+
+// Rules that ship with an actionable experiment template (kept in sync with
+// backend/src/services/insightExperimentTemplates.ts). If the user's card is
+// one of these, we show a "Try this" button.
+const RULES_WITH_TEMPLATES = new Set([
+  "sleep_vs_mood", "sleep_vs_glucose", "meal_size_vs_sleep",
+  "screen_time_vs_sleep", "alcohol_quantity_vs_glucose",
+  "activity_vs_glucose", "weather_vs_exercise", "muscle_group_rotation",
+  "mindfulness_vs_mood", "time_of_day_spend", "stress_vs_spending",
+]);
+
+type FeedbackRating = "helpful" | "neutral" | "not_useful" | "already_knew";
 
 export type Confidence = "low" | "moderate" | "high" | "very_high";
 
@@ -395,6 +409,10 @@ export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compa
           {tip && (
             <Text style={[styles.tipText, { color: theme.textSoft }]}>{tip}</Text>
           )}
+          <FeedbackRow insightId={insight.id} theme={theme} />
+          {RULES_WITH_TEMPLATES.has(insight.rule_id) && (
+            <TryThisButton insightId={insight.id} theme={theme} />
+          )}
           {onDismiss && (
             <Pressable
               onPress={() => onDismiss(insight.id)}
@@ -520,4 +538,160 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
+  feedbackRow: {
+    marginTop: 12,
+    gap: 6,
+  },
+  feedbackLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+  feedbackButtons: {
+    flexDirection: "row",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  feedbackBtn: {
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  feedbackBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  tryBtn: {
+    marginTop: 10,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 2,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  tryBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
 });
+
+// ── Feedback row inside the expanded panel ────────────────────────────────
+
+function FeedbackRow({ insightId, theme }: { insightId: string; theme: any }) {
+  const [chosen, setChosen] = useState<FeedbackRating | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const options: Array<{ id: FeedbackRating; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = [
+    { id: "helpful",      label: "Helpful",      icon: "thumbs-up-outline",   color: theme.teal.solid },
+    { id: "already_knew", label: "Knew it",      icon: "checkmark-done",      color: theme.textSoft },
+    { id: "neutral",      label: "Neutral",      icon: "remove-outline",      color: theme.textSoft },
+    { id: "not_useful",   label: "Not useful",   icon: "thumbs-down-outline", color: theme.coral?.sub ?? "#B84A2E" },
+  ];
+
+  async function pick(rating: FeedbackRating) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api.insightFeedback(insightId, rating);
+      setChosen(rating);
+      Haptics.selectionAsync().catch(() => {});
+    } catch {
+      // Silent — feedback is nice-to-have, not critical.
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={styles.feedbackRow}>
+      <Text style={[styles.feedbackLabel, { color: theme.textSoft }]}>Was this useful?</Text>
+      <View style={styles.feedbackButtons}>
+        {options.map((o) => {
+          const selected = chosen === o.id;
+          return (
+            <Pressable
+              key={o.id}
+              onPress={() => pick(o.id)}
+              disabled={busy || chosen !== null}
+              style={[styles.feedbackBtn, {
+                borderColor: selected ? o.color : theme.cardBorder,
+                backgroundColor: selected ? o.color : "transparent",
+                opacity: chosen && !selected ? 0.5 : 1,
+              }]}
+              accessibilityRole="button"
+              accessibilityLabel={o.label}
+              accessibilityState={{ selected }}
+            >
+              <Ionicons name={o.icon} size={14} color={selected ? "#fff" : o.color} />
+              <Text style={[styles.feedbackBtnText, { color: selected ? "#fff" : theme.textSoft }]}>{o.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {chosen && (
+        <Text style={[styles.feedbackLabel, { color: theme.textSoft, textTransform: "none", fontStyle: "italic" }]}>
+          {chosen === "not_useful"
+            ? "Thanks — insights of this kind will show up less for you."
+            : "Thanks for the feedback."}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+// ── "Try this" experiment button ─────────────────────────────────────────
+
+function TryThisButton({ insightId, theme }: { insightId: string; theme: any }) {
+  const [busy, setBusy] = useState(false);
+  const [seeded, setSeeded] = useState(false);
+
+  async function seed() {
+    if (busy || seeded) return;
+    setBusy(true);
+    try {
+      const res = await api.insightTry(insightId);
+      if (res.ok) {
+        setSeeded(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        Alert.alert(
+          "Experiment started",
+          res.description ?? "Track this behavior for the next two weeks — the app will surface the results when it wraps.",
+        );
+      } else {
+        Alert.alert("Can't set up an experiment", res.reason ?? "This insight doesn't have an actionable template yet.");
+      }
+    } catch (e: any) {
+      Alert.alert("Failed", e?.message ?? "Try again in a bit.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Pressable
+      onPress={seed}
+      disabled={busy || seeded}
+      style={[styles.tryBtn, {
+        borderColor: theme.teal.solid,
+        backgroundColor: seeded ? theme.teal.solid : theme.teal.bg,
+        opacity: busy ? 0.6 : 1,
+      }]}
+      accessibilityRole="button"
+      accessibilityLabel={seeded ? "Experiment started" : "Try this — start a 2-week experiment"}
+    >
+      <Ionicons name={seeded ? "checkmark-circle" : "flask-outline"} size={16} color={seeded ? "#fff" : theme.teal.fg} />
+      <Text style={[styles.tryBtnText, { color: seeded ? "#fff" : theme.teal.fg }]}>
+        {seeded ? "Experiment started" : "Try this — 2-week experiment"}
+      </Text>
+    </Pressable>
+  );
+}

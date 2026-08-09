@@ -429,6 +429,12 @@ export const api = {
   regenerateInsights: function () {
     return request("/insights/regenerate", { method: "POST", body: JSON.stringify({}) });
   },
+  insightFeedback: function (id: string, rating: 'helpful' | 'neutral' | 'not_useful' | 'already_knew') {
+    return request("/insights/" + id + "/feedback", { method: "POST", body: JSON.stringify({ rating }) });
+  },
+  insightTry: function (id: string): Promise<{ ok: boolean; experiment_id?: string; description?: string; reason?: string }> {
+    return request("/insights/" + id + "/try", { method: "POST", body: JSON.stringify({}) });
+  },
 
   // ── Analytics ─────────────────────────────────────────────────────────────
   contextCorrelation: function (key: string, compareTo: "mood" | "glucose", days?: number) {
