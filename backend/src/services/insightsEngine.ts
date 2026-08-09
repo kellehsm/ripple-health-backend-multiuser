@@ -55,6 +55,8 @@ import { ChainSleepExerciseMoodSpendingRule } from "../rules/chainSleepExerciseM
 import { QuadGlucoseSleepMoodStepsRule } from "../rules/quadGlucoseSleepMoodSteps.js";
 import { QuintAllMetricsRule } from "../rules/quintAllMetrics.js";
 import { QuadCaffeineSleepMoodStepsRule } from "../rules/quadCaffeineSleepMoodSteps.js";
+// Composite "best days" rule — reverse-engineers what behaviors correlate with top-20% days
+import { BestDaysCommonRule } from "../rules/bestDaysCommon.js";
 // Trend rules — recent 30d vs prior 30d
 import { TrendRestingHRRule } from "../rules/trendRestingHR.js";
 import { TrendSleepDurationRule } from "../rules/trendSleepDuration.js";
@@ -123,6 +125,7 @@ export const ALL_RULES: InsightRule[] = [
   QuadGlucoseSleepMoodStepsRule,
   QuintAllMetricsRule,
   QuadCaffeineSleepMoodStepsRule,
+  BestDaysCommonRule,
   // Trend rules
   TrendRestingHRRule,
   TrendSleepDurationRule,
