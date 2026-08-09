@@ -130,7 +130,12 @@ async function syncAndUpdateNotification(notificationId: string) {
     await checkWorkoutReminder(settings, now);
     await checkStepGoal(settings, now);
     await checkLowStreakDanger(now);
-  } catch (_) {}
+  } catch (err) {
+    // Smart-notification failures should not kill the foreground sync loop,
+    // but we still want to see them in dev — a fully silent catch hid a token
+    // expiry that stopped smart reminders for days without any signal.
+    if (__DEV__) console.warn("[foregroundService] smart notifications failed", err);
+  }
 }
 
 // Called from index.js — registers the headless handler before the React tree mounts.

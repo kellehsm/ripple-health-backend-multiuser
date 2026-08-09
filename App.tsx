@@ -79,15 +79,28 @@ async function logWaterFromShortcut() {
   navigateWhenReady("Health");
 }
 
+// Allowed deep-link schemes/hosts — anything else is rejected so a malicious
+// link from another app can't spoof a Ripple action.
+const DEEP_LINK_SCHEMES = new Set(["ripple:", "https:"]);
+const DEEP_LINK_HOSTS = new Set(["", "app", "app.kels.gg"]);
+const DEEP_LINK_ACTIONS: Record<string, () => void> = {
+  "log-water": () => void logWaterFromShortcut(),
+  "meals": () => navigateWhenReady("Meals"),
+  "mood": () => navigateWhenReady("Home"),
+};
+
 function handleUrl(url: string | null) {
   if (!url) return;
-  if (url.includes("log-water")) {
-    logWaterFromShortcut();
-  } else if (url.includes("meals")) {
-    navigateWhenReady("Meals");
-  } else if (url.includes("mood")) {
-    navigateWhenReady("Home");
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return;
   }
+  if (!DEEP_LINK_SCHEMES.has(parsed.protocol) || !DEEP_LINK_HOSTS.has(parsed.hostname)) return;
+  // Match the first path segment against a known action; ignore anything else.
+  const action = parsed.pathname.replace(/^\/+/, "").split("/")[0];
+  DEEP_LINK_ACTIONS[action]?.();
 }
 
 function handleNotificationAction(data: any, actionId?: string) {
@@ -167,6 +180,11 @@ export default function App() {
     rippleTimer.current = setTimeout(() => setShowRippleTransition(false), 480);
   }, []);
 
+  // Clear the ripple timeout on unmount so it can't fire against a torn-down component.
+  useEffect(() => () => {
+    if (rippleTimer.current) clearTimeout(rippleTimer.current);
+  }, []);
+
   // Register logout handler so Settings can sign the user out
   registerLogoutHandler(() => setAppState("login"));
 
@@ -182,7 +200,8 @@ export default function App() {
         // errors so it never breaks the resume flow.
         try {
           const { checkForNewInsightAlerts } = await import("./src/lib/insightAlerts");
-          checkForNewInsightAlerts();
+          // Detach so an alert-check rejection can't propagate out of the event handler.
+          checkForNewInsightAlerts().catch(() => {});
         } catch { /* module load failure — ignore */ }
       }
     });

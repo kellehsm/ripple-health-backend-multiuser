@@ -114,12 +114,17 @@ function computeMedStatus(med: Medication): MedStatus {
   return 'active';
 }
 
-const STATUS_BADGE: Record<MedStatus, { label: string; bg: string; fg: string }> = {
-  active:        { label: 'Active',        bg: 'transparent', fg: 'transparent' },
-  new:           { label: 'New',           bg: '#DCFCE7',     fg: '#166534' },
-  expiring:      { label: 'Refill soon',   bg: '#FEF9C3',     fg: '#854D0E' },
-  refill_needed: { label: 'Refill needed', bg: '#FEE2E2',     fg: '#991B1B' },
-};
+// Status badges pull colors from the theme so they follow dark mode and
+// palette switches instead of hard-coded hex.
+function statusBadge(status: MedStatus, theme: any): { label: string; bg: string; fg: string } {
+  switch (status) {
+    case 'new':           return { label: 'New',           bg: theme.green.bg, fg: theme.green.sub };
+    case 'expiring':      return { label: 'Refill soon',   bg: theme.amber.bg, fg: theme.amber.sub };
+    case 'refill_needed': return { label: 'Refill needed', bg: theme.red.bg,   fg: theme.red.sub };
+    case 'active':
+    default:              return { label: 'Active',        bg: 'transparent',  fg: 'transparent' };
+  }
+}
 
 const TOD_HOUR: Record<string, number> = { morning: 8, midday: 12, evening: 20 };
 
@@ -1068,7 +1073,7 @@ function MedicationList({ theme, scrollEnabled = true }: { theme: any; scrollEna
                 </View>
                 {grouped[g].map((med) => {
             const status = computeMedStatus(med);
-            const badge = STATUS_BADGE[status];
+            const badge = statusBadge(status, theme);
             const refillDays = med.refill_date
               ? Math.ceil((new Date(med.refill_date).getTime() - Date.now()) / 86400000)
               : null;

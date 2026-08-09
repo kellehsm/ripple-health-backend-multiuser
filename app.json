@@ -8,6 +8,7 @@
     "scheme": "ripple",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.kellehs.wellness",
       "infoPlist": {
         "NSCameraUsageDescription": "Camera is used to scan food barcodes for meal logging."
       }
@@ -77,7 +78,8 @@
       "eas": {
         "projectId": "24d6d00c-8c89-45fa-9a30-532450044375"
       },
-      "apiBaseUrl": "https://app.kels.gg/api"
+      "apiBaseUrl": "https://app.kels.gg/api",
+      "supportEmail": "kjsmyre@gmail.com"
     }
   }
 }

@@ -13,6 +13,10 @@ import { logout } from "../lib/auth";
 import { reportError } from "../utils/errorReport";
 import { QUIET_PRESETS, muteFor, getMuteUntil, clearMute } from "../lib/muteNotifications";
 import { toast } from "../lib/toast";
+import Constants from "expo-constants";
+
+const SUPPORT_EMAIL: string =
+  (Constants.expoConfig?.extra as any)?.supportEmail ?? "support@ripple.test";
 
 type Journey = { total_meals: number; total_mood_checkins: number; total_active_days: number; member_since: string | null };
 
@@ -378,8 +382,8 @@ export function SettingsScreen() {
             {matches("Contact Developer", "contact", "email", "kjsmyre") && (
               <MenuRow
                 title="Contact Developer"
-                subtitle="kjsmyre@gmail.com"
-                onPress={() => void Linking.openURL('mailto:kjsmyre@gmail.com?subject=Ripple Wellness')}
+                subtitle={SUPPORT_EMAIL}
+                onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Ripple Wellness`)}
                 theme={theme}
               />
             )}

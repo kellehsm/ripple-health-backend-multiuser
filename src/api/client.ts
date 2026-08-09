@@ -55,11 +55,13 @@ async function requestQueued(
   }
 }
 
-// Returns BASE_URL with auth token appended — for URL-based file downloads/PDFs.
+// Returns BASE_URL with a short-lived, single-use download token appended —
+// never embeds the long-lived JWT so it can't leak into logs, browser history,
+// or referer headers. The backend mints the token via /api/download-token.
 async function authedUrl(path: string): Promise<string> {
-  const token = await getToken();
+  const { token: dl } = await request("/download-token", { method: "POST" });
   const sep = path.includes("?") ? "&" : "?";
-  return BASE_URL + path + (token ? sep + "token=" + encodeURIComponent(token) : "");
+  return BASE_URL + path + sep + "dl=" + encodeURIComponent(dl);
 }
 
 export const GOOGLE_CLIENT_ID =
@@ -434,6 +436,21 @@ export const api = {
   },
   insightTry: function (id: string): Promise<{ ok: boolean; experiment_id?: string; description?: string; reason?: string }> {
     return request("/insights/" + id + "/try", { method: "POST", body: JSON.stringify({}) });
+  },
+  insightPin: function (id: string, pinned: boolean) {
+    return request("/insights/" + id + "/pin", { method: "POST", body: JSON.stringify({ pinned }) });
+  },
+  insightExplain: function (id: string): Promise<{ system_guidance: string; insight: any }> {
+    return request("/insights/" + id + "/explain", { method: "POST", body: JSON.stringify({}) });
+  },
+  insightDebug: function (id: string) {
+    return request("/insights/" + id + "/debug");
+  },
+  insightTimeline: function () {
+    return request("/insights/timeline");
+  },
+  insightDigest: function (): Promise<{ top_insight: any | null; nudge: any | null }> {
+    return request("/insights/digest");
   },
 
   // ── Analytics ─────────────────────────────────────────────────────────────
