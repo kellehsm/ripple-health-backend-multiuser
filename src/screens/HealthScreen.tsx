@@ -17,7 +17,7 @@ import { coloredShadow, layeredShadow } from "../theme/styleUtils";
 import { ShadowCard } from "../components/ShadowCard";
 import { Ionicons } from "@expo/vector-icons";
 import { MetricCard } from "../components/MetricCard";
-import { MetricChip, chipStyles } from "../components/MetricChip";
+import { MetricChip, MetricChipSkeleton, chipStyles } from "../components/MetricChip";
 import { RangeSelector } from "../components/RangeSelector";
 import { getMetricPalette } from "../lib/metricColors";
 import { DefinedTerm } from "../components/DefinedTerm";
@@ -310,6 +310,7 @@ export function HealthScreen() {
   const [hrLoading, setHrLoading] = useState(false);
   const [hcSyncing, setHcSyncing] = useState(false);
   const [hcResult, setHcResult] = useState<string | null>(null);
+  const [chipsHydrated, setChipsHydrated] = useState(false);
   const [liveTracking, setLiveTracking] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [staleBannerMessage, setStaleBannerMessage] = useState<string | null>(null);
@@ -564,7 +565,11 @@ export function HealthScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(true);
     try {
-      await Promise.all([load(rangeHours), loadWater(true), loadStepsAndSleep(true), loadHeartRate(hrRangeHours)]);
+      // Kick off a fresh Health Connect pull in parallel with the API refresh so
+      // the chips reflect the latest wearable data — result goes into hcResult
+      // for the toast pill below.
+      const hcPromise = Platform.OS === "android" ? handleHealthConnectSync() : Promise.resolve();
+      await Promise.all([hcPromise, load(rangeHours), loadWater(true), loadStepsAndSleep(true), loadHeartRate(hrRangeHours)]);
       setLastRefreshed(new Date());
     } finally {
       setRefreshing(false);
@@ -852,6 +857,25 @@ export function HealthScreen() {
     ]).start();
   }, [rangeHours]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-dismiss the HC sync toast pill after a few seconds
+  useEffect(function () {
+    if (!hcResult) return;
+    const t = setTimeout(() => setHcResult(null), 4500);
+    return () => clearTimeout(t);
+  }, [hcResult]);
+
+  // Flip chips out of skeleton state once any data lands, or after 3s worst-case
+  useEffect(function () {
+    if (chipsHydrated) return;
+    if (stepsCount !== null || waterCount !== null || sleepDisplay || status?.hasData || hrReadings.length > 0) {
+      setChipsHydrated(true);
+    }
+  }, [stepsCount, waterCount, sleepDisplay, status?.hasData, hrReadings.length, chipsHydrated]);
+  useEffect(function () {
+    const t = setTimeout(() => setChipsHydrated(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Steps goal ring flash — fire when steps cross 10,000 (Feature 12)
   useEffect(function () {
     if (stepsCount === null) return;
@@ -1022,6 +1046,9 @@ export function HealthScreen() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: CHIP_GAP }}>
 
             {/* GLUCOSE chip */}
+            {!chipsHydrated && glucoseMgDl === null && !status?.hasData ? (
+              <MetricChipSkeleton borderColor={glucosePal.border} backgroundColor={glucosePal.bg} />
+            ) : (
             <MetricChip
               borderColor={glucosePal.border}
               backgroundColor={glucosePal.bg}
@@ -1042,8 +1069,12 @@ export function HealthScreen() {
                 </Text>
               )}
             </MetricChip>
+            )}
 
             {/* STEPS chip */}
+            {!chipsHydrated && stepsCount === null ? (
+              <MetricChipSkeleton borderColor={theme.teal.solid} backgroundColor={theme.teal.bg} />
+            ) : (
             <MetricChip
               borderColor={theme.teal.solid}
               backgroundColor={theme.teal.bg}
@@ -1059,6 +1090,7 @@ export function HealthScreen() {
               <Text style={[chipStyles.val, { color: theme.teal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{stepsLabel}</Text>
               <Text style={[chipStyles.sub, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>of {goalLabel}</Text>
             </MetricChip>
+            )}
 
             {/* SLEEP chip */}
             <MetricChip
@@ -1130,6 +1162,9 @@ export function HealthScreen() {
             </MetricChip>
 
             {/* HEART RATE chip */}
+            {!chipsHydrated && hrLast === null ? (
+              <MetricChipSkeleton borderColor={berrySub} backgroundColor={berryBg} />
+            ) : (
             <MetricChip
               borderColor={berrySub}
               backgroundColor={berryBg}
@@ -1141,6 +1176,7 @@ export function HealthScreen() {
               <Text style={[chipStyles.val, { color: berryFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{hrLast !== null ? String(hrLast) : "--"}</Text>
               <Text style={[chipStyles.sub, { color: berrySub }]} allowFontScaling maxFontSizeMultiplier={1.3}>bpm</Text>
             </MetricChip>
+            )}
 
           </View>
         );
@@ -1160,6 +1196,30 @@ export function HealthScreen() {
         </Text>
       )}
 
+      {/* Health Connect sync result toast — auto-dismisses after 4.5s */}
+      {hcResult && (
+        <View
+          style={{
+            alignSelf: "flex-end",
+            marginTop: 4,
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            borderRadius: 12,
+            borderWidth: 1.5,
+            borderColor: hcResult.startsWith("Sync failed") || hcResult.startsWith("Permission")
+              ? (theme.coral?.sub ?? "#B84A2E")
+              : (theme.teal?.sub ?? "#2E7A7F"),
+            backgroundColor: hcResult.startsWith("Sync failed") || hcResult.startsWith("Permission")
+              ? (theme.coral?.bg ?? "#FBEAE3")
+              : (theme.teal?.bg ?? "#E1F1F2"),
+          }}
+          accessibilityLiveRegion="polite"
+          accessibilityLabel={hcResult}
+        >
+          <Text style={{ fontSize: 11, fontWeight: "800", color: theme.textStrong }}>{hcResult}</Text>
+        </View>
+      )}
+
       {/* Sleep debt counter */}
       {sleepAvgSecs !== null && (function () {
         const GOAL_SECS = 8 * 3600;
@@ -1175,7 +1235,7 @@ export function HealthScreen() {
           <ShadowCard size="card" accent={theme.amber?.solid ?? "#f59e0b"} rotate={0.3} cardId="sleep_card">
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <Ionicons name="moon-outline" size={17} color={theme.amber?.solid ?? "#f59e0b"} />
-              <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>Sleep debt</Text>
+              <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Sleep debt</Text>
             </View>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
               <Text style={{ fontSize: 28, fontWeight: "900", color: isDebt ? (theme.red?.solid ?? "#ef4444") : theme.teal.solid, letterSpacing: -0.5 }}>
@@ -1209,7 +1269,7 @@ export function HealthScreen() {
       <Animated.View style={{ opacity: glucoseEntranceAnim }}>
       <ShadowCard size="hero" accent={theme.berry.solid} rotate={-0.5} padding={14} cardId="glucose_card">
         <View style={styles.cardHeaderRow}>
-          <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Glucose</Text>
+          <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Glucose</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end", flexWrap: "wrap" }}>
             {tirPct !== null ? (
               <DefinedTerm term="time_in_range">
@@ -1583,7 +1643,7 @@ export function HealthScreen() {
         return (
           <ShadowCard size="card" accent={theme.berry.solid} padding={14}>
             <View style={styles.cardHeaderRow}>
-              <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Heart Rate</Text>
+              <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Heart Rate</Text>
               {peakBpm !== null ? (
                 <View style={styles.peakBadge}>
                   <Text style={styles.peakBadgeText}>{peakBpm} PEAK</Text>
