@@ -926,7 +926,7 @@ export function MealsScreen() {
               return highSpikeMeal ? (
                 <View style={{ backgroundColor: "#fef3c7", borderRadius: 12, borderWidth: 1.5, borderColor: "#f59e0b", padding: 8, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <Text style={{ fontSize: 11, color: "#92400e" }}>
-                    {"💡 A short walk after " + highSpikeMeal.name + " may help with glucose"}
+                    {highSpikeMeal.name + " has averaged a +" + highSpikeMeal.spike + " mg/dL rise across recent logs"}
                   </Text>
                 </View>
               ) : null;
@@ -1014,9 +1014,12 @@ export function MealsScreen() {
                     >
                       <Text style={{ color: cc.fg, fontSize: 13, fontWeight: "700" }} numberOfLines={1}>{meal.name}</Text>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3, flexWrap: "wrap" }}>
-                        {spike != null && badgeBg != null ? (
-                          <View style={{ backgroundColor: badgeBg, borderRadius: 10, paddingHorizontal: 5, paddingVertical: 2 }}>
-                            <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>↑{spike}</Text>
+                        {spike != null && badgeBg != null && spike > 30 ? (
+                          <View
+                            style={{ backgroundColor: badgeBg, borderRadius: 10, paddingHorizontal: 5, paddingVertical: 2 }}
+                            accessibilityLabel={"averages a " + spike + " milligrams per deciliter glucose rise"}
+                          >
+                            <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>↑{spike} mg/dL</Text>
                           </View>
                         ) : null}
                         {(meal.calories != null || meal.carbs_g != null) ? (

@@ -1385,7 +1385,7 @@ export function HealthScreen() {
                     ) : null}
                     {scrubInfo.delta !== null ? (
                       <View style={styles.scrubStat}>
-                        <Text style={[styles.scrubLabel, { color: theme.textSoft }]}>DIFFERENCE</Text>
+                        <Text style={[styles.scrubLabel, { color: theme.textSoft }]}>VS YESTERDAY</Text>
                         <Text style={[styles.scrubVal, { color: scrubInfo.delta > 0 ? theme.red.sub : theme.teal.bar }]}>
                           {scrubInfo.delta > 0 ? "+" : ""}{scrubInfo.delta}
                         </Text>
