@@ -95,6 +95,10 @@ export async function detectFlipsForUser(userId: string): Promise<number> {
     // v1 heuristic: any stale-but-recently-active insight with a big prior
     // effect gets a follow-up marker. UI shows this as "this pattern has
     // weakened since your last check."
+    // Include the date in the derived rule_id so a second flip of the same
+    // parent (weeks or months later) doesn't hit ON CONFLICT DO NOTHING and
+    // silently vanish. One flipped-insight per parent per day is enough.
+    const today = new Date().toISOString().slice(0, 10);
     await query(
       `INSERT INTO user_insights
          (user_id, rule_id, type, title, description, confidence, confidence_score,
@@ -104,12 +108,17 @@ export async function detectFlipsForUser(userId: string): Promise<number> {
          $3,
          'moderate', 40,
          $4::jsonb, 'active', FALSE)
-       ON CONFLICT (user_id, rule_id) DO NOTHING`,
+       ON CONFLICT (user_id, rule_id) DO UPDATE SET
+         description    = EXCLUDED.description,
+         supporting_data= EXCLUDED.supporting_data,
+         last_confirmed = NOW(),
+         status         = 'active',
+         updated_at     = NOW()`,
       [
         userId,
-        `${r.rule_id}_flipped`,
+        `${r.rule_id}_flipped_${today}`,
         `The pattern reported under "${r.rule_id}" no longer meets confidence thresholds — behavior or biology may have shifted.`,
-        JSON.stringify({ parent_rule: r.rule_id, prior_effect: prior }),
+        JSON.stringify({ parent_rule: r.rule_id, prior_effect: prior, detected_on: today }),
       ]
     );
     emitted++;

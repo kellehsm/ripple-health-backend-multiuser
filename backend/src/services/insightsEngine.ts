@@ -363,22 +363,33 @@ export async function runInsightsForUser(
   };
   const candidates: Candidate[] = [];
 
+  // Per-rule timeout — a rule that hangs on a bad query no longer holds
+  // its user's whole engine run indefinitely. 30s is generous for the
+  // heaviest legacy correlational rules.
+  const RULE_TIMEOUT_MS = 30_000;
+
   await Promise.allSettled(
     eligibleRules.map(async (rule) => {
       const t0 = Date.now();
       try {
-        let result: InsightResult | null = null;
-        if (typeof rule.runWithContext === "function") {
-          result = await rule.runWithContext({
-            userId,
-            capabilities,
-            frame,
-            currentTier: rule.tier ?? "semiweekly",
-            now,
-          });
-        } else {
-          result = await rule.run(userId, capabilities);
-        }
+        const invoke = async (): Promise<InsightResult | null> => {
+          if (typeof rule.runWithContext === "function") {
+            return rule.runWithContext({
+              userId,
+              capabilities,
+              frame,
+              currentTier: rule.tier ?? "semiweekly",
+              now,
+            });
+          }
+          return rule.run(userId, capabilities);
+        };
+
+        const timeout = new Promise<InsightResult | null>((_, reject) =>
+          setTimeout(() => reject(new Error(`rule ${rule.id} timed out after ${RULE_TIMEOUT_MS}ms`)), RULE_TIMEOUT_MS)
+        );
+
+        const result = await Promise.race([invoke(), timeout]);
         if (!result) return;
 
         // MDE gate — if the rule declared a primary metric and reports an
@@ -427,14 +438,18 @@ export async function runInsightsForUser(
     foundRuleIds.push(c.rule.id);
   }
 
-  // Observability — one row per rule per run, non-blocking.
+  // Observability — one row per rule per run, non-blocking. Table uses a
+  // BIGSERIAL PK (see migration 034), so every insert is a new row — no
+  // conflicts to swallow. If an insert genuinely errors we log it once
+  // instead of hiding it silently.
   Promise.all(
     candidates.map(c => query(
       `INSERT INTO insight_rule_runs (user_id, rule_id, rule_version, tier, runtime_ms, fired, fdr_rejected)
-       VALUES ($1, $2, $3, $4, $5, TRUE, $6)
-       ON CONFLICT DO NOTHING`,
+       VALUES ($1, $2, $3, $4, $5, TRUE, $6)`,
       [userId, c.rule.id, c.rule.version ?? 1, c.rule.tier ?? "semiweekly", c.runtimeMs, !!(c.result as any).__fdrRejected]
-    ).catch(() => {}))
+    ).catch((err) => {
+      console.warn(`[insightsEngine] insight_rule_runs insert failed for rule ${c.rule.id}:`, err?.message);
+    }))
   ).catch(() => {});
 
   // Post-run: dedup near-duplicates then rank + persist rank_score.
