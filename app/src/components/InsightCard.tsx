@@ -1,10 +1,11 @@
 import React, { useRef, useState } from "react";
-import { Animated, PanResponder, View, Text, Pressable, StyleSheet } from "react-native";
+import { Animated, PanResponder, View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
 import { ShadowCard } from "./ShadowCard";
+import { InsightSparkline } from "./InsightSparkline";
 
 export type Confidence = "low" | "moderate" | "high" | "very_high";
 
@@ -250,6 +251,47 @@ const TYPE_TIP: Record<string, string> = {
   mindfulness:  "Even a short session counts — consistency over duration.",
 };
 
+/**
+ * Given the insight's supporting_data, find a paired comparison suitable for
+ * the sparkline (e.g. avg_mood_high_sleep vs avg_mood_low_sleep). Returns
+ * null when no clean pair is available.
+ */
+function pickSparklinePair(data: Record<string, unknown>): { labelA: string; labelB: string; valueA: number; valueB: number; unit: string } | null {
+  const pairs: Array<[RegExp, RegExp, string]> = [
+    [/avg_mood_(high|good|non|adherent)_/, /avg_mood_(low|poor|no|non_adherent|missed)_/, "/5"],
+    [/avg_glucose_(good|adherent|low|non|active|mindfulness)_?/, /avg_glucose_(poor|missed|high|sedentary|no_mindfulness)_?/, " mg/dL"],
+    [/avg_steps_(high|good)_?/, /avg_steps_(low|poor|no)_?/, ""],
+    [/avg_spend_(low|weekday|no)_?/, /avg_spend_(high|weekend)_?/, " $"],
+    [/avg_sleep_quality_(no|early|low)_?/, /avg_sleep_quality_(alcohol|late|high)_?/, "/10"],
+  ];
+  const keys = Object.keys(data);
+  for (const [reA, reB, unit] of pairs) {
+    const kA = keys.find(k => reA.test(k));
+    const kB = keys.find(k => reB.test(k));
+    if (kA && kB) {
+      const vA = Number(data[kA]);
+      const vB = Number(data[kB]);
+      if (Number.isFinite(vA) && Number.isFinite(vB)) {
+        const meta = DATA_KEY_META[kA];
+        const metaB = DATA_KEY_META[kB];
+        return {
+          labelA: meta?.label ?? kA,
+          labelB: metaB?.label ?? kB,
+          valueA: vA,
+          valueB: vB,
+          unit,
+        };
+      }
+    }
+  }
+  // Generic fallback: any two numeric values whose keys share a "difference"
+  // partner (e.g. "before_mean" and "after_mean").
+  if (typeof data.before_mean === "number" && typeof data.after_mean === "number") {
+    return { labelA: "Before", labelB: "After", valueA: data.before_mean, valueB: data.after_mean, unit: "" };
+  }
+  return null;
+}
+
 function formatSupportingData(data: Record<string, unknown>): Array<{ label: string; value: string }> {
   return Object.entries(data)
     .filter(([k, v]) => {
@@ -276,11 +318,13 @@ interface InsightCardProps {
   compact?: boolean;
   onPressIn?: () => void;
   onPressOut?: () => void;
+  onExplain?: (id: string) => void;
 }
 
-export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compact = false, onPressIn, onPressOut }: InsightCardProps) {
+export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compact = false, onPressIn, onPressOut, onExplain }: InsightCardProps) {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(false);
+  const [showConfExplainer, setShowConfExplainer] = useState(false);
 
   const icon = TYPE_ICON[insight.type] ?? "bulb-outline";
   const confColor = getConfidenceColor(insight.confidence, theme);
@@ -289,6 +333,10 @@ export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compa
   const card = theme.card;
 
   const supportRows = expanded ? formatSupportingData(insight.supporting_data) : [];
+  const sparklinePair = expanded ? pickSparklinePair(insight.supporting_data ?? {}) : null;
+  const pVal = typeof (insight.supporting_data as any)?.p_value === "number"
+    ? Number((insight.supporting_data as any).p_value)
+    : null;
   const age = Math.floor((Date.now() - new Date(insight.last_confirmed).getTime()) / 86400000);
   const ageLabel = age === 0 ? "today" : age === 1 ? "yesterday" : `${age} days ago`;
   const isNew = (Date.now() - new Date(insight.first_detected).getTime()) < 7 * 86400000;
@@ -379,10 +427,29 @@ export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compa
       {/* Expanded supporting data */}
       {expanded && (
         <View style={[styles.supportBox, { borderTopColor: ink + "33" }]}>
-          <Text style={[styles.supportHeader, { color: theme.textSoft }]}>Why am I seeing this?</Text>
+          <Pressable onPress={() => setShowConfExplainer(v => !v)}>
+            <Text style={[styles.supportHeader, { color: theme.textSoft }]}>
+              Why am I seeing this? {pVal != null ? `· p=${pVal.toFixed(3)}` : ""}
+            </Text>
+          </Pressable>
           <Text style={[styles.supportNote, { color: theme.textSoft }]}>
-            This pattern was observed across {insight.times_observed} data points. Confidence is based on sample size and effect size — not a medical finding.
+            {showConfExplainer
+              ? `${confLabel}: observed across ${insight.times_observed} data points${pVal != null ? ` with p=${pVal.toFixed(3)}` : ""}. Higher confidence = more evidence, not a medical finding.`
+              : `This pattern was observed across ${insight.times_observed} data points. Tap for details.`}
           </Text>
+
+          {sparklinePair && (
+            <InsightSparkline
+              labelA={sparklinePair.labelA}
+              labelB={sparklinePair.labelB}
+              valueA={sparklinePair.valueA}
+              valueB={sparklinePair.valueB}
+              unit={sparklinePair.unit}
+              colorA={confColor}
+              colorB={theme.textSoft}
+            />
+          )}
+
           <View style={styles.dataGrid}>
             {supportRows.map(row => (
               <View key={row.label} style={[styles.dataRow, { borderBottomColor: ink + "1A" }]}>
@@ -394,16 +461,40 @@ export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compa
           {tip && (
             <Text style={[styles.tipText, { color: theme.textSoft }]}>{tip}</Text>
           )}
-          {onDismiss && (
-            <Pressable
-              onPress={() => onDismiss(insight.id)}
-              style={[styles.dismissBtn, { borderColor: ink + "44" }]}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss this insight"
-            >
-              <Text style={[styles.dismissText, { color: theme.textSoft }]}>Dismiss</Text>
-            </Pressable>
-          )}
+          <View style={styles.actionRow}>
+            {onExplain && (
+              <Pressable
+                onPress={() => onExplain(insight.id)}
+                style={[styles.actionBtn, { borderColor: ink + "44" }]}
+                accessibilityRole="button"
+                accessibilityLabel="Ask AI about this insight"
+              >
+                <Ionicons name="sparkles-outline" size={13} color={theme.textSoft} />
+                <Text style={[styles.actionText, { color: theme.textSoft }]}>  Ask about this</Text>
+              </Pressable>
+            )}
+            {onPin && (
+              <Pressable
+                onPress={() => onPin(insight.id, !isPinned)}
+                style={[styles.actionBtn, { borderColor: ink + "44" }]}
+                accessibilityRole="button"
+                accessibilityLabel={isPinned ? "Unpin insight" : "Pin insight"}
+              >
+                <Ionicons name={isPinned ? "bookmark" : "bookmark-outline"} size={13} color={theme.textSoft} />
+                <Text style={[styles.actionText, { color: theme.textSoft }]}>  {isPinned ? "Pinned" : "Pin"}</Text>
+              </Pressable>
+            )}
+            {onDismiss && (
+              <Pressable
+                onPress={() => onDismiss(insight.id)}
+                style={[styles.actionBtn, { borderColor: ink + "44" }]}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss this insight"
+              >
+                <Text style={[styles.actionText, { color: theme.textSoft }]}>Dismiss</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
       )}
     </Pressable>
@@ -516,6 +607,24 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   dismissText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  actionRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  actionText: {
     fontSize: 12,
     fontWeight: "600",
   },

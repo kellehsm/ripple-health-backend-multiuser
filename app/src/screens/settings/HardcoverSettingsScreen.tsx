@@ -78,7 +78,7 @@ export function HardcoverSettingsScreen() {
     setSyncing(true);
     try {
       const res = await api.hardcoverSync();
-      const summary = `Pushed: ${res.pushed}  Pulled: ${res.pulled}  Errors: ${res.errors}`;
+      const summary = `Pushed: ${res.pushed} · Pulled: ${res.pulled} · Errors: ${res.errors}`;
       Alert.alert("Sync complete", summary);
       setLastSynced(new Date().toISOString());
     } catch (e: any) {

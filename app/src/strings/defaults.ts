@@ -464,7 +464,7 @@ export const DEFAULT_STRINGS = {
   session_tap_to_log: "Tap to log",
   session_hold_to_remove: "hold to remove",
   session_add_exercise: "+ Add exercise",
-  session_start_button: "▶  Start",
+  session_start_button: "▶ Start",
   session_finish_button: "Finish",
   session_workout_complete: "Workout complete!",
   session_stat_exercises: "EXERCISES",

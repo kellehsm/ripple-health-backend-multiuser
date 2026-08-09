@@ -20,6 +20,9 @@ export const CARD_OPACITY_MIN = 0.30;
 export const CARD_OPACITY_MAX = 1.0;
 const DEFAULT_OPACITY = 1.0;
 
+export type Density = "compact" | "comfortable" | "spacious";
+export type ColorBlindMode = "none" | "protanopia" | "deuteranopia" | "tritanopia";
+
 type AppSettings = {
   shadowsEnabled: boolean;
   fontFamily: FontFamilyKey;
@@ -27,6 +30,11 @@ type AppSettings = {
   cardOpacity: number;
   cardOpacityManualOverride: boolean;
   cardGlass: boolean;
+  density: Density;
+  colorBlindMode: ColorBlindMode;
+  hapticsEnabled: boolean;
+  timeOfDayThemeShift: boolean;
+  metricColorOverrides: Record<string, string>;   // metric name -> hex
 };
 
 type AppSettingsContextValue = AppSettings & {
@@ -36,6 +44,11 @@ type AppSettingsContextValue = AppSettings & {
   setCardOpacity: (v: number) => void;
   resetCardOpacity: () => void;
   setCardGlass: (v: boolean) => void;
+  setDensity: (v: Density) => void;
+  setColorBlindMode: (v: ColorBlindMode) => void;
+  setHapticsEnabled: (v: boolean) => void;
+  setTimeOfDayThemeShift: (v: boolean) => void;
+  setMetricColorOverride: (metric: string, color: string | null) => void;
 };
 
 // ─── Storage keys ──────────────────────────────────────────────────────────────
@@ -46,6 +59,11 @@ const KEY_FONT_SCALE       = "ripple_font_scale";
 const KEY_CARD_OPACITY     = "ripple_card_opacity";
 const KEY_OPACITY_OVERRIDE = "ripple_card_opacity_override";
 const KEY_CARD_GLASS       = "ripple_card_glass";
+const KEY_DENSITY          = "ripple_density";
+const KEY_CB_MODE          = "ripple_color_blind_mode";
+const KEY_HAPTICS          = "ripple_haptics_enabled";
+const KEY_TOD_SHIFT        = "ripple_tod_theme_shift";
+const KEY_METRIC_COLORS    = "ripple_metric_color_overrides";
 
 // ─── Context ───────────────────────────────────────────────────────────────────
 
@@ -56,12 +74,22 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   cardOpacity: DEFAULT_OPACITY,
   cardOpacityManualOverride: false,
   cardGlass: false,
+  density: "comfortable",
+  colorBlindMode: "none",
+  hapticsEnabled: true,
+  timeOfDayThemeShift: false,
+  metricColorOverrides: {},
   setShadowsEnabled: () => {},
   setFontFamily: () => {},
   setFontSizeScale: () => {},
   setCardOpacity: () => {},
   resetCardOpacity: () => {},
   setCardGlass: () => {},
+  setDensity: () => {},
+  setColorBlindMode: () => {},
+  setHapticsEnabled: () => {},
+  setTimeOfDayThemeShift: () => {},
+  setMetricColorOverride: () => {},
 });
 
 export function AppSettingsProvider({ children }: { children: React.ReactNode }) {
@@ -73,6 +101,11 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   const [cardOpacity, setCardOpacityState] = useState(DEFAULT_OPACITY);
   const [cardOpacityManualOverride, setCardOpacityManualOverrideState] = useState(false);
   const [cardGlass, setCardGlassState] = useState(false);
+  const [density, setDensityState] = useState<Density>("comfortable");
+  const [colorBlindMode, setColorBlindModeState] = useState<ColorBlindMode>("none");
+  const [hapticsEnabled, setHapticsEnabledState] = useState(true);
+  const [timeOfDayThemeShift, setTimeOfDayThemeShiftState] = useState(false);
+  const [metricColorOverrides, setMetricColorOverridesState] = useState<Record<string, string>>({});
 
   // Ref so palette-change effect can read current override without stale closure
   const manualOverrideRef = useRef(false);
@@ -107,6 +140,22 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
       }
 
       if (glass !== null) setCardGlassState(glass === "true");
+
+      // Phase-2 UI upgrades — density, colorBlind, haptics, ToD shift, metric colors.
+      const [den, cb, hap, tod, mc] = await Promise.all([
+        AsyncStorage.getItem(KEY_DENSITY),
+        AsyncStorage.getItem(KEY_CB_MODE),
+        AsyncStorage.getItem(KEY_HAPTICS),
+        AsyncStorage.getItem(KEY_TOD_SHIFT),
+        AsyncStorage.getItem(KEY_METRIC_COLORS),
+      ]);
+      if (den === "compact" || den === "comfortable" || den === "spacious") setDensityState(den);
+      if (cb === "none" || cb === "protanopia" || cb === "deuteranopia" || cb === "tritanopia") setColorBlindModeState(cb);
+      if (hap !== null) setHapticsEnabledState(hap !== "false");
+      if (tod !== null) setTimeOfDayThemeShiftState(tod === "true");
+      if (mc) {
+        try { setMetricColorOverridesState(JSON.parse(mc)); } catch {}
+      }
 
       // Backend sync (non-blocking; overrides AsyncStorage if server has a value)
       try {
@@ -181,11 +230,44 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     AsyncStorage.setItem(KEY_CARD_GLASS, String(v)).catch(() => {});
   }, []);
 
+  const setDensity = useCallback((v: Density) => {
+    setDensityState(v);
+    AsyncStorage.setItem(KEY_DENSITY, v).catch(() => {});
+  }, []);
+
+  const setColorBlindMode = useCallback((v: ColorBlindMode) => {
+    setColorBlindModeState(v);
+    AsyncStorage.setItem(KEY_CB_MODE, v).catch(() => {});
+  }, []);
+
+  const setHapticsEnabled = useCallback((v: boolean) => {
+    setHapticsEnabledState(v);
+    AsyncStorage.setItem(KEY_HAPTICS, String(v)).catch(() => {});
+    // Also propagate to the haptics lib.
+    import("../lib/haptics").then(mod => mod.setHapticsEnabled(v)).catch(() => {});
+  }, []);
+
+  const setTimeOfDayThemeShift = useCallback((v: boolean) => {
+    setTimeOfDayThemeShiftState(v);
+    AsyncStorage.setItem(KEY_TOD_SHIFT, String(v)).catch(() => {});
+  }, []);
+
+  const setMetricColorOverride = useCallback((metric: string, color: string | null) => {
+    setMetricColorOverridesState(prev => {
+      const next = { ...prev };
+      if (color) next[metric] = color; else delete next[metric];
+      AsyncStorage.setItem(KEY_METRIC_COLORS, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
   return (
     <AppSettingsContext.Provider
       value={{
         shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride, cardGlass,
+        density, colorBlindMode, hapticsEnabled, timeOfDayThemeShift, metricColorOverrides,
         setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity, setCardGlass,
+        setDensity, setColorBlindMode, setHapticsEnabled, setTimeOfDayThemeShift, setMetricColorOverride,
       }}
     >
       {children}

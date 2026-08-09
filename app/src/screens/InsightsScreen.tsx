@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Animated, Easing, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
+  Animated, Easing, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable, Modal
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { LoadingIndicator } from "../components/LoadingIndicator";
@@ -46,10 +46,14 @@ function SkeletonCard() {
 function AnimatedCard({
   insight,
   onDismiss,
+  onExplain,
+  onPin,
   animValue,
 }: {
   insight: Insight;
   onDismiss?: (id: string) => void;
+  onExplain?: (id: string) => void;
+  onPin?: (id: string, pinned: boolean) => void;
   animValue: Animated.Value;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -60,6 +64,9 @@ function AnimatedCard({
       <InsightCard
         insight={insight}
         onDismiss={onDismiss}
+        onExplain={onExplain}
+        onPin={onPin}
+        isPinned={(insight as any).pinned === true}
         onPressIn={() => Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
         onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
       />
@@ -95,6 +102,7 @@ export function InsightsScreen() {
   const [showDismissed, setShowDismissed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [undoItem, setUndoItem] = useState<Insight | null>(null);
+  const [explainItem, setExplainItem] = useState<Insight | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [animationKey, setAnimationKey] = useState(0);
   const isFirstLoad = useRef(true);
@@ -171,6 +179,18 @@ export function InsightsScreen() {
       if (item) setInsights(prev => [{ ...item, dismissed: false }, ...prev]);
     } catch (_) {}
   }
+
+  const handleExplain = useCallback((id: string) => {
+    const item = insights.find(i => i.id === id) ?? dismissed.find(i => i.id === id);
+    if (item) setExplainItem(item);
+  }, [insights, dismissed]);
+
+  const handlePin = useCallback(async (id: string, pinned: boolean) => {
+    try {
+      await (api as any).insightPin(id, pinned);
+      setInsights(prev => prev.map(i => i.id === id ? { ...i, pinned } as any : i));
+    } catch (_) {}
+  }, []);
 
   async function handleRegenerate() {
     setRegenerating(true);
@@ -328,6 +348,8 @@ export function InsightsScreen() {
                 key={`${animationKey}-${insight.id}`}
                 insight={insight}
                 onDismiss={handleDismiss}
+                onExplain={handleExplain}
+                onPin={handlePin}
                 animValue={cardAnims.current[i] ?? new Animated.Value(1)}
               />
             ))}
@@ -396,6 +418,25 @@ export function InsightsScreen() {
         onUndo={handleUndoDismiss}
         theme={theme}
       />
+    )}
+    {explainItem && (
+      <Modal transparent animationType="fade" onRequestClose={() => setExplainItem(null)}>
+        <Pressable style={styles.modalScrim} onPress={() => setExplainItem(null)}>
+          <Pressable style={[styles.modalCard, { backgroundColor: card, borderColor: ink }]} onPress={(e) => e.stopPropagation?.()}>
+            <Text style={[styles.modalTitle, { color: theme.textStrong }]}>{explainItem.title}</Text>
+            <Text style={[styles.modalBody, { color: theme.textStrong }]}>{explainItem.description}</Text>
+            <View style={{ marginTop: 12, gap: 6 }}>
+              {Object.entries(explainItem.supporting_data ?? {}).slice(0, 8).map(([k, v]) => (
+                <Text key={k} style={{ fontSize: 12, color: theme.textSoft }}>{k}: {String(v)}</Text>
+              ))}
+            </View>
+            <Text style={[styles.modalFooter, { color: theme.textSoft }]}>Descriptive only — not medical advice.</Text>
+            <Pressable style={[styles.modalClose, { borderColor: ink }]} onPress={() => setExplainItem(null)}>
+              <Text style={{ color: theme.textStrong, fontWeight: "700" }}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     )}
     </View>
   );
@@ -469,6 +510,42 @@ function makeStyles(page: string, ink: string, card: string) {
       textAlign: "center",
       marginTop: 8,
       paddingHorizontal: 8,
+    },
+    modalScrim: {
+      flex: 1,
+      backgroundColor: "rgba(0,0,0,0.4)",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 24,
+    },
+    modalCard: {
+      borderRadius: 20,
+      borderWidth: 2,
+      padding: 20,
+      width: "100%",
+      maxWidth: 400,
+    },
+    modalTitle: {
+      fontSize: 16,
+      fontWeight: "800",
+      marginBottom: 8,
+    },
+    modalBody: {
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    modalFooter: {
+      fontSize: 11,
+      fontStyle: "italic",
+      marginTop: 12,
+    },
+    modalClose: {
+      marginTop: 16,
+      alignSelf: "flex-end",
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
     },
   });
 }

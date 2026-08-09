@@ -57,4 +57,20 @@ export const api = {
     request(`/hardcover/disconnect`, { method: "DELETE" }),
   hardcoverSync: (): Promise<{ books_checked: number; pushed: number; pulled: number; errors: number }> =>
     request(`/hardcover/sync`, { method: "POST" }),
+
+  // ── Insights (Phase-5 upgrade) ─────────────────────────────────────────────
+  getInsights: () => request(`/insights`),
+  getInsightHistory: () => request(`/insights/history`),
+  dismissInsight: (id: string) => request(`/insights/${id}/dismiss`, { method: "POST", body: "{}" }),
+  undismissInsight: (id: string) => request(`/insights/${id}/undismiss`, { method: "POST", body: "{}" }),
+  regenerateInsights: () => request(`/insights/regenerate`, { method: "POST", body: "{}" }),
+  insightFeedback: (id: string, rating: "helpful" | "neutral" | "not_useful" | "already_knew") =>
+    request(`/insights/${id}/feedback`, { method: "POST", body: JSON.stringify({ rating }) }),
+  insightTry: (id: string) => request(`/insights/${id}/try`, { method: "POST", body: "{}" }),
+  insightPin: (id: string, pinned: boolean) =>
+    request(`/insights/${id}/pin`, { method: "POST", body: JSON.stringify({ pinned }) }),
+  insightExplain: (id: string) => request(`/insights/${id}/explain`, { method: "POST", body: "{}" }),
+  insightDebug: (id: string) => request(`/insights/${id}/debug`),
+  insightTimeline: () => request(`/insights/timeline`),
+  insightDigest: () => request(`/insights/digest`),
 };

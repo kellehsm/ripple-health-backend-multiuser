@@ -62,6 +62,67 @@ export function EmptyState({
   );
 }
 
+/**
+ * Feature-specific empty-state presets. Import + use directly:
+ *   <EmptyState {...EMPTY_STATES.insights(regenerateFn)} />
+ *
+ * Each preset teaches — it explains why the surface is empty and the
+ * fastest action to fill it.
+ */
+export const EMPTY_STATES = {
+  insights: (onLog?: () => void) => ({
+    icon: "🌱",
+    title: "Building your profile",
+    subtitle: "Keep logging meals, mood, and activity. Patterns start appearing after 2–3 weeks of data.",
+    action: onLog ? { label: "Log something now", onPress: onLog } : undefined,
+  }),
+  meals: (onAdd?: () => void) => ({
+    icon: "🍽️",
+    title: "No meals logged yet",
+    subtitle: "Add your first meal to start tracking how food affects your glucose and mood.",
+    action: onAdd ? { label: "Log a meal", onPress: onAdd } : undefined,
+  }),
+  glucose: () => ({
+    icon: "📉",
+    title: "No glucose readings",
+    subtitle: "Connect a CGM in Settings, or add readings manually to see your daily patterns.",
+  }),
+  history: () => ({
+    icon: "📅",
+    title: "Nothing here yet",
+    subtitle: "Once you log a few days of data, your history will fill in automatically.",
+  }),
+  experiments: (onStart?: () => void) => ({
+    icon: "🧪",
+    title: "No experiments yet",
+    subtitle: "Try running a 2-week self-experiment triggered from any actionable insight.",
+    action: onStart ? { label: "Browse insights", onPress: onStart } : undefined,
+  }),
+  friends: (onInvite?: () => void) => ({
+    icon: "👋",
+    title: "No friends yet",
+    subtitle: "Invite friends to share progress and cheer each other on.",
+    action: onInvite ? { label: "Invite a friend", onPress: onInvite } : undefined,
+  }),
+  medications: (onAdd?: () => void) => ({
+    icon: "💊",
+    title: "No medications tracked",
+    subtitle: "Add a medication to track adherence and see how it affects your patterns.",
+    action: onAdd ? { label: "Add medication", onPress: onAdd } : undefined,
+  }),
+  offline: () => ({
+    icon: "📡",
+    title: "You're offline",
+    subtitle: "Recent data is cached, but new logs will sync once you reconnect.",
+  }),
+  error: (onRetry?: () => void) => ({
+    icon: "⚠️",
+    title: "Something went wrong",
+    subtitle: "This screen couldn't load. Please try again.",
+    action: onRetry ? { label: "Retry", onPress: onRetry } : undefined,
+  }),
+};
+
 const styles = StyleSheet.create({
   container: {
     alignItems: "center",
