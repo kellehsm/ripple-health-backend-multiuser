@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Animated, Dimensions,
+  LayoutAnimation, Platform, UIManager,
 } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -136,6 +137,14 @@ export function ExerciseSessionScreen() {
   // Live heart rate — full session accumulation
   const [sessionHR, setSessionHR] = useState<Array<{ recorded_at: string; bpm: number }>>([]);
   const [hrPollAttempts, setHrPollAttempts] = useState(0);
+  const [greatSetToast, setGreatSetToast] = useState<string | null>(null);
+
+  // Auto-dismiss the "Great set!" nudge after 2.5s so it doesn't linger through the next rep.
+  useEffect(() => {
+    if (!greatSetToast) return;
+    const t = setTimeout(() => setGreatSetToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [greatSetToast]);
   const hrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const liveHR = sessionHR.length > 0 ? sessionHR[sessionHR.length - 1].bpm : null;
@@ -245,6 +254,23 @@ export function ExerciseSessionScreen() {
     try {
       await api.addExerciseEntry(sessionId, { exercise_id: exercise.id, ...form });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // "Great set!" nudge when every logged rep hits or exceeds the target max.
+      if (
+        form.target_rep_range_max &&
+        form.actual_reps_per_set?.length &&
+        form.actual_reps_per_set.every((r) => r >= form.target_rep_range_max!)
+      ) {
+        setGreatSetToast(`Great set! Every rep hit ${form.target_rep_range_max}+`);
+      }
+      // Animate the removal of the planned card so the list feels responsive.
+      if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+      }
+      LayoutAnimation.configureNext(LayoutAnimation.create(
+        220,
+        LayoutAnimation.Types.easeInEaseOut,
+        LayoutAnimation.Properties.opacity,
+      ));
       setActiveExercise({
         name: exercise.name,
         images: exercise.images ?? [],
@@ -370,6 +396,30 @@ export function ExerciseSessionScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.page }]}>
+      {greatSetToast ? (
+        <View
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: 20,
+            right: 20,
+            zIndex: 40,
+            paddingVertical: 10,
+            paddingHorizontal: 14,
+            borderRadius: 14,
+            borderWidth: 2,
+            borderColor: theme.teal.solid,
+            backgroundColor: theme.teal.tint,
+            alignItems: 'center',
+          }}
+          accessibilityLiveRegion="polite"
+          accessibilityLabel={greatSetToast}
+        >
+          <Text style={{ color: theme.teal.sub, fontSize: 14, fontWeight: '900', letterSpacing: 0.3 }} allowFontScaling maxFontSizeMultiplier={1.3}>
+            💪  {greatSetToast}
+          </Text>
+        </View>
+      ) : null}
       {/* Timer bar */}
       <View style={[styles.timerBar, { backgroundColor: theme.card, borderBottomColor: ink }]}>
         <View style={{ flex: 1 }}>
@@ -406,28 +456,39 @@ export function ExerciseSessionScreen() {
         </View>
         {!started ? (
           <Pressable
-            onPress={handleStartWorkout}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+              handleStartWorkout();
+            }}
             style={[styles.startBtn, { backgroundColor: theme.teal.solid, borderColor: ink }]}
+            accessibilityRole="button"
+            accessibilityLabel="Start workout"
           >
-            <Text style={styles.startBtnText}>▶  Start</Text>
+            <Text style={styles.startBtnText} allowFontScaling maxFontSizeMultiplier={1.2}>▶  Start</Text>
           </Pressable>
         ) : (
           <Pressable
             onPress={handleFinish}
             disabled={finishing}
             style={[styles.finishBtn, { backgroundColor: theme.coral.solid, borderColor: ink }]}
+            accessibilityRole="button"
+            accessibilityLabel="Finish workout"
+            accessibilityState={{ busy: finishing }}
           >
             {finishing
               ? <LoadingIndicator color="#fff" size="small" />
-              : <Text style={styles.finishBtnText}>Finish</Text>
+              : <Text style={styles.finishBtnText} allowFontScaling maxFontSizeMultiplier={1.2}>Finish</Text>
             }
           </Pressable>
         )}
       </View>
 
-      {/* Active exercise card */}
-      {activeExercise && restSeconds === null && (
-        <View style={[styles.activeCard, { backgroundColor: theme.card, borderColor: theme.teal.solid ?? ink }]}>
+      {/* Active exercise card — kept visible during rest so the user can see
+          what they just finished while the timer counts down. */}
+      {activeExercise && (
+        <View style={[styles.activeCard, { backgroundColor: theme.card, borderColor: theme.teal.solid ?? ink }]}
+          accessibilityLabel={`Just logged: ${activeExercise.name}`}
+        >
           <CyclingImage images={activeExercise.images} style={styles.activeImage} />
           <View style={styles.activeInfo}>
             <Text style={[styles.activeName, { color: theme.textStrong }]} numberOfLines={2}>
@@ -454,22 +515,30 @@ export function ExerciseSessionScreen() {
             <Text style={[styles.restLabel, { color: theme.teal.sub }]}>REST</Text>
             <Text style={[styles.restTimer, { color: theme.teal.sub }]}>{formatSecs(restSeconds)}</Text>
           </View>
-          <View style={{ gap: 6 }}>
-            <View style={{ flexDirection: 'row', gap: 6 }}>
+          <View style={{ gap: 6, maxWidth: 160 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {REST_OPTIONS.map(opt => (
                 <Pressable
                   key={opt}
-                  onPress={() => startRestTimer(opt)}
+                  onPress={() => { Haptics.selectionAsync().catch(() => {}); startRestTimer(opt); }}
                   style={[styles.restOption, {
                     backgroundColor: theme.teal.solid,
                     borderColor: theme.teal.solid,
+                    flexBasis: '48%',
                   }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rest ${opt} seconds`}
                 >
-                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{opt}s</Text>
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }} allowFontScaling maxFontSizeMultiplier={1.2}>{opt}s</Text>
                 </Pressable>
               ))}
             </View>
-            <Pressable onPress={dismissRest} style={[styles.restDismiss, { borderColor: theme.teal.solid }]}>
+            <Pressable
+              onPress={dismissRest}
+              style={[styles.restDismiss, { borderColor: theme.teal.solid, minHeight: 40 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Done resting, skip the timer"
+            >
               <Text style={{ color: theme.teal.sub, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
                 Done resting
               </Text>
@@ -572,19 +641,27 @@ const styles = StyleSheet.create({
   timerLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
   timer: { fontSize: 32, fontWeight: '900', fontVariant: ['tabular-nums'], marginTop: 2, letterSpacing: -1 },
   startBtn: {
-    borderRadius: 16,
+    borderRadius: 18,
+    borderWidth: 2,
+    paddingHorizontal: 26,
+    paddingVertical: 14,
+    minHeight: 52,
+    minWidth: 96,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  startBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  finishBtn: {
+    borderRadius: 18,
     borderWidth: 2,
     paddingHorizontal: 22,
-    paddingVertical: 10,
+    paddingVertical: 14,
+    minHeight: 52,
+    minWidth: 88,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  startBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  finishBtn: {
-    borderRadius: 16,
-    borderWidth: 2,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  finishBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  finishBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
   activeCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -614,10 +691,14 @@ const styles = StyleSheet.create({
   restLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
   restTimer: { fontSize: 32, fontWeight: '800', fontVariant: ['tabular-nums'], marginTop: 2 },
   restOption: {
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    minHeight: 40,
+    minWidth: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   restDismiss: {
     borderRadius: 12,
