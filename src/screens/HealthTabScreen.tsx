@@ -926,9 +926,14 @@ function MedicationList({ theme, scrollEnabled = true }: { theme: any; scrollEna
             return (
               <View key={bucket} style={[medStyles.bucket, { backgroundColor: theme.card, borderColor: theme.cardBorder, ...coloredShadow(theme.teal.solid) }]}>
                 <View style={medStyles.bucketHeader}>
-                  <Text style={[medStyles.bucketLabel, { color: theme.textStrong }]}>{BUCKET_LABELS[bucket]}</Text>
-                  <Pressable onPress={() => markAllTaken(bucket)}>
-                    <Text style={{ color: theme.teal.solid, fontWeight: '700', fontSize: 12 }}>Mark all</Text>
+                  <Text style={[medStyles.bucketLabel, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.3} accessibilityRole="header">{BUCKET_LABELS[bucket]}</Text>
+                  <Pressable
+                    onPress={() => markAllTaken(bucket)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Mark all ${BUCKET_LABELS[bucket]} doses as taken`}
+                    hitSlop={6}
+                  >
+                    <Text style={{ color: theme.teal.solid, fontWeight: '700', fontSize: 12 }} allowFontScaling maxFontSizeMultiplier={1.3}>Mark all</Text>
                   </Pressable>
                 </View>
                 {meds.map((med) => {
@@ -945,6 +950,10 @@ function MedicationList({ theme, scrollEnabled = true }: { theme: any; scrollEna
                     <Pressable
                       key={med.id + slot.id}
                       style={[medStyles.medRow, { borderTopColor: theme.cardBorder }]}
+                      accessibilityRole={selectMode ? "checkbox" : "button"}
+                      accessibilityState={{ checked: taken, selected: isSelected }}
+                      accessibilityLabel={`${med.name}${med.dosage ? " " + med.dosage : ""}, ${taken ? "taken" : "not taken"}`}
+                      accessibilityHint={selectMode ? "Double tap to add to selection" : (taken ? "Double tap to unmark" : "Double tap to mark taken")}
                       onPress={() => {
                         if (selectMode) {
                           setSelectedSlotIds((prev) => prev.includes(slot.id) ? prev.filter((x) => x !== slot.id) : [...prev, slot.id]);
@@ -1629,11 +1638,21 @@ function MonthCalendar({
           const isPredictedStart = dateStr === predictedStartDay;
           const isOtherPredicted = isPredicted && !isPredictedStart;
 
+          const parts: string[] = [];
+          if (isPeriodDay) parts.push(`period logged: ${log!.flow_intensity} flow`);
+          if (isPredictedStart) parts.push('predicted period start');
+          else if (isOtherPredicted) parts.push('predicted fertile window');
+          if (hasSymptomLog) parts.push(`symptoms: ${(log!.symptoms ?? []).join(', ')}`);
+          if (hasMoodLog) parts.push(`mood: ${log!.mood_label}`);
+          const cellLabel = `${fmtDate(dateStr)}${isToday ? ', today' : ''}${parts.length ? ', ' + parts.join(', ') : ''}. Double tap to log or edit.`;
+
           return (
             <Pressable
               key={dateStr}
               style={calStyles.cell}
               onPress={() => onDayPress(dateStr)}
+              accessibilityRole="button"
+              accessibilityLabel={cellLabel}
             >
               {/* Predicted start day — solid saturated lavender fill */}
               {!isPeriodDay && isPredictedStart && (
