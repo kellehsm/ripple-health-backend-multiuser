@@ -17,9 +17,9 @@ const q = (sql, params) => pool.query(sql, params);
 
 const USER_ID = "c51b97ef-10fc-4369-873a-972b657bcfcf";
 
-// 3.5 months: Apr 5 → Jul 23 2026
-const START = new Date("2026-04-05T00:00:00-05:00");
-const END   = new Date("2026-07-23T23:59:00-05:00");
+// 3.5 months ending today (Aug 9 2026)
+const START = new Date("2026-04-22T00:00:00-05:00");
+const END   = new Date("2026-08-09T23:59:00-05:00");
 
 function rand(min, max) { return Math.random() * (max - min) + min; }
 function randInt(min, max) { return Math.round(rand(min, max)); }
@@ -64,7 +64,9 @@ await q("DELETE FROM sleep_sessions WHERE user_id=$1", [USER_ID]);
 await q("DELETE FROM meals WHERE user_id=$1", [USER_ID]);
 await q("DELETE FROM journal_entries WHERE user_id=$1", [USER_ID]);
 await q("DELETE FROM spending_entries WHERE user_id=$1", [USER_ID]);
-await q("DELETE FROM daily_summary WHERE user_id=$1", [USER_ID]);
+// Migration 025 renamed daily_summary → daily_summaries. Delete from whichever
+// exists so this script works against both post-025 (dev+prod) and legacy DBs.
+await q("DELETE FROM daily_summaries WHERE user_id=$1", [USER_ID]);
 await q("DELETE FROM chart_annotations WHERE user_id=$1", [USER_ID]);
 console.log("Cleared.");
 
