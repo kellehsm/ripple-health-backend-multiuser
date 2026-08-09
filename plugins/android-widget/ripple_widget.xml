@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@drawable/ripple_widget_bg"
-    android:padding="14dp">
+    android:padding="12dp">
 
     <!-- Header: branding + timestamp + refresh -->
     <LinearLayout
@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="10dp">
+        android:layout_marginBottom="8dp">
 
         <TextView
             android:layout_width="0dp"
@@ -28,7 +28,7 @@
             android:id="@+id/widget_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Tap to refresh"
+            android:text="Tap ↻ to refresh"
             android:textSize="9sp"
             android:textColor="#9E9689" />
 
@@ -43,17 +43,15 @@
 
     </LinearLayout>
 
-    <!-- Metric chips row -->
+    <!-- Row 1: Glucose | Steps | Heart rate -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:orientation="horizontal">
 
-        <!-- Glucose chip -->
         <LinearLayout
-            android:id="@+id/chip_glucose"
+            android:id="@+id/block_glucose"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -76,7 +74,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textColor="#A62A50"
                 android:textStyle="bold" />
 
@@ -90,8 +88,8 @@
 
         </LinearLayout>
 
-        <!-- Steps chip -->
         <LinearLayout
+            android:id="@+id/block_steps"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
@@ -114,7 +112,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textColor="#2A7A80"
                 android:textStyle="bold" />
 
@@ -128,91 +126,175 @@
 
         </LinearLayout>
 
-        <!-- Mood chip -->
         <LinearLayout
+            android:id="@+id/block_heart"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:gravity="center"
-            android:background="@drawable/ripple_chip_violet"
+            android:gravity="center_vertical"
+            android:background="@drawable/ripple_chip_red"
             android:padding="8dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="MOOD"
+                android:text="HEART"
                 android:textSize="8sp"
-                android:textColor="#7B3FBF"
-                android:textStyle="bold"
-                android:gravity="center" />
+                android:textColor="#C0392B"
+                android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/widget_mood"
+                android:id="@+id/widget_heart"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="28sp"
-                android:gravity="center"
-                android:layout_marginTop="2dp" />
+                android:textSize="20sp"
+                android:textColor="#C0392B"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="bpm"
+                android:textSize="8sp"
+                android:textColor="#D4766B"
+                android:layout_marginTop="1dp" />
 
         </LinearLayout>
 
     </LinearLayout>
 
-    <!-- Quick-action buttons -->
+    <!-- Row 2: Water (with + button) | Meals -->
     <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal"
+        android:layout_marginTop="6dp">
+
+        <LinearLayout
+            android:id="@+id/block_water"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/ripple_chip_blue"
+            android:paddingLeft="10dp"
+            android:paddingRight="6dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:layout_marginRight="5dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💧 WATER"
+                    android:textSize="8sp"
+                    android:textColor="#2F6DB5"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_water"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="--"
+                    android:textSize="18sp"
+                    android:textColor="#2F6DB5"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="glasses"
+                    android:textSize="8sp"
+                    android:textColor="#6E97C6"
+                    android:layout_marginTop="1dp" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/btn_water_plus"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:text="+"
+                android:textSize="20sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:background="@drawable/ripple_btn_blue_round" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/block_meal"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:background="@drawable/ripple_chip_coral"
+            android:padding="10dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🍜 MEALS"
+                android:textSize="8sp"
+                android:textColor="#E8654E"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Log a meal"
+                android:textSize="14sp"
+                android:textColor="#C4472F"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="open meals →"
+                android:textSize="8sp"
+                android:textColor="#DE8A76"
+                android:layout_marginTop="1dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Row 3: Insight carousel — auto-flips through top insights -->
+    <LinearLayout
+        android:id="@+id/block_insight"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginTop="10dp">
+        android:background="@drawable/ripple_chip_violet"
+        android:paddingLeft="10dp"
+        android:paddingRight="10dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:layout_marginTop="6dp">
 
-        <TextView
-            android:id="@+id/btn_meal"
-            android:layout_width="0dp"
+        <ViewFlipper
+            android:id="@+id/insight_flipper"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="🍜 Meal"
-            android:textSize="11sp"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:background="@drawable/ripple_btn_coral"
-            android:paddingTop="7dp"
-            android:paddingBottom="7dp"
-            android:layout_marginRight="4dp" />
-
-        <TextView
-            android:id="@+id/btn_water"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="💧 Water"
-            android:textSize="11sp"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:background="@drawable/ripple_btn_teal"
-            android:paddingTop="7dp"
-            android:paddingBottom="7dp"
-            android:layout_marginLeft="4dp"
-            android:layout_marginRight="4dp" />
-
-        <TextView
-            android:id="@+id/btn_mood"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="😊 Mood"
-            android:textSize="11sp"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:background="@drawable/ripple_btn_violet"
-            android:paddingTop="7dp"
-            android:paddingBottom="7dp"
-            android:layout_marginLeft="4dp" />
+            android:autoStart="true"
+            android:flipInterval="10000"
+            android:inAnimation="@android:anim/fade_in"
+            android:outAnimation="@android:anim/fade_out"
+            android:measureAllChildren="true" />
 
     </LinearLayout>
 

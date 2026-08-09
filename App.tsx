@@ -72,6 +72,22 @@ function navigateWhenReady(name: TabName, params?: Record<string, unknown>) {
   }, 50);
 }
 
+// Navigate to a screen on the ROOT stack (not inside the Tabs navigator).
+function navigateRootWhenReady(name: string) {
+  const attempt = () => {
+    if (navigationRef.isReady()) {
+      navigationRef.dispatch(CommonActions.navigate({ name }));
+      return true;
+    }
+    return false;
+  };
+  if (attempt()) return;
+  const deadline = Date.now() + 5000;
+  const timer = setInterval(() => {
+    if (attempt() || Date.now() > deadline) clearInterval(timer);
+  }, 50);
+}
+
 function toast(msg: string) {
   if (Platform.OS === "android") ToastAndroid.show(msg, ToastAndroid.SHORT);
   else Alert.alert(msg);
@@ -96,6 +112,10 @@ const DEEP_LINK_ACTIONS: Record<string, () => void> = {
   "log-water": () => void logWaterFromShortcut(),
   "meals": () => navigateWhenReady("Meals"),
   "mood": () => navigateWhenReady("Home"),
+  "health": () => navigateWhenReady("Health"),
+  "steps": () => navigateRootWhenReady("StepsDetail"),
+  "heartrate": () => navigateRootWhenReady("HeartRateDetail"),
+  "insights": () => navigateRootWhenReady("Insights"),
 };
 
 function handleUrl(url: string | null) {
@@ -106,9 +126,17 @@ function handleUrl(url: string | null) {
   } catch {
     return;
   }
-  if (!DEEP_LINK_SCHEMES.has(parsed.protocol) || !DEEP_LINK_HOSTS.has(parsed.hostname)) return;
-  // Match the first path segment against a known action; ignore anything else.
-  const action = parsed.pathname.replace(/^\/+/, "").split("/")[0];
+  if (!DEEP_LINK_SCHEMES.has(parsed.protocol)) return;
+  // WHATWG parsing puts the action in the hostname for ripple://<action>,
+  // but in the pathname for ripple:///<action> and https://app.kels.gg/<action>.
+  let action: string;
+  if (DEEP_LINK_HOSTS.has(parsed.hostname)) {
+    action = parsed.pathname.replace(/^\/+/, "").split("/")[0];
+  } else if (parsed.protocol === "ripple:") {
+    action = parsed.hostname;
+  } else {
+    return;
+  }
   DEEP_LINK_ACTIONS[action]?.();
 }
 
