@@ -27,6 +27,8 @@ import { ShadowCard } from '../components/ShadowCard';
 import { addDays, fmtDate, todayStr, getWeekStart } from '../utils/dateUtils';
 import { FLOW_OPTIONS, FLOW_COLORS } from '../constants';
 import { softenInsight } from '../lib/softenInsight';
+import { ChipButton } from '../components/ChipButton';
+import { ModalHeader } from '../components/ModalHeader';
 
 const HEALTH_SECTIONS: SectionDef[] = [
   { id: 'cycle_tab',    label: 'Cycle tracking', description: 'Menstrual cycle calendar and logging' },
@@ -209,9 +211,12 @@ function OverviewBlocks({
   const totalSlots = scheduledMeds.reduce((acc, m) => acc + m.slots.length, 0);
   const takenSlots = scheduledMeds.reduce((acc, m) => acc + m.slots.filter((s) => s.dose_log !== null).length, 0);
 
+  const hasPrn = medications.some((m) => m.is_prn && m.active);
   const medSummaryLine = totalSlots === 0
-    ? 'No schedule'
+    ? (hasPrn ? 'No scheduled doses' : 'No schedule')
     : `${takenSlots} of ${totalSlots} taken`;
+  const nextDose = nextDoseCallout(scheduledMeds);
+  const overdueRefillCount = medications.filter((m) => m.active && m.refill_date && (new Date(m.refill_date).getTime() - Date.now()) / 86400000 <= 0).length;
 
   const cycleDayLine = prediction?.currentCycleDay
     ? `Day ${prediction.currentCycleDay}`
@@ -260,11 +265,23 @@ function OverviewBlocks({
             ]);
           }}
           accessibilityRole="button"
-          accessibilityLabel="Medication overview"
+          accessibilityLabel={`Medication overview. ${medSummaryLine}.${nextDose ? ` Next dose: ${nextDose}.` : ""}${overdueRefillCount > 0 ? ` ${overdueRefillCount} ${overdueRefillCount === 1 ? "refill" : "refills"} overdue.` : ""}`}
         >
           <Text style={obStyles.icon}>💊</Text>
-          <Text style={[obStyles.blockLabel, { color: theme.textStrong }]}>Meds</Text>
-          <Text style={[obStyles.blockValue, { color: theme.teal.fg }]}>{medSummaryLine}</Text>
+          <Text style={[obStyles.blockLabel, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.3}>Meds</Text>
+          <Text style={[obStyles.blockValue, { color: theme.teal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{medSummaryLine}</Text>
+          {nextDose ? (
+            <Text style={[obStyles.blockSub, { color: theme.teal.fg, fontWeight: '800' }]} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>
+              → {nextDose}
+            </Text>
+          ) : null}
+          {overdueRefillCount > 0 ? (
+            <View style={{ marginTop: 4, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, backgroundColor: (theme as any).berry?.bg ?? '#FDEDEC', borderWidth: 1, borderColor: (theme as any).berry?.solid ?? '#C0392B' }}>
+              <Text style={{ fontSize: 10, fontWeight: '900', color: (theme as any).berry?.fg ?? '#7A1F3C' }}>
+                Refill ×{overdueRefillCount}
+              </Text>
+            </View>
+          ) : null}
         </Pressable>
 
         {!hiddenSections.includes('cycle_tab') && (
@@ -886,6 +903,24 @@ function MedicationList({ theme, scrollEnabled = true }: { theme: any; scrollEna
             </Pressable>
           </View>
 
+          {/* Empty schedule but has PRN meds → point to them instead of leaving a bare gap */}
+          {(() => {
+            const anyScheduledToday = Object.values(buckets).some((b) => b.length > 0);
+            const anyPrn = medications.some((m) => m.active && m.is_prn);
+            if (!anyScheduledToday && anyPrn) {
+              return (
+                <View style={{ padding: 12, borderRadius: 14, borderWidth: 1.5, borderColor: theme.cardBorder, backgroundColor: theme.card }}>
+                  <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: '700' }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    No scheduled doses today
+                  </Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 2 }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    PRN medications are in "My Medications" below.
+                  </Text>
+                </View>
+              );
+            }
+            return null;
+          })()}
           {Object.entries(buckets).map(([bucket, meds]) => {
             if (meds.length === 0) return null;
             return (
@@ -985,7 +1020,44 @@ function MedicationList({ theme, scrollEnabled = true }: { theme: any; scrollEna
             <Text style={{ color: theme.teal.fg, fontWeight: '700', fontSize: 14 }}>+ Add medication</Text>
           </Pressable>
 
-          {medications.map((med) => {
+          {/* Group meds by refill urgency: overdue → soon (<7d) → daily/weekly → PRN */}
+          {(() => {
+            type Group = 'overdue' | 'soon' | 'active' | 'prn';
+            const groupOrder: Group[] = ['overdue', 'soon', 'active', 'prn'];
+            const groupLabels: Record<Group, string> = {
+              overdue: 'Refill overdue',
+              soon: 'Refill soon',
+              active: 'Active',
+              prn: 'As needed (PRN)',
+            };
+            const groupColor: Record<Group, string> = {
+              overdue: (theme as any).berry?.solid ?? '#C0392B',
+              soon: theme.amber?.solid ?? '#D97706',
+              active: theme.teal.solid,
+              prn: theme.textSoft,
+            };
+            const grouped: Record<Group, Medication[]> = { overdue: [], soon: [], active: [], prn: [] };
+            for (const m of medications) {
+              const days = m.refill_date ? (new Date(m.refill_date).getTime() - Date.now()) / 86400000 : null;
+              if (m.is_prn) grouped.prn.push(m);
+              else if (days !== null && days <= 0) grouped.overdue.push(m);
+              else if (days !== null && days <= 7) grouped.soon.push(m);
+              else grouped.active.push(m);
+            }
+            return groupOrder.filter((g) => grouped[g].length > 0).map((g) => (
+              <View key={g} style={{ gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: groupColor[g] }} />
+                  <Text
+                    style={{ color: theme.textSoft, fontSize: 10, fontWeight: '900', letterSpacing: 0.6 }}
+                    allowFontScaling
+                    maxFontSizeMultiplier={1.3}
+                    accessibilityRole="header"
+                  >
+                    {groupLabels[g].toUpperCase()} · {grouped[g].length}
+                  </Text>
+                </View>
+                {grouped[g].map((med) => {
             const status = computeMedStatus(med);
             const badge = STATUS_BADGE[status];
             const refillDays = med.refill_date
@@ -1065,7 +1137,10 @@ function MedicationList({ theme, scrollEnabled = true }: { theme: any; scrollEna
               </View>
               </LongPressActionMenu>
             );
-          })}
+                })}
+              </View>
+            ));
+          })()}
 
           <Pressable onPress={() => navigation.navigate('MedicationImport')}>
             <Text style={{ color: theme.teal.solid, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline', textAlign: 'center', marginTop: 4 }}>
@@ -1311,12 +1386,7 @@ function CycleDayLogModal({
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <View style={modalStyles.overlay}>
         <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: theme.ink }]}>
-          <View style={modalStyles.header}>
-            <Text style={[modalStyles.title, { color: theme.textStrong }]}>
-              {fmtDate(date)}
-            </Text>
-            <Pressable onPress={onClose}><Text style={{ color: theme.textSoft, fontSize: 22 }}>✕</Text></Pressable>
-          </View>
+          <ModalHeader title={fmtDate(date)} onClose={onClose} />
           <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 20 }}>
             {/* Flow intensity */}
             <View>
@@ -1348,19 +1418,14 @@ function CycleDayLogModal({
               <Text style={[cycleStyles.label, { color: theme.textSoft }]}>Symptoms</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
                 {visibleSymptoms.map((s) => (
-                  <Pressable
+                  <ChipButton
                     key={s}
-                    style={[
-                      cycleStyles.chip,
-                      {
-                        backgroundColor: symptoms.includes(s) ? theme.teal.solid : theme.page,
-                        borderColor: theme.ink,
-                      },
-                    ]}
+                    label={s}
+                    selected={symptoms.includes(s)}
                     onPress={() => toggleSymptom(s)}
-                  >
-                    <Text style={{ color: symptoms.includes(s) ? '#fff' : theme.textSoft, fontSize: 13 }}>{s}</Text>
-                  </Pressable>
+                    color={theme.teal.solid}
+                    size="sm"
+                  />
                 ))}
               </View>
               {allSymptoms.length > 8 && (
@@ -1392,19 +1457,15 @@ function CycleDayLogModal({
               <Text style={[cycleStyles.label, { color: theme.textSoft }]}>Energy level</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                  <Pressable
+                  <ChipButton
                     key={n}
-                    style={[
-                      cycleStyles.energyBtn,
-                      {
-                        backgroundColor: energy === n ? theme.teal.solid : theme.page,
-                        borderColor: energy === n ? theme.teal.solid : theme.ink,
-                      },
-                    ]}
+                    label={String(n)}
+                    accessibilityHint={`Energy level ${n} of 10`}
+                    selected={energy === n}
                     onPress={() => setEnergy(energy === n ? null : n)}
-                  >
-                    <Text style={{ color: energy === n ? '#fff' : theme.textSoft, fontSize: 13, fontWeight: '600' }}>{n}</Text>
-                  </Pressable>
+                    color={theme.teal.solid}
+                    size="sm"
+                  />
                 ))}
               </View>
             </View>
@@ -1423,21 +1484,16 @@ function CycleDayLogModal({
                 {moods.slice(0, 12).map((m) => {
                   const selected = moodLabels.includes(m.label);
                   return (
-                    <Pressable
+                    <ChipButton
                       key={m.label}
-                      style={[
-                        cycleStyles.chip,
-                        {
-                          backgroundColor: selected ? theme.violet?.solid ?? theme.purple?.solid ?? theme.teal.solid : theme.page,
-                          borderColor: theme.ink,
-                        },
-                      ]}
+                      label={m.label}
+                      selected={selected}
                       onPress={() => setMoodLabels((prev) =>
                         prev.includes(m.label) ? prev.filter((x) => x !== m.label) : [...prev, m.label]
                       )}
-                    >
-                      <Text style={{ color: selected ? '#fff' : theme.textSoft, fontSize: 13 }}>{m.label}</Text>
-                    </Pressable>
+                      color={theme.violet?.solid ?? theme.purple?.solid ?? theme.teal.solid}
+                      size="sm"
+                    />
                   );
                 })}
               </View>
