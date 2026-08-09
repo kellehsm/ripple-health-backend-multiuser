@@ -135,6 +135,7 @@ export function ExerciseSessionScreen() {
 
   // Live heart rate — full session accumulation
   const [sessionHR, setSessionHR] = useState<Array<{ recorded_at: string; bpm: number }>>([]);
+  const [hrPollAttempts, setHrPollAttempts] = useState(0);
   const hrPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const liveHR = sessionHR.length > 0 ? sessionHR[sessionHR.length - 1].bpm : null;
@@ -150,7 +151,14 @@ export function ExerciseSessionScreen() {
       const s = await api.getExerciseSession(sessionId);
       setEntries(s.entries ?? []);
     } catch {
-      Alert.alert('Error', 'Could not load session.');
+      Alert.alert(
+        'Failed to load',
+        'Could not load the session — check your connection and try again.',
+        [
+          { text: 'Back', style: 'cancel', onPress: () => navigation.goBack() },
+          { text: 'Retry', onPress: () => { loadSession(); } },
+        ],
+      );
     } finally {
       setLoadingEntries(false);
     }
@@ -173,6 +181,7 @@ export function ExerciseSessionScreen() {
 
   async function pollHR() {
     if (!startEpochRef.current) return;
+    setHrPollAttempts((n) => n + 1);
     try {
       const start = new Date(startEpochRef.current).toISOString();
       const end = new Date().toISOString();
@@ -182,6 +191,9 @@ export function ExerciseSessionScreen() {
       }
     } catch {}
   }
+  // After ~30 poll attempts (~30s) with no HR data, assume the source isn't
+  // wired up and show a hint instead of an empty timer-bar slot forever.
+  const hrHintVisible = started && sessionHR.length === 0 && hrPollAttempts > 30;
 
   function handleStartWorkout() {
     if (started || timerRef.current) return;
@@ -248,7 +260,15 @@ export function ExerciseSessionScreen() {
       await loadSession();
       startRestTimer(60);
     } catch {
-      Alert.alert('Error', 'Could not log exercise.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      Alert.alert(
+        'Failed to save',
+        'Could not log the exercise — check your connection and try again.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Retry', onPress: () => { handleAdd(exercise, form).catch(() => {}); } },
+        ],
+      );
     }
   }
 
@@ -261,7 +281,14 @@ export function ExerciseSessionScreen() {
             await api.deleteExerciseEntry(entryId);
             setEntries((prev) => prev.filter((e) => e.id !== entryId));
           } catch {
-            Alert.alert('Error', 'Could not remove entry.');
+            Alert.alert(
+              'Failed to remove',
+              'Could not remove the entry — check your connection and try again.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Retry', onPress: () => { handleDeleteEntry(entryId); } },
+              ],
+            );
           }
         },
       },
@@ -293,8 +320,14 @@ export function ExerciseSessionScreen() {
               });
             }, 2200);
           } catch {
-            Alert.alert('Error', 'Could not finish session.');
-            setFinishing(false);
+            Alert.alert(
+              'Failed to finish',
+              'Could not save the session — check your connection and try again.',
+              [
+                { text: 'Cancel', style: 'cancel', onPress: () => setFinishing(false) },
+                { text: 'Retry', onPress: () => { setFinishing(false); handleFinish(); } },
+              ],
+            );
           }
         },
       },
@@ -345,17 +378,27 @@ export function ExerciseSessionScreen() {
               <Text style={[styles.timerLabel, { color: theme.textSoft }]}>SESSION TIME</Text>
               <Text style={[styles.timer, { color: ink }]}>{elapsed}</Text>
             </View>
-            {liveHR && (
-              <View style={{ paddingBottom: 4 }}>
+            {liveHR ? (
+              <View
+                style={{ paddingBottom: 4 }}
+                accessibilityLabel={`Heart rate ${liveHR} beats per minute${peakHR ? `, peak ${peakHR}` : ""}`}
+              >
                 <Text style={[styles.timerLabel, { color: theme.textSoft }]}>HEART RATE</Text>
-                <Text style={[styles.liveHRBig, { color: theme.coral.solid }]}>
+                <Text style={[styles.liveHRBig, { color: theme.coral.solid }]} allowFontScaling maxFontSizeMultiplier={1.3}>
                   ♥ {liveHR} <Text style={{ fontSize: 14 }}>bpm</Text>
                 </Text>
                 {peakHR && (
                   <Text style={[styles.peakHRLabel, { color: theme.textSoft }]}>peak {peakHR}</Text>
                 )}
               </View>
-            )}
+            ) : hrHintVisible ? (
+              <View style={{ paddingBottom: 4, maxWidth: 180 }} accessibilityLabel="No live heart rate available. Enable Health Connect to see live BPM.">
+                <Text style={[styles.timerLabel, { color: theme.textSoft }]}>HEART RATE</Text>
+                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>
+                  Not syncing — enable Health Connect for live BPM
+                </Text>
+              </View>
+            ) : null}
           </View>
           {sessionHR.length >= 3 && (
             <HRSparkline readings={sessionHR} color={theme.coral.solid} />

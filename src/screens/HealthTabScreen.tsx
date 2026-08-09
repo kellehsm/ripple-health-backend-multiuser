@@ -26,6 +26,7 @@ import { hasSeenTooltip, markTooltipSeen } from '../utils/tooltipSeen';
 import { ShadowCard } from '../components/ShadowCard';
 import { addDays, fmtDate, todayStr, getWeekStart } from '../utils/dateUtils';
 import { FLOW_OPTIONS, FLOW_COLORS } from '../constants';
+import { softenInsight } from '../lib/softenInsight';
 
 const HEALTH_SECTIONS: SectionDef[] = [
   { id: 'cycle_tab',    label: 'Cycle tracking', description: 'Menstrual cycle calendar and logging' },
@@ -308,7 +309,7 @@ function OverviewBlocks({
       {insight && (
         <ShadowCard size="tile" bg={theme.purple?.tint ?? '#F3EEFF'} accent={theme.purple?.sub ?? '#9B6DFF'} rotate={0.5} padding={14}>
           <Text style={{ color: theme.purple?.fg ?? '#5B21B6', fontSize: 13, fontWeight: '700', lineHeight: 18 }}>
-            {insight.text}
+            {softenInsight(insight.text)}
           </Text>
           {insight.confidence === 'tentative' && (
             <Text style={{ color: theme.purple?.sub ?? '#9B6DFF', fontSize: 11, marginTop: 2 }}>
@@ -1884,7 +1885,7 @@ function CycleView({ theme }: { theme: any }) {
             })()}
             {cycleRegularity && (
               <Text style={{ color: theme.textSoft, fontSize: 13 }}>
-                Regularity: <Text style={{ color: cycleRegularity === 'Consistent' ? theme.teal.fg : theme.coral?.fg ?? '#A05040', fontWeight: '700' }}>{cycleRegularity}</Text>
+                Regularity: <Text style={{ color: cycleRegularity === 'Consistent' ? theme.teal.fg : (theme as any).berry?.fg ?? '#7A1F3C', fontWeight: '700' }}>{cycleRegularity}</Text>
               </Text>
             )}
             {topSymptoms.length > 0 && (
