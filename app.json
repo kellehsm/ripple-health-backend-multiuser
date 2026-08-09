@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ripple Wellness",
     "slug": "ripple-health",
-    "version": "1.1.2",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ripple",
@@ -35,7 +35,7 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_HEALTH"
       ],
-      "versionCode": 6
+      "versionCode": 7
     },
     "plugins": [
       "expo-health-connect",
