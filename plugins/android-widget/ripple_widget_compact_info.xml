@@ -8,6 +8,6 @@
     android:initialLayout="@layout/ripple_widget_compact"
     android:previewLayout="@layout/ripple_widget_compact_preview"
     android:previewImage="@mipmap/ic_launcher"
-    android:widgetCategory="home_screen"
+    android:widgetCategory="home_screen|keyguard"
     android:resizeMode="horizontal"
     android:description="@string/widget_compact_description"/>

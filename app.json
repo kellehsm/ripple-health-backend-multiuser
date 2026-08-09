@@ -43,6 +43,7 @@
       "./plugins/withForegroundServiceType",
       "./plugins/withAndroidWidget",
       "./plugins/withAndroidShortcuts",
+      "./plugins/withWearOsTile",
       [
         "expo-network-security-config",
         {

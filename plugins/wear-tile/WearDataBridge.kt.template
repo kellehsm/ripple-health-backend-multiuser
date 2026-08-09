@@ -1,0 +1,40 @@
+package __PACKAGE__
+
+import android.content.Context
+import android.util.Log
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+
+/**
+ * Pushes the latest widget metrics onto the Wearable Data Layer so paired
+ * Wear OS devices can render them in the Ripple tile.
+ *
+ * Safe to call from any thread — it fires and forgets. Any exception (no
+ * Wear OS device paired, Google Play Services missing, etc.) is swallowed.
+ */
+object WearDataBridge {
+    private const val PATH = "/ripple/metrics"
+    private const val TAG = "WearDataBridge"
+
+    fun push(context: Context, glucose: String, steps: String, water: String) {
+        try {
+            val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
+            val req = PutDataMapRequest.create(PATH).apply {
+                dataMap.putString("glucose", glucose)
+                dataMap.putString("steps", steps)
+                dataMap.putString("water", water)
+                dataMap.putString("updatedAt", time)
+                // Include a nonce so DataItem changes even if values are unchanged,
+                // guaranteeing the watch listener fires and refreshes the tile timestamp
+                dataMap.putLong("nonce", System.currentTimeMillis())
+            }
+            Wearable.getDataClient(context.applicationContext)
+                .putDataItem(req.asPutDataRequest().setUrgent())
+                .addOnFailureListener { e -> Log.w(TAG, "push failed", e) }
+        } catch (e: Exception) {
+            Log.w(TAG, "push threw", e)
+        }
+    }
+}
