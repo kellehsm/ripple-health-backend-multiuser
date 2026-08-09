@@ -1,17 +1,19 @@
 import React, { useRef, useState, useCallback } from "react";
-import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder, Modal, TouchableWithoutFeedback } from "react-native";
+import { ScrollView, View, Text, Pressable, Switch, StyleSheet, PanResponder, Modal, TouchableWithoutFeedback, Image, Alert } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAppSettings, CARD_OPACITY_MIN, CARD_OPACITY_MAX } from "../../theme/AppSettingsContext";
-import { PALETTES, PALETTE_GROUPS } from "../../theme/palettes";
+import { PALETTES, THEME_FAMILIES } from "../../theme/palettes";
 import { useStrings } from "../../strings/StringsContext";
+import { pickAndStoreImage, deleteStoredImage } from "../../lib/pickBackgroundImage";
 import {
   FONT_FAMILY_KEYS, FONT_FAMILY_LABELS, FONT_SCALE_KEYS, FONT_SCALE_LABELS,
   FontFamilyKey, FontScalePreset,
 } from "../../theme/fontSystem";
 import {
+  PAGE_TEMPLATES,
   OVERVIEW_TEMPLATE, WELLNESS_TEMPLATE, MEALS_TEMPLATE, LIFE_TEMPLATE,
   FINANCE_TEMPLATE, HEALTH_TAB_TEMPLATE,
 } from "../../theme/pageTemplates";
@@ -48,12 +50,34 @@ interface ObjectPopupProps {
 
 function ObjectPopup({ entry, globalOpacity, onClose }: ObjectPopupProps) {
   const { theme } = useTheme();
-  const { perObjectOpacity, perObjectGlassBlur, setObjectOpacity, resetObjectOpacity, setObjectGlassBlur } = useAppSettings();
+  const {
+    perObjectOpacity, perObjectGlassBlur, setObjectOpacity, resetObjectOpacity, setObjectGlassBlur,
+    elementBgImages, setElementBgImage, removeElementBgImage,
+  } = useAppSettings();
   if (!entry) return null;
 
   const isCustom = perObjectOpacity[entry.id] !== undefined;
   const value = isCustom ? perObjectOpacity[entry.id] : globalOpacity;
   const glassEnabled = perObjectGlassBlur[entry.id] ?? false;
+  const bgImage = elementBgImages[entry.id];
+
+  const handlePickImage = async () => {
+    try {
+      const uri = await pickAndStoreImage(entry.id);
+      if (!uri) return;
+      if (bgImage) deleteStoredImage(bgImage.uri);
+      setElementBgImage(entry.id, { uri, opacity: bgImage?.opacity ?? 0.85 });
+      Haptics.selectionAsync();
+    } catch {
+      Alert.alert("Couldn't load image", "Try a different photo.");
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (bgImage) deleteStoredImage(bgImage.uri);
+    removeElementBgImage(entry.id);
+    Haptics.selectionAsync();
+  };
 
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
@@ -97,6 +121,49 @@ function ObjectPopup({ entry, globalOpacity, onClose }: ObjectPopupProps) {
                 />
               </View>
 
+              {/* Background image */}
+              <View style={[advStyles.panelRow, { marginTop: 18 }]}>
+                <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Background image</Text>
+              </View>
+              {bgImage ? (
+                <View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <Image
+                      source={{ uri: bgImage.uri }}
+                      style={{ width: 64, height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: theme.cardBorder }}
+                    />
+                    <Pressable onPress={handlePickImage} style={[advStyles.resetLink, { borderColor: theme.cardBorder }]}>
+                      <Text style={[advStyles.resetLinkText, { color: theme.textStrong }]}>Replace</Text>
+                    </Pressable>
+                    <Pressable onPress={handleRemoveImage} style={[advStyles.resetLink, { borderColor: theme.cardBorder }]}>
+                      <Text style={[advStyles.resetLinkText, { color: theme.danger }]}>Remove</Text>
+                    </Pressable>
+                  </View>
+                  <View style={[advStyles.panelRow, { marginTop: 12 }]}>
+                    <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Image strength</Text>
+                    <Text style={[advStyles.panelValue, { color: theme.textStrong }]}>
+                      {Math.round((bgImage.opacity ?? 0.85) * 100)}%
+                    </Text>
+                  </View>
+                  <OpacitySlider
+                    value={bgImage.opacity ?? 0.85}
+                    onChange={(v) => setElementBgImage(entry.id, { ...bgImage, opacity: v })}
+                    trackColor={theme.violet.solid}
+                    thumbColor={theme.card}
+                    borderColor={theme.violet.solid}
+                    trackBgColor={theme.cardBorder}
+                  />
+                </View>
+              ) : (
+                <Pressable
+                  onPress={handlePickImage}
+                  style={[advStyles.pickImageBtn, { borderColor: theme.cardBorder }]}
+                >
+                  <Ionicons name="image-outline" size={18} color={theme.teal.solid} />
+                  <Text style={[advStyles.resetLinkText, { color: theme.textStrong }]}>Choose a photo</Text>
+                </Pressable>
+              )}
+
               {/* Footer actions */}
               <View style={advStyles.popupFooter}>
                 {isCustom && (
@@ -119,6 +186,165 @@ function ObjectPopup({ entry, globalOpacity, onClose }: ObjectPopupProps) {
         </View>
       </TouchableWithoutFeedback>
     </Modal>
+  );
+}
+
+// ─── Page background popup + section ─────────────────────────────────────────
+
+function PageBgPopup({ page, onClose }: { page: { pageId: string; pageName: string } | null; onClose: () => void }) {
+  const { theme } = useTheme();
+  const { elementBgImages, setElementBgImage, removeElementBgImage } = useAppSettings();
+  if (!page) return null;
+
+  const bgImage = elementBgImages[page.pageId];
+
+  const handlePickImage = async () => {
+    try {
+      const uri = await pickAndStoreImage(page.pageId);
+      if (!uri) return;
+      if (bgImage) deleteStoredImage(bgImage.uri);
+      setElementBgImage(page.pageId, { uri, opacity: bgImage?.opacity ?? 0.85 });
+      Haptics.selectionAsync();
+    } catch {
+      Alert.alert("Couldn't load image", "Try a different photo.");
+    }
+  };
+
+  const handleRemoveImage = () => {
+    if (bgImage) deleteStoredImage(bgImage.uri);
+    removeElementBgImage(page.pageId);
+    Haptics.selectionAsync();
+  };
+
+  return (
+    <Modal transparent animationType="fade" visible onRequestClose={onClose}>
+      <TouchableWithoutFeedback onPress={onClose}>
+        <View style={advStyles.popupOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={[advStyles.popup, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+              <View style={advStyles.popupHeader}>
+                <Text style={[advStyles.popupTitle, { color: theme.textStrong }]}>{page.pageName}</Text>
+                <Text style={[advStyles.popupScreen, { color: theme.textSoft }]}>Page background</Text>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder, marginHorizontal: 0, marginBottom: 16 }]} />
+
+              {bgImage ? (
+                <View>
+                  <Image
+                    source={{ uri: bgImage.uri }}
+                    style={{ width: "100%", height: 120, borderRadius: 14, borderWidth: 1.5, borderColor: theme.cardBorder }}
+                    resizeMode="cover"
+                  />
+                  <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+                    <Pressable onPress={handlePickImage} style={[advStyles.resetLink, { borderColor: theme.cardBorder }]}>
+                      <Text style={[advStyles.resetLinkText, { color: theme.textStrong }]}>Replace</Text>
+                    </Pressable>
+                    <Pressable onPress={handleRemoveImage} style={[advStyles.resetLink, { borderColor: theme.cardBorder }]}>
+                      <Text style={[advStyles.resetLinkText, { color: theme.danger }]}>Remove</Text>
+                    </Pressable>
+                  </View>
+                  <View style={[advStyles.panelRow, { marginTop: 14 }]}>
+                    <Text style={[advStyles.panelLabel, { color: theme.textSoft }]}>Image strength</Text>
+                    <Text style={[advStyles.panelValue, { color: theme.textStrong }]}>
+                      {Math.round((bgImage.opacity ?? 0.85) * 100)}%
+                    </Text>
+                  </View>
+                  <OpacitySlider
+                    value={bgImage.opacity ?? 0.85}
+                    onChange={(v) => setElementBgImage(page.pageId, { ...bgImage, opacity: v })}
+                    trackColor={theme.violet.solid}
+                    thumbColor={theme.card}
+                    borderColor={theme.violet.solid}
+                    trackBgColor={theme.cardBorder}
+                  />
+                </View>
+              ) : (
+                <Pressable
+                  onPress={handlePickImage}
+                  style={[advStyles.pickImageBtn, { borderColor: theme.cardBorder }]}
+                >
+                  <Ionicons name="image-outline" size={18} color={theme.teal.solid} />
+                  <Text style={[advStyles.resetLinkText, { color: theme.textStrong }]}>Choose a photo</Text>
+                </Pressable>
+              )}
+
+              <View style={advStyles.popupFooter}>
+                <Pressable onPress={onClose} style={[advStyles.doneBtn, { backgroundColor: theme.teal.solid }]}>
+                  <Text style={advStyles.doneBtnText}>Done</Text>
+                </Pressable>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+}
+
+function PageBackgroundsSection({ theme }: { theme: import("../../theme/theme").Theme }) {
+  const [open, setOpen] = useState(false);
+  const [activePage, setActivePage] = useState<{ pageId: string; pageName: string } | null>(null);
+  const { elementBgImages } = useAppSettings();
+  const pages = Object.values(PAGE_TEMPLATES);
+
+  return (
+    <View style={[advStyles.advCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+      <Pressable
+        onPress={() => { setOpen(o => !o); Haptics.selectionAsync(); }}
+        style={({ pressed }) => [
+          styles.paletteRow,
+          pressed && { backgroundColor: theme.cardBorder + "40" },
+        ]}
+      >
+        <Ionicons name="image-outline" size={18} color={theme.teal.solid} style={{ marginRight: 10 }} />
+        <Text style={[styles.paletteName, { color: theme.textStrong }]}>Page backgrounds</Text>
+        <Text style={{ color: theme.textSoft, fontSize: 11 }}>{open ? "▲" : "▼"}</Text>
+      </Pressable>
+
+      {open && (
+        <View>
+          <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+          <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 }}>
+            <Text style={{ fontSize: 11, color: theme.textSoft, lineHeight: 16 }}>
+              Set a photo behind any page. Your image replaces the theme's scenery for that page.
+            </Text>
+          </View>
+          {pages.map((page, index) => {
+            const isLast = index === pages.length - 1;
+            const hasImage = elementBgImages[page.pageId] !== undefined;
+            return (
+              <View key={page.pageId}>
+                <Pressable
+                  onPress={() => { setActivePage(page); Haptics.selectionAsync(); }}
+                  style={({ pressed }) => [
+                    advStyles.objectRow,
+                    pressed && { backgroundColor: theme.cardBorder + "40" },
+                  ]}
+                >
+                  {hasImage && (
+                    <Image
+                      source={{ uri: elementBgImages[page.pageId].uri }}
+                      style={{ width: 36, height: 26, borderRadius: 6, marginRight: 10, borderWidth: 1, borderColor: theme.cardBorder }}
+                    />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[advStyles.objectLabel, { color: theme.textStrong }]}>{page.pageName}</Text>
+                    <Text style={[advStyles.objectSub, { color: hasImage ? theme.teal.solid : theme.textSoft }]}>
+                      {hasImage ? "Custom photo" : "Theme scenery"}
+                    </Text>
+                  </View>
+                  <Text style={{ color: theme.textSoft, fontSize: 12 }}>›</Text>
+                </Pressable>
+                {!isLast && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      <PageBgPopup page={activePage} onClose={() => setActivePage(null)} />
+    </View>
   );
 }
 
@@ -267,9 +493,68 @@ const THUMB_SIZE = 26;
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
+function FamilyCard({ familyId }: { familyId: string }) {
+  const { theme, family, mode, setFamily } = useTheme();
+  const fam = THEME_FAMILIES.find((f) => f.id === familyId)!;
+  const light = PALETTES[fam.light];
+  const dark = PALETTES[fam.dark];
+  // Preview the variant that matches the current mode
+  const preview = mode === "dark" ? dark : light;
+  const isActive = family.id === fam.id;
+
+  const swatches = [preview.page, preview.card, preview.teal.solid, preview.coral.solid, preview.amber.solid, preview.violet.solid, preview.berry.solid];
+
+  return (
+    <Pressable
+      onPress={() => { Haptics.selectionAsync(); setFamily(fam.id); }}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: isActive }}
+      style={[
+        famStyles.card,
+        {
+          backgroundColor: preview.card,
+          borderColor: isActive ? theme.primary : preview.cardBorder,
+          borderWidth: isActive ? 3 : 1.5,
+        },
+      ]}
+    >
+      <View style={famStyles.swatchStrip}>
+        {swatches.map((c, i) => (
+          <View key={i} style={[famStyles.swatchSegment, { backgroundColor: c }]} />
+        ))}
+      </View>
+      <View style={famStyles.nameRow}>
+        <Text style={[famStyles.name, { color: preview.textStrong }]}>{fam.name}</Text>
+        {isActive
+          ? <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+          : <View style={{ width: 20, height: 20 }} />}
+      </View>
+      <Text style={[famStyles.tagline, { color: preview.textSoft }]} numberOfLines={1}>
+        {fam.tagline}
+      </Text>
+    </Pressable>
+  );
+}
+
+const famStyles = StyleSheet.create({
+  card: { borderRadius: 22, overflow: "hidden", marginBottom: 10 },
+  swatchStrip: { flexDirection: "row", height: 48 },
+  swatchSegment: { flex: 1 },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 2,
+  },
+  name: { fontSize: 15, fontWeight: "800", flex: 1, marginRight: 6 },
+  tagline: { fontSize: 11, paddingHorizontal: 14, paddingBottom: 12, lineHeight: 15 },
+});
+
 export function AppearanceSettingsScreen() {
   const navigation = useNavigation<any>();
-  const { theme, paletteId, setPalette } = useTheme();
+  const { theme, paletteId, mode, setMode } = useTheme();
   const {
     shadowsEnabled, setShadowsEnabled,
     cardOutlineColor, setCardOutlineColor,
@@ -283,74 +568,54 @@ export function AppearanceSettingsScreen() {
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
 
-      {/* ── Theme ──────────────────────────────────────────────────── */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>{s.appearance_theme_title}</Text>
-      <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
-        {s.appearance_theme_desc}
-      </Text>
-
-      {Object.entries(PALETTE_GROUPS).map(([groupName, ids]) => (
-        <View key={groupName} style={{ gap: 8 }}>
-          <Text style={[styles.subGroupLabel, { color: theme.textSoft }]}>
-            {groupName.toUpperCase()}
-          </Text>
-
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            {ids.map((id, index) => {
-              const p = PALETTES[id];
-              const isActive = paletteId === id;
-              const isLast = index === ids.length - 1;
-              return (
-                <View key={id}>
-                  <Pressable
-                    onPress={() => { Haptics.selectionAsync(); setPalette(id); }}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: isActive }}
-                    style={({ pressed }) => [
-                      styles.paletteRow,
-                      isActive && { backgroundColor: theme.teal.tint ?? theme.page },
-                      pressed && !isActive && { backgroundColor: theme.cardBorder + "60" },
-                    ]}
-                  >
-                    <View style={{ flexDirection: "row", gap: 4, marginRight: 12 }}>
-                      {[p.page, p.teal.solid, p.coral.solid, p.violet.solid].map((color, i) => (
-                        <View
-                          key={i}
-                          style={{
-                            width: 14,
-                            height: 14,
-                            borderRadius: 7,
-                            backgroundColor: color,
-                            borderWidth: 0.5,
-                            borderColor: "rgba(0,0,0,0.1)",
-                          }}
-                        />
-                      ))}
-                    </View>
-                    <Text
-                      style={[
-                        styles.paletteName,
-                        { color: isActive ? theme.teal.fg : theme.textStrong },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {p.name}
-                    </Text>
-                    {isActive ? (
-                      <Text style={[styles.checkmark, { color: theme.teal.solid }]}>✓</Text>
-                    ) : (
-                      <View style={styles.checkPlaceholder} />
-                    )}
-                  </Pressable>
-                  {!isLast && (
-                    <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-                  )}
-                </View>
-              );
-            })}
-          </View>
+      {/* ── Light / dark mode ──────────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>APPEARANCE MODE</Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, padding: 14 }]}>
+        <View style={styles.opacityRow}>
+          {(["light", "dark"] as const).map((m) => {
+            const active = mode === m;
+            return (
+              <Pressable
+                key={m}
+                onPress={() => { Haptics.selectionAsync(); setMode(m); }}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                style={[
+                  styles.opacityPill,
+                  { backgroundColor: active ? theme.primary : theme.page, borderColor: active ? theme.primary : theme.cardBorder, flexDirection: "row", justifyContent: "center", gap: 6 },
+                ]}
+              >
+                <Ionicons name={m === "light" ? "sunny" : "moon"} size={15} color={active ? "#ffffff" : theme.textSoft} />
+                <Text style={[styles.opacityLabel, { color: active ? "#ffffff" : theme.textSoft }]}>
+                  {m === "light" ? "Light" : "Dark"}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-      ))}
+      </View>
+
+      {/* ── Theme families ─────────────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 8 }]}>{s.appearance_theme_title}</Text>
+      <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
+        Every theme comes as a matched pair — pick a family and the light/dark switch keeps your look.
+      </Text>
+      <View>
+        {THEME_FAMILIES.map((f) => (
+          <FamilyCard key={f.id} familyId={f.id} />
+        ))}
+      </View>
+
+      {/* ── Premium teaser ─────────────────────────────────────────── */}
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderStyle: "dashed", paddingVertical: 20, alignItems: "center" }]}>
+        <Ionicons name="lock-closed-outline" size={20} color={theme.textSoft} style={{ marginBottom: 6 }} />
+        <Text style={{ fontSize: 14, fontWeight: "800", color: theme.textStrong }}>Premium themes</Text>
+        <Text style={{ fontSize: 11, color: theme.textSoft, marginTop: 2 }}>Exclusive palettes — coming soon</Text>
+      </View>
+
+      {/* ── Page backgrounds ───────────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 8 }]}>PERSONAL TOUCHES</Text>
+      <PageBackgroundsSection theme={theme} />
 
       {/* ── Advanced (inside theme section) ────────────────────────── */}
       <AdvancedThemeMenu cardOpacity={cardOpacity} theme={theme} />
@@ -683,6 +948,16 @@ const advStyles = StyleSheet.create({
     paddingVertical: 6,
   },
   resetLinkText: { fontSize: 12, fontWeight: "600" },
+  pickImageBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
   // Popup modal
   popupOverlay: {
     flex: 1,

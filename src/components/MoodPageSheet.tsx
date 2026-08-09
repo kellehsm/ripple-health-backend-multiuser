@@ -279,7 +279,7 @@ export function MoodPageSheet({ visible, todayEntries, currentBucket, onDismiss,
                               accessibilityLabel={mood.label}
                             >
                               <Text style={{ fontSize: 20, marginBottom: 4 }}>{mood.emoji}</Text>
-                              <Text style={{ fontSize: 8, fontWeight: "800", letterSpacing: 0.3, color: isSelected ? (catColor?.fg ?? ink) : theme.textSoft, textAlign: "center" }}>
+                              <Text style={{ fontSize: 9, fontWeight: "800", letterSpacing: 0.3, color: isSelected ? (catColor?.fg ?? ink) : theme.textSoft, textAlign: "center" }}>
                                 {mood.label.toUpperCase()}
                               </Text>
                             </Pressable>

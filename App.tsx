@@ -19,6 +19,15 @@ try {
 import { CommonActions } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+  useFonts,
+  Nunito_400Regular,
+  Nunito_500Medium,
+  Nunito_600SemiBold,
+  Nunito_700Bold,
+  Nunito_800ExtraBold,
+} from "@expo-google-fonts/nunito";
+import { applyGlobalFontPatch } from "./src/theme/globalFont";
 import { ThemeProvider, useTheme } from "./src/theme/ThemeContext";
 import { AppSettingsProvider } from "./src/theme/AppSettingsContext";
 import { StringsProvider } from "./src/strings/StringsContext";
@@ -168,7 +177,16 @@ function ThemedStatusBar() {
   return <StatusBar style={theme.isDark ? "light" : "dark"} backgroundColor={theme.page} />;
 }
 
+applyGlobalFontPatch();
+
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Nunito_400Regular,
+    Nunito_500Medium,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold,
+  });
   const [appState, setAppState] = useState<AppState>("loading");
   const [biometricLocked, setBiometricLocked] = useState(false);
   const [showRippleTransition, setShowRippleTransition] = useState(false);
@@ -296,7 +314,7 @@ export default function App() {
     setAppState("app");
   }
 
-  if (appState === "loading") {
+  if (appState === "loading" || !fontsLoaded) {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>

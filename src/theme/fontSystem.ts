@@ -34,6 +34,9 @@ import { useAppSettings } from "./AppSettingsContext";
  * "System" maps to undefined (RN uses the platform default — SF Pro / Roboto).
  */
 export const FONT_FAMILIES = {
+  /** Rounded — Nunito, loaded at splash via @expo-google-fonts/nunito. */
+  Nunito: "Nunito_400Regular",
+
   /** Platform default — SF Pro on iOS, Roboto on Android. */
   System: undefined,
 
@@ -52,15 +55,46 @@ export const FONT_FAMILIES = {
 
 export type FontFamilyKey = keyof typeof FONT_FAMILIES;
 
-export const FONT_FAMILY_KEYS: FontFamilyKey[] = ["System", "Serif", "Monospace"];
+export const FONT_FAMILY_KEYS: FontFamilyKey[] = ["Nunito", "System", "Serif", "Monospace"];
 
 export const FONT_FAMILY_LABELS: Record<FontFamilyKey, string> = {
+  Nunito:    "Rounded (Nunito)",
   System:    "System Default",
   Serif:     "Serif (Georgia)",
   Monospace: "Monospace",
 };
 
-export const DEFAULT_FONT_FAMILY: FontFamilyKey = "System";
+export const DEFAULT_FONT_FAMILY: FontFamilyKey = "Nunito";
+
+/**
+ * Nunito ships one static file per weight, each registered under its own
+ * family name. Map a style's fontWeight to the correct file so text gets a
+ * true drawn weight instead of Android/iOS synthetic bolding.
+ */
+export const NUNITO_WEIGHT_MAP: Record<string, string> = {
+  "100": "Nunito_400Regular",
+  "200": "Nunito_400Regular",
+  "300": "Nunito_400Regular",
+  "400": "Nunito_400Regular",
+  normal: "Nunito_400Regular",
+  "500": "Nunito_500Medium",
+  "600": "Nunito_600SemiBold",
+  "700": "Nunito_700Bold",
+  bold:  "Nunito_700Bold",
+  "800": "Nunito_800ExtraBold",
+  "900": "Nunito_800ExtraBold",
+};
+
+/** Resolve the concrete fontFamily for a family key + optional fontWeight. */
+export function resolveFontForWeight(
+  key: FontFamilyKey,
+  weight?: string | number,
+): string | undefined {
+  if (key === "Nunito") {
+    return NUNITO_WEIGHT_MAP[String(weight ?? "400")] ?? "Nunito_400Regular";
+  }
+  return FONT_FAMILIES[key];
+}
 
 // ─── Font size scale ─────────────────────────────────────────────────────────
 

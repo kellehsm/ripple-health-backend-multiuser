@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Image } from 'react-native';
-import Svg, { Polyline, Line, Text as SvgText, Rect } from 'react-native-svg';
+import Svg, { Polyline, Line, Text as SvgText, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
@@ -122,6 +122,13 @@ function HRChart({ samples, theme }: { samples: Array<{ recorded_at: string; bpm
 
   return (
     <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+      <Defs>
+        <SvgLinearGradient id="exDetailFill" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={ink} stopOpacity="0.30" />
+          <Stop offset="1" stopColor={ink} stopOpacity="0.02" />
+        </SvgLinearGradient>
+      </Defs>
+      <Polygon points={`${points} ${toX(maxT)},${PAD.top + chartH} ${toX(minT)},${PAD.top + chartH}`} fill="url(#exDetailFill)" />
       <Polyline points={points} fill="none" stroke={ink} strokeWidth={2.5} />
       <SvgText x={PAD.left - 2} y={PAD.top + 4} fontSize={8} fill={theme.textSoft} textAnchor="end">
         {maxBpm}

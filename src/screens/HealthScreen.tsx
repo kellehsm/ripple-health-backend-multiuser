@@ -7,7 +7,7 @@ import { useFocusEffect } from "@react-navigation/core";
 import { StaleSyncBanner } from "../components/StaleSyncBanner";
 import { shouldNotifyStale, markStaleNotified } from "../utils/staleSyncState";
 import * as Haptics from "expo-haptics";
-import Svg, { Polyline, Line, Text as SvgText, Rect, Circle, G, Path, Defs, ClipPath } from "react-native-svg";
+import Svg, { Polyline, Line, Text as SvgText, Rect, Circle, G, Path, Defs, ClipPath, LinearGradient as SvgLinearGradient, Stop, Polygon } from "react-native-svg";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import { useTheme } from "../theme/ThemeContext";
@@ -1121,11 +1121,17 @@ export function HealthScreen() {
                 const totalW = 7 * BAR_W + 6 * GAP;
                 return (
                   <Svg width={totalW} height={MAX_H + 2}>
+                    <Defs>
+                      <SvgLinearGradient id="sleepSparkFill" x1="0" y1="0" x2="0" y2="1">
+                        <Stop offset="0" stopColor={amberSolid} stopOpacity="1" />
+                        <Stop offset="1" stopColor={amberSolid} stopOpacity="0.55" />
+                      </SvgLinearGradient>
+                    </Defs>
                     {bars.map((pct, i) => {
                       const h = Math.max(2, Math.round(pct * MAX_H));
                       return (
                         <Rect key={i} x={i * (BAR_W + GAP)} y={MAX_H - h + 2} width={BAR_W} height={h}
-                          fill={amberSolid} opacity={pct > 0 ? 0.75 : 0.32} rx={1.5} />
+                          fill="url(#sleepSparkFill)" opacity={pct > 0 ? 0.75 : 0.32} rx={2} />
                       );
                     })}
                   </Svg>
@@ -1147,7 +1153,7 @@ export function HealthScreen() {
               <Animated.Text style={[chipStyles.sub, { color: theme.blue.sub, transform: [{ scale: waterCountScaleAnim }] }]}>
                 {waterCount ?? 0}/{waterGoal}
               </Animated.Text>
-              <Text style={{ fontSize: 7, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap to log</Text>
+              <Text style={{ fontSize: 9, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap to log</Text>
               {/* Goal celebration overlay */}
               <Animated.View
                 pointerEvents="none"
@@ -1411,6 +1417,23 @@ export function HealthScreen() {
                 {/* Today — double stroke: ink outline below, color on top */}
                 {todayPoints.length > 0 ? (
                   <>
+                    {todayReadings.length >= 2 && (() => {
+                      const ptArr = todayPoints.split(" ");
+                      const firstX = ptArr[0].split(",")[0];
+                      const lastX = ptArr[ptArr.length - 1].split(",")[0];
+                      const baseY = PAD_TOP + chartInnerHeight;
+                      return (
+                        <>
+                          <Defs>
+                            <SvgLinearGradient id="glucoseFill" x1="0" y1="0" x2="0" y2="1">
+                              <Stop offset="0" stopColor={theme.berry.bar} stopOpacity="0.30" />
+                              <Stop offset="1" stopColor={theme.berry.bar} stopOpacity="0.02" />
+                            </SvgLinearGradient>
+                          </Defs>
+                          <Polygon points={`${todayPoints} ${lastX},${baseY} ${firstX},${baseY}`} fill="url(#glucoseFill)" />
+                        </>
+                      );
+                    })()}
                     <Polyline points={todayPoints} fill="none" stroke={ink} strokeWidth={3.5} />
                     <Polyline points={todayPoints} fill="none" stroke={theme.berry.bar} strokeWidth={2} />
                   </>
@@ -1645,7 +1668,7 @@ export function HealthScreen() {
                 : { symbol: "→", color: theme.textSoft })
           : null;
         return (
-          <ShadowCard size="card" accent={theme.berry.solid} padding={14}>
+          <ShadowCard size="card" accent={theme.berry.solid} padding={14} cardId="heart_rate_card">
             <View style={styles.cardHeaderRow}>
               <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Heart Rate</Text>
               {peakBpm !== null ? (
@@ -1772,7 +1795,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
   scrubTime: { fontSize: 11, minWidth: 44 },
   scrubStats: { flexDirection: "row", gap: 16 },
   scrubStat: { alignItems: "center" },
-  scrubLabel: { fontSize: 8, fontWeight: "800", letterSpacing: 0.5 },
+  scrubLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
   scrubVal: { fontSize: 16, fontWeight: "800", marginTop: 1 },
   hcBtn: {
     borderWidth: 2,

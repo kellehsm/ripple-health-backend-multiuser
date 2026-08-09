@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
 import { useFeatureIntro } from '../onboarding/useFeatureIntro';
 import { findIntro } from '../onboarding/featureIntros';
+import { ScreenBackground } from '../components/ScreenBackground';
 import {
   View,
   Text,
@@ -2182,6 +2183,7 @@ export function HealthTabScreen() {
   if (!medication && !cycle) {
     return (
       <View style={[rootStyles.center, { backgroundColor: theme.page }]}>
+        <ScreenBackground pageId="health_tab" />
         <Text style={[rootStyles.placeholder, { color: theme.textSoft }]}>
           No health modules enabled. Go to Settings → Customize Tabs to turn them on.
         </Text>
@@ -2193,6 +2195,7 @@ export function HealthTabScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="health_tab" />
       {bothEnabled && (
         <ScrollView
           ref={scrollViewRef}

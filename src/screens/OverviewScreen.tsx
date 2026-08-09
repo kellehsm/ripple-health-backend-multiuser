@@ -1259,6 +1259,14 @@ export function OverviewScreen() {
                   {chip.tileId && (
                     <ThemedSurface elementId={chip.tileId} kind="tile" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} imageOpacity={0.85} />
                   )}
+                  {/* Diagonal accent wash — ties each tile to its metric color */}
+                  <LinearGradient
+                    colors={[chip.color + "24", chip.color + "00"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    pointerEvents="none"
+                    style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+                  />
                   <View style={[styles.chipIcon, { backgroundColor: chip.color }]}>
                     <Ionicons name={chip.icon as any} size={13} color={onSolid(chip.color)} />
                   </View>
@@ -1337,7 +1345,7 @@ export function OverviewScreen() {
       case "timeline":
         return (
           <View ref={tourTimelineRef}>
-          <ShadowCard size="card" bg={glucoseOutOfRange ? theme.red.tint : theme.card} accent={theme.berry.solid}>
+          <ShadowCard size="card" bg={glucoseOutOfRange ? theme.red.tint : theme.card} accent={theme.berry.solid} cardId="timeline">
             <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Today's timeline</Text>
             {loading ? (
               <SkeletonBox style={{ height: CHART_H, marginBottom: 8 }} />
@@ -1567,7 +1575,7 @@ export function OverviewScreen() {
           </ShadowCard>
         ) : insights.length > 0 ? (
           <View ref={tourInsightsRef}>
-          <ShadowCard size="card" accent={theme.violet.solid}>
+          <ShadowCard size="card" accent={theme.violet.solid} cardId="insights_preview">
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <View style={[styles.insightIcon, { backgroundColor: theme.violet.solid }]}>
                 <Ionicons name="bulb-outline" size={14} color={onSolid(theme.violet.solid)} />
@@ -1608,7 +1616,7 @@ export function OverviewScreen() {
                 ) : null}
               </ShadowCard>
             ) : null}
-            <ShadowCard size="card" accent={theme.teal.solid}>
+            <ShadowCard size="card" accent={theme.teal.solid} cardId="seven_day_review">
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
                 <Text style={[styles.cardTitle, { color: theme.textStrong }]}>7-day review</Text>
                 {digest && (
@@ -1710,7 +1718,7 @@ export function OverviewScreen() {
           : null;
 
         return weeklyData.length > 0 ? (
-          <ShadowCard size="card">
+          <ShadowCard size="card" cardId="mood_pattern">
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
               <Text style={[styles.cardTitle, { color: theme.textStrong }]}>7-day mood pattern</Text>
               {sparkPolyline ? (
@@ -1776,7 +1784,7 @@ export function OverviewScreen() {
         const hasSleep    = sl.good_count >= 3 && sl.poor_count >= 3 && sl.good_avg !== null && sl.poor_avg !== null;
         if (!hasExercise && !hasSleep) return null;
         return (
-          <ShadowCard size="card" accent={theme.teal.solid} rotate={-0.3}>
+          <ShadowCard size="card" accent={theme.teal.solid} rotate={-0.3} cardId="cross_metric">
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <Ionicons name="git-compare-outline" size={18} color={theme.teal.solid} />
               <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>Cross-metric insights</Text>
@@ -2420,7 +2428,7 @@ function makeStyles(ink: string, card: string, border: string) {
       shadowRadius: 10,
       elevation: 2,
     },
-    summaryBlockLabel: { fontSize: 8, fontWeight: "800", letterSpacing: 0.5, marginBottom: 4 },
+    summaryBlockLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5, marginBottom: 4 },
     summaryBlockValue: { fontSize: 13, fontWeight: "800" },
     digestLabel: { fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.7 },
     calloutStrip: { borderWidth: 2, borderRadius: 16, padding: 10, marginTop: 10, gap: 4 },

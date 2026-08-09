@@ -1,9 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import * as SecureStore from "expo-secure-store";
 import type { Theme } from "./theme";
-import { PALETTES, DEFAULT_PALETTE_ID } from "./palettes";
-
-const DEFAULT_DARK_PALETTE_ID = "obsidian";
+import {
+  PALETTES,
+  DEFAULT_PALETTE_ID,
+  THEME_FAMILIES,
+  familyForPalette,
+  type ThemeFamily,
+} from "./palettes";
 
 const STORAGE_KEY = "ripple_palette_id";
 
@@ -11,8 +15,15 @@ type ThemeContextValue = {
   theme: Theme;
   paletteId: string;
   setPalette: (id: string) => void;
-  mode: "light" | "dark";   // derived from theme.isDark — backward compat
-  toggle: () => void;        // backward compat: cycles light ↔ dark
+  /** The light/dark family the current palette belongs to. */
+  family: ThemeFamily;
+  /** Switch families, keeping the current light/dark mode. */
+  setFamily: (familyId: string) => void;
+  mode: "light" | "dark";   // derived from theme.isDark
+  /** Explicitly set light/dark within the current family. */
+  setMode: (mode: "light" | "dark") => void;
+  /** Toggle light ↔ dark within the current family. */
+  toggle: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
@@ -37,13 +48,26 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const theme = PALETTES[paletteId] ?? PALETTES[DEFAULT_PALETTE_ID];
   const mode: "light" | "dark" = theme.isDark ? "dark" : "light";
+  const family = familyForPalette(theme.id);
 
-  const toggle = useCallback(() => {
-    setPalette(theme.isDark ? "morning-mist" : "obsidian");
+  const setFamily = useCallback((familyId: string) => {
+    const fam = THEME_FAMILIES.find((f) => f.id === familyId);
+    if (!fam) return;
+    setPalette(theme.isDark ? fam.dark : fam.light);
   }, [theme.isDark, setPalette]);
 
+  const setMode = useCallback((m: "light" | "dark") => {
+    const fam = familyForPalette(theme.id);
+    setPalette(m === "dark" ? fam.dark : fam.light);
+  }, [theme.id, setPalette]);
+
+  const toggle = useCallback(() => {
+    const fam = familyForPalette(theme.id);
+    setPalette(theme.isDark ? fam.light : fam.dark);
+  }, [theme.id, theme.isDark, setPalette]);
+
   return (
-    <ThemeContext.Provider value={{ theme, paletteId, setPalette, mode, toggle }}>
+    <ThemeContext.Provider value={{ theme, paletteId, setPalette, family, setFamily, mode, setMode, toggle }}>
       {children}
     </ThemeContext.Provider>
   );

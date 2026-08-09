@@ -175,7 +175,7 @@ function TabNavigator() {
                   style={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 10, paddingVertical: 6 }}
                 >
                   <Text style={{ fontSize: 18 }}>{btn.emoji}</Text>
-                  <Text style={{ fontSize: 8, fontWeight: "700", letterSpacing: 0.5, color: theme.ink, marginTop: 2 }}>
+                  <Text style={{ fontSize: 9, fontWeight: "700", letterSpacing: 0.5, color: theme.ink, marginTop: 2 }}>
                     {btn.label}
                   </Text>
                 </Pressable>
@@ -226,7 +226,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="CustomizeDashboard" component={CustomizeDashboardScreen} options={{ title: "Customize Dashboard" }} />
         <Stack.Screen name="GlobalSearch" component={GlobalSearchScreen} options={{ title: "Search" }} />
         <Stack.Screen name="Help" component={HelpScreen} options={{ title: "Help & FAQ" }} />
-        <Stack.Screen name="SettingsAppearance" component={AppearanceSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Appearance" /> }} />
+        <Stack.Screen name="SettingsAppearance" component={AppearanceSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Theme Studio" /> }} />
         <Stack.Screen name="CardImageSplitter" component={CardImageSplitterScreen} options={{ headerTitle: () => <SettingsTitle title="Dashboard Image Split" /> }} />
         <Stack.Screen name="SettingsHealthConnect" component={HealthConnectSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Health Connect" /> }} />
         <Stack.Screen name="SettingsDexcom" component={DexcomSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Dexcom" /> }} />

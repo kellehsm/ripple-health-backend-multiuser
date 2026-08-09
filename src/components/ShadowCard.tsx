@@ -12,7 +12,7 @@ import { SPRING_STANDARD } from "../theme/motion";
 // Lazy-load BlurView so the app doesn't crash when expo-glass-effect isn't
 // installed yet. Once a native build includes the package, blur activates
 // automatically without any further code change.
-let BlurView: React.ComponentType<{ intensity: number; tint: "light" | "dark" | "default"; style?: ViewStyle }> | null = null;
+let BlurView: React.ComponentType<{ intensity: number; tint: "light" | "dark" | "default"; style?: StyleProp<ViewStyle> }> | null = null;
 try {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   BlurView = require("expo-glass-effect").GlassView ?? require("expo-blur").BlurView ?? null;
@@ -110,8 +110,9 @@ export function ShadowCard({
     : cardOpacity;
   const blurEnabled = BlurView !== null && objectId ? (perObjectGlassBlur[objectId] ?? false) : false;
   const blurIntensity = 40;
-  const { cardBgImages } = useAppSettings();
+  const { cardBgImages, elementBgImages } = useAppSettings();
   const splitBg = cardId ? (cardBgImages[cardId] ?? null) : null;
+  const userImg = objectId ? (elementBgImages[objectId] ?? null) : null;
   const cardBg = useCardBackground(cardId ?? "");
   const tileBg = useTileBackground(tileId ?? "");
   const bgOverride = cardId ? cardBg : (tileId ? tileBg : null);
@@ -224,7 +225,7 @@ export function ShadowCard({
           borderWidth: resolvedBorderWidth,
           borderColor: resolvedBorderColor,
           padding,
-          overflow: (cardId || tileId || blurEnabled) ? "hidden" : undefined,
+          overflow: (cardId || tileId || blurEnabled || accent) ? "hidden" : undefined,
           ...softShadow,
         },
         style,
@@ -245,7 +246,27 @@ export function ShadowCard({
           style={[StyleSheet.absoluteFill, { backgroundColor: resolvedBg, borderRadius: radius }]}
         />
       )}
-      {splitBg ? (
+      {userImg ? (
+        /* User-picked per-element image — wins over mosaic + theme overrides */
+        <>
+          <Image
+            source={{ uri: userImg.uri }}
+            resizeMode="cover"
+            style={[StyleSheet.absoluteFill, { borderRadius: radius, opacity: userImg.opacity ?? 0.85 }]}
+          />
+          {/* Readability scrim over strong images so card text keeps contrast */}
+          {(userImg.opacity ?? 0.85) > 0.6 && (
+            <View
+              pointerEvents="none"
+              style={[StyleSheet.absoluteFill, {
+                borderRadius: radius,
+                backgroundColor: resolvedBg,
+                opacity: ((userImg.opacity ?? 0.85) - 0.6) * 0.5,
+              }]}
+            />
+          )}
+        </>
+      ) : splitBg ? (
         <SplitImageOverlay bg={splitBg} borderRadius={radius} />
       ) : (cardId || tileId) && (
         <ThemedSurface
@@ -253,6 +274,17 @@ export function ShadowCard({
           kind={cardId ? "card" : "tile"}
           style={StyleSheet.absoluteFill}
           imageOpacity={0.85}
+        />
+      )}
+      {/* Accent edge — vertical gradient strip, the design's signature detail.
+          Rendered above background layers so it stays visible over images. */}
+      {accent && !skeleton && (
+        <LinearGradient
+          colors={[accent, hexWithAlpha(accent, 0.15)]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          pointerEvents="none"
+          style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 4 }}
         />
       )}
       {cardContent}

@@ -197,7 +197,7 @@ function BookShelf({
                               {book.title}
                             </Text>
                             {book.author && (
-                              <Text numberOfLines={1} style={{ fontSize: 7, color: textColor, opacity: 0.7, marginTop: 1 }}>
+                              <Text numberOfLines={1} style={{ fontSize: 9, color: textColor, opacity: 0.7, marginTop: 1 }}>
                                 {book.author}
                               </Text>
                             )}

@@ -116,5 +116,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 3,
   },
-  label: { fontSize: 8, fontWeight: "800", letterSpacing: 0.5 },
+  label: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
 });

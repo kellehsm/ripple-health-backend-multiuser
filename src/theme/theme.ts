@@ -42,6 +42,10 @@ export type Theme = {
   name: string;
   group: string;
   isDark: boolean;
+  /** Theme family this palette belongs to — each family has a light and a dark variant. */
+  family?: string;
+  /** Premium themes are locked behind a future entitlement. All defaults are free. */
+  premium?: boolean;
 
   ink: string;          // borders, shadows, outlines
   cream: string;        // subtlest background

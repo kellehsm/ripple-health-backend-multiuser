@@ -12,8 +12,9 @@
  */
 
 import React from "react";
-import { ImageBackground, View, StyleSheet, ImageSourcePropType } from "react-native";
+import { Image, ImageBackground, View, StyleSheet, ImageSourcePropType } from "react-native";
 import { useTheme } from "./ThemeContext";
+import { useAppSettings } from "./AppSettingsContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -396,6 +397,22 @@ export function ThemedSurface({
   imageOpacity = 1,
 }: ThemedSurfaceProps) {
   const { theme } = useTheme();
+  const { elementBgImages } = useAppSettings();
+
+  // User-picked image (Theme Studio) wins over theme overrides and defaults
+  const userImg = elementBgImages[elementId];
+  if (userImg) {
+    return (
+      <View style={[{ overflow: "hidden" }, style]}>
+        <Image
+          source={{ uri: userImg.uri }}
+          resizeMode={resizeMode}
+          style={[StyleSheet.absoluteFill, { opacity: userImg.opacity ?? 0.85 }]}
+        />
+        {children}
+      </View>
+    );
+  }
 
   let bg: ThemeableBackground;
   if (kind === "page") {

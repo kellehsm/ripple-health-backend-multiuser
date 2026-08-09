@@ -6,6 +6,7 @@ import {
   View
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { useRoute } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
@@ -82,6 +83,7 @@ export function StepsDetailScreen() {
   if (loading) {
     return (
       <View style={[s.center, { backgroundColor: theme.page }]}>
+        <ScreenBackground pageId="steps_detail" />
         <LoadingIndicator color={theme.teal.bar} />
       </View>
     );
@@ -90,6 +92,7 @@ export function StepsDetailScreen() {
   if (!data) {
     return (
       <View style={[s.center, { backgroundColor: theme.page }]}>
+        <ScreenBackground pageId="steps_detail" />
         <Text style={{ color: theme.textSoft }}>No data available.</Text>
       </View>
     );
@@ -117,7 +120,9 @@ export function StepsDetailScreen() {
   const avgDiff = this_week_average - last_week_average;
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={s.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+    <ScreenBackground pageId="steps_detail" />
+    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content}>
       {/* Summary stats */}
       <View style={s.card}>
         <View style={s.statsRow}>
@@ -280,6 +285,7 @@ export function StepsDetailScreen() {
         </View>
       )}
     </ScrollView>
+    </View>
   );
 }
 

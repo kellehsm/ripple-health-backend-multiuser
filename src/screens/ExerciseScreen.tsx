@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Modal } fr
 import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
 import { useFeatureIntro } from '../onboarding/useFeatureIntro';
 import { findIntro } from '../onboarding/featureIntros';
+import { ScreenBackground } from '../components/ScreenBackground';
 import Svg, { Circle, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { onSolid } from '../theme/colorUtils';
@@ -252,6 +253,7 @@ export function ExerciseScreen() {
   if (loading || wizardDone === null) {
     return (
       <View style={[styles.container, { backgroundColor: theme.page, alignItems: 'center', justifyContent: 'center' }]}>
+        <ScreenBackground pageId="exercise" />
         <LoadingIndicator />
       </View>
     );
@@ -276,6 +278,7 @@ export function ExerciseScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.page }]}>
+      <ScreenBackground pageId="exercise" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         {showTooltip && (

@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from "react";
 import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
+import { ScreenBackground } from "../components/ScreenBackground";
 import {
   ScrollView,
   View,
@@ -257,10 +258,11 @@ export function FriendsScreen() {
   });
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+    <ScreenBackground pageId="friends" />
     <ScrollView
       ref={scrollRef}
-      style={{ backgroundColor: theme.page }}
+      style={{ flex: 1, backgroundColor: "transparent" }}
       contentContainerStyle={[styles.content, tourPadding > 0 && { paddingBottom: tourPadding }]}
       onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
       scrollEventThrottle={16}
@@ -558,7 +560,7 @@ export function FriendsScreen() {
       onExtraPadding={setTourPadding}
     />
     <FeatureIntroSheet intro={friendsIntro} visible={introVisible} onClose={dismissIntro} />
-    </>
+    </View>
   );
 }
 

@@ -3,7 +3,7 @@ import {
   View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Animated, Dimensions,
   LayoutAnimation, Platform, UIManager,
 } from 'react-native';
-import Svg, { Polyline } from 'react-native-svg';
+import Svg, { Polyline, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
@@ -97,8 +97,22 @@ function HRSparkline({ readings, color }: { readings: Array<{ bpm: number }>; co
     const y = H - ((b - min) / range) * H;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(' ');
+  const ptArr = pts.split(' ');
+  const firstX = ptArr[0]?.split(',')[0];
+  const lastX = ptArr[ptArr.length - 1]?.split(',')[0];
   return (
     <Svg width={W} height={H} style={{ marginTop: 6 }}>
+      {bpms.length >= 2 && (
+        <>
+          <Defs>
+            <SvgLinearGradient id="exSessionFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={color} stopOpacity="0.25" />
+              <Stop offset="1" stopColor={color} stopOpacity="0.02" />
+            </SvgLinearGradient>
+          </Defs>
+          <Polygon points={`${pts} ${lastX},${H} ${firstX},${H}`} fill="url(#exSessionFill)" />
+        </>
+      )}
       <Polyline points={pts} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
     </Svg>
   );

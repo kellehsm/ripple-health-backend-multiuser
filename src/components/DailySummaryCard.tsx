@@ -63,7 +63,7 @@ export function DailySummaryCard({ data }: { data: DailySummaryData }) {
   const overallColor = scoreColor(overall, theme);
 
   return (
-    <ShadowCard size="card" style={{ marginBottom: 16 }}>
+    <ShadowCard size="card" style={{ marginBottom: 16 }} cardId="wellness_snapshot">
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.textStrong }]}>TODAY'S OVERVIEW</Text>

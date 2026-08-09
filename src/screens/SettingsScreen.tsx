@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { ScrollView, View, Text, Pressable, Switch, StyleSheet, Alert, Linking, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/core";
 import { useNavigation } from "@react-navigation/native";
@@ -121,7 +122,9 @@ export function SettingsScreen() {
   const searching = search.trim().length > 0;
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+    <ScreenBackground pageId="settings" />
+    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={styles.content}>
 
       {/* Search bar */}
       <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: theme.card, borderRadius: RADIUS.md, borderWidth: 1, borderColor: theme.cardBorder, paddingHorizontal: SPACING.md, marginBottom: SPACING.md }}>
@@ -176,7 +179,7 @@ export function SettingsScreen() {
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>APPEARANCE</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             {matches("Theme", "Appearance", "colour", "color") && (
-              <MenuRow title="Theme" subtitle={PALETTES[paletteId]?.name} onPress={() => nav("SettingsAppearance")} theme={theme} />
+              <MenuRow title="Theme Studio" subtitle={PALETTES[paletteId]?.name} onPress={() => nav("SettingsAppearance")} theme={theme} />
             )}
             {matches("Theme", "Appearance", "colour", "color") && matches("Customize Tabs", "Tabs", "bottom bar") && (
               <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
@@ -456,6 +459,7 @@ export function SettingsScreen() {
         />
       )}
     </ScrollView>
+    </View>
   );
 }
 

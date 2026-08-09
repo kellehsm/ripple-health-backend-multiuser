@@ -10,6 +10,7 @@ import {
 } from "./fontSystem";
 import { layeredShadow, ShadowSize } from "./styleUtils";
 import { useTheme } from "./ThemeContext";
+import { setGlobalFontFamily } from "./globalFont";
 import { api } from "../api/client";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -25,6 +26,13 @@ export type CardImageBg = {
   hFraction: number;
 };
 
+/** User-picked background image for a single element (page, card, or tile). */
+export type ElementBgImage = {
+  uri: string;
+  /** Image layer opacity 0–1. Lower = more of the card/page color shows through. Default 0.85. */
+  opacity?: number;
+};
+
 type AppSettings = {
   shadowsEnabled: boolean;
   fontFamily: FontFamilyKey;
@@ -34,6 +42,7 @@ type AppSettings = {
   perObjectOpacity: Record<string, number>;
   perObjectGlassBlur: Record<string, boolean>;
   cardBgImages: Record<string, CardImageBg>;
+  elementBgImages: Record<string, ElementBgImage>;
   // Global fallback border color for ShadowCards that don't pass their own
   // borderColor / accent. When null, falls back to theme.ink. Per-tile
   // accent-colored borders (glucose = berry, steps = teal, etc.) always win.
@@ -51,6 +60,9 @@ type AppSettingsContextValue = AppSettings & {
   setObjectGlassBlur: (id: string, enabled: boolean) => void;
   setCardBgImages: (imgs: Record<string, CardImageBg>) => void;
   clearCardBgImages: () => void;
+  setElementBgImage: (id: string, img: ElementBgImage) => void;
+  removeElementBgImage: (id: string) => void;
+  clearElementBgImages: () => void;
   setCardOutlineColor: (v: string | null) => void;
 };
 
@@ -64,6 +76,7 @@ const KEY_OPACITY_OVERRIDE   = "ripple_card_opacity_override";
 const KEY_OBJ_OPACITY        = "ripple_per_object_opacity";
 const KEY_OBJ_GLASS_BLUR     = "ripple_per_object_glass_blur";
 const KEY_CARD_BG_IMAGES     = "ripple_card_bg_images";
+const KEY_ELEMENT_BG_IMAGES  = "ripple_element_bg_images";
 const KEY_CARD_OUTLINE_COLOR = "ripple_card_outline_color";
 
 // ─── Context ───────────────────────────────────────────────────────────────────
@@ -77,6 +90,7 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   perObjectOpacity: {},
   perObjectGlassBlur: {},
   cardBgImages: {},
+  elementBgImages: {},
   cardOutlineColor: null,
   setShadowsEnabled: () => {},
   setFontFamily: () => {},
@@ -88,6 +102,9 @@ const AppSettingsContext = createContext<AppSettingsContextValue>({
   setObjectGlassBlur: () => {},
   setCardBgImages: () => {},
   clearCardBgImages: () => {},
+  setElementBgImage: () => {},
+  removeElementBgImage: () => {},
+  clearElementBgImages: () => {},
   setCardOutlineColor: () => {},
 });
 
@@ -104,6 +121,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   const [perObjectOpacity, setPerObjectOpacityState] = useState<Record<string, number>>({});
   const [perObjectGlassBlur, setPerObjectGlassBlurState] = useState<Record<string, boolean>>({});
   const [cardBgImages, setCardBgImagesState] = useState<Record<string, CardImageBg>>({});
+  const [elementBgImages, setElementBgImagesState] = useState<Record<string, ElementBgImage>>({});
 
   // Ref so palette-change effect can read current override without stale closure
   const manualOverrideRef = useRef(false);
@@ -111,7 +129,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
   // ── Load persisted settings on mount ──────────────────────────────────────
   useEffect(() => {
     const load = async () => {
-      const [shadows, ff, scale, opacity, override, objOpacity, objGlass, cardBgImgs, outlineColor] = await Promise.all([
+      const [shadows, ff, scale, opacity, override, objOpacity, objGlass, cardBgImgs, elementBgImgs, outlineColor] = await Promise.all([
         AsyncStorage.getItem(KEY_SHADOWS),
         AsyncStorage.getItem(KEY_FONT_FAMILY),
         AsyncStorage.getItem(KEY_FONT_SCALE),
@@ -120,6 +138,7 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
         AsyncStorage.getItem(KEY_OBJ_OPACITY),
         AsyncStorage.getItem(KEY_OBJ_GLASS_BLUR),
         AsyncStorage.getItem(KEY_CARD_BG_IMAGES),
+        AsyncStorage.getItem(KEY_ELEMENT_BG_IMAGES),
         AsyncStorage.getItem(KEY_CARD_OUTLINE_COLOR),
       ]);
 
@@ -151,6 +170,9 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
       }
       if (cardBgImgs) {
         try { setCardBgImagesState(JSON.parse(cardBgImgs)); } catch {}
+      }
+      if (elementBgImgs) {
+        try { setElementBgImagesState(JSON.parse(elementBgImgs)); } catch {}
       }
 
       // Backend sync (non-blocking; overrides AsyncStorage if server has a value)
@@ -187,8 +209,14 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
 
   const setFontFamily = useCallback((v: FontFamilyKey) => {
     setFontFamilyState(v);
+    setGlobalFontFamily(v);
     AsyncStorage.setItem(KEY_FONT_FAMILY, v).catch(() => {});
   }, []);
+
+  // Keep the global Text render patch in sync with the loaded/current setting
+  useEffect(() => {
+    setGlobalFontFamily(fontFamily);
+  }, [fontFamily]);
 
   const setFontSizeScale = useCallback((v: FontScalePreset) => {
     setFontSizeScaleState(v);
@@ -251,6 +279,28 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     AsyncStorage.removeItem(KEY_CARD_BG_IMAGES).catch(() => {});
   }, []);
 
+  const setElementBgImage = useCallback((id: string, img: ElementBgImage) => {
+    setElementBgImagesState(prev => {
+      const next = { ...prev, [id]: img };
+      AsyncStorage.setItem(KEY_ELEMENT_BG_IMAGES, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const removeElementBgImage = useCallback((id: string) => {
+    setElementBgImagesState(prev => {
+      const next = { ...prev };
+      delete next[id];
+      AsyncStorage.setItem(KEY_ELEMENT_BG_IMAGES, JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const clearElementBgImages = useCallback(() => {
+    setElementBgImagesState({});
+    AsyncStorage.removeItem(KEY_ELEMENT_BG_IMAGES).catch(() => {});
+  }, []);
+
   const setCardOutlineColor = useCallback((v: string | null) => {
     setCardOutlineColorState(v);
     if (v === null) {
@@ -264,10 +314,12 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     <AppSettingsContext.Provider
       value={{
         shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride,
-        perObjectOpacity, perObjectGlassBlur, cardBgImages, cardOutlineColor,
+        perObjectOpacity, perObjectGlassBlur, cardBgImages, elementBgImages, cardOutlineColor,
         setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity,
         setObjectOpacity, resetObjectOpacity, setObjectGlassBlur,
-        setCardBgImages, clearCardBgImages, setCardOutlineColor,
+        setCardBgImages, clearCardBgImages,
+        setElementBgImage, removeElementBgImage, clearElementBgImages,
+        setCardOutlineColor,
       }}
     >
       {children}

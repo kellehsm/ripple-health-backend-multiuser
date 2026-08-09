@@ -8,7 +8,8 @@ import {
   View
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
-import Svg, { Line, Polyline, Text as SvgText } from "react-native-svg";
+import { ScreenBackground } from "../components/ScreenBackground";
+import Svg, { Line, Polyline, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 
@@ -109,7 +110,9 @@ export function HeartRateDetailScreen() {
   const avg = bpms.length ? Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length) : null;
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={s.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+    <ScreenBackground pageId="heart_detail" />
+    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content}>
 
       {/* Summary stats */}
       <View style={s.card}>
@@ -184,6 +187,23 @@ export function HeartRateDetailScreen() {
                 </React.Fragment>
               );
             })}
+            {readings.length >= 2 && (() => {
+              const ptArr = points.split(" ");
+              const firstX = ptArr[0].split(",")[0];
+              const lastX = ptArr[ptArr.length - 1].split(",")[0];
+              const baseY = PAD_T + usableH;
+              return (
+                <>
+                  <Defs>
+                    <SvgLinearGradient id="hrDetailFill" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0" stopColor={theme.red.sub} stopOpacity="0.30" />
+                      <Stop offset="1" stopColor={theme.red.sub} stopOpacity="0.02" />
+                    </SvgLinearGradient>
+                  </Defs>
+                  <Polygon points={`${points} ${lastX},${baseY} ${firstX},${baseY}`} fill="url(#hrDetailFill)" />
+                </>
+              );
+            })()}
             <Polyline points={points} fill="none" stroke={theme.red.sub} strokeWidth={2} />
           </Svg>
         )}
@@ -247,6 +267,7 @@ export function HeartRateDetailScreen() {
       </View>
 
     </ScrollView>
+    </View>
   );
 }
 

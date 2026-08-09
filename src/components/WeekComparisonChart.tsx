@@ -1,6 +1,6 @@
 import React from "react";
 import { Dimensions } from "react-native";
-import Svg, { G, Rect, Text as SvgText } from "react-native-svg";
+import Svg, { G, Rect, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 
 export type ChartDayData = {
   day_label: string;
@@ -33,6 +33,16 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
 
   return (
     <Svg width={chartW} height={CHART_H}>
+      <Defs>
+        <SvgLinearGradient id="wkBarThisFill" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={barColor} stopOpacity="1" />
+          <Stop offset="1" stopColor={barColor} stopOpacity="0.55" />
+        </SvgLinearGradient>
+        <SvgLinearGradient id="wkBarLastFill" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={fadedColor} stopOpacity="1" />
+          <Stop offset="1" stopColor={fadedColor} stopOpacity="0.55" />
+        </SvgLinearGradient>
+      </Defs>
       {days.map((day, i) => {
         const slotX = i * slotW;
         const barsW = barW * 2 + gap;
@@ -55,8 +65,8 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
                 y={PLOT_H - lastH}
                 width={barW}
                 height={lastH}
-                rx={2}
-                fill={fadedColor}
+                rx={3}
+                fill="url(#wkBarLastFill)"
               />
             )}
 
@@ -66,8 +76,8 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
                 y={PLOT_H - thisH}
                 width={barW}
                 height={thisH}
-                rx={2}
-                fill={barColor}
+                rx={3}
+                fill="url(#wkBarThisFill)"
                 opacity={day.is_today ? 0.55 : 1}
               />
             )}
@@ -78,7 +88,7 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
                 y={PLOT_H - thisH}
                 width={barW}
                 height={thisH}
-                rx={2}
+                rx={3}
                 fill="none"
                 stroke={barColor}
                 strokeWidth={1.5}

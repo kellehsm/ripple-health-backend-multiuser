@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   moodLabel: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: "800",
     letterSpacing: 0.3,
     textAlign: "center",

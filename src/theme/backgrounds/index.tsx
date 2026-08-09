@@ -6,6 +6,7 @@
 import React from "react";
 import { View, Image, StyleSheet, useWindowDimensions } from "react-native";
 import { useTheme } from "../ThemeContext";
+import { useAppSettings } from "../AppSettingsContext";
 import Svg, {
   Circle,
   Line,
@@ -407,15 +408,38 @@ interface ThemedBackgroundProps {
 /**
  * Absolute-positioned background for the active theme + page.
  * Resolution order:
- *   1. theme.pageBackgrounds[pageId] — image or color override set by a premium theme
- *   2. BACKGROUND_REGISTRY[paletteId] — the decorative SVG scene for this palette
- *   3. Nothing (returns null)
+ *   1. User-picked page image (Theme Studio → elementBgImages[pageId])
+ *   2. theme.pageBackgrounds[pageId] — image or color override set by a premium theme
+ *   3. BACKGROUND_REGISTRY[paletteId] — the decorative SVG scene for this palette
+ *   4. Nothing (returns null)
  *
  * Place inside a View with position: "relative". The background fills 100% W × H.
  */
 export function ThemedBackground({ pageId, opacity = 1 }: ThemedBackgroundProps) {
   const { width, height } = useWindowDimensions();
   const { theme, paletteId } = useTheme();
+  const { elementBgImages } = useAppSettings();
+
+  // User-picked page background wins over everything
+  const userImg = pageId ? elementBgImages[pageId] : undefined;
+  if (userImg) {
+    const imgOpacity = userImg.opacity ?? 0.85;
+    // Readability scrim: kicks in as image strength passes 60% so text over
+    // busy photos keeps contrast (0 at ≤60%, up to 0.2 at 100%).
+    const scrim = Math.max(0, imgOpacity - 0.6) * 0.5;
+    return (
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity }]}>
+        <Image
+          source={{ uri: userImg.uri }}
+          resizeMode="cover"
+          style={[StyleSheet.absoluteFill, { opacity: imgOpacity }]}
+        />
+        {scrim > 0 && (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.page, opacity: scrim }]} />
+        )}
+      </View>
+    );
+  }
 
   // Check for a per-page image override from the premium theme
   const pageBg = (theme as any).pageBackgrounds?.[pageId];

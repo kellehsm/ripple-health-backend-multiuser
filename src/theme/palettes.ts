@@ -18,7 +18,7 @@ function cfn(solid: string, sub: string, bg: string, fg: string, tint: string): 
 const morningMist: Theme = {
   id: "morning-mist", name: "Morning Mist", group: "Light", isDark: false,
   ink: "#1C2B3A", cream: "#FAF5EE", page: "#F5ECDF", gradientEnd: "#EDE5D5", card: "#FEFCF8", cardBorder: "#C4B5A5",
-  textStrong: "#1C2B3A", textSoft: "#5C6D7E",
+  textStrong: "#1C2B3A", textSoft: "#4E6074",
   primary: "#2870C8", success: "#1A9870", warning: "#B88820", danger: "#C02840",
   glucoseHigh: "#C02840", glucoseLow: "#2870C8",
   teal:   cf("#1A9870", "#0E6848", "#D8F5EB", "#1C2B3A", "#D8F5EB", "#1A9870"),
@@ -235,6 +235,44 @@ const nebula: Theme = {
   cycle:   { period: "#F880A0", predicted: "#601828", mood: "#D0A8FF", symptom: "#58E0C0", fertile: "#80C8FF", ovulation: "#FFD878" },
   finance: { food: "#FFA870", transport: "#80C8FF", shopping: "#D0A8FF", health: "#58E0C0", entertainment: "#F880A0", utilities: "#FFD878", other: "#A0A8C0" },
 };
+
+// ─── Theme families ───────────────────────────────────────────────────────────
+// Each family pairs one light and one dark palette. The dark-mode toggle
+// switches within the family, so users keep their chosen aesthetic.
+
+export type ThemeFamily = {
+  id: string;
+  name: string;
+  /** Short welcoming tagline shown in the Theme Studio. */
+  tagline: string;
+  light: string;  // palette id
+  dark: string;   // palette id
+  premium?: boolean;
+};
+
+export const THEME_FAMILIES: ThemeFamily[] = [
+  { id: "mist",  name: "Morning Mist", tagline: "Warm cream days, jewel-black nights", light: "morning-mist", dark: "obsidian" },
+  { id: "sage",  name: "Sage",         tagline: "Botanical greens and deep-sea glow",  light: "pale-sage",    dark: "abyssal"  },
+  { id: "blush", name: "Blush",        tagline: "Soft sunset warmth, ember evenings",  light: "blush-hour",   dark: "volcanic" },
+  { id: "jewel", name: "Jewel",        tagline: "Bright gemstones and cosmic dust",    light: "jewel-light",  dark: "nebula"   },
+  { id: "slate", name: "Slate",        tagline: "Crisp minimalism, arctic frost",      light: "clean-slate",  dark: "arctic"   },
+];
+
+export const DEFAULT_FAMILY_ID = "mist";
+
+export function familyForPalette(paletteId: string): ThemeFamily {
+  return (
+    THEME_FAMILIES.find((f) => f.light === paletteId || f.dark === paletteId) ??
+    THEME_FAMILIES[0]
+  );
+}
+
+// Stamp family ids onto the palettes
+morningMist.family = "mist";  obsidian.family = "mist";
+paleSage.family    = "sage";  abyssal.family  = "sage";
+blushHour.family   = "blush"; volcanic.family = "blush";
+jewelLight.family  = "jewel"; nebula.family   = "jewel";
+cleanSlate.family  = "slate"; arctic.family   = "slate";
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
 

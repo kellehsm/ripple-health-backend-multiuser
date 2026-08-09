@@ -12,6 +12,7 @@ import {
   Animated
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { ShadowCard } from "../components/ShadowCard";
 import { RippleLoader } from "../components/RippleLoader";
@@ -457,6 +458,7 @@ export function MindfulnessScreen() {
 
   return (
     <LinearGradient colors={[theme.page, theme.gradientEnd]} style={{ flex: 1 }}>
+    <ScreenBackground pageId="mindfulness" />
     <ScrollView
       style={{ backgroundColor: "transparent" }}
       contentContainerStyle={{ padding: 16 }}
@@ -521,7 +523,7 @@ function TileGrid({ theme, ink, onSelect, todayDone }: { theme: any; ink: string
                   {doneToday && (
                     <View style={{ backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, flexDirection: "row", alignItems: "center", gap: 3 }}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" }} />
-                      <Text style={{ color: "#fff", fontSize: 8, fontWeight: "900" }}>DONE</Text>
+                      <Text style={{ color: "#fff", fontSize: 9, fontWeight: "900" }}>DONE</Text>
                     </View>
                   )}
                 </View>

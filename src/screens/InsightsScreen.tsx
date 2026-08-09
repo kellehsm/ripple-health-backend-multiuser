@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
+import { ScreenBackground } from "../components/ScreenBackground";
 import {
   Animated, Easing, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
 } from "react-native";
@@ -229,8 +230,9 @@ export function InsightsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+    <ScreenBackground pageId="insights" />
     <ScrollView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: "transparent" }}
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={theme.primary} colors={[theme.primary]} />}
     >
