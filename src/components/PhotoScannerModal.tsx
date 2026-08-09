@@ -242,9 +242,17 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
 
     setScanStatus("recognizing");
 
+    // Passio's Android bridge calls `File(path)` directly and expects a plain
+    // filesystem path — expo-camera returns `file:///…`, so `File("file:///…")`
+    // fails `file.exists()` and the SDK throws "no image found". Strip the
+    // scheme (and equivalent iOS `file://localhost/` prefix) before handing off.
+    const passioPath = uri
+      .replace(/^file:\/\/localhost/, "")
+      .replace(/^file:\/\//, "");
+
     try {
       const results: PassioAdvisorFoodInfo[] | null =
-        await PassioSDK.recognizeImageRemote(uri, undefined, "RES_512");
+        await PassioSDK.recognizeImageRemote(passioPath, undefined, "RES_512");
 
       if (!results || results.length === 0) {
         setScanStatus("error");

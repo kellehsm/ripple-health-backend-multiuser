@@ -19,6 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { MetricCard } from "../components/MetricCard";
 import { MetricChip, MetricChipSkeleton, chipStyles } from "../components/MetricChip";
 import { RangeSelector } from "../components/RangeSelector";
+import { CardLoadingOverlay } from "../components/CardLoadingOverlay";
 import { getMetricPalette } from "../lib/metricColors";
 import { DefinedTerm } from "../components/DefinedTerm";
 import { api } from "../api/client";
@@ -1246,6 +1247,7 @@ export function HealthScreen() {
             <View style={{ height: 7, backgroundColor: theme.cardBorder, borderRadius: 4, overflow: "hidden" }}>
               <View style={{ height: 7, width: (pct + "%") as any, backgroundColor: barColor, borderRadius: 4 }} />
             </View>
+            <CardLoadingOverlay loading={refreshing} size="small" />
           </ShadowCard>
         );
       })()}
@@ -1604,6 +1606,7 @@ export function HealthScreen() {
             Last reading {status.minutesSinceReading} min ago — sensor may be disconnected.
           </Text>
         ) : null}
+        <CardLoadingOverlay loading={loading || refreshing} size="large" />
       </ShadowCard>
       </Animated.View>
 
@@ -1683,6 +1686,7 @@ export function HealthScreen() {
                 <Polyline points={hrPoints} fill="none" stroke={theme.berry.sub} strokeWidth={2} />
               </Svg>
             )}
+            <CardLoadingOverlay loading={hrLoading || refreshing} size="small" />
           </ShadowCard>
         );
       })()}
