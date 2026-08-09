@@ -89,32 +89,46 @@ export async function syncHealthData(): Promise<SyncResult> {
       },
     });
     if ((result.records as any[]).length > 0) {
-      const sessions = (result.records as any[]).map((s) => ({
-        start_time: s.startTime,
-        end_time: s.endTime,
-        quality_score: null,
-      }));
+      // Compute per-session stage sums so we can persist them on the row itself
+      // (previously stages were aggregated across all sessions in the window and
+      // cached to AsyncStorage — losing data on reinstall and preventing
+      // historical trend charts).
+      let totalDeepMs = 0, totalRemMs = 0, totalLightMs = 0, totalAwakeMs = 0;
+      const sessions = (result.records as any[]).map((s: any) => {
+        let deep_ms = 0, rem_ms = 0, light_ms = 0, awake_ms = 0;
+        for (const stg of (s.stages ?? [])) {
+          const dur = new Date(stg.endTime).getTime() - new Date(stg.startTime).getTime();
+          switch (stg.stage) {
+            case 5: deep_ms  += dur; break; // DEEP
+            case 6: rem_ms   += dur; break; // REM
+            case 4: light_ms += dur; break; // LIGHT
+            case 1: awake_ms += dur; break; // AWAKE
+          }
+        }
+        totalDeepMs  += deep_ms;
+        totalRemMs   += rem_ms;
+        totalLightMs += light_ms;
+        totalAwakeMs += awake_ms;
+        return {
+          start_time: s.startTime,
+          end_time: s.endTime,
+          quality_score: null,
+          // Send null (not 0) when this session has no stage data so backend
+          // COALESCE doesn't wipe good existing data on a re-sync.
+          deep_ms:  deep_ms  > 0 ? deep_ms  : null,
+          rem_ms:   rem_ms   > 0 ? rem_ms   : null,
+          light_ms: light_ms > 0 ? light_ms : null,
+          awake_ms: awake_ms > 0 ? awake_ms : null,
+        };
+      });
       await api.syncSleep(sessions);
       const totalMs = (result.records as any[]).reduce(
         (sum, s) => sum + (new Date(s.endTime).getTime() - new Date(s.startTime).getTime()),
         0
       );
       sleepHours = Math.round((totalMs / 3600000) * 10) / 10;
-
-      // Extract per-stage durations if the device provides them
-      const allStages = (result.records as any[]).flatMap((s: any) => s.stages ?? []);
-      if (allStages.length > 0) {
-        let deepMs = 0, remMs = 0, lightMs = 0, awakeMs = 0;
-        for (const stg of allStages) {
-          const dur = new Date(stg.endTime).getTime() - new Date(stg.startTime).getTime();
-          switch (stg.stage) {
-            case 5: deepMs  += dur; break; // DEEP
-            case 6: remMs   += dur; break; // REM
-            case 4: lightMs += dur; break; // LIGHT
-            case 1: awakeMs += dur; break; // AWAKE
-          }
-        }
-        sleepStages = { deepMs, remMs, lightMs, awakeMs };
+      if (totalDeepMs + totalRemMs + totalLightMs + totalAwakeMs > 0) {
+        sleepStages = { deepMs: totalDeepMs, remMs: totalRemMs, lightMs: totalLightMs, awakeMs: totalAwakeMs };
       }
     }
   } catch (e: any) {

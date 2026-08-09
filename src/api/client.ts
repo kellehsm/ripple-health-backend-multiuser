@@ -278,7 +278,16 @@ export const api = {
   sleepStats: function () {
     return request("/health-connect/sleep/stats");
   },
-  syncSleep: function (sessions: Array<{ start_time: string; end_time: string; quality_score: number | null }>) {
+  sleepRange: function (start: string, end: string): Promise<{ sessions: Array<{
+    id: string; start_time: string; end_time: string; quality_score: number | null;
+    deep_ms: number | null; rem_ms: number | null; light_ms: number | null; awake_ms: number | null;
+  }> }> {
+    return request("/health-connect/sleep/range?start=" + encodeURIComponent(start) + "&end=" + encodeURIComponent(end));
+  },
+  syncSleep: function (sessions: Array<{
+    start_time: string; end_time: string; quality_score: number | null;
+    deep_ms?: number | null; rem_ms?: number | null; light_ms?: number | null; awake_ms?: number | null;
+  }>) {
     return request("/health-connect/sleep", { method: "POST", body: JSON.stringify({ sessions }) });
   },
   syncHeartRate: function (readings: Array<{ recorded_at: string; bpm: number }>) {

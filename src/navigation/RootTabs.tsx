@@ -16,6 +16,7 @@ import { SettingsScreen } from "../screens/SettingsScreen";
 import { HistoryScreen } from "../screens/HistoryScreen";
 import { StepsDetailScreen } from "../screens/StepsDetailScreen";
 import { HeartRateDetailScreen } from "../screens/HeartRateDetailScreen";
+import { SleepDetailScreen } from "../screens/SleepDetailScreen";
 import { TrendsScreen } from "../screens/TrendsScreen";
 import { CompletedScreen } from "../screens/CompletedScreen";
 import { InsightsScreen } from "../screens/InsightsScreen";
@@ -216,6 +217,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
         <Stack.Screen name="StepsDetail" component={StepsDetailScreen} options={{ title: "Steps" }} />
         <Stack.Screen name="HeartRateDetail" component={HeartRateDetailScreen} options={{ title: "Heart Rate" }} />
+        <Stack.Screen name="SleepDetail" component={SleepDetailScreen} options={{ title: "Sleep" }} />
         <Stack.Screen name="InsightsTrends" component={InsightsTrendsScreen} options={{ title: "Insights & Trends" }} />
         <Stack.Screen name="Trends" component={TrendsScreen} options={{ title: "Trends" }} />
         <Stack.Screen name="Completed" component={CompletedScreen} options={{ title: "My Bookshelf" }} />

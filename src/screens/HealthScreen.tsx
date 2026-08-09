@@ -1098,7 +1098,8 @@ export function HealthScreen() {
               borderColor={amberSolid}
               backgroundColor={amberBg}
               label="SLEEP"
-              accessibilityLabel={sleepDisplay ? `Sleep ${sleepDisplay} last night` : "Sleep, no data"}
+              accessibilityLabel={sleepDisplay ? `Sleep ${sleepDisplay} last night. Double-tap for stage breakdown and 30-day trends.` : "Sleep, no data. Double-tap to open sleep details."}
+              onPress={() => navigation.getParent()?.navigate("SleepDetail")}
             >
               <Ionicons name="moon" size={20} color={amberSub} />
               {sleepDisplay ? (
