@@ -51,3 +51,10 @@ backend/.env
 # IDE
 .vscode/settings.json
 .idea/
+
+# local EAS build working dir (see Desktop/BUILD_INSTRUCTIONS.md)
+# also stops EAS recursively copying the build tree into itself
+.eas-build/
+
+# build outputs (phone + wear apks land in the project root)
+*.apk

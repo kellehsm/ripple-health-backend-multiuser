@@ -35,7 +35,7 @@
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_HEALTH"
       ],
-      "versionCode": 8
+      "versionCode": 9
     },
     "plugins": [
       "expo-health-connect",
