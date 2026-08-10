@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { ScrollView, View, Text, Pressable, TextInput, StyleSheet, Dimensions, Platform, Alert, RefreshControl, Animated } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { LoadingIndicator } from "../components/LoadingIndicator";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import { useFocusEffect } from "@react-navigation/core";
 import { StaleSyncBanner } from "../components/StaleSyncBanner";
 import { shouldNotifyStale, markStaleNotified } from "../utils/staleSyncState";
@@ -288,6 +288,9 @@ export function HealthScreen() {
   const cardShadow = useCardShadow('card');
   const { cardOpacity } = useAppSettings();
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const sectionYRef = useRef<{ glucose: number | null; sleep: number | null }>({ glucose: null, sleep: null });
   const [rangeHours, setRangeHours] = useState(6);
   const [todayReadings, setTodayReadings] = useState<GlucoseReading[]>([]);
   const [yesterdayReadings, setYesterdayReadings] = useState<GlucoseReading[]>([]);
@@ -839,6 +842,30 @@ export function HealthScreen() {
   useEffect(function () { loadWater(); }, [loadWater]);
   useEffect(function () { loadStepsAndSleep(); }, [loadStepsAndSleep]);
 
+  // Widget/notification deep links can request the screen scroll to a section.
+  // Retry briefly so the scroll happens after layout has measured the anchor.
+  useFocusEffect(useCallback(function () {
+    const target = route.params?.scrollTo as "glucose" | "sleep" | undefined;
+    if (!target) return;
+    let attempts = 0;
+    const tryScroll = () => {
+      attempts += 1;
+      const y = sectionYRef.current[target];
+      if (y !== null && scrollViewRef.current) {
+        scrollViewRef.current.scrollTo({ y: Math.max(0, y - 12), animated: true });
+        // Clear the param so re-focusing without a new link doesn't re-scroll.
+        try { navigation.setParams({ scrollTo: undefined }); } catch { /* noop */ }
+        return true;
+      }
+      return false;
+    };
+    if (tryScroll()) return;
+    const interval = setInterval(() => {
+      if (tryScroll() || attempts > 20) clearInterval(interval);
+    }, 120);
+    return () => clearInterval(interval);
+  }, [route.params?.scrollTo, navigation]));
+
   // Entrance animation — fade+slide cards in on mount, staggered 60ms per card.
   useEffect(function () {
     Animated.timing(entranceAnim, { toValue: 1, duration: 420, useNativeDriver: true }).start();
@@ -948,6 +975,7 @@ export function HealthScreen() {
     <LinearGradient colors={[theme.page, theme.gradientEnd]} style={{ flex: 1 }}>
     <ScreenBackground pageId="health_tab" />
     <ScrollView
+      ref={scrollViewRef}
       style={{ backgroundColor: "transparent" }}
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.bar} colors={[theme.teal.bar]} />}
@@ -1229,6 +1257,7 @@ export function HealthScreen() {
       )}
 
       {/* Sleep debt counter */}
+      <View onLayout={(e) => { sectionYRef.current.sleep = e.nativeEvent.layout.y; }} />
       {sleepAvgSecs !== null && (function () {
         const GOAL_SECS = 8 * 3600;
         const debtSecs = (GOAL_SECS - sleepAvgSecs) * 7;
@@ -1272,7 +1301,9 @@ export function HealthScreen() {
         </View>
       ) : null}
 
+      <View onLayout={(e) => { sectionYRef.current.glucose = e.nativeEvent.layout.y; }}>
       <SectionDivider label="GLUCOSE" />
+      </View>
 
       {/* Glucose chart card */}
       <Animated.View style={{ opacity: glucoseEntranceAnim }}>

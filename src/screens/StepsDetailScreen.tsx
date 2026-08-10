@@ -59,16 +59,47 @@ function fmtCompact(n: number): string {
 
 export function StepsDetailScreen() {
   const route = useRoute<any>();
-  const { metricId, weekStartDay } = route.params as { metricId: string; weekStartDay: number };
+  const params = (route.params ?? {}) as { metricId?: string; weekStartDay?: number };
   const { theme } = useTheme();
   const ink = theme.ink;
   const card = theme.card;
   const s = useMemo(() => makeStyles(ink, card), [ink, card]);
+  const [metricId, setMetricId] = useState<string | null>(params.metricId ?? null);
+  const [weekStartDay, setWeekStartDay] = useState<number>(params.weekStartDay ?? 1);
   const [data, setData] = useState<BreakdownData | null>(null);
   const [loading, setLoading] = useState(true);
   const [monthlyData, setMonthlyData] = useState<MonthWeek[] | null>(null);
 
+  // Widget deep links open this screen without route params — resolve the
+  // steps metricId / week-start ourselves so the screen doesn't crash.
   useEffect(() => {
+    if (metricId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [steps, settings] = await Promise.all([
+          api.getStepsMetric().catch(() => null),
+          api.getSettings().catch(() => null),
+        ]);
+        if (cancelled) return;
+        const id = steps && steps.length > 0 ? steps[0].id : null;
+        const wsd = settings?.week_start?.steps ?? 1;
+        if (id) {
+          setMetricId(id);
+          setWeekStartDay(wsd);
+        } else {
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [metricId]);
+
+  useEffect(() => {
+    if (!metricId) return;
+    setLoading(true);
     api
       .metricDailyBreakdown(metricId, weekStartDay)
       .then(setData)

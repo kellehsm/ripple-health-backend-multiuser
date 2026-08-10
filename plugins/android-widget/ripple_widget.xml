@@ -7,7 +7,7 @@
     android:background="@drawable/ripple_widget_bg"
     android:padding="12dp">
 
-    <!-- Header: branding + timestamp + refresh -->
+    <!-- Header: logo + branding + timestamp + refresh -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -15,13 +15,20 @@
         android:gravity="center_vertical"
         android:layout_marginBottom="8dp">
 
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ripple_logo"
+            android:contentDescription="Ripple Wellness"
+            android:layout_marginRight="6dp" />
+
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Ripple"
+            android:text="Ripple Wellness"
             android:textSize="13sp"
-            android:textColor="#3FA0A6"
+            android:textColor="#1A1A1A"
             android:textStyle="bold" />
 
         <TextView
@@ -30,7 +37,7 @@
             android:layout_height="wrap_content"
             android:text="Tap ↻ to refresh"
             android:textSize="9sp"
-            android:textColor="#9E9689" />
+            android:textColor="#6E655A" />
 
         <TextView
             android:id="@+id/btn_refresh"
@@ -38,7 +45,7 @@
             android:layout_height="wrap_content"
             android:text="  ↻"
             android:textSize="16sp"
-            android:textColor="#3FA0A6"
+            android:textColor="#2A8A90"
             android:padding="4dp" />
 
     </LinearLayout>
@@ -58,7 +65,7 @@
             android:orientation="vertical"
             android:gravity="center_vertical"
             android:background="@drawable/ripple_chip_berry"
-            android:padding="8dp"
+            android:padding="7dp"
             android:layout_marginRight="5dp">
 
             <TextView
@@ -66,7 +73,7 @@
                 android:layout_height="wrap_content"
                 android:text="GLUCOSE"
                 android:textSize="8sp"
-                android:textColor="#A62A50"
+                android:textColor="#5A0F2B"
                 android:textStyle="bold" />
 
             <TextView
@@ -74,8 +81,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="20sp"
-                android:textColor="#A62A50"
+                android:textSize="18sp"
+                android:textColor="#3D0A1F"
                 android:textStyle="bold" />
 
             <TextView
@@ -83,7 +90,7 @@
                 android:layout_height="wrap_content"
                 android:text="mg/dL"
                 android:textSize="8sp"
-                android:textColor="#C07090"
+                android:textColor="#6E1E3F"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -96,7 +103,7 @@
             android:orientation="vertical"
             android:gravity="center_vertical"
             android:background="@drawable/ripple_chip_teal"
-            android:padding="8dp"
+            android:padding="7dp"
             android:layout_marginRight="5dp">
 
             <TextView
@@ -104,7 +111,7 @@
                 android:layout_height="wrap_content"
                 android:text="STEPS"
                 android:textSize="8sp"
-                android:textColor="#3FA0A6"
+                android:textColor="#0E4A4E"
                 android:textStyle="bold" />
 
             <TextView
@@ -112,8 +119,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="20sp"
-                android:textColor="#2A7A80"
+                android:textSize="18sp"
+                android:textColor="#08383B"
                 android:textStyle="bold" />
 
             <TextView
@@ -121,7 +128,7 @@
                 android:layout_height="wrap_content"
                 android:text="today"
                 android:textSize="8sp"
-                android:textColor="#5AACB0"
+                android:textColor="#155F63"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -134,14 +141,14 @@
             android:orientation="vertical"
             android:gravity="center_vertical"
             android:background="@drawable/ripple_chip_red"
-            android:padding="8dp">
+            android:padding="7dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="HEART"
                 android:textSize="8sp"
-                android:textColor="#C0392B"
+                android:textColor="#5C1A10"
                 android:textStyle="bold" />
 
             <TextView
@@ -149,8 +156,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="--"
-                android:textSize="20sp"
-                android:textColor="#C0392B"
+                android:textSize="18sp"
+                android:textColor="#3D0F08"
                 android:textStyle="bold" />
 
             <TextView
@@ -158,14 +165,14 @@
                 android:layout_height="wrap_content"
                 android:text="bpm"
                 android:textSize="8sp"
-                android:textColor="#D4766B"
+                android:textColor="#7A2418"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
 
     </LinearLayout>
 
-    <!-- Row 2: Water (with + button) | Meals -->
+    <!-- Row 2: Water (with + button) | Sleep | Meals -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -181,8 +188,8 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:background="@drawable/ripple_chip_blue"
-            android:paddingLeft="10dp"
-            android:paddingRight="6dp"
+            android:paddingLeft="7dp"
+            android:paddingRight="4dp"
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
             android:layout_marginRight="5dp">
@@ -198,7 +205,7 @@
                     android:layout_height="wrap_content"
                     android:text="💧 WATER"
                     android:textSize="8sp"
-                    android:textColor="#2F6DB5"
+                    android:textColor="#0E2E5C"
                     android:textStyle="bold" />
 
                 <TextView
@@ -206,8 +213,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="--"
-                    android:textSize="18sp"
-                    android:textColor="#2F6DB5"
+                    android:textSize="16sp"
+                    android:textColor="#08203D"
                     android:textStyle="bold" />
 
                 <TextView
@@ -215,21 +222,59 @@
                     android:layout_height="wrap_content"
                     android:text="glasses"
                     android:textSize="8sp"
-                    android:textColor="#6E97C6"
+                    android:textColor="#193F70"
                     android:layout_marginTop="1dp" />
 
             </LinearLayout>
 
             <TextView
                 android:id="@+id/btn_water_plus"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:text="+"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
                 android:gravity="center"
                 android:background="@drawable/ripple_btn_blue_round" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/block_sleep"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:background="@drawable/ripple_chip_sleep"
+            android:padding="7dp"
+            android:layout_marginRight="5dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🌙 SLEEP"
+                android:textSize="8sp"
+                android:textColor="#2A1B60"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_sleep"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="--"
+                android:textSize="18sp"
+                android:textColor="#170A3D"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="last night"
+                android:textSize="8sp"
+                android:textColor="#3B2478"
+                android:layout_marginTop="1dp" />
 
         </LinearLayout>
 
@@ -241,31 +286,31 @@
             android:orientation="vertical"
             android:gravity="center_vertical"
             android:background="@drawable/ripple_chip_coral"
-            android:padding="10dp">
+            android:padding="7dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🍜 MEALS"
                 android:textSize="8sp"
-                android:textColor="#E8654E"
+                android:textColor="#5C1F10"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Log a meal"
+                android:text="Log"
                 android:textSize="14sp"
-                android:textColor="#C4472F"
+                android:textColor="#3D0E05"
                 android:textStyle="bold"
                 android:layout_marginTop="2dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="open meals →"
+                android:text="open →"
                 android:textSize="8sp"
-                android:textColor="#DE8A76"
+                android:textColor="#7A2A15"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>

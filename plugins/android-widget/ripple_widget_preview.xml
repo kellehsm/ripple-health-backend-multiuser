@@ -13,13 +13,20 @@
         android:gravity="center_vertical"
         android:layout_marginBottom="8dp">
 
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/ripple_logo"
+            android:contentDescription="Ripple Wellness"
+            android:layout_marginRight="6dp" />
+
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Ripple"
+            android:text="Ripple Wellness"
             android:textSize="13sp"
-            android:textColor="#3FA0A6"
+            android:textColor="#1A1A1A"
             android:textStyle="bold" />
 
         <TextView
@@ -27,14 +34,14 @@
             android:layout_height="wrap_content"
             android:text="Updated 9:41 AM"
             android:textSize="9sp"
-            android:textColor="#9E9689" />
+            android:textColor="#6E655A" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="  ↻"
             android:textSize="16sp"
-            android:textColor="#3FA0A6"
+            android:textColor="#2A8A90"
             android:padding="4dp" />
 
     </LinearLayout>
@@ -51,8 +58,8 @@
             android:layout_weight="1"
             android:orientation="vertical"
             android:gravity="center_vertical"
-            android:background="#FAE0E6"
-            android:padding="8dp"
+            android:background="#F0A6BB"
+            android:padding="7dp"
             android:layout_marginRight="5dp">
 
             <TextView
@@ -60,15 +67,15 @@
                 android:layout_height="wrap_content"
                 android:text="GLUCOSE"
                 android:textSize="8sp"
-                android:textColor="#A62A50"
+                android:textColor="#5A0F2B"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="108 →"
-                android:textSize="20sp"
-                android:textColor="#27AE60"
+                android:textSize="18sp"
+                android:textColor="#0A5A25"
                 android:textStyle="bold" />
 
             <TextView
@@ -76,7 +83,7 @@
                 android:layout_height="wrap_content"
                 android:text="mg/dL"
                 android:textSize="8sp"
-                android:textColor="#C07090"
+                android:textColor="#6E1E3F"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -87,8 +94,8 @@
             android:layout_weight="1"
             android:orientation="vertical"
             android:gravity="center_vertical"
-            android:background="#E0F3F4"
-            android:padding="8dp"
+            android:background="#8FCDD1"
+            android:padding="7dp"
             android:layout_marginRight="5dp">
 
             <TextView
@@ -96,15 +103,15 @@
                 android:layout_height="wrap_content"
                 android:text="STEPS"
                 android:textSize="8sp"
-                android:textColor="#3FA0A6"
+                android:textColor="#0E4A4E"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="8,412"
-                android:textSize="20sp"
-                android:textColor="#2A7A80"
+                android:textSize="18sp"
+                android:textColor="#08383B"
                 android:textStyle="bold" />
 
             <TextView
@@ -112,7 +119,7 @@
                 android:layout_height="wrap_content"
                 android:text="today"
                 android:textSize="8sp"
-                android:textColor="#5AACB0"
+                android:textColor="#155F63"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -123,23 +130,23 @@
             android:layout_weight="1"
             android:orientation="vertical"
             android:gravity="center_vertical"
-            android:background="#FBE3E0"
-            android:padding="8dp">
+            android:background="#F0A79A"
+            android:padding="7dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="HEART"
                 android:textSize="8sp"
-                android:textColor="#C0392B"
+                android:textColor="#5C1A10"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="72"
-                android:textSize="20sp"
-                android:textColor="#C0392B"
+                android:textSize="18sp"
+                android:textColor="#3D0F08"
                 android:textStyle="bold" />
 
             <TextView
@@ -147,7 +154,7 @@
                 android:layout_height="wrap_content"
                 android:text="bpm"
                 android:textSize="8sp"
-                android:textColor="#D4766B"
+                android:textColor="#7A2418"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -167,9 +174,9 @@
             android:layout_weight="1"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="#DEEAF8"
-            android:paddingLeft="10dp"
-            android:paddingRight="6dp"
+            android:background="#93B7E4"
+            android:paddingLeft="7dp"
+            android:paddingRight="4dp"
             android:paddingTop="6dp"
             android:paddingBottom="6dp"
             android:layout_marginRight="5dp">
@@ -185,15 +192,15 @@
                     android:layout_height="wrap_content"
                     android:text="💧 WATER"
                     android:textSize="8sp"
-                    android:textColor="#2F6DB5"
+                    android:textColor="#0E2E5C"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="4/8"
-                    android:textSize="18sp"
-                    android:textColor="#2F6DB5"
+                    android:textSize="16sp"
+                    android:textColor="#08203D"
                     android:textStyle="bold" />
 
                 <TextView
@@ -201,20 +208,20 @@
                     android:layout_height="wrap_content"
                     android:text="glasses"
                     android:textSize="8sp"
-                    android:textColor="#6E97C6"
+                    android:textColor="#193F70"
                     android:layout_marginTop="1dp" />
 
             </LinearLayout>
 
             <TextView
-                android:layout_width="34dp"
-                android:layout_height="34dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:text="+"
-                android:textSize="20sp"
+                android:textSize="18sp"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
                 android:gravity="center"
-                android:background="#2F6DB5" />
+                android:background="#1E5AA6" />
 
         </LinearLayout>
 
@@ -224,32 +231,68 @@
             android:layout_weight="1"
             android:orientation="vertical"
             android:gravity="center_vertical"
-            android:background="#FCE8DF"
-            android:padding="10dp">
+            android:background="#B7A9E0"
+            android:padding="7dp"
+            android:layout_marginRight="5dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🌙 SLEEP"
+                android:textSize="8sp"
+                android:textColor="#2A1B60"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="7h 12m"
+                android:textSize="18sp"
+                android:textColor="#170A3D"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="last night"
+                android:textSize="8sp"
+                android:textColor="#3B2478"
+                android:layout_marginTop="1dp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:background="#F4B49F"
+            android:padding="7dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="🍜 MEALS"
                 android:textSize="8sp"
-                android:textColor="#E8654E"
+                android:textColor="#5C1F10"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Log a meal"
+                android:text="Log"
                 android:textSize="14sp"
-                android:textColor="#C4472F"
+                android:textColor="#3D0E05"
                 android:textStyle="bold"
                 android:layout_marginTop="2dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="open meals →"
+                android:text="open →"
                 android:textSize="8sp"
-                android:textColor="#DE8A76"
+                android:textColor="#7A2A15"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -261,7 +304,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#EDE8F8"
+        android:background="#B9A6E0"
         android:paddingLeft="10dp"
         android:paddingRight="10dp"
         android:paddingTop="8dp"
@@ -281,7 +324,7 @@
             android:layout_weight="1"
             android:text="Your glucose stays steadier on days you walk after lunch"
             android:textSize="11sp"
-            android:textColor="#5A2E8C"
+            android:textColor="#2B1160"
             android:maxLines="2"
             android:ellipsize="end" />
 

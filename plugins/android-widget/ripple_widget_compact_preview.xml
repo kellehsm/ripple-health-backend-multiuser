@@ -12,7 +12,7 @@
         android:layout_weight="1"
         android:orientation="vertical"
         android:gravity="center_vertical"
-        android:background="#FAE0E6"
+        android:background="#F0A6BB"
         android:padding="8dp"
         android:layout_marginRight="5dp">
 
@@ -21,7 +21,7 @@
             android:layout_height="wrap_content"
             android:text="GLUCOSE"
             android:textSize="8sp"
-            android:textColor="#A62A50"
+            android:textColor="#5A0F2B"
             android:textStyle="bold" />
 
         <TextView
@@ -29,7 +29,7 @@
             android:layout_height="wrap_content"
             android:text="108 →"
             android:textSize="18sp"
-            android:textColor="#27AE60"
+            android:textColor="#0A5A25"
             android:textStyle="bold" />
 
         <TextView
@@ -37,7 +37,7 @@
             android:layout_height="wrap_content"
             android:text="mg/dL"
             android:textSize="8sp"
-            android:textColor="#C07090"
+            android:textColor="#6E1E3F"
             android:layout_marginTop="1dp" />
 
     </LinearLayout>
@@ -48,7 +48,7 @@
         android:layout_weight="1"
         android:orientation="vertical"
         android:gravity="center_vertical"
-        android:background="#E0F3F4"
+        android:background="#8FCDD1"
         android:padding="8dp"
         android:layout_marginRight="5dp">
 
@@ -57,7 +57,7 @@
             android:layout_height="wrap_content"
             android:text="STEPS"
             android:textSize="8sp"
-            android:textColor="#3FA0A6"
+            android:textColor="#0E4A4E"
             android:textStyle="bold" />
 
         <TextView
@@ -65,7 +65,7 @@
             android:layout_height="wrap_content"
             android:text="8,412"
             android:textSize="18sp"
-            android:textColor="#2A7A80"
+            android:textColor="#08383B"
             android:textStyle="bold" />
 
         <TextView
@@ -73,7 +73,7 @@
             android:layout_height="wrap_content"
             android:text="today"
             android:textSize="8sp"
-            android:textColor="#5AACB0"
+            android:textColor="#155F63"
             android:layout_marginTop="1dp" />
 
     </LinearLayout>
@@ -84,7 +84,7 @@
         android:layout_weight="1"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#DEEAF8"
+        android:background="#93B7E4"
         android:paddingLeft="8dp"
         android:paddingRight="6dp"
         android:paddingTop="6dp"
@@ -101,7 +101,7 @@
                 android:layout_height="wrap_content"
                 android:text="WATER"
                 android:textSize="8sp"
-                android:textColor="#2F6DB5"
+                android:textColor="#0E2E5C"
                 android:textStyle="bold" />
 
             <TextView
@@ -109,7 +109,7 @@
                 android:layout_height="wrap_content"
                 android:text="4/8"
                 android:textSize="18sp"
-                android:textColor="#2F6DB5"
+                android:textColor="#08203D"
                 android:textStyle="bold" />
 
             <TextView
@@ -117,7 +117,7 @@
                 android:layout_height="wrap_content"
                 android:text="glasses"
                 android:textSize="8sp"
-                android:textColor="#6E97C6"
+                android:textColor="#193F70"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -130,7 +130,7 @@
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:gravity="center"
-            android:background="#2F6DB5" />
+            android:background="#1E5AA6" />
 
     </LinearLayout>
 

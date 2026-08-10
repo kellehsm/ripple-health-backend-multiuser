@@ -6,9 +6,9 @@ const SRC = path.join(__dirname, 'android-widget');
 
 const WIDGET_STRINGS_XML = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="widget_label">Ripple Health</string>
-  <string name="widget_description">Glucose, steps, heart rate, water, meals &amp; a daily insight</string>
-  <string name="widget_compact_label">Ripple Mini</string>
+  <string name="widget_label">Ripple Wellness</string>
+  <string name="widget_description">Glucose, steps, heart, water, sleep, meals &amp; a daily insight</string>
+  <string name="widget_compact_label">Ripple Wellness Mini</string>
   <string name="widget_compact_description">Glucose, steps &amp; water at a glance</string>
 </resources>`;
 
@@ -56,7 +56,9 @@ function withAndroidWidget(config) {
         'ripple_chip_red.xml',
         'ripple_chip_blue.xml',
         'ripple_chip_coral.xml',
+        'ripple_chip_sleep.xml',
         'ripple_btn_blue_round.xml',
+        'ripple_logo.xml',
       ];
       drawables.forEach(f => fs.copyFileSync(path.join(SRC, f), path.join(drawableDir, f)));
 

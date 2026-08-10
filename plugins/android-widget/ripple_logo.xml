@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Ripple 4-quadrant droplet mark -->
+    <!-- Top-left quadrant: teal -->
+    <path
+        android:fillColor="#2A8A90"
+        android:pathData="M12,12 L12,2 A10,10 0 0,0 2,12 Z" />
+    <!-- Top-right quadrant: coral -->
+    <path
+        android:fillColor="#D14A34"
+        android:pathData="M12,12 L22,12 A10,10 0 0,0 12,2 Z" />
+    <!-- Bottom-left quadrant: purple -->
+    <path
+        android:fillColor="#6A2FB0"
+        android:pathData="M12,12 L2,12 A10,10 0 0,0 12,22 Z" />
+    <!-- Bottom-right quadrant: berry -->
+    <path
+        android:fillColor="#8F1F42"
+        android:pathData="M12,12 L12,22 A10,10 0 0,0 22,12 Z" />
+    <!-- Center pulse line for the "heartbeat" motif -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M2,12 L8,12 L10,9 L12,15 L14,10 L16,12 L22,12 L22,12.8 L16,12.8 L14,11 L12,16 L10,10 L8,12.8 L2,12.8 Z" />
+</vector>

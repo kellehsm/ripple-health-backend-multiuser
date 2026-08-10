@@ -36,6 +36,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         val steps: String,
         val heart: String,
         val water: String,
+        val sleep: String,
         val insights: List<String>,
         val status: String
     )
@@ -66,7 +67,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 Log.e(TAG, "onUpdate initial render failed", e)
                 try {
                     updateWidget(context, appWidgetManager, id,
-                        WidgetData("--", "--", "--", "--", emptyList(), "Tap ↻ to refresh"))
+                        WidgetData("--", "--", "--", "--", "--", emptyList(), "Tap ↻ to refresh"))
                 } catch (e2: Exception) { Log.e(TAG, "fallback render failed", e2) }
             }
         }
@@ -78,7 +79,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             try {
                 val token = readToken(context)
                 val data = if (token == null) {
-                    WidgetData("--", "--", "--", "--", emptyList(), "Sign in to app")
+                    WidgetData("--", "--", "--", "--", "--", emptyList(), "Sign in to app")
                 } else {
                     val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
                     WidgetData(
@@ -86,6 +87,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         fetchSteps(token),
                         fetchHeart(token),
                         fetchWater(token),
+                        fetchSleep(token),
                         fetchInsights(token),
                         "Updated $time"
                     )
@@ -157,6 +159,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             p.getString("steps", "--") ?: "--",
             p.getString("heart", "--") ?: "--",
             p.getString("water", "--") ?: "--",
+            p.getString("sleep", "--") ?: "--",
             insights,
             p.getString("status", "Tap ↻ to refresh") ?: "Tap ↻ to refresh"
         )
@@ -168,6 +171,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             .putString("steps", d.steps)
             .putString("heart", d.heart)
             .putString("water", d.water)
+            .putString("sleep", d.sleep)
             .putString("insights", JSONArray(d.insights).toString())
             .putString("status", d.status)
             .apply()
@@ -206,6 +210,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_steps, d.steps)
         views.setTextViewText(R.id.widget_heart, d.heart)
         views.setTextViewText(R.id.widget_water, if (d.water != "--") d.water else "0")
+        views.setTextViewText(R.id.widget_sleep, d.sleep)
         views.setTextViewText(R.id.widget_status, d.status)
 
         // Insight carousel: the ViewFlipper auto-advances through one child per insight
@@ -222,10 +227,11 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         }
 
         // Block taps → respective pages
-        try { views.setOnClickPendingIntent(R.id.block_glucose, deeplink(context, 4, "health")) } catch (e: Exception) { Log.w(TAG, "glucose link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_glucose, deeplink(context, 4, "glucose")) } catch (e: Exception) { Log.w(TAG, "glucose link failed", e) }
         try { views.setOnClickPendingIntent(R.id.block_steps, deeplink(context, 5, "steps")) } catch (e: Exception) { Log.w(TAG, "steps link failed", e) }
         try { views.setOnClickPendingIntent(R.id.block_heart, deeplink(context, 6, "heartrate")) } catch (e: Exception) { Log.w(TAG, "heart link failed", e) }
-        try { views.setOnClickPendingIntent(R.id.block_water, deeplink(context, 3, "health")) } catch (e: Exception) { Log.w(TAG, "water link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_water, deeplink(context, 3, "wellness")) } catch (e: Exception) { Log.w(TAG, "water link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_sleep, deeplink(context, 10, "sleep")) } catch (e: Exception) { Log.w(TAG, "sleep link failed", e) }
         try { views.setOnClickPendingIntent(R.id.block_meal, deeplink(context, 1, "meals")) } catch (e: Exception) { Log.w(TAG, "meal link failed", e) }
         try { views.setOnClickPendingIntent(R.id.block_insight, deeplink(context, 7, "insights")) } catch (e: Exception) { Log.w(TAG, "insight link failed", e) }
 
@@ -334,6 +340,24 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             } else "--"
         } catch (e: Exception) {
             Log.w(TAG, "fetchHeart: ${e.message}")
+            "--"
+        }
+    }
+
+    private fun fetchSleep(token: String): String {
+        // /sleep/stats returns yesterday_seconds — a single-number "last night" duration
+        return try {
+            val (code, body) = get(token, "/sleep/stats")
+            if (code == 200) {
+                val secs = JSONObject(body).optDouble("yesterday_seconds", 0.0).toLong()
+                if (secs <= 0) "--" else {
+                    val h = secs / 3600
+                    val m = (secs % 3600) / 60
+                    if (h > 0) "${h}h ${m}m" else "${m}m"
+                }
+            } else "--"
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchSleep: ${e.message}")
             "--"
         }
     }
