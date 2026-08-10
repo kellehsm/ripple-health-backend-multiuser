@@ -3,6 +3,7 @@ package com.kellehs.wellness.wear
 import android.content.Context
 import androidx.wear.protolayout.ColorBuilders.argb
 import androidx.wear.protolayout.DimensionBuilders.dp
+import androidx.wear.protolayout.DimensionBuilders.expand
 import androidx.wear.protolayout.LayoutElementBuilders
 import androidx.wear.protolayout.LayoutElementBuilders.Column
 import androidx.wear.protolayout.LayoutElementBuilders.FontStyle
@@ -14,7 +15,6 @@ import androidx.wear.protolayout.LayoutElementBuilders.Text
 import androidx.wear.protolayout.ModifiersBuilders
 import androidx.wear.protolayout.ResourceBuilders
 import androidx.wear.protolayout.TimelineBuilders
-import androidx.wear.protolayout.TypeBuilders
 import androidx.wear.protolayout.expression.VersionBuilders
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders
@@ -120,8 +120,8 @@ class RippleWearTileService : TileService() {
                 .build()
 
             return Column.Builder()
-                .setWidth(TypeBuilders.expand())
-                .setHeight(TypeBuilders.expand())
+                .setWidth(expand())
+                .setHeight(expand())
                 .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
                 .addContent(header)
                 .addContent(Spacer.Builder().setHeight(dp(6f)).build())
