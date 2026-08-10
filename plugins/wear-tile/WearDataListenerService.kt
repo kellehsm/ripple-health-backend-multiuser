@@ -26,6 +26,9 @@ class WearDataListenerService : WearableListenerService() {
                 glucose = map.getString("glucose"),
                 steps = map.getString("steps"),
                 water = map.getString("water"),
+                heart = map.getString("heart"),
+                sleep = map.getString("sleep"),
+                insight = map.getString("insight"),
                 updatedAt = map.getString("updatedAt")
             )
             updated = true

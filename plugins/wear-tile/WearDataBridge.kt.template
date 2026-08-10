@@ -18,13 +18,24 @@ object WearDataBridge {
     private const val PATH = "/ripple/metrics"
     private const val TAG = "WearDataBridge"
 
-    fun push(context: Context, glucose: String, steps: String, water: String) {
+    fun push(
+        context: Context,
+        glucose: String,
+        steps: String,
+        water: String,
+        heart: String = "--",
+        sleep: String = "--",
+        insight: String = ""
+    ) {
         try {
             val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
             val req = PutDataMapRequest.create(PATH).apply {
                 dataMap.putString("glucose", glucose)
                 dataMap.putString("steps", steps)
                 dataMap.putString("water", water)
+                dataMap.putString("heart", heart)
+                dataMap.putString("sleep", sleep)
+                dataMap.putString("insight", insight)
                 dataMap.putString("updatedAt", time)
                 // Include a nonce so DataItem changes even if values are unchanged,
                 // guaranteeing the watch listener fires and refreshes the tile timestamp

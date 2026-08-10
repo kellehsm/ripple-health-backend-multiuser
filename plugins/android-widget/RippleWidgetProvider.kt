@@ -99,7 +99,10 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 // Mirror the freshest values to any paired Wear OS device.
                 // Silently no-ops if Google Play Services / wear isn't around.
                 try {
-                    WearDataBridge.push(context, data.glucose, data.steps, data.water)
+                    WearDataBridge.push(
+                        context, data.glucose, data.steps, data.water,
+                        data.heart, data.sleep, data.insights.firstOrNull() ?: ""
+                    )
                 } catch (_: Throwable) {}
             } catch (e: Exception) {
                 Log.e(TAG, "fetch error", e)
@@ -136,7 +139,12 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                     try {
                         context.sendBroadcast(Intent(context, siblingClass()).setAction(ACTION_REFRESH))
                     } catch (_: Exception) {}
-                    try { WearDataBridge.push(context, d.glucose, d.steps, d.water) } catch (_: Throwable) {}
+                    try {
+                        WearDataBridge.push(
+                            context, d.glucose, d.steps, d.water,
+                            d.heart, d.sleep, d.insights.firstOrNull() ?: ""
+                        )
+                    } catch (_: Throwable) {}
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "logWater error", e)
