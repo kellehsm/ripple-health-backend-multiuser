@@ -1,3 +1,5 @@
+import java.nio.file.Paths
+
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 
@@ -22,9 +24,43 @@ android {
         jvmTarget = '17'
     }
 
+    // EAS injects its signing config into the :app module only (see
+    // @expo/build-tools EasBuildInjectAndroidCredentialsGradle). Without the
+    // equivalent here, :wear:packageRelease emits an UNSIGNED apk, which then
+    // gets embedded into the phone apk and fails to sideload with
+    // INSTALL_PARSE_FAILED_NO_CERTIFICATES. It must be the *same* certificate as
+    // the phone app: the Wearable Data Layer only talks between apps sharing a
+    // package name and signing cert, so signing this with a debug key would
+    // install cleanly but silently break phone<->watch sync.
+    signingConfigs {
+        release {
+            def easWorkingdir = System.getenv('EAS_BUILD_WORKINGDIR')
+            if (easWorkingdir != null) {
+                def credentialsJson = Paths.get(easWorkingdir).resolve('credentials.json').toFile()
+                if (credentialsJson.exists()) {
+                    def credentials = new groovy.json.JsonSlurper().parse(credentialsJson)
+                    storeFile Paths.get(credentials.android.keystore.keystorePath).toFile()
+                    storePassword credentials.android.keystore.keystorePassword
+                    keyAlias credentials.android.keystore.keyAlias
+                    if (credentials.android.keystore.containsKey('keyPassword')) {
+                        keyPassword credentials.android.keystore.keyPassword
+                    } else {
+                        // PKCS keystores have no key password; Gradle still requires one
+                        keyPassword credentials.android.keystore.keystorePassword
+                    }
+                }
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
+            // Left unsigned outside EAS (e.g. plain `expo run:android`), where no
+            // credentials.json exists — assigning an empty config fails the build.
+            if (signingConfigs.release.storeFile != null) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
