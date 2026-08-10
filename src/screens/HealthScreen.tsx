@@ -21,6 +21,7 @@ import { MetricChip, MetricChipSkeleton, chipStyles } from "../components/Metric
 import { RangeSelector } from "../components/RangeSelector";
 import { CardLoadingOverlay } from "../components/CardLoadingOverlay";
 import { getMetricPalette } from "../lib/metricColors";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { DefinedTerm } from "../components/DefinedTerm";
 import { api } from "../api/client";
 
@@ -164,7 +165,7 @@ function WaterRing({ count, goal, color }: { count: number; goal: number; color:
 
 function MiniDroplet({ count, goal, color }: { count: number; goal: number; color: string }) {
   const VW = 28, VH = 34;
-  const W = 36, H = 44;
+  const W = 44, H = 54;
   const DROP = "M14,2 C10,7 3,16 3,24 C3,30 8,34 14,34 C20,34 25,30 25,24 C25,16 18,7 14,2Z";
   const fillPct = goal > 0 ? Math.min(1, count / goal) : 0;
   const fillH = VH * fillPct;
@@ -240,7 +241,7 @@ function sumTodayLogs(logs: Array<{ logged_at: string; value: number }>): number
 }
 
 function StepsRing({ steps, goal, color, sub }: { steps: number | null; goal: number; color: string; sub: string }) {
-  const R = 18, SW = 3.5;
+  const R = 19, SW = 3.5;
   const SIZE = (R + SW) * 2 + 4;
   const CX = SIZE / 2, CY = SIZE / 2;
   const circumference = 2 * Math.PI * R;
@@ -262,7 +263,11 @@ function StepsRing({ steps, goal, color, sub }: { steps: number | null; goal: nu
           />
         )}
       </Svg>
-      <Ionicons name={goalHit ? "checkmark-circle" : "walk"} size={15} color={goalHit ? color : sub} />
+      {goalHit ? (
+        <Ionicons name="checkmark-circle" size={20} color={color} />
+      ) : (
+        <ThemedIcon slot="metric.steps" size={20} color={sub} />
+      )}
     </View>
   );
 }
@@ -1088,7 +1093,7 @@ export function HealthScreen() {
                   : "Glucose, no data"
               }
             >
-              <Ionicons name="pulse" size={20} color={glucosePal.fg} />
+              <ThemedIcon slot="metric.glucose" size={26} color={glucosePal.fg} />
               <Text style={[chipStyles.val, { color: glucosePal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>
                 {glucoseValueText}
               </Text>
@@ -1129,7 +1134,7 @@ export function HealthScreen() {
               accessibilityLabel={sleepDisplay ? `Sleep ${sleepDisplay} last night. Double-tap for stage breakdown and 30-day trends.` : "Sleep, no data. Double-tap to open sleep details."}
               onPress={() => navigation.getParent()?.navigate("SleepDetail")}
             >
-              <Ionicons name="moon" size={20} color={amberSub} />
+              <ThemedIcon slot="metric.sleep" size={26} color={amberSub} />
               {sleepDisplay ? (
                 <Text style={[chipStyles.val, { color: amberFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{sleepDisplay}</Text>
               ) : (
@@ -1177,7 +1182,11 @@ export function HealthScreen() {
               onPress={handleLogWater}
             >
               <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.blue.solid, opacity: waterFlashAnim, borderRadius: 11 }} pointerEvents="none" />
-              <MiniDroplet count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
+              {(theme as any).iconOverrides?.["metric.water"] ? (
+                <ThemedIcon slot="metric.water" size={44} />
+              ) : (
+                <MiniDroplet count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
+              )}
               <Animated.Text style={[chipStyles.sub, { color: theme.blue.sub, transform: [{ scale: waterCountScaleAnim }] }]}>
                 {waterCount ?? 0}/{waterGoal}
               </Animated.Text>
@@ -1208,7 +1217,7 @@ export function HealthScreen() {
               accessibilityLabel={hrLast !== null ? `Heart rate ${hrLast} beats per minute` : "Heart rate, no data"}
               onPress={() => navigation.getParent()?.navigate("HeartRateDetail")}
             >
-              <Ionicons name="heart" size={20} color={berrySub} />
+              <ThemedIcon slot="metric.heart" size={28} color={berrySub} />
               <Text style={[chipStyles.val, { color: berryFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{hrLast !== null ? String(hrLast) : "--"}</Text>
               <Text style={[chipStyles.sub, { color: berrySub }]} allowFontScaling maxFontSizeMultiplier={1.3}>bpm</Text>
             </MetricChip>
@@ -1220,14 +1229,14 @@ export function HealthScreen() {
       </Animated.View>
 
       {lastRefreshed && (
-        <Text style={{ fontSize: 9, fontWeight: "700", color: theme.textSoft, textAlign: "right", opacity: 0.7, marginTop: -4 }}>
+        <Text style={{ fontSize: 9, lineHeight: 13, fontWeight: "700", color: theme.textSoft, textAlign: "right", opacity: 0.7, marginTop: 6 }}>
           Updated {Math.round((Date.now() - lastRefreshed.getTime()) / 60000) < 1
             ? "just now"
             : Math.round((Date.now() - lastRefreshed.getTime()) / 60000) + " min ago"}
         </Text>
       )}
       {lastSyncMinutes !== null && (
-        <Text style={{ fontSize: 10, color: theme.textSoft, textAlign: "right", opacity: 0.65, marginTop: -4 }}>
+        <Text style={{ fontSize: 10, lineHeight: 14, color: theme.textSoft, textAlign: "right", opacity: 0.65, marginTop: 2 }}>
           Health Connect synced {lastSyncMinutes < 1 ? "just now" : lastSyncMinutes + " min ago"}
         </Text>
       )}

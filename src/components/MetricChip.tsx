@@ -9,7 +9,7 @@ const CHIP_GAP = 8;
 const CHIP_WIDTH = (SCREEN_WIDTH - 32 - CHIP_GAP * 2) / 3;
 // Fixed height so chips across both rows of the wrap-grid always match — otherwise
 // rows self-size to their tallest sibling and rows disagree with each other.
-export const CHIP_HEIGHT = 112;
+export const CHIP_HEIGHT = 120;
 
 type Props = {
   borderColor: string;
@@ -80,8 +80,8 @@ export function MetricChip({
 
 // Convenience Text styles for chip content — export so chip callers can share typography.
 export const chipStyles = StyleSheet.create({
-  val: { fontSize: 16, fontWeight: "900", letterSpacing: -0.3 },
-  sub: { fontSize: 9, fontWeight: "800" },
+  val: { fontSize: 16, lineHeight: 19, fontWeight: "900", letterSpacing: -0.3 },
+  sub: { fontSize: 9, lineHeight: 12, fontWeight: "800" },
 });
 
 export function MetricChipSkeleton({ borderColor, backgroundColor }: { borderColor: string; backgroundColor: string }) {

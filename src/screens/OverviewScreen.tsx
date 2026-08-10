@@ -268,13 +268,16 @@ function SkeletonBox({ style }: { style?: object }) {
 // ─── Water droplet SVG ───────────────────────────────────────────────────────
 
 function WaterDroplet({ count, fillPct, color }: { count: number; fillPct: number; color: string }) {
-  const W = 32, H = 38;
+  // viewBox coordinate space (fixed — the drop path is drawn in these units)
+  const VW = 32, VH = 38;
+  // rendered size
+  const W = 40, H = 48;
   const DROP = "M16,3 C12,8 4,18 4,27 C4,34.2 9.4,38 16,38 C22.6,38 28,34.2 28,27 C28,18 20,8 16,3Z";
-  const fillH = H * fillPct;
-  const fillY = H - fillH;
+  const fillH = VH * fillPct;
+  const fillY = VH - fillH;
   return (
     <View style={{ width: W, height: H, alignItems: "center", justifyContent: "center" }}>
-      <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute" }}>
+      <Svg width={W} height={H} viewBox={`0 0 ${VW} ${VH}`} style={{ position: "absolute" }}>
         <Defs>
           <ClipPath id="wdrop">
             <Path d={DROP} />
@@ -282,10 +285,10 @@ function WaterDroplet({ count, fillPct, color }: { count: number; fillPct: numbe
         </Defs>
         <Path d={DROP} fill="none" stroke={color} strokeWidth="2" opacity={0.3} />
         {fillH > 0 && (
-          <Rect x={0} y={fillY} width={W} height={fillH + 1} fill={color} opacity={0.7} clipPath="url(#wdrop)" />
+          <Rect x={0} y={fillY} width={VW} height={fillH + 1} fill={color} opacity={0.7} clipPath="url(#wdrop)" />
         )}
       </Svg>
-      <Text style={{ position: "absolute", bottom: 6, fontSize: 11, fontWeight: "900", color: fillPct > 0.3 ? "#fff" : color }}>
+      <Text style={{ position: "absolute", bottom: 8, fontSize: 12, lineHeight: 15, fontWeight: "900", color: fillPct > 0.3 ? "#fff" : color }}>
         {count}
       </Text>
     </View>
@@ -1159,6 +1162,8 @@ export function OverviewScreen() {
     sub?: string;
     color: string;
     icon: string;
+    /** iconRegistry slot — lets themes swap this icon for a custom image */
+    slot?: string;
     empty?: boolean;
     onPress?: () => void;
     tileId?: string;
@@ -1174,6 +1179,7 @@ export function OverviewScreen() {
       sub: tir !== null ? tir + "% in range" : "mg/dL",
       color: theme.berry.solid,
       icon: "pulse",
+      slot: "metric.glucose",
       empty: !glucoseStatus?.hasData,
       tileId: "overview_glucose",
     },
@@ -1183,6 +1189,7 @@ export function OverviewScreen() {
       sub: "today",
       color: theme.teal.solid,
       icon: "walk",
+      slot: "metric.steps",
       empty: stepsCount === null,
       tileId: "overview_steps",
     },
@@ -1194,6 +1201,7 @@ export function OverviewScreen() {
       sub: "last night",
       color: theme.amber.solid,
       icon: "moon-outline",
+      slot: "metric.sleep",
       empty: !sleepStats || sleepStats.yesterday_seconds === 0,
       tileId: "overview_sleep",
     },
@@ -1203,6 +1211,7 @@ export function OverviewScreen() {
       sub: "glasses",
       color: theme.blue.solid,
       icon: "water-outline",
+      slot: "metric.water",
       empty: waterCount === 0,
       tileId: "overview_water",
     },
@@ -1268,7 +1277,11 @@ export function OverviewScreen() {
                     style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
                   />
                   <View style={[styles.chipIcon, { backgroundColor: chip.color }]}>
-                    <Ionicons name={chip.icon as any} size={13} color={onSolid(chip.color)} />
+                    {chip.slot ? (
+                      <ThemedIcon slot={chip.slot} size={19} color={onSolid(chip.color)} />
+                    ) : (
+                      <Ionicons name={chip.icon as any} size={19} color={onSolid(chip.color)} />
+                    )}
                   </View>
                   {chip.label === "WATER" && waterCount > 0 ? (
                     <WaterDroplet count={waterCount} fillPct={Math.min(waterCount / WATER_GOAL, 1)} color={chip.color} />
@@ -2235,15 +2248,15 @@ function makeStyles(ink: string, card: string, border: string) {
       ...coloredShadow("#3FA0A6", 0.8),
     },
     chipIcon: {
-      width: 22,
-      height: 22,
-      borderRadius: 8,
+      width: 32,
+      height: 32,
+      borderRadius: 11,
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 6,
     },
-    chipValue: { fontSize: 20, fontWeight: "900", lineHeight: 22, marginBottom: 1 },
-    chipSub: { fontSize: 10, lineHeight: 13, fontWeight: "600" },
+    chipValue: { fontSize: 20, fontWeight: "900", lineHeight: 24, marginBottom: 1 },
+    chipSub: { fontSize: 10, lineHeight: 14, fontWeight: "600" },
     chipLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginTop: 4, textTransform: "uppercase" },
 
     card: {
