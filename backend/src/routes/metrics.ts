@@ -224,14 +224,14 @@ export default async function metricsRoutes(app: FastifyInstance) {
          )::date AS this_week_start
        ),
        recent_weeks AS (
-         SELECT gs.offset AS week_offset,
-                (base.this_week_start - gs.offset * INTERVAL '7 days')::date AS week_start
-         FROM generate_series(0, 3) AS gs(offset), base
+         SELECT gs.n AS week_offset,
+                (base.this_week_start - gs.n * INTERVAL '7 days')::date AS week_start
+         FROM generate_series(0, 3) AS gs(n), base
        ),
        prior_weeks AS (
-         SELECT gs.offset AS week_offset,
-                (base.this_week_start - (gs.offset + 4) * INTERVAL '7 days')::date AS week_start
-         FROM generate_series(0, 3) AS gs(offset), base
+         SELECT gs.n AS week_offset,
+                (base.this_week_start - (gs.n + 4) * INTERVAL '7 days')::date AS week_start
+         FROM generate_series(0, 3) AS gs(n), base
        ),
        recent_totals AS (
          SELECT rw.week_offset,

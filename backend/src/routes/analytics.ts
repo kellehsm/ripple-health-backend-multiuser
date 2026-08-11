@@ -146,10 +146,11 @@ export default async function analyticsRoutes(app: FastifyInstance) {
          )::date AS d
        ),
        ex_days AS (
-         SELECT DISTINCT logged_at::date AS d
-         FROM exercise_log_entries
-         WHERE user_id = $1
-           AND logged_at >= NOW() - INTERVAL '60 days'
+         SELECT DISTINCT e.logged_at::date AS d
+         FROM exercise_log_entries e
+         JOIN exercise_sessions s ON s.id = e.session_id
+         WHERE s.user_id = $1
+           AND e.logged_at >= NOW() - INTERVAL '60 days'
        ),
        sleep_by_day AS (
          SELECT
