@@ -14,6 +14,7 @@ import {
   Image,
   StyleSheet,
   Alert,
+  Modal,
   RefreshControl,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -203,6 +204,8 @@ export function LifeScreen() {
   const [loadingBooks, setLoadingBooks] = useState(true);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
   const [pageInputs, setPageInputs] = useState<Record<string, string>>({});
+  const [ratingBook, setRatingBook] = useState<{ id: string; title: string } | null>(null);
+  const [pendingRating, setPendingRating] = useState(0);
 
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState<BookSearchResult[]>([]);
@@ -391,6 +394,7 @@ export function LifeScreen() {
         await api.updateBook(bookId, { status: "finished" });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast("Finished! Moved to Completed.");
+        promptRating(bookId);
         invalidateCache('life:completedCount');
         loadBooks();
         loadCompletedCount();
@@ -416,11 +420,32 @@ export function LifeScreen() {
       invalidateCache('life:completedCount');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast("Marked as finished!");
+      promptRating(bookId);
       loadBooks();
       loadCompletedCount();
     } catch {
       toast("Couldn't update book status. Try again.", "error");
     }
+  }
+
+  function promptRating(bookId: string) {
+    const b = books.find((x) => x.id === bookId);
+    setRatingBook({ id: bookId, title: b?.title ?? "this book" });
+  }
+
+  async function handleRateBook(n: number) {
+    if (!ratingBook) return;
+    setPendingRating(n);
+    try {
+      await api.updateBook(ratingBook.id, { rating: n });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      toast(`Rated ${n} ★`);
+      invalidateCache('life:books');
+    } catch {
+      toast("Couldn't save rating. Try again.", "error");
+    }
+    setRatingBook(null);
+    setPendingRating(0);
   }
 
   function handleDeleteBook(bookId: string, title: string) {
@@ -959,6 +984,29 @@ export function LifeScreen() {
     />
     <FeatureTour steps={LIFE_TOUR} visible={showTour} onDone={() => setShowTour(false)} scrollRef={scrollViewRef} scrollY={scrollOffsetRef.current} onExtraPadding={setTourPadding} />
     <FeatureIntroSheet intro={lifeIntro} visible={introVisible} onClose={dismissIntro} />
+    {ratingBook && (
+      <Modal transparent animationType="fade" visible onRequestClose={() => setRatingBook(null)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <View style={{ width: "100%", maxWidth: 340, backgroundColor: theme.card, borderColor: theme.cardBorder, borderWidth: 2, borderRadius: 22, padding: 20, alignItems: "center", gap: 6 }}>
+            <Text style={{ fontSize: 30 }}>🎉</Text>
+            <Text style={{ color: theme.textStrong, fontSize: 17, fontWeight: "800", textAlign: "center" }}>Finished!</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center" }} numberOfLines={2}>
+              How was “{ratingBook.title}”?
+            </Text>
+            <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Pressable key={n} onPress={() => handleRateBook(n)} hitSlop={6}>
+                  <Text style={{ fontSize: 36, color: n <= pendingRating ? "#E8AB30" : theme.cardBorder }}>★</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable onPress={() => setRatingBook(null)} style={{ marginTop: 10, paddingVertical: 8, paddingHorizontal: 18 }}>
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: "600" }}>Skip</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+    )}
     </View>
   );
 }

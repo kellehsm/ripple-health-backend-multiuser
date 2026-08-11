@@ -34,47 +34,63 @@ async function hcGraphql(token: string, gql: string, variables?: Record<string, 
   return body.data;
 }
 
+// Hardcover's user_books table is public across ALL users — every query must
+// filter on the authenticated user's id or it returns strangers' libraries.
+async function getHcUserId(token: string): Promise<number> {
+  const data = await hcGraphql(token, `query { me { id } }`);
+  const id = data?.me?.[0]?.id;
+  if (!id) throw new Error("Could not resolve Hardcover user id");
+  return id;
+}
+
 // FIX #1: Fetch all user_books in a single query instead of one per book.
 // Returns a Map<hardcover_book_id, hcBook>.
-async function getAllHcUserBooks(token: string, bookIds: number[]): Promise<Map<number, any>> {
-  if (!bookIds.length) return new Map();
-  const data = await hcGraphql(token, `
-    query GetUserBooks($ids: [Int!]!) {
-      user_books(where: {book_id: {_in: $ids}}) {
-        id
-        book_id
-        status_id
-        updated_at
-        user_book_reads(order_by: {id: desc}, limit: 1) {
+async function getAllHcUserBooks(token: string, hcUserId: number, bookIds: number[]): Promise<Map<number, any>> {
+  const map = new Map<number, any>();
+  // Hardcover times out on large _in lists, so chunk the ids
+  for (let i = 0; i < bookIds.length; i += 100) {
+    const data = await hcGraphql(token, `
+      query GetUserBooks($uid: Int!, $ids: [Int!]!) {
+        user_books(where: {user_id: {_eq: $uid}, book_id: {_in: $ids}}) {
           id
-          progress_pages
-          started_at
+          book_id
+          status_id
+          rating
+          updated_at
+          user_book_reads(order_by: {id: desc}, limit: 1) {
+            id
+            progress_pages
+            started_at
+          }
         }
       }
-    }
-  `, { ids: bookIds });
-  const map = new Map<number, any>();
-  for (const ub of data?.user_books ?? []) map.set(ub.book_id, ub);
+    `, { uid: hcUserId, ids: bookIds.slice(i, i + 100) });
+    for (const ub of data?.user_books ?? []) map.set(ub.book_id, ub);
+  }
   return map;
 }
 
-async function upsertUserBook(token: string, bookId: number, statusId: number) {
+// rating is only included in the mutation when set, so a status-only push
+// never nulls out an existing Hardcover rating.
+async function upsertUserBook(token: string, bookId: number, statusId: number, rating: number | null = null) {
+  const withRating = rating != null;
   const data = await hcGraphql(token, `
-    mutation UpsertUserBook($bookId: Int!, $statusId: Int!) {
-      insert_user_book(object: {book_id: $bookId, status_id: $statusId}) { id error }
+    mutation UpsertUserBook($bookId: Int!, $statusId: Int!${withRating ? ", $rating: numeric!" : ""}) {
+      insert_user_book(object: {book_id: $bookId, status_id: $statusId${withRating ? ", rating: $rating" : ""}}) { id error }
     }
-  `, { bookId, statusId });
+  `, withRating ? { bookId, statusId, rating } : { bookId, statusId });
   const result = data?.insert_user_book;
   if (result?.error) throw new Error(`insert_user_book error: ${result.error}`);
   return result;
 }
 
-async function updateUserBook(token: string, userBookId: number, statusId: number) {
+async function updateUserBook(token: string, userBookId: number, statusId: number, rating: number | null = null) {
+  const withRating = rating != null;
   const data = await hcGraphql(token, `
-    mutation UpdateUserBook($id: Int!, $statusId: Int!) {
-      update_user_book(id: $id, object: {status_id: $statusId}) { id error }
+    mutation UpdateUserBook($id: Int!, $statusId: Int!${withRating ? ", $rating: numeric!" : ""}) {
+      update_user_book(id: $id, object: {status_id: $statusId${withRating ? ", rating: $rating" : ""}}) { id error }
     }
-  `, { id: userBookId, statusId });
+  `, withRating ? { id: userBookId, statusId, rating } : { id: userBookId, statusId });
   const result = data?.update_user_book;
   if (result?.error) throw new Error(`update_user_book error: ${result.error}`);
   return result;
@@ -107,13 +123,104 @@ async function updateUserBookRead(token: string, readId: number, progressPages: 
   return result;
 }
 
+// Import books that exist in the user's Hardcover library but not locally.
+// Returns the number of books created.
+async function importMissingHcBooks(user_id: string, hcUserId: number, token: string, log: Logger): Promise<number> {
+  // Unbounded queries time out on Hardcover's side, so page through in chunks.
+  const hcBooks: any[] = [];
+  for (let offset = 0; offset < 5000; offset += 100) {
+    const data = await hcGraphql(token, `
+      query MyLibrary($uid: Int!, $limit: Int!, $offset: Int!) {
+        user_books(where: {user_id: {_eq: $uid}}, limit: $limit, offset: $offset, order_by: {id: desc}) {
+          book_id
+          status_id
+          rating
+          book {
+            title
+            pages
+            image { url }
+            contributions(limit: 1) { author { name } }
+          }
+          user_book_reads(order_by: {id: desc}, limit: 1) { progress_pages started_at finished_at }
+        }
+      }
+    `, { uid: hcUserId, limit: 100, offset });
+    const page: any[] = data?.user_books ?? [];
+    hcBooks.push(...page);
+    if (page.length < 100) break;
+  }
+  if (!hcBooks.length) return 0;
+
+  const existing = await query<any>(
+    `SELECT hardcover_id FROM books WHERE user_id = $1 AND hardcover_id IS NOT NULL`,
+    [user_id]
+  );
+  const have = new Set(existing.map((r: any) => r.hardcover_id));
+
+  let imported = 0;
+  for (const ub of hcBooks) {
+    if (!ub.book_id || have.has(ub.book_id) || !ub.book?.title) continue;
+    const status = HC_TO_LOCAL[ub.status_id] ?? "want_to_read";
+    const read = ub.user_book_reads?.[0];
+
+    // finished_at is required for the Completed bookshelf to show the book
+    const finishedAt = status === "finished" ? (read?.finished_at ?? new Date().toISOString().slice(0, 10)) : null;
+    const rating = ub.rating != null ? Math.min(5, Math.max(1, Math.round(ub.rating))) : null;
+
+    const rows = await query<any>(
+      `INSERT INTO books (user_id, title, author, cover_url, total_pages, status, rating, started_at, finished_at, hardcover_id, hardcover_synced_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+       RETURNING id`,
+      [
+        user_id,
+        ub.book.title,
+        ub.book.contributions?.[0]?.author?.name ?? null,
+        ub.book.image?.url ?? null,
+        ub.book.pages ?? null,
+        status,
+        rating,
+        read?.started_at ?? null,
+        finishedAt,
+        ub.book_id,
+      ]
+    );
+    const bookId = rows[0].id;
+
+    if ((read?.progress_pages ?? 0) > 0) {
+      await query(
+        `INSERT INTO reading_logs (book_id, user_id, pages_read, logged_at) VALUES ($1, $2, $3, current_date)`,
+        [bookId, user_id, read.progress_pages]
+      );
+    }
+    await query(
+      `INSERT INTO hardcover_sync_log (user_id, book_id, direction, field, detail)
+       VALUES ($1, $2, 'pull', 'import', $3)`,
+      [user_id, bookId, `Imported "${ub.book.title}" from Hardcover`]
+    );
+    imported++;
+    log.info({ user_id, book_id: bookId }, `Hardcover import: ${ub.book.title}`);
+  }
+  return imported;
+}
+
 export async function syncUserHardcover(
   user_id: string,
   token: string,
   log: Logger = { info: () => {}, error: () => {} }
-): Promise<{ books_checked: number; pushed: number; pulled: number; errors: number }> {
+): Promise<{ books_checked: number; pushed: number; pulled: number; imported: number; errors: number }> {
+  let pushed = 0, pulled = 0, imported = 0, errors = 0;
+
+  const hcUserId = await getHcUserId(token);
+
+  try {
+    imported = await importMissingHcBooks(user_id, hcUserId, token, log);
+  } catch (err: any) {
+    errors++;
+    log.error({ user_id, err: err?.message }, "Hardcover sync: library import failed");
+  }
+
   const books = await query<any>(
-    `SELECT b.id, b.hardcover_id, b.status, b.updated_at, b.hardcover_synced_at, b.started_at,
+    `SELECT b.id, b.hardcover_id, b.status, b.rating, b.updated_at, b.hardcover_synced_at, b.started_at,
             COALESCE(SUM(rl.pages_read), 0)::int AS pages_read_total
      FROM books b
      LEFT JOIN reading_logs rl ON rl.book_id = b.id
@@ -122,12 +229,10 @@ export async function syncUserHardcover(
     [user_id]
   );
 
-  if (!books.length) return { books_checked: 0, pushed: 0, pulled: 0, errors: 0 };
-
   // FIX #1: one batch query to HC instead of N individual calls
-  const hcMap = await getAllHcUserBooks(token, books.map((b: any) => b.hardcover_id));
-
-  let pushed = 0, pulled = 0, errors = 0;
+  const hcMap = books.length
+    ? await getAllHcUserBooks(token, hcUserId, books.map((b: any) => b.hardcover_id))
+    : new Map<number, any>();
 
   for (const book of books) {
     try {
@@ -233,7 +338,7 @@ export async function syncUserHardcover(
   }
 
   // FIX #7: only write last_synced_at when something actually changed
-  if (pushed + pulled > 0) {
+  if (pushed + pulled + imported > 0) {
     await query(
       `UPDATE user_settings
        SET settings = settings || jsonb_build_object('hardcover',
@@ -244,7 +349,7 @@ export async function syncUserHardcover(
     );
   }
 
-  return { books_checked: books.length, pushed, pulled, errors };
+  return { books_checked: books.length, pushed, pulled, imported, errors };
 }
 
 // FIX #3: doPull — 2 DB round-trips max (was up to 4)
@@ -252,18 +357,33 @@ async function doPull(user_id: string, book: any, hcBook: any, log: Logger) {
   const newStatus = hcBook.status_id != null ? HC_TO_LOCAL[hcBook.status_id] : null;
   const statusChanged = newStatus && newStatus !== book.status;
 
+  const hcRating = hcBook.rating != null ? Math.min(5, Math.max(1, Math.round(hcBook.rating))) : null;
+  const ratingChanged = hcRating != null && hcRating !== book.rating;
+
   if (statusChanged) {
-    // CTE: update book + log the status change in one round-trip
+    // CTE: update book + log the status change in one round-trip.
+    // finished_at is set when the book moves to finished so it shows on the Completed shelf.
     await query(
       `WITH upd AS (
-         UPDATE books SET status = $1, hardcover_synced_at = now()
+         UPDATE books SET status = $1, rating = COALESCE($5, rating), hardcover_synced_at = now(),
+           finished_at = CASE WHEN $1 = 'finished' THEN COALESCE(finished_at, current_date) ELSE finished_at END
          WHERE id = $2 AND user_id = $3
        )
        INSERT INTO hardcover_sync_log (user_id, book_id, direction, field, detail)
        VALUES ($3, $2, 'pull', 'status', $4)`,
-      [newStatus, book.id, user_id, `${book.status} → ${newStatus}`]
+      [newStatus, book.id, user_id, `${book.status} → ${newStatus}`, hcRating]
     );
     log.info({ user_id, book_id: book.id }, `Hardcover pull: status ${book.status} → ${newStatus}`);
+  } else if (ratingChanged) {
+    await query(
+      `WITH upd AS (
+         UPDATE books SET rating = $1, hardcover_synced_at = now() WHERE id = $2 AND user_id = $3
+       )
+       INSERT INTO hardcover_sync_log (user_id, book_id, direction, field, detail)
+       VALUES ($3, $2, 'pull', 'rating', $4)`,
+      [hcRating, book.id, user_id, `rating → ${hcRating}★`]
+    );
+    log.info({ user_id, book_id: book.id }, `Hardcover pull: rating ${hcRating}`);
   } else {
     await query(
       `UPDATE books SET hardcover_synced_at = now() WHERE id = $1 AND user_id = $2`,
@@ -303,10 +423,10 @@ async function doPush(
 
     let userBookId: number;
     if (existingHcBook) {
-      const result = await updateUserBook(token, existingHcBook.id, statusId);
+      const result = await updateUserBook(token, existingHcBook.id, statusId, book.rating ?? null);
       userBookId = result.id;
     } else {
-      const result = await upsertUserBook(token, book.hardcover_id, statusId);
+      const result = await upsertUserBook(token, book.hardcover_id, statusId, book.rating ?? null);
       userBookId = result.id;
     }
 
