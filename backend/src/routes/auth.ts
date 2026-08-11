@@ -13,9 +13,10 @@ export default async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "email and password required" });
     }
 
-    // Dev shortcut: "demo" or the full demo email bypasses password check
+    // Dev-only shortcut: "demo" or the full demo email bypasses password check.
+    // Gated on DEMO_LOGIN_ENABLED so it can never work against production.
     const emailLower = email.trim().toLowerCase();
-    if (emailLower === "demo" || emailLower === "demo@ripple.test") {
+    if (process.env.DEMO_LOGIN_ENABLED === "1" && (emailLower === "demo" || emailLower === "demo@ripple.test")) {
       email = "demo@ripple.test";
       password = "demo123";
     }
