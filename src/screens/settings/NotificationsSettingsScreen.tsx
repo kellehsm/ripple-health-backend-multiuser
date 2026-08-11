@@ -15,6 +15,7 @@ type SmartNotifs = {
   meal_reminders?: { enabled?: boolean; breakfast?: any; lunch?: any; dinner?: any };
   glucose_spike?: { enabled?: boolean };
   glucose_threshold?: { enabled?: boolean; low_mg_dl?: number; high_mg_dl?: number };
+  glucose_trend_alert?: { enabled?: boolean };
   evening_checkin?: { enabled?: boolean; hour?: number };
   water_reminder?: { enabled?: boolean; start_hour?: number; goal?: number };
   streak_protection?: { enabled?: boolean; hour?: number };
@@ -269,6 +270,10 @@ export function NotificationsSettingsScreen() {
                   accentColor={theme.coral.sub} theme={theme} format={(v) => String(v)} />
               </>
             )}
+            <View style={{ height: 10 }} />
+            <Text style={[styles.desc, { color: theme.textSoft }]}>Early-warning heads-up before you cross a hard threshold — fires when glucose is elevated and rising, or heading toward low and falling.</Text>
+            <ToggleRow label="Rising/falling early warning" value={sn.glucose_trend_alert?.enabled === true}
+              onChange={(v) => save({ glucose_trend_alert: { ...sn.glucose_trend_alert, enabled: v } })} theme={theme} />
           </View>
 
           {/* Step goal */}

@@ -6,6 +6,7 @@ import {
   checkMealReminders,
   checkGlucoseSpike,
   checkGlucoseThreshold,
+  checkGlucoseTrendAlert,
   checkEveningCheckin,
   checkWaterReminder,
   checkStreakProtection,
@@ -116,6 +117,7 @@ async function syncAndUpdateNotification(notificationId: string) {
     await checkMealReminders(settings, now);
     await checkGlucoseSpike(settings, now);
     await checkGlucoseThreshold(settings, now);
+    await checkGlucoseTrendAlert(settings, now);
     await checkEveningCheckin(settings, now);
     await checkWaterReminder(settings, now);
     await checkStreakProtection(settings, now);

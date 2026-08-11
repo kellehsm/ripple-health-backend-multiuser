@@ -46,20 +46,32 @@ export type Confidence = 'low' | 'moderate' | 'high' | 'very_high';
  * hedge ("Tends to…", "Often…", "You may find that…") so we don't stack
  * qualifiers awkwardly.
  */
-const HEDGE_PREFIXES: Record<Confidence, string> = {
-  low:       'There may be a mild pattern: ',
-  moderate:  'You often see that ',
-  high:      'A consistent pattern shows ',
-  very_high: 'Strongly: ',
+// Multiple phrasings per confidence tier so repeat viewers don't read the exact
+// same lead-in every time. Selected deterministically by hashing the body text
+// so the *same* insight always reads the same way (stable across renders),
+// while *different* insights vary. This keeps the copy fresh without shuffling
+// the same card on every re-render.
+const HEDGE_PREFIXES: Record<Confidence, string[]> = {
+  low:       ['There may be a mild pattern: ', 'A gentle signal here — ', 'Worth watching: '],
+  moderate:  ['You often see that ', 'A recurring pattern: ', 'Looking at your data, '],
+  high:      ['A consistent pattern shows ', 'Reliably, ', 'Across many days, '],
+  very_high: ['Strongly: ', 'A very steady pattern — ', 'Across your history, '],
 };
 
-const ALREADY_HEDGED = /^(tends to|often|you (may|often|tend)|there (may|tends|appears)|a (mild|consistent|strong) pattern|strongly[:,])/i;
+const ALREADY_HEDGED = /^(tends to|often|you (may|often|tend)|there (may|tends|appears)|a (mild|consistent|strong|recurring|very steady|gentle) (pattern|signal)|strongly[:,]|worth watching|looking at your data|reliably|across (many days|your history))/i;
+
+function stableIndex(text: string, mod: number): number {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) - h + text.charCodeAt(i)) | 0;
+  return Math.abs(h) % mod;
+}
 
 export function adaptiveInsight(text: string | null | undefined, confidence: Confidence): string {
   if (!text) return '';
   const soft = softenInsight(text);
   if (ALREADY_HEDGED.test(soft)) return soft;
-  const prefix = HEDGE_PREFIXES[confidence];
+  const variants = HEDGE_PREFIXES[confidence];
+  const prefix = variants[stableIndex(soft, variants.length)];
   // Lowercase the first char of the original so the prefix reads naturally
   // ("Strongly: your…" not "Strongly: Your…").
   const body = soft.charAt(0).toLowerCase() + soft.slice(1);

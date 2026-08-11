@@ -698,7 +698,55 @@ export async function fireRestTimerDone() {
 
 let lastHypoCooldownMs = 0;
 let lastHyperCooldownMs = 0;
+let lastTrendCooldownMs = 0;
 const GLUCOSE_THRESHOLD_COOLDOWN_MS = 30 * 60 * 1000; // 30 min per alert type
+const GLUCOSE_TREND_COOLDOWN_MS = 20 * 60 * 1000; // shorter — the point is *early* warning
+
+/**
+ * Early-warning glucose alert: not yet out of range, but trending into trouble.
+ * Fires when reading is elevated AND rising, or dropping toward low AND falling.
+ * Separate toggle from the hard low/high threshold — this one is proactive.
+ */
+export async function checkGlucoseTrendAlert(settings: any, now: Date) {
+  if (await areMuted()) return;
+  const cfg = settings?.smart_notifications?.glucose_trend_alert;
+  if (!cfg?.enabled) return;
+  if (now.getTime() - lastTrendCooldownMs < GLUCOSE_TREND_COOLDOWN_MS) return;
+
+  try {
+    const status: any = await api.glucoseStatus();
+    if (!status?.hasData || status.mg_dl == null || status.isStale) return;
+    const mg = Number(status.mg_dl);
+    const trend: string = status.trend ?? "";
+    const delta = status.delta != null ? Number(status.delta) : null;
+    const rising = /Up/.test(trend) || (delta != null && delta >= 10);
+    const falling = /Down/.test(trend) || (delta != null && delta <= -10);
+
+    let title: string | null = null;
+    let body: string | null = null;
+    if (mg > 140 && mg <= 180 && rising) {
+      title = `Glucose rising — ${mg} mg/dL ${status.arrow ?? "↗"}`;
+      body = "Trending toward high. A short walk or water may help.";
+    } else if (mg < 90 && mg >= 70 && falling) {
+      title = `Glucose dropping — ${mg} mg/dL ${status.arrow ?? "↘"}`;
+      body = "Trending toward low. Consider a small snack.";
+    }
+    if (!title) return;
+
+    lastTrendCooldownMs = now.getTime();
+    await notifee.displayNotification({
+      id: "glucose-trend",
+      title,
+      body: body!,
+      data: { target: "health" },
+      android: {
+        channelId: CH_GLUCOSE,
+        smallIcon: "ic_launcher",
+        pressAction: { id: "default", launchActivity: "default" },
+      },
+    });
+  } catch (_) {}
+}
 
 export async function checkGlucoseThreshold(settings: any, now: Date) {
   if (await areMuted()) return;

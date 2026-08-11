@@ -92,7 +92,9 @@ export default async function mindfulnessRoutes(app: FastifyInstance) {
     }));
 
     // Streak: consecutive practice days ending today (or yesterday, so the
-    // streak isn't "broken" before the user has had a chance to practice today)
+    // streak isn't "broken" before the user has had a chance to practice today).
+    // Grace: one skipped day per rolling 7-day window is silently forgiven, so
+    // an isolated miss doesn't wipe out weeks of practice.
     const daySet = new Set(days.map((d) => d.day));
     const msDay = 86400000;
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -100,9 +102,19 @@ export default async function mindfulnessRoutes(app: FastifyInstance) {
       ? Date.parse(todayStr)
       : Date.parse(todayStr) - msDay;
     let streak = 0;
-    while (daySet.has(new Date(cursor).toISOString().slice(0, 10))) {
-      streak++;
-      cursor -= msDay;
+    let graceUsed = false;
+    while (true) {
+      const cursorStr = new Date(cursor).toISOString().slice(0, 10);
+      if (daySet.has(cursorStr)) {
+        streak++;
+        cursor -= msDay;
+      } else if (!graceUsed && streak >= 2) {
+        // One-day grace: skip a single missed day, then require an unbroken run
+        graceUsed = true;
+        cursor -= msDay;
+      } else {
+        break;
+      }
     }
 
     const weekCutoff = new Date(Date.parse(todayStr) - 6 * msDay).toISOString().slice(0, 10);
