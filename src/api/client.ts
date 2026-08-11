@@ -776,5 +776,5 @@ export const api = {
   hardcoverDisconnect: (): Promise<{ ok: boolean }> =>
     request(`/hardcover/disconnect`, { method: 'DELETE' }),
   hardcoverSync: (): Promise<{ books_checked: number; pushed: number; pulled: number; errors: number }> =>
-    request(`/hardcover/sync`, { method: 'POST' }),
+    request(`/hardcover/sync`, { method: 'POST', body: JSON.stringify({}) }),
 };

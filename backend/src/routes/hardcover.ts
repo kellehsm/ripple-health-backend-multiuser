@@ -20,10 +20,13 @@ export default async function hardcoverRoutes(app: FastifyInstance) {
   // POST /api/hardcover/connect — verify token, then persist it
   app.post("/connect", async (req, reply) => {
     const user_id = req.user_id;
-    const { api_token } = req.body as any;
-    if (!api_token?.trim()) {
+    const raw = (req.body as any)?.api_token;
+    if (!raw?.trim()) {
       return reply.status(400).send({ error: "api_token is required" });
     }
+    // Hardcover's settings page shows the token with a "Bearer " prefix —
+    // strip it (and stray quotes) so a full copy-paste still works.
+    const api_token = raw.trim().replace(/^["']|["']$/g, "").replace(/^bearer\s+/i, "").trim();
 
     // Verify the token by fetching the authenticated user's profile
     let verifyData: any;
@@ -32,7 +35,7 @@ export default async function hardcoverRoutes(app: FastifyInstance) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${api_token.trim()}`,
+          "Authorization": `Bearer ${api_token}`,
         },
         body: JSON.stringify({ query: `query { me { id username } }` }),
         signal: AbortSignal.timeout(8000),
@@ -60,7 +63,7 @@ export default async function hardcoverRoutes(app: FastifyInstance) {
            jsonb_build_object('hardcover',
              COALESCE(user_settings.settings->'hardcover', '{}'::jsonb) ||
              jsonb_build_object('api_token', $2::text))`,
-      [user_id, api_token.trim()]
+      [user_id, api_token]
     );
 
     return { ok: true, username: me.username };

@@ -76,6 +76,19 @@ if (missingEnv.length > 0) {
 
 const app = Fastify({ logger: true });
 
+// Treat an empty JSON body as {} — the app POSTs some bodiless actions (e.g.
+// /hardcover/sync) with Content-Type: application/json, which Fastify would
+// otherwise reject with FST_ERR_CTP_EMPTY_JSON_BODY.
+app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+  const text = (body as string).trim();
+  if (!text) return done(null, {});
+  try {
+    done(null, JSON.parse(text));
+  } catch (err) {
+    done(err as Error, undefined);
+  }
+});
+
 // Routes that don't need authentication (auth itself + OAuth callbacks)
 const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google", "/api/plaid/webhook", "/api/medications/import/template", "/admin/media"];
 
