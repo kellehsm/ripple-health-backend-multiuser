@@ -603,6 +603,18 @@ export const api = {
   deleteDoseLog: function (id: string) {
     return request('/medication-doses/' + id, { method: 'DELETE' });
   },
+  logPrnDose: function (medication_id: string) {
+    return request('/medication-doses/prn', { method: 'POST', body: JSON.stringify({ medication_id }) });
+  },
+  getPrnSummary: function () {
+    return request('/medication-doses/prn-summary');
+  },
+  getMedicationAdherence: function () {
+    return request('/medications/adherence');
+  },
+  getMedicationDoseStats: function (medicationId: string) {
+    return request('/medications/' + medicationId + '/dose-stats');
+  },
 
   // ── Cycle ─────────────────────────────────────────────────────────────────────
   upsertCycleLog: function (payload: object) {
@@ -631,6 +643,12 @@ export const api = {
   },
   getRankedMoods: function (q = '') {
     return request('/cycle/moods/ranked?q=' + encodeURIComponent(q));
+  },
+  getCyclePhasePatterns: function () {
+    return request('/cycle/phase-patterns');
+  },
+  getCycleEnergyCurve: function () {
+    return request('/cycle/energy-curve');
   },
   getHealthOverviewInsight: function () {
     return request('/cycle/overview-insight');
@@ -664,8 +682,26 @@ export const api = {
   },
 
   // ── Mindfulness ───────────────────────────────────────────────────────────────
-  logMindfulness: function (payload: { type: string; duration_seconds?: number }) {
+  logMindfulness: function (payload: { type: string; duration_seconds?: number; mood_before?: number; mood_after?: number }) {
     return request('/mindfulness/log', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  mindfulnessStats: function () {
+    return request('/mindfulness/stats');
+  },
+  mindfulnessJournal: function () {
+    return request('/mindfulness/journal');
+  },
+
+  // ── Media assets (admin-managed app content: soundscapes, chimes, images) ─────
+  mediaList: function (kind?: string, category?: string) {
+    const qs = new URLSearchParams();
+    if (kind) qs.set('kind', kind);
+    if (category) qs.set('category', category);
+    const s = qs.toString();
+    return request('/media' + (s ? '?' + s : ''));
+  },
+  mediaFileUrl: function (id: string) {
+    return BASE_URL + '/media/file/' + id;
   },
 
   // ── Tab preferences ───────────────────────────────────────────────────────────

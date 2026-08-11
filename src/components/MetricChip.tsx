@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useRef } from "react";
 import { View, Text, Pressable, Animated, StyleSheet, Dimensions } from "react-native";
 import { layeredShadow } from "../theme/styleUtils";
 import { useTheme } from "../theme/ThemeContext";
@@ -85,13 +85,24 @@ export const chipStyles = StyleSheet.create({
 });
 
 export function MetricChipSkeleton({ borderColor, backgroundColor }: { borderColor: string; backgroundColor: string }) {
+  const pulse = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.75, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
   return (
     <View style={[styles.chip, { borderColor, backgroundColor, opacity: 0.55 }]}>
-      <View style={styles.contentSlot}>
-        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: borderColor, opacity: 0.35 }} />
-        <View style={{ width: 40, height: 14, borderRadius: 4, backgroundColor: borderColor, opacity: 0.35, marginTop: 4 }} />
-        <View style={{ width: 28, height: 8, borderRadius: 3, backgroundColor: borderColor, opacity: 0.25, marginTop: 4 }} />
-      </View>
+      <Animated.View style={[styles.contentSlot, { opacity: pulse }]}>
+        <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: borderColor }} />
+        <View style={{ width: 40, height: 14, borderRadius: 4, backgroundColor: borderColor, marginTop: 4 }} />
+        <View style={{ width: 28, height: 8, borderRadius: 3, backgroundColor: borderColor, opacity: 0.7, marginTop: 4 }} />
+      </Animated.View>
     </View>
   );
 }

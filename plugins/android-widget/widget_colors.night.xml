@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark-mode widget palette: dark chip fills of the same hue, light text. -->
+<resources>
+    <color name="widget_bg">#171A20</color>
+    <color name="widget_chip_berry">#4A2137</color>
+    <color name="widget_chip_teal">#143A3E</color>
+    <color name="widget_chip_violet">#322754</color>
+    <color name="widget_chip_red">#45211A</color>
+    <color name="widget_chip_blue">#1B3252</color>
+    <color name="widget_chip_coral">#47281A</color>
+    <color name="widget_chip_sleep">#2B2350</color>
+    <color name="widget_btn_blue">#3B82D6</color>
+
+    <color name="widget_text_primary">#F2F0EC</color>
+    <color name="widget_text_muted">#A9A296</color>
+    <color name="widget_accent_teal">#6ED4DA</color>
+    <color name="widget_on_btn">#FFFFFF</color>
+
+    <color name="widget_berry_label">#F0A6BB</color>
+    <color name="widget_berry_value">#FFE1EC</color>
+    <color name="widget_berry_sub">#D898B0</color>
+
+    <color name="widget_teal_label">#8FD8DC</color>
+    <color name="widget_teal_value">#DFF7F8</color>
+    <color name="widget_teal_sub">#7FC2C7</color>
+
+    <color name="widget_red_label">#F5A797</color>
+    <color name="widget_red_value">#FFE4DD</color>
+    <color name="widget_red_sub">#DB9484</color>
+
+    <color name="widget_blue_label">#9FC1EC</color>
+    <color name="widget_blue_value">#E2EEFF</color>
+    <color name="widget_blue_sub">#8AAEDD</color>
+
+    <color name="widget_sleep_label">#C0B0EA</color>
+    <color name="widget_sleep_value">#EDE6FF</color>
+    <color name="widget_sleep_sub">#A793DB</color>
+
+    <color name="widget_coral_label">#F5B7A0</color>
+    <color name="widget_coral_value">#FFE9DE</color>
+    <color name="widget_coral_sub">#DE9F87</color>
+
+    <color name="widget_violet_title">#E4DAFF</color>
+    <color name="widget_violet_body">#C6B6EF</color>
+    <color name="widget_violet_accent">#B39FE6</color>
+</resources>

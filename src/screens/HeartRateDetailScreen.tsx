@@ -169,8 +169,9 @@ export function HeartRateDetailScreen() {
           <LoadingIndicator style={{ marginVertical: 30 }} color={theme.red.sub} />
         ) : readings.length === 0 ? (
           <View style={s.emptyBox}>
-            <Text style={{ color: theme.textSoft, fontSize: 13 }}>No heart rate data in this window.</Text>
-            <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4 }}>
+            <Text style={{ fontSize: 28 }}>💓</Text>
+            <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No readings in this window</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
               Sync from Health Connect on the Health tab.
             </Text>
           </View>
@@ -217,7 +218,11 @@ export function HeartRateDetailScreen() {
           <LoadingIndicator color={theme.red.sub} style={{ marginVertical: 16 }} />
         ) : dailyRows.length === 0 ? (
           <View style={s.emptyBox}>
-            <Text style={{ color: theme.textSoft, fontSize: 13 }}>No historical data yet.</Text>
+            <Text style={{ fontSize: 28 }}>📈</Text>
+            <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No history yet</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
+              Daily rest and average rates will build up here as you sync.
+            </Text>
           </View>
         ) : (
           <>

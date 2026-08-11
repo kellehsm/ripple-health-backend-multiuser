@@ -249,8 +249,12 @@ export function ExerciseDetailScreen() {
       {/* Exercise list */}
       <Text style={[styles.sectionLabel, { color: theme.textSoft, marginTop: 4 }]}>EXERCISES LOGGED</Text>
       {session.entries.length === 0 ? (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Text style={{ color: theme.textSoft, fontSize: 13 }}>No exercises logged in this session.</Text>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 20 }]}>
+          <Text style={{ fontSize: 28 }}>🏋️</Text>
+          <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No exercises logged</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
+            This session was saved without individual exercises.
+          </Text>
         </View>
       ) : (
         session.entries.map((entry) => (

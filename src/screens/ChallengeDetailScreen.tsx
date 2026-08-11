@@ -188,8 +188,12 @@ export function ChallengeDetailScreen() {
       {/* Participant leaderboard */}
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PARTICIPANTS</Text>
       {participants.length === 0 ? (
-        <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Text style={{ color: theme.textSoft, fontSize: 13 }}>No participants yet.</Text>
+        <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center" }]}>
+          <Text style={{ fontSize: 28 }}>🏅</Text>
+          <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No participants yet</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
+            Be the first to join — invite friends to make it a race.
+          </Text>
         </View>
       ) : (
         <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.ink }]}>

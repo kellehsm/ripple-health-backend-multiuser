@@ -127,7 +127,51 @@ class RippleWearTileService : TileService() {
                 // Inner ring: water glasses vs goal, inset from the rim
                 .addContent(inset(ring(BLUE_DIM.toInt(), 360f), 7f))
                 .addContent(inset(ring(BLUE.toInt(), waterSweep(cache.water)), 7f))
-                .addContent(centerContent(cache))
+                .addContent(centerContent(context, cache))
+                .build()
+        }
+
+        /** Small tappable chip that launches the haptic breathing activity. */
+        private fun breatheChip(context: Context): LayoutElementBuilders.LayoutElement {
+            val launchBreathing = ModifiersBuilders.Clickable.Builder()
+                .setId("breathe")
+                .setOnClick(
+                    ActionBuilders.LaunchAction.Builder()
+                        .setAndroidActivity(
+                            ActionBuilders.AndroidActivity.Builder()
+                                .setPackageName(context.packageName)
+                                .setClassName(RippleWearBreathingActivity::class.java.name)
+                                .build()
+                        )
+                        .build()
+                )
+                .build()
+
+            return Box.Builder()
+                .setModifiers(
+                    ModifiersBuilders.Modifiers.Builder()
+                        .setBackground(
+                            ModifiersBuilders.Background.Builder()
+                                .setColor(argb(TEAL_DIM.toInt()))
+                                .setCorner(
+                                    ModifiersBuilders.Corner.Builder()
+                                        .setRadius(dp(10f))
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .setPadding(
+                            ModifiersBuilders.Padding.Builder()
+                                .setStart(dp(10f))
+                                .setEnd(dp(10f))
+                                .setTop(dp(3f))
+                                .setBottom(dp(3f))
+                                .build()
+                        )
+                        .setClickable(launchBreathing)
+                        .build()
+                )
+                .addContent(text("🫁 BREATHE", 9, TEAL.toInt(), bold = true))
                 .build()
         }
 
@@ -161,7 +205,7 @@ class RippleWearTileService : TileService() {
                 .addContent(inner)
                 .build()
 
-        private fun centerContent(cache: WearCache.Snapshot): LayoutElementBuilders.LayoutElement {
+        private fun centerContent(context: Context, cache: WearCache.Snapshot): LayoutElementBuilders.LayoutElement {
             val col = Column.Builder()
                 .setWidth(expand())
                 .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
@@ -178,7 +222,7 @@ class RippleWearTileService : TileService() {
             col.addContent(
                 gridRow(
                     stat("STEPS", cache.steps, TEAL.toInt()),
-                    stat("HEART", heartDisplay(cache.heart), CORAL.toInt())
+                    stat("HEART", heartDisplay(cache.heart), heartColor(cache.heart))
                 )
             )
             col.addContent(Spacer.Builder().setHeight(dp(3f)).build())
@@ -188,6 +232,9 @@ class RippleWearTileService : TileService() {
                     stat("SLEEP", cache.sleep, LAVENDER.toInt())
                 )
             )
+
+            col.addContent(Spacer.Builder().setHeight(dp(4f)).build())
+            col.addContent(breatheChip(context))
 
             // Insight (only when the phone has pushed one)
             if (cache.insight.isNotBlank()) {
@@ -268,6 +315,16 @@ class RippleWearTileService : TileService() {
         private fun heartDisplay(heart: String): String {
             if (heart.isEmpty() || heart == "--") return "--"
             return if (heart.any { it.isLetter() }) heart else "$heart bpm"
+        }
+
+        /** Resting-rate zones: coral normal, amber elevated (>100), red high (>120). */
+        private fun heartColor(heart: String): Int {
+            val bpm = heart.trim().split(" ")[0].toIntOrNull() ?: return CORAL.toInt()
+            return when {
+                bpm > 120 -> 0xFFFF5252.toInt()
+                bpm > 100 -> 0xFFF5A623.toInt()
+                else -> CORAL.toInt()
+            }
         }
 
         private fun glucoseColor(glucose: String): Int {

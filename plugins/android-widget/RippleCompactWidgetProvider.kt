@@ -17,7 +17,7 @@ class RippleCompactWidgetProvider : RippleWidgetProvider() {
         views.setTextViewText(R.id.widget_steps, d.steps)
         views.setTextViewText(R.id.widget_water, if (d.water != "--") d.water else "0")
         if (d.glucose != "--") {
-            views.setTextColor(R.id.widget_glucose, glucoseColor(d.glucose))
+            views.setTextColor(R.id.widget_glucose, glucoseColor(context, d.glucose))
         }
 
         try { views.setOnClickPendingIntent(R.id.block_glucose, deeplink(context, 24, "glucose")) } catch (e: Exception) { Log.w("RippleCompact", "glucose link failed", e) }

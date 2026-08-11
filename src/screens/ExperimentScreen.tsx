@@ -353,7 +353,11 @@ export function ExperimentScreen() {
         </View>
       ) : !results ? (
         <View style={[s.card, { alignItems: "center", paddingVertical: 24 }]}>
-          <Text style={{ color: theme.textSoft, fontSize: 14 }}>No results available yet.</Text>
+          <Text style={{ fontSize: 28 }}>⏳</Text>
+          <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No results yet</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
+            Results appear once the experiment has enough logged days to compare.
+          </Text>
         </View>
       ) : (
         <>

@@ -358,6 +358,9 @@ export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compa
                 <Text style={styles.newBadgeText}>NEW</Text>
               </View>
             )}
+            {insight.times_observed > 1 && (
+              <Text style={[styles.ageText, { color: theme.textSoft }]}> · seen {insight.times_observed}×</Text>
+            )}
             <Text style={[styles.ageText, { color: theme.textSoft }]}> · {ageLabel}</Text>
           </View>
         </View>

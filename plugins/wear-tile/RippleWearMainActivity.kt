@@ -1,6 +1,8 @@
 package com.kellehs.wellness.wear
 
 import android.app.Activity
+import android.content.Intent
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.LinearLayout
@@ -36,6 +38,25 @@ class RippleWearMainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, 12, 0, 0)
         })
+
+        val density = resources.displayMetrics.density
+        root.addView(TextView(this).apply {
+            text = "🫁  Breathe"
+            textSize = 14f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = 22 * density
+                setColor(0xFF3FA0A6.toInt())
+            }
+            setPadding((20 * density).toInt(), (10 * density).toInt(), (20 * density).toInt(), (10 * density).toInt())
+            setOnClickListener {
+                startActivity(Intent(this@RippleWearMainActivity, RippleWearBreathingActivity::class.java))
+            }
+        }, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = (16 * density).toInt(); gravity = Gravity.CENTER_HORIZONTAL })
 
         setContentView(root)
     }

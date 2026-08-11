@@ -272,6 +272,30 @@ function StepsRing({ steps, goal, color, sub }: { steps: number | null; goal: nu
   );
 }
 
+/** Chip value text that "pops" (scale pulse) whenever its value changes. */
+function PopText({ value, style }: { value: string; style: any }) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const prev = useRef(value);
+  useEffect(() => {
+    if (prev.current !== value && prev.current !== "--") {
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 1.18, duration: 120, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
+      ]).start();
+    }
+    prev.current = value;
+  }, [value, scale]);
+  return (
+    <Animated.Text
+      style={[style, { transform: [{ scale }] }]}
+      allowFontScaling
+      maxFontSizeMultiplier={1.3}
+    >
+      {value}
+    </Animated.Text>
+  );
+}
+
 function SectionDivider({ label }: { label: string }) {
   const { theme } = useTheme();
   return (
@@ -1094,9 +1118,7 @@ export function HealthScreen() {
               }
             >
               <ThemedIcon slot="metric.glucose" size={26} color={glucosePal.fg} />
-              <Text style={[chipStyles.val, { color: glucosePal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {glucoseValueText}
-              </Text>
+              <PopText value={glucoseValueText} style={[chipStyles.val, { color: glucosePal.fg }]} />
               {tirPct !== null && (
                 <Text style={[chipStyles.sub, { color: glucosePal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>
                   {tirPct}% in range
@@ -1121,7 +1143,7 @@ export function HealthScreen() {
               onPress={() => stepsMetricId && navigation.getParent()?.navigate("StepsDetail", { metricId: stepsMetricId, weekStartDay: weekStepsStart })}
             >
               <StepsRing steps={stepsCount} goal={stepGoal} color={theme.teal.solid} sub={theme.teal.sub} />
-              <Text style={[chipStyles.val, { color: theme.teal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{stepsLabel}</Text>
+              <PopText value={stepsLabel} style={[chipStyles.val, { color: theme.teal.fg }]} />
               <Text style={[chipStyles.sub, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>of {goalLabel}</Text>
             </MetricChip>
             )}
@@ -1218,7 +1240,7 @@ export function HealthScreen() {
               onPress={() => navigation.getParent()?.navigate("HeartRateDetail")}
             >
               <ThemedIcon slot="metric.heart" size={28} color={berrySub} />
-              <Text style={[chipStyles.val, { color: berryFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{hrLast !== null ? String(hrLast) : "--"}</Text>
+              <PopText value={hrLast !== null ? String(hrLast) : "--"} style={[chipStyles.val, { color: berryFg }]} />
               <Text style={[chipStyles.sub, { color: berrySub }]} allowFontScaling maxFontSizeMultiplier={1.3}>bpm</Text>
             </MetricChip>
             )}

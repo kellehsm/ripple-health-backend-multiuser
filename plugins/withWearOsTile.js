@@ -37,6 +37,7 @@ function withWearOsTile(config) {
       fs.mkdirSync(wearSrc, { recursive: true });
       const ktFiles = [
         'RippleWearMainActivity.kt',
+        'RippleWearBreathingActivity.kt',
         'RippleWearTileService.kt',
         'WearCache.kt',
         'WearDataListenerService.kt',

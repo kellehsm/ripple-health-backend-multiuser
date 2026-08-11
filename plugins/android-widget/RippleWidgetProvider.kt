@@ -29,7 +29,14 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         private const val PREFS = "RippleWidgetPrefs"
         const val ACTION_REFRESH = "com.kellehs.wellness.WIDGET_REFRESH"
         const val ACTION_LOG_WATER = "com.kellehs.wellness.WIDGET_LOG_WATER"
+        const val ACTION_NEXT_INSIGHT = "com.kellehs.wellness.WIDGET_NEXT_INSIGHT"
     }
+
+    data class WInsight(
+        val emoji: String,
+        val title: String,
+        val body: String
+    )
 
     data class WidgetData(
         val glucose: String,
@@ -37,7 +44,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         val heart: String,
         val water: String,
         val sleep: String,
-        val insights: List<String>,
+        val insights: List<WInsight>,
         val status: String
     )
 
@@ -50,6 +57,16 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 if (ids.isNotEmpty()) onUpdate(context, mgr, ids)
             }
             ACTION_LOG_WATER -> logWaterAndRefresh(context)
+            ACTION_NEXT_INSIGHT -> {
+                // Partial update: flip the carousel without rebuilding (or refetching) the widget
+                try {
+                    val mgr = AppWidgetManager.getInstance(context)
+                    val ids = mgr.getAppWidgetIds(ComponentName(context, RippleWidgetProvider::class.java))
+                    val rv = RemoteViews(context.packageName, R.layout.ripple_widget)
+                    rv.showNext(R.id.insight_flipper)
+                    for (id in ids) mgr.partiallyUpdateAppWidget(id, rv)
+                } catch (e: Exception) { Log.w(TAG, "next insight failed", e) }
+            }
         }
     }
 
@@ -88,7 +105,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         fetchHeart(token),
                         fetchWater(token),
                         fetchSleep(token),
-                        fetchInsights(token),
+                        fetchInsights(token) + listOfNotNull(fetchMindfulnessInsight(token)),
                         "Updated $time"
                     )
                 }
@@ -101,7 +118,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 try {
                     WearDataBridge.push(
                         context, data.glucose, data.steps, data.water,
-                        data.heart, data.sleep, data.insights.firstOrNull() ?: ""
+                        data.heart, data.sleep, data.insights.firstOrNull()?.title ?: ""
                     )
                 } catch (_: Throwable) {}
             } catch (e: Exception) {
@@ -142,7 +159,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                     try {
                         WearDataBridge.push(
                             context, d.glucose, d.steps, d.water,
-                            d.heart, d.sleep, d.insights.firstOrNull() ?: ""
+                            d.heart, d.sleep, d.insights.firstOrNull()?.title ?: ""
                         )
                     } catch (_: Throwable) {}
                 }
@@ -160,8 +177,11 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val insights = try {
             val arr = JSONArray(p.getString("insights", "[]") ?: "[]")
-            (0 until arr.length()).map { arr.getString(it) }
-        } catch (_: Exception) { emptyList() }
+            (0 until arr.length()).mapNotNull {
+                val o = arr.optJSONObject(it) ?: return@mapNotNull null
+                WInsight(o.optString("e", "💡"), o.optString("t", ""), o.optString("b", ""))
+            }.filter { it.title.isNotEmpty() }
+        } catch (_: Exception) { emptyList<WInsight>() }
         return WidgetData(
             p.getString("glucose", "--") ?: "--",
             p.getString("steps", "--") ?: "--",
@@ -180,7 +200,9 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             .putString("heart", d.heart)
             .putString("water", d.water)
             .putString("sleep", d.sleep)
-            .putString("insights", JSONArray(d.insights).toString())
+            .putString("insights", JSONArray(d.insights.map {
+                JSONObject().put("e", it.emoji).put("t", it.title).put("b", it.body)
+            }).toString())
             .putString("status", d.status)
             .apply()
     }
@@ -193,13 +215,19 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    protected fun glucoseColor(glucose: String): Int {
+    protected fun isNight(context: Context): Boolean =
+        (context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+    protected fun glucoseColor(context: Context, glucose: String): Int {
         val mg = glucose.trim().split(" ")[0].toIntOrNull()
+        // Night palette is brighter so it reads on the dark berry chip
+        val night = isNight(context)
         return when {
-            mg == null -> android.graphics.Color.parseColor("#A62A50")
-            mg < 70 || mg > 180 -> android.graphics.Color.parseColor("#C0392B")
-            mg > 140 -> android.graphics.Color.parseColor("#E67E22")
-            else -> android.graphics.Color.parseColor("#27AE60")
+            mg == null -> android.graphics.Color.parseColor(if (night) "#F0A6BB" else "#A62A50")
+            mg < 70 || mg > 180 -> android.graphics.Color.parseColor(if (night) "#FF6B6B" else "#C0392B")
+            mg > 140 -> android.graphics.Color.parseColor(if (night) "#F5B041" else "#E67E22")
+            else -> android.graphics.Color.parseColor(if (night) "#58D68D" else "#27AE60")
         }
     }
 
@@ -223,15 +251,30 @@ open class RippleWidgetProvider : AppWidgetProvider() {
 
         // Insight carousel: the ViewFlipper auto-advances through one child per insight
         views.removeAllViews(R.id.insight_flipper)
-        val titles = d.insights.ifEmpty { listOf("Log a few days of data to unlock insights") }
-        for (title in titles) {
+        val insights = d.insights.ifEmpty {
+            listOf(WInsight("💡", "Log a few days of data to unlock insights", ""))
+        }
+        for ((i, ins) in insights.withIndex()) {
             val item = RemoteViews(context.packageName, R.layout.ripple_widget_insight_item)
-            item.setTextViewText(R.id.insight_item_text, title)
+            item.setTextViewText(R.id.insight_item_emoji, ins.emoji)
+            item.setTextViewText(R.id.insight_item_text, ins.title)
+            if (ins.body.isNotEmpty()) {
+                item.setTextViewText(R.id.insight_item_body, ins.body)
+                item.setViewVisibility(R.id.insight_item_body, android.view.View.VISIBLE)
+            } else {
+                item.setViewVisibility(R.id.insight_item_body, android.view.View.GONE)
+            }
+            if (insights.size > 1) {
+                item.setTextViewText(R.id.insight_item_counter, "${i + 1}/${insights.size}")
+                item.setViewVisibility(R.id.insight_item_counter, android.view.View.VISIBLE)
+            } else {
+                item.setViewVisibility(R.id.insight_item_counter, android.view.View.GONE)
+            }
             views.addView(R.id.insight_flipper, item)
         }
         // Dynamic glucose color: green in-range, amber slightly elevated, red out of range
         if (d.glucose != "--") {
-            views.setTextColor(R.id.widget_glucose, glucoseColor(d.glucose))
+            views.setTextColor(R.id.widget_glucose, glucoseColor(context, d.glucose))
         }
 
         // Block taps → respective pages
@@ -249,6 +292,14 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         }
         views.setOnClickPendingIntent(R.id.btn_water_plus,
             PendingIntent.getBroadcast(context, 8, waterIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+
+        // Insight "›" → advance the carousel manually
+        val nextIntent = Intent(context, RippleWidgetProvider::class.java).apply {
+            action = ACTION_NEXT_INSIGHT
+        }
+        views.setOnClickPendingIntent(R.id.btn_insight_next,
+            PendingIntent.getBroadcast(context, 12, nextIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 
         // Refresh button
@@ -383,19 +434,58 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    /** Top-ranked active insight titles (up to 5), or empty when none. */
-    private fun fetchInsights(token: String): List<String> {
+    private fun insightEmoji(type: String): String = when (type) {
+        "sleep" -> "🌙"
+        "glucose" -> "🩸"
+        "activity" -> "🚶"
+        "water" -> "💧"
+        "mood" -> "😊"
+        "books" -> "📚"
+        "hobbies" -> "🎨"
+        "spending" -> "💰"
+        "streak" -> "🔥"
+        "mindfulness" -> "🧘"
+        else -> "💡"
+    }
+
+    /** Top-ranked active insights (up to 5) with category emoji + description, or empty when none. */
+    private fun fetchInsights(token: String): List<WInsight> {
         return try {
             val (code, body) = get(token, "/insights")
             if (code == 200) {
                 val arr = JSONArray(body)
                 (0 until minOf(arr.length(), 5))
-                    .map { arr.getJSONObject(it).optString("title", "") }
-                    .filter { it.isNotEmpty() }
+                    .map { arr.getJSONObject(it) }
+                    .map {
+                        WInsight(
+                            insightEmoji(it.optString("type", "")),
+                            it.optString("title", ""),
+                            it.optString("description", "")
+                        )
+                    }
+                    .filter { it.title.isNotEmpty() }
             } else emptyList()
         } catch (e: Exception) {
             Log.w(TAG, "fetchInsights: ${e.message}")
             emptyList()
+        }
+    }
+
+    /** Mindfulness streak card for the insight carousel, or null when there's no streak. */
+    private fun fetchMindfulnessInsight(token: String): WInsight? {
+        return try {
+            val (code, body) = get(token, "/mindfulness/stats")
+            if (code != 200) return null
+            val obj = JSONObject(body)
+            val streak = obj.optInt("streak", 0)
+            if (streak < 1) return null
+            val practicedToday = obj.optBoolean("practiced_today", false)
+            val title = if (streak == 1) "1-day mindfulness streak" else "$streak-day mindfulness streak"
+            val bodyText = if (practicedToday) "Practiced today — keep it rolling" else "Practice today to keep it going"
+            WInsight("🧘", title, bodyText)
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchMindfulnessInsight: ${e.message}")
+            null
         }
     }
 

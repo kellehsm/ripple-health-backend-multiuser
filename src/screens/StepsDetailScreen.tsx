@@ -6,6 +6,7 @@ import {
   View
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
+import { EmptyState } from "../components/EmptyState";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { useRoute } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
@@ -124,7 +125,7 @@ export function StepsDetailScreen() {
     return (
       <View style={[s.center, { backgroundColor: theme.page }]}>
         <ScreenBackground pageId="steps_detail" />
-        <Text style={{ color: theme.textSoft }}>No data available.</Text>
+        <EmptyState icon="👟" title="No step data yet" subtitle="Sync from Health Connect on the Health tab to see your weekly trends." />
       </View>
     );
   }

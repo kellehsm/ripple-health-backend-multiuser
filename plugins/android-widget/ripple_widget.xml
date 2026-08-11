@@ -28,7 +28,7 @@
             android:layout_weight="1"
             android:text="Ripple Wellness"
             android:textSize="13sp"
-            android:textColor="#1A1A1A"
+            android:textColor="@color/widget_text_primary"
             android:textStyle="bold" />
 
         <TextView
@@ -37,7 +37,7 @@
             android:layout_height="wrap_content"
             android:text="Tap ↻ to refresh"
             android:textSize="9sp"
-            android:textColor="#6E655A" />
+            android:textColor="@color/widget_text_muted" />
 
         <TextView
             android:id="@+id/btn_refresh"
@@ -45,7 +45,7 @@
             android:layout_height="wrap_content"
             android:text="  ↻"
             android:textSize="16sp"
-            android:textColor="#2A8A90"
+            android:textColor="@color/widget_accent_teal"
             android:padding="4dp" />
 
     </LinearLayout>
@@ -73,7 +73,7 @@
                 android:layout_height="wrap_content"
                 android:text="GLUCOSE"
                 android:textSize="8sp"
-                android:textColor="#5A0F2B"
+                android:textColor="@color/widget_berry_label"
                 android:textStyle="bold" />
 
             <TextView
@@ -82,7 +82,7 @@
                 android:layout_height="wrap_content"
                 android:text="--"
                 android:textSize="18sp"
-                android:textColor="#3D0A1F"
+                android:textColor="@color/widget_berry_value"
                 android:textStyle="bold" />
 
             <TextView
@@ -90,7 +90,7 @@
                 android:layout_height="wrap_content"
                 android:text="mg/dL"
                 android:textSize="8sp"
-                android:textColor="#6E1E3F"
+                android:textColor="@color/widget_berry_sub"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -111,7 +111,7 @@
                 android:layout_height="wrap_content"
                 android:text="STEPS"
                 android:textSize="8sp"
-                android:textColor="#0E4A4E"
+                android:textColor="@color/widget_teal_label"
                 android:textStyle="bold" />
 
             <TextView
@@ -120,7 +120,7 @@
                 android:layout_height="wrap_content"
                 android:text="--"
                 android:textSize="18sp"
-                android:textColor="#08383B"
+                android:textColor="@color/widget_teal_value"
                 android:textStyle="bold" />
 
             <TextView
@@ -128,7 +128,7 @@
                 android:layout_height="wrap_content"
                 android:text="today"
                 android:textSize="8sp"
-                android:textColor="#155F63"
+                android:textColor="@color/widget_teal_sub"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -148,7 +148,7 @@
                 android:layout_height="wrap_content"
                 android:text="HEART"
                 android:textSize="8sp"
-                android:textColor="#5C1A10"
+                android:textColor="@color/widget_red_label"
                 android:textStyle="bold" />
 
             <TextView
@@ -157,7 +157,7 @@
                 android:layout_height="wrap_content"
                 android:text="--"
                 android:textSize="18sp"
-                android:textColor="#3D0F08"
+                android:textColor="@color/widget_red_value"
                 android:textStyle="bold" />
 
             <TextView
@@ -165,7 +165,7 @@
                 android:layout_height="wrap_content"
                 android:text="bpm"
                 android:textSize="8sp"
-                android:textColor="#7A2418"
+                android:textColor="@color/widget_red_sub"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -205,7 +205,7 @@
                     android:layout_height="wrap_content"
                     android:text="💧 WATER"
                     android:textSize="8sp"
-                    android:textColor="#0E2E5C"
+                    android:textColor="@color/widget_blue_label"
                     android:textStyle="bold" />
 
                 <TextView
@@ -214,7 +214,7 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textSize="16sp"
-                    android:textColor="#08203D"
+                    android:textColor="@color/widget_blue_value"
                     android:textStyle="bold" />
 
                 <TextView
@@ -222,7 +222,7 @@
                     android:layout_height="wrap_content"
                     android:text="glasses"
                     android:textSize="8sp"
-                    android:textColor="#193F70"
+                    android:textColor="@color/widget_blue_sub"
                     android:layout_marginTop="1dp" />
 
             </LinearLayout>
@@ -233,7 +233,7 @@
                 android:layout_height="30dp"
                 android:text="+"
                 android:textSize="18sp"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/widget_on_btn"
                 android:textStyle="bold"
                 android:gravity="center"
                 android:background="@drawable/ripple_btn_blue_round" />
@@ -256,7 +256,7 @@
                 android:layout_height="wrap_content"
                 android:text="🌙 SLEEP"
                 android:textSize="8sp"
-                android:textColor="#2A1B60"
+                android:textColor="@color/widget_sleep_label"
                 android:textStyle="bold" />
 
             <TextView
@@ -265,7 +265,7 @@
                 android:layout_height="wrap_content"
                 android:text="--"
                 android:textSize="18sp"
-                android:textColor="#170A3D"
+                android:textColor="@color/widget_sleep_value"
                 android:textStyle="bold" />
 
             <TextView
@@ -273,7 +273,7 @@
                 android:layout_height="wrap_content"
                 android:text="last night"
                 android:textSize="8sp"
-                android:textColor="#3B2478"
+                android:textColor="@color/widget_sleep_sub"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -293,7 +293,7 @@
                 android:layout_height="wrap_content"
                 android:text="🍜 MEALS"
                 android:textSize="8sp"
-                android:textColor="#5C1F10"
+                android:textColor="@color/widget_coral_label"
                 android:textStyle="bold" />
 
             <TextView
@@ -301,7 +301,7 @@
                 android:layout_height="wrap_content"
                 android:text="Log"
                 android:textSize="14sp"
-                android:textColor="#3D0E05"
+                android:textColor="@color/widget_coral_value"
                 android:textStyle="bold"
                 android:layout_marginTop="2dp" />
 
@@ -310,7 +310,7 @@
                 android:layout_height="wrap_content"
                 android:text="open →"
                 android:textSize="8sp"
-                android:textColor="#7A2A15"
+                android:textColor="@color/widget_coral_sub"
                 android:layout_marginTop="1dp" />
 
         </LinearLayout>
@@ -333,13 +333,27 @@
 
         <ViewFlipper
             android:id="@+id/insight_flipper"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:autoStart="true"
-            android:flipInterval="10000"
+            android:flipInterval="7000"
             android:inAnimation="@android:anim/fade_in"
             android:outAnimation="@android:anim/fade_out"
             android:measureAllChildren="true" />
+
+        <TextView
+            android:id="@+id/btn_insight_next"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="›"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/widget_violet_accent"
+            android:paddingLeft="10dp"
+            android:paddingRight="4dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp" />
 
     </LinearLayout>
 

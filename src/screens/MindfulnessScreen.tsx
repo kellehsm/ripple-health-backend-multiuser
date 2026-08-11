@@ -24,11 +24,26 @@ import { toast } from "../lib/toast";
 import { trackMindfulnessCompletion, getTodayCompletedSections } from "../lib/mindfulnessTracker";
 import { TooltipBubble } from "../components/TooltipBubble";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
+import { getToken } from "../lib/auth";
+import {
+  GraceCountdown,
+  StartCircleButton,
+  PmrBodyDiagram,
+  MoodDeltaPicker,
+  sharedStyles,
+} from "./mindfulness/shared";
+import { StatsHero } from "./mindfulness/StatsHero";
+import { QuoteCard } from "./mindfulness/QuoteCard";
+import { BodyScanSection } from "./mindfulness/BodyScanSection";
+import { SoundscapesSection } from "./mindfulness/SoundscapesSection";
+import { GratitudeHistory } from "./mindfulness/GratitudeHistory";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Section = "breathing" | "grounding" | "meditation" | "gratitude";
-type BreathPattern = "box" | "478" | "equal";
+type Section = "breathing" | "grounding" | "meditation" | "gratitude" | "body_scan" | "sounds";
+type BreathPattern = "box" | "478" | "equal" | "coherent";
 type GroundTechnique = "54321" | "pmr" | "stop";
 type MeditationMode = "guided" | "unguided" | null;
 
@@ -41,9 +56,10 @@ const COLOR_CORAL  = "#E8654E";
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
 const BREATH_PATTERNS: Record<BreathPattern, { label: string; desc: string; phases: [number, number, number, number] }> = {
-  box:   { label: "Box Breathing",   desc: "4 · 4 · 4 · 4",  phases: [4, 4, 4, 4] },
-  "478": { label: "4-7-8",           desc: "4 · 7 · 8 · 0",  phases: [4, 7, 8, 0] },
-  equal: { label: "Equal Breathing", desc: "5 · 0 · 5 · 0",  phases: [5, 0, 5, 0] },
+  box:      { label: "Box Breathing",      desc: "4 · 4 · 4 · 4",   phases: [4, 4, 4, 4] },
+  "478":    { label: "4-7-8",              desc: "4 · 7 · 8 · 0",   phases: [4, 7, 8, 0] },
+  equal:    { label: "Equal Breathing",    desc: "5 · 0 · 5 · 0",   phases: [5, 0, 5, 0] },
+  coherent: { label: "Coherent Breathing", desc: "5.5 in · 5.5 out", phases: [5.5, 0, 5.5, 0] },
 };
 
 const PHASE_LABELS = ["INHALE", "HOLD", "EXHALE", "HOLD"];
@@ -71,17 +87,6 @@ const PMR_AREA_MAP: Record<string, { area: string; emoji: string }> = {
   "Shoulders":    { area: "shoulders", emoji: "💪" },
   "Face & jaw":   { area: "face",      emoji: "😌" },
 };
-
-// Body diagram display order (head → feet)
-const BODY_DIAGRAM_ORDER = [
-  { area: "face",      label: "Face",      emoji: "😌" },
-  { area: "shoulders", label: "Shoulders", emoji: "💪" },
-  { area: "arms",      label: "Arms",      emoji: "🤲" },
-  { area: "abdomen",   label: "Abdomen",   emoji: "🫁" },
-  { area: "thighs",    label: "Thighs",    emoji: "🦵" },
-  { area: "calves",    label: "Calves",    emoji: "🦵" },
-  { area: "feet",      label: "Feet",      emoji: "🦶" },
-];
 
 const GROUNDING_54321 = [
   { count: 5, sense: "SEE",   prompt: "Name 5 things you can see around you." },
@@ -113,104 +118,6 @@ const GRATITUDE_PROMPTS = [
 ];
 
 const DURATIONS = [5, 10, 15, 20, 30];
-
-// ─── Shared: calm grace period countdown ─────────────────────────────────────
-
-function GraceCountdown({ count, accentColor, theme, ink }: {
-  count: number | null; accentColor: string; theme: any; ink: string;
-}) {
-  return (
-    <View style={{ alignItems: "center", gap: 18, paddingVertical: 32 }}>
-      <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.5 }}>Get ready...</Text>
-      {count !== null && (
-        <View style={{
-          width: 104, height: 104, borderRadius: 52,
-          backgroundColor: theme.card,
-          borderWidth: 2, borderColor: accentColor,
-          alignItems: "center", justifyContent: "center",
-          shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.1, shadowRadius: 12, elevation: 3,
-        }}>
-          <Text style={{ color: accentColor, fontSize: 48, fontWeight: "900" }}>{count}</Text>
-        </View>
-      )}
-      <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center" }}>
-        Find a comfortable position
-      </Text>
-    </View>
-  );
-}
-
-// ─── Shared: large circle start button ───────────────────────────────────────
-
-function StartCircleButton({ onPress, accentColor, ink, sublabel }: {
-  onPress: () => void; accentColor: string; ink: string; sublabel?: string;
-}) {
-  return (
-    <View style={{ alignItems: "center", paddingVertical: 28, gap: 14 }}>
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel="Start"
-        style={{
-          width: 160, height: 160, borderRadius: 80,
-          backgroundColor: accentColor,
-          borderWidth: 3, borderColor: ink,
-          alignItems: "center", justifyContent: "center",
-          shadowColor: "rgba(60,40,20,0.1)",
-          shadowOffset: { width: 0, height: 14 },
-          shadowOpacity: 0.18, shadowRadius: 20, elevation: 8,
-        }}
-      >
-        <Text style={{ color: "#fff", fontSize: 28, fontWeight: "900" }}>▶</Text>
-        <Text style={{ color: "#fff", fontSize: 13, fontWeight: "800", letterSpacing: 2, marginTop: 6 }}>START</Text>
-      </Pressable>
-      {sublabel ? <Text style={{ color: ink, fontSize: 14, fontWeight: "700" }}>{sublabel}</Text> : null}
-    </View>
-  );
-}
-
-// ─── PMR Body Diagram ─────────────────────────────────────────────────────────
-
-function PmrBodyDiagram({ activeArea, accentColor }: { activeArea: string; accentColor: string }) {
-  return (
-    <View style={{ gap: 4, marginBottom: 8 }}>
-      {BODY_DIAGRAM_ORDER.map((part) => {
-        const isActive = part.area === activeArea;
-        return (
-          <View
-            key={part.area}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              paddingVertical: isActive ? 8 : 3,
-              paddingHorizontal: 12,
-              borderRadius: 12,
-              backgroundColor: isActive ? accentColor + "22" : "transparent",
-            }}
-          >
-            <Text style={{ fontSize: isActive ? 28 : 20, opacity: isActive ? 1 : 0.3, width: 36, textAlign: "center" }}>
-              {part.emoji}
-            </Text>
-            <Text style={{
-              fontSize: isActive ? 15 : 13,
-              fontWeight: isActive ? "800" : "400",
-              color: isActive ? accentColor : "#888",
-              opacity: isActive ? 1 : 0.3,
-              marginLeft: 8,
-              flex: 1,
-            }}>
-              {part.label}
-            </Text>
-            {isActive && (
-              <Text style={{ color: accentColor, fontSize: 16, fontWeight: "800" }}>◀</Text>
-            )}
-          </View>
-        );
-      })}
-    </View>
-  );
-}
 
 // ─── Box Breathing Animation ──────────────────────────────────────────────────
 
@@ -420,6 +327,8 @@ export function MindfulnessScreen() {
   const [showTooltip, setShowTooltip] = useState(false);
   const [sectionLoading, setSectionLoading] = useState(false);
   const [todayDone, setTodayDone] = useState<string[]>([]);
+  const [quickReset, setQuickReset] = useState(false);
+  const [hubVisit, setHubVisit] = useState(0);
   const contentFade = useRef(new Animated.Value(1)).current;
 
   useFocusEffect(
@@ -449,11 +358,23 @@ export function MindfulnessScreen() {
 
   function navigateTo(section: Section) {
     Haptics.selectionAsync();
+    setQuickReset(false);
     fadeTransition(() => setActiveSection(section));
   }
 
+  function startQuickReset() {
+    Haptics.selectionAsync();
+    setQuickReset(true);
+    fadeTransition(() => setActiveSection("breathing"));
+  }
+
   function goBack() {
-    fadeTransition(() => setActiveSection(null));
+    setQuickReset(false);
+    fadeTransition(() => {
+      setActiveSection(null);
+      setHubVisit((v) => v + 1);
+      getTodayCompletedSections().then(setTodayDone);
+    });
   }
 
   return (
@@ -476,11 +397,19 @@ export function MindfulnessScreen() {
               onDismiss={() => setShowTooltip(false)}
             />
           )}
-          {activeSection === null && <TileGrid theme={theme} ink={ink} onSelect={navigateTo} todayDone={todayDone} />}
-          {activeSection === "breathing"  && <BreathingSection  theme={theme} ink={ink} onBack={goBack} />}
+          {activeSection === null && (
+            <>
+              <StatsHero theme={theme} ink={ink} refreshKey={hubVisit} />
+              <TileGrid theme={theme} ink={ink} onSelect={navigateTo} onQuickReset={startQuickReset} todayDone={todayDone} />
+              <QuoteCard theme={theme} />
+            </>
+          )}
+          {activeSection === "breathing"  && <BreathingSection  theme={theme} ink={ink} onBack={goBack} quickReset={quickReset} />}
           {activeSection === "grounding"  && <GroundingSection  theme={theme} ink={ink} onBack={goBack} />}
           {activeSection === "meditation" && <MeditationSection theme={theme} ink={ink} onBack={goBack} />}
           {activeSection === "gratitude"  && <GratitudeSection  theme={theme} ink={ink} onBack={goBack} />}
+          {activeSection === "body_scan"  && <BodyScanSection   theme={theme} ink={ink} onBack={goBack} />}
+          {activeSection === "sounds"     && <SoundscapesSection theme={theme} ink={ink} onBack={goBack} />}
         </Animated.View>
       )}
     </ScrollView>
@@ -491,19 +420,38 @@ export function MindfulnessScreen() {
 
 // ─── Tile grid ────────────────────────────────────────────────────────────────
 
-function TileGrid({ theme, ink, onSelect, todayDone }: { theme: any; ink: string; onSelect: (s: Section) => void; todayDone: string[] }) {
+function TileGrid({ theme, ink, onSelect, onQuickReset, todayDone }: { theme: any; ink: string; onSelect: (s: Section) => void; onQuickReset: () => void; todayDone: string[] }) {
   const tiles: { section: Section; emoji: string; title: string; desc: string; colorKey: string }[] = [
-    { section: "breathing",  emoji: "🫁", title: "Breathing",  desc: "Box · 4-7-8 · equal",    colorKey: "teal"   },
-    { section: "grounding",  emoji: "🌿", title: "Grounding",  desc: "5-4-3-2-1 · PMR · STOP", colorKey: "coral"  },
-    { section: "meditation", emoji: "⏱",  title: "Meditation", desc: "Timed quiet session",     colorKey: "purple" },
-    { section: "gratitude",  emoji: "📓", title: "Gratitude",  desc: "Prompts & journaling",    colorKey: "berry"  },
+    { section: "breathing",  emoji: "🫁", title: "Breathing",  desc: "Box · 4-7-8 · coherent",  colorKey: "teal"   },
+    { section: "grounding",  emoji: "🌿", title: "Grounding",  desc: "5-4-3-2-1 · PMR · STOP",  colorKey: "coral"  },
+    { section: "meditation", emoji: "⏱",  title: "Meditation", desc: "Bells · chimes · ambient", colorKey: "purple" },
+    { section: "gratitude",  emoji: "📓", title: "Gratitude",  desc: "Prompts & journaling",     colorKey: "berry"  },
+    { section: "body_scan",  emoji: "🧘", title: "Body Scan",  desc: "Head-to-toe attention",    colorKey: "blue"   },
+    { section: "sounds",     emoji: "🎧", title: "Soundscapes", desc: "Ambient sound · sleep",   colorKey: "amber"  },
   ];
+
+  const tealSolid = (theme.teal as any)?.solid ?? ink;
 
   return (
     <>
       <Text style={{ color: theme.textSoft, fontSize: 13, lineHeight: 18 }}>
         Choose a practice to begin.
       </Text>
+
+      <Pressable onPress={onQuickReset} accessibilityRole="button" accessibilityLabel="Two minute reset">
+        <ShadowCard size="card" bg={tealSolid} accent={tealSolid} rotate={-0.3} skipTransparency>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+            <Text style={{ fontSize: 28 }}>⚡</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "900" }}>2-Minute Reset</Text>
+              <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>
+                A quick guided breathing break — starts right away
+              </Text>
+            </View>
+            <Text style={{ color: "#fff", fontSize: 20 }}>›</Text>
+          </View>
+        </ShadowCard>
+      </Pressable>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
         {tiles.map((t, idx) => {
           const c = theme[t.colorKey];
@@ -556,7 +504,9 @@ function BackBtn({ ink, onBack }: { ink: string; onBack: () => void }) {
 
 // ─── Breathing section ────────────────────────────────────────────────────────
 
-function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onBack: () => void }) {
+const QUICK_RESET_SECONDS = 120;
+
+function BreathingSection({ theme, ink, onBack, quickReset }: { theme: any; ink: string; onBack: () => void; quickReset?: boolean }) {
   const [pattern, setPattern] = useState<BreathPattern | null>(null);
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState(0);
@@ -565,6 +515,9 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
   const [gracePending, setGracePending] = useState<BreathPattern | null>(null);
   const [graceCount, setGraceCount] = useState<number | null>(null);
   const [phaseSecsLeft, setPhaseSecsLeft] = useState(0);
+  const [moodBefore, setMoodBefore] = useState<number | null>(null);
+  const [moodAfter, setMoodAfter] = useState<number | null>(null);
+  const [summary, setSummary] = useState<{ pattern: BreathPattern; cycles: number; seconds: number } | null>(null);
 
   // Box breathing perimeter animation (0→4 over one full cycle)
   const perimeterAnim = useRef(new Animated.Value(0)).current;
@@ -576,8 +529,11 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
   const graceRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const graceDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phaseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cyclesRef = useRef(0);
+  const quickResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endSessionRef = useRef<(() => void) | undefined>(undefined);
   // Ref to hold the recursive runCycle function to avoid stale closures
-  const runCycleRef = useRef<(key: BreathPattern) => void>();
+  const runCycleRef = useRef<((key: BreathPattern) => void) | undefined>(undefined);
 
   function clearTimers() {
     timersRef.current.forEach(clearTimeout);
@@ -598,9 +554,9 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
 
   function startPhaseCountdown(secs: number) {
     clearPhaseTimer();
-    setPhaseSecsLeft(secs);
+    setPhaseSecsLeft(Math.ceil(secs));
     if (secs <= 0) return;
-    let remaining = secs;
+    let remaining = Math.ceil(secs);
     phaseTimerRef.current = setInterval(() => {
       remaining -= 1;
       setPhaseSecsLeft(remaining > 0 ? remaining : 0);
@@ -632,7 +588,8 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
           Animated.timing(perimeterAnim, { toValue: 4, duration: holdOut, useNativeDriver: false }),
         ]).start(({ finished }) => {
           if (finished && runningRef.current) {
-            setCycles((c) => c + 1);
+            cyclesRef.current += 1;
+            setCycles(cyclesRef.current);
             Haptics.selectionAsync();
             runCycleRef.current?.(key);
           }
@@ -643,16 +600,19 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
           if (!runningRef.current) return;
           setPhase(1);
           startPhaseCountdown(phases[1]);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }, inh) : null;
         const t2 = holdIn > 0 ? setTimeout(() => {
           if (!runningRef.current) return;
           setPhase(2);
           startPhaseCountdown(phases[2]);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }, inh + holdIn) : null;
         const t3 = exh > 0 ? setTimeout(() => {
           if (!runningRef.current) return;
           setPhase(3);
           startPhaseCountdown(phases[3]);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }, inh + holdIn + exh) : null;
 
         timersRef.current = [t1, t2, t3].filter(Boolean) as ReturnType<typeof setTimeout>[];
@@ -663,24 +623,26 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
         Animated.timing(breathAnim, { toValue: 1, duration: inh, useNativeDriver: true }).start();
 
         const t1 = holdIn > 0 ? setTimeout(() => {
-          if (runningRef.current) { breathAnim.stopAnimation(); setPhase(1); startPhaseCountdown(phases[1]); }
+          if (runningRef.current) { breathAnim.stopAnimation(); setPhase(1); startPhaseCountdown(phases[1]); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }
         }, inh) : null;
 
         const t2 = setTimeout(() => {
           if (!runningRef.current) return;
           setPhase(2);
           startPhaseCountdown(phases[2]);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           Animated.timing(breathAnim, { toValue: 0.5, duration: exh, useNativeDriver: true }).start();
         }, inh + holdIn);
 
         const t3 = holdOut > 0 ? setTimeout(() => {
-          if (runningRef.current) { breathAnim.stopAnimation(); setPhase(3); startPhaseCountdown(phases[3]); }
+          if (runningRef.current) { breathAnim.stopAnimation(); setPhase(3); startPhaseCountdown(phases[3]); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }
         }, inh + holdIn + exh) : null;
 
         const total = inh + holdIn + exh + holdOut;
         const t4 = setTimeout(() => {
           if (!runningRef.current) return;
-          setCycles((c) => c + 1);
+          cyclesRef.current += 1;
+          setCycles(cyclesRef.current);
           Haptics.selectionAsync();
           runCycleRef.current?.(key);
         }, total);
@@ -694,6 +656,7 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
     runningRef.current = false;
     clearTimers();
     clearPhaseTimer();
+    clearQuickResetTimer();
     breathAnim.stopAnimation();
     breathAnim.setValue(0.5);
     perimeterAnim.stopAnimation();
@@ -701,10 +664,21 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
     setPattern(key);
     setPhase(0);
     setCycles(0);
-    setPhaseSecsLeft(BREATH_PATTERNS[key].phases[0]);
+    cyclesRef.current = 0;
+    setPhaseSecsLeft(Math.ceil(BREATH_PATTERNS[key].phases[0]));
     setRunning(true);
     runningRef.current = true;
     setTimeout(() => runCycleRef.current?.(key), 100);
+    if (quickReset) {
+      quickResetTimerRef.current = setTimeout(() => {
+        quickResetTimerRef.current = null;
+        endSessionRef.current?.();
+      }, QUICK_RESET_SECONDS * 1000);
+    }
+  }
+
+  function clearQuickResetTimer() {
+    if (quickResetTimerRef.current) { clearTimeout(quickResetTimerRef.current); quickResetTimerRef.current = null; }
   }
 
   function startGrace(key: BreathPattern) {
@@ -741,6 +715,7 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
     runningRef.current = false;
     clearTimers();
     clearPhaseTimer();
+    clearQuickResetTimer();
     breathAnim.stopAnimation();
     breathAnim.setValue(0.5);
     perimeterAnim.stopAnimation();
@@ -748,6 +723,7 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
     setRunning(false);
     setPhase(0);
     setCycles(0);
+    cyclesRef.current = 0;
     setPhaseSecsLeft(0);
   }
 
@@ -773,8 +749,28 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
   }
 
   function handleEndSession() {
-    if (cycles > 0) trackMindfulnessCompletion("breathing");
+    const doneCycles = cyclesRef.current;
+    const key = pattern;
+    if (doneCycles > 0 && key) {
+      const cycleSecs = BREATH_PATTERNS[key].phases.reduce((a, b) => a + b, 0);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setSummary({ pattern: key, cycles: doneCycles, seconds: Math.round(doneCycles * cycleSecs) });
+    }
     fullStop();
+  }
+  endSessionRef.current = handleEndSession;
+
+  function finalizeSummary() {
+    if (summary) {
+      trackMindfulnessCompletion("breathing", {
+        duration_seconds: summary.seconds,
+        ...(moodBefore != null ? { mood_before: moodBefore } : {}),
+        ...(moodAfter != null ? { mood_after: moodAfter } : {}),
+      });
+    }
+    setSummary(null);
+    setMoodBefore(null);
+    setMoodAfter(null);
   }
 
   function handleRestart() {
@@ -783,10 +779,17 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
     if (savedPattern) startGrace(savedPattern);
   }
 
+  // Quick reset: skip pattern choice and start box breathing immediately
+  useEffect(() => {
+    if (quickReset) startGrace("box");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quickReset]);
+
   useEffect(() => () => {
     runningRef.current = false;
     clearTimers();
     clearPhaseTimer();
+    clearQuickResetTimer();
     clearGraceDelay();
     clearGraceInterval();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -797,16 +800,43 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
 
   return (
     <>
-      <BackBtn ink={ink} onBack={() => { fullStop(); onBack(); }} />
-      <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900", marginBottom: 2 }}>Breathing</Text>
+      <BackBtn ink={ink} onBack={() => { if (summary) finalizeSummary(); fullStop(); onBack(); }} />
+      <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900", marginBottom: 2 }}>
+        {quickReset ? "2-Minute Reset" : "Breathing"}
+      </Text>
 
       {inGrace ? (
         <GraceCountdown count={graceCount} accentColor={tealSolid} theme={theme} ink={ink} />
+      ) : summary ? (
+        <View style={{ alignItems: "center", gap: 18, paddingVertical: 24 }}>
+          <Text style={{ fontSize: 48 }}>🌬️</Text>
+          <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>Session complete</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 14 }}>
+            {BREATH_PATTERNS[summary.pattern].label} · {summary.cycles} cycle{summary.cycles === 1 ? "" : "s"} · {Math.max(1, Math.round(summary.seconds / 60))} min
+          </Text>
+          <MoodDeltaPicker
+            label="HOW DO YOU FEEL NOW?"
+            value={moodAfter}
+            onSelect={setMoodAfter}
+            accentColor={tealSolid}
+            theme={theme}
+          />
+          <Pressable onPress={finalizeSummary} style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]} accessibilityRole="button">
+            <Text style={{ color: ink, fontSize: 13, fontWeight: "800" }}>DONE</Text>
+          </Pressable>
+        </View>
       ) : breathWaiting ? (
         <>
           <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
             {BREATH_PATTERNS[breathWaiting].label} · {BREATH_PATTERNS[breathWaiting].desc}
           </Text>
+          <MoodDeltaPicker
+            label="HOW DO YOU FEEL RIGHT NOW?"
+            value={moodBefore}
+            onSelect={setMoodBefore}
+            accentColor={tealSolid}
+            theme={theme}
+          />
           <StartCircleButton
             onPress={handleBreathStart}
             accentColor={tealSolid}
@@ -848,6 +878,7 @@ function BreathingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
         <View style={{ alignItems: "center", gap: 20, paddingVertical: 16 }}>
           <Text style={{ color: theme.textSoft, fontSize: 13, letterSpacing: 0.5 }}>
             {pattern ? BREATH_PATTERNS[pattern].label : ""}
+            {quickReset ? " · ends automatically" : ""}
           </Text>
 
           {pattern === "box" ? (
@@ -1284,6 +1315,8 @@ function GroundingSection({ theme, ink, onBack }: { theme: any; ink: string; onB
 
 // ─── Meditation section ───────────────────────────────────────────────────────
 
+type MeditationAsset = { id: string; title: string; meta?: { emoji?: string } };
+
 function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; onBack: () => void }) {
   const [mode, setMode] = useState<MeditationMode>(null);
   const [duration, setDuration] = useState<number | null>(null);
@@ -1292,11 +1325,83 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
   const [meditationWaiting, setMeditationWaiting] = useState<number | null>(null);
   const [graceCount, setGraceCount] = useState<number | null>(null);
   const [gracePendingDuration, setGracePendingDuration] = useState<number | null>(null);
+  const [moodBefore, setMoodBefore] = useState<number | null>(null);
+  const [moodAfter, setMoodAfter] = useState<number | null>(null);
+  const [intervalBells, setIntervalBells] = useState(false);
+  const [chimes, setChimes] = useState<MeditationAsset[]>([]);
+  const [ambients, setAmbients] = useState<MeditationAsset[]>([]);
+  const [ambientId, setAmbientId] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const graceRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const graceDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chimePlayerRef = useRef<AudioPlayer | null>(null);
+  const ambientPlayerRef = useRef<AudioPlayer | null>(null);
+  const bellTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tokenRef = useRef<string | null>(null);
+  const loggedRef = useRef(false);
 
   const purpleSolid = (theme.purple as any)?.solid ?? ink;
+
+  useEffect(() => {
+    let cancelled = false;
+    getToken().then((t) => { tokenRef.current = t; });
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+    api.mediaList("audio", "chime")
+      .then((rows: MeditationAsset[]) => { if (!cancelled) setChimes(rows); })
+      .catch(() => {});
+    api.mediaList("audio", "soundscape")
+      .then((rows: MeditationAsset[]) => { if (!cancelled) setAmbients(rows); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  function authedSource(id: string) {
+    return {
+      uri: api.mediaFileUrl(id),
+      headers: tokenRef.current ? { Authorization: `Bearer ${tokenRef.current}` } : undefined,
+    };
+  }
+
+  function playChime() {
+    if (chimes.length === 0) return;
+    try {
+      if (chimePlayerRef.current) {
+        chimePlayerRef.current.seekTo(0);
+        chimePlayerRef.current.play();
+      } else {
+        const p = createAudioPlayer(authedSource(chimes[0].id));
+        p.volume = 1;
+        p.play();
+        chimePlayerRef.current = p;
+      }
+    } catch {}
+  }
+
+  function startAmbient() {
+    if (!ambientId) return;
+    try {
+      const p = createAudioPlayer(authedSource(ambientId));
+      p.loop = true;
+      p.volume = 0.55;
+      p.play();
+      ambientPlayerRef.current = p;
+    } catch {}
+  }
+
+  function stopAudio() {
+    if (bellTimerRef.current) { clearInterval(bellTimerRef.current); bellTimerRef.current = null; }
+    if (ambientPlayerRef.current) {
+      try { ambientPlayerRef.current.pause(); ambientPlayerRef.current.remove(); } catch {}
+      ambientPlayerRef.current = null;
+    }
+  }
+
+  function releaseChimePlayer() {
+    if (chimePlayerRef.current) {
+      try { chimePlayerRef.current.remove(); } catch {}
+      chimePlayerRef.current = null;
+    }
+  }
 
   function stopTimer() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -1315,14 +1420,23 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
     setDuration(mins);
     setRemaining(mins * 60);
     setRunning(true);
+    loggedRef.current = false;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    activateKeepAwakeAsync("meditation").catch(() => {});
+    playChime();
+    startAmbient();
+    if (intervalBells && chimes.length > 0) {
+      bellTimerRef.current = setInterval(() => playChime(), 5 * 60 * 1000);
+    }
     timerRef.current = setInterval(() => {
       setRemaining((r) => {
         if (r <= 1) {
           stopTimer();
           setRunning(false);
+          stopAudio();
+          deactivateKeepAwake("meditation").catch(() => {});
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          trackMindfulnessCompletion("meditation");
+          playChime();
           return 0;
         }
         return r - 1;
@@ -1362,9 +1476,21 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
 
   function stopSession() {
     stopTimer();
+    stopAudio();
+    deactivateKeepAwake("meditation").catch(() => {});
     setRunning(false);
     setDuration(null);
     setRemaining(0);
+  }
+
+  function logCompletion(withMood: boolean) {
+    if (loggedRef.current || duration === null) return;
+    loggedRef.current = true;
+    trackMindfulnessCompletion("meditation", {
+      duration_seconds: duration * 60,
+      ...(withMood && moodBefore != null ? { mood_before: moodBefore } : {}),
+      ...(withMood && moodAfter != null ? { mood_after: moodAfter } : {}),
+    });
   }
 
   function handleRestart() {
@@ -1398,7 +1524,10 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
   }
 
   function handleGoBack() {
+    // If a finished session was never logged (user backs out of the done screen), log it plain
+    if (duration !== null && remaining === 0 && !running) logCompletion(true);
     fullStop();
+    releaseChimePlayer();
     // Reset mode so next entry starts fresh
     setMode(null);
     onBack();
@@ -1414,6 +1543,9 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
     stopTimer();
     clearGraceDelay();
     clearGraceInterval();
+    stopAudio();
+    releaseChimePlayer();
+    deactivateKeepAwake("meditation").catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1432,6 +1564,75 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
         <GraceCountdown count={graceCount} accentColor={purpleSolid} theme={theme} ink={ink} />
       ) : meditationWaiting !== null ? (
         <>
+          <MoodDeltaPicker
+            label="HOW DO YOU FEEL RIGHT NOW?"
+            value={moodBefore}
+            onSelect={setMoodBefore}
+            accentColor={purpleSolid}
+            theme={theme}
+          />
+
+          {chimes.length > 0 && (
+            <Pressable
+              onPress={() => { Haptics.selectionAsync(); setIntervalBells(!intervalBells); }}
+              accessibilityRole="button"
+              style={{
+                flexDirection: "row", alignItems: "center", gap: 10,
+                borderWidth: 2, borderRadius: 16, padding: 12,
+                borderColor: intervalBells ? purpleSolid : (theme.cardBorder ?? ink),
+                backgroundColor: intervalBells ? purpleSolid + "1E" : theme.card,
+              }}
+            >
+              <Text style={{ fontSize: 20 }}>🔔</Text>
+              <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }}>
+                Interval bell every 5 minutes
+              </Text>
+              <Text style={{ color: intervalBells ? purpleSolid : theme.textSoft, fontSize: 13, fontWeight: "900" }}>
+                {intervalBells ? "ON" : "OFF"}
+              </Text>
+            </Pressable>
+          )}
+
+          {ambients.length > 0 && (
+            <View style={{ gap: 8 }}>
+              <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 0.6 }}>
+                🎧 AMBIENT SOUND
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                <Pressable
+                  onPress={() => { Haptics.selectionAsync(); setAmbientId(null); }}
+                  accessibilityRole="button"
+                  style={{
+                    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 16, borderWidth: 2,
+                    borderColor: ambientId === null ? purpleSolid : (theme.cardBorder ?? ink),
+                    backgroundColor: ambientId === null ? purpleSolid + "1E" : theme.card,
+                  }}
+                >
+                  <Text style={{ color: ambientId === null ? purpleSolid : theme.textSoft, fontSize: 12, fontWeight: "800" }}>Silence</Text>
+                </Pressable>
+                {ambients.map((a) => {
+                  const sel = ambientId === a.id;
+                  return (
+                    <Pressable
+                      key={a.id}
+                      onPress={() => { Haptics.selectionAsync(); setAmbientId(a.id); }}
+                      accessibilityRole="button"
+                      style={{
+                        paddingVertical: 8, paddingHorizontal: 14, borderRadius: 16, borderWidth: 2,
+                        borderColor: sel ? purpleSolid : (theme.cardBorder ?? ink),
+                        backgroundColor: sel ? purpleSolid + "1E" : theme.card,
+                      }}
+                    >
+                      <Text style={{ color: sel ? purpleSolid : theme.textSoft, fontSize: 12, fontWeight: "800" }}>
+                        {a.meta?.emoji ? a.meta.emoji + " " : ""}{a.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
           <StartCircleButton
             onPress={handleMeditationStart}
             accentColor={purpleSolid}
@@ -1520,7 +1721,17 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
           <Text style={{ fontSize: 48 }}>🎉</Text>
           <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>Session complete</Text>
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>{duration} min · {mode === "guided" ? "Guided" : "Unguided"}</Text>
-          <Pressable onPress={() => { setDuration(null); setMode(null); }} style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]}>
+          <MoodDeltaPicker
+            label="HOW DO YOU FEEL NOW?"
+            value={moodAfter}
+            onSelect={setMoodAfter}
+            accentColor={purpleSolid}
+            theme={theme}
+          />
+          <Pressable
+            onPress={() => { logCompletion(true); setDuration(null); setMode(null); setMoodBefore(null); setMoodAfter(null); }}
+            style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]}
+          >
             <Text style={{ color: ink, fontSize: 13, fontWeight: "800" }}>DONE</Text>
           </Pressable>
         </View>
@@ -1555,35 +1766,36 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
             </Pressable>
           </View>
 
-          {/* Guided session placeholder feature buttons */}
-          {mode === "guided" && (
+          {(ambientId !== null || intervalBells) && (
             <View style={{ width: "100%", gap: 10 }}>
-              <View style={{ opacity: 0.4 }}>
+              {ambientId !== null && (
                 <View style={{
                   flexDirection: "row", gap: 12, borderWidth: 2,
                   borderColor: ink, borderRadius: 16, padding: 12,
                   alignItems: "center", backgroundColor: theme.card,
                 }}>
-                  <Text style={{ fontSize: 22 }}>🎵</Text>
+                  <Text style={{ fontSize: 22 }}>🎧</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: ink, fontSize: 14, fontWeight: "800" }}>Relaxation Music</Text>
-                    <Text style={{ color: theme.textSoft, fontSize: 12 }}>Coming soon</Text>
+                    <Text style={{ color: ink, fontSize: 14, fontWeight: "800" }}>
+                      {ambients.find((a) => a.id === ambientId)?.title ?? "Ambient sound"}
+                    </Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 12 }}>Playing softly in the background</Text>
                   </View>
                 </View>
-              </View>
-              <View style={{ opacity: 0.4 }}>
+              )}
+              {intervalBells && (
                 <View style={{
                   flexDirection: "row", gap: 12, borderWidth: 2,
                   borderColor: ink, borderRadius: 16, padding: 12,
                   alignItems: "center", backgroundColor: theme.card,
                 }}>
-                  <Text style={{ fontSize: 22 }}>🎙️</Text>
+                  <Text style={{ fontSize: 22 }}>🔔</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: ink, fontSize: 14, fontWeight: "800" }}>Voice Guidance</Text>
-                    <Text style={{ color: theme.textSoft, fontSize: 12 }}>Coming soon</Text>
+                    <Text style={{ color: ink, fontSize: 14, fontWeight: "800" }}>Interval bell</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 12 }}>A gentle chime every 5 minutes</Text>
                   </View>
                 </View>
-              </View>
+              )}
             </View>
           )}
         </View>
@@ -1599,6 +1811,7 @@ function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onB
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
 
   function handleReroll() {
     Haptics.selectionAsync();
@@ -1622,6 +1835,7 @@ function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onB
       trackMindfulnessCompletion("gratitude");
       setSaved(true);
       setText("");
+      setSavedCount((c) => c + 1);
     } catch {
       toast("Couldn't save — try again.", "error");
     } finally {
@@ -1695,55 +1909,12 @@ function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onB
           </Pressable>
         </>
       )}
+
+      <GratitudeHistory theme={theme} ink={ink} refreshKey={savedCount} />
     </>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: 22,
-    borderWidth: 2,
-    padding: 14,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  endBtn: {
-    borderWidth: 2,
-    borderRadius: 22,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  nextBtn: {
-    borderWidth: 2,
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: "center",
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  saveBtn: {
-    borderWidth: 2,
-    borderRadius: 22,
-    paddingVertical: 16,
-    alignItems: "center",
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-});
+const styles = sharedStyles;

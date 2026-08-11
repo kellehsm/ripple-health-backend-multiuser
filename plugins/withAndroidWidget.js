@@ -32,6 +32,7 @@ function withAndroidWidget(config) {
       // Rewrite the ACTION_REFRESH action string so it matches the manifest registration
       ktContent = ktContent.replace(/const val ACTION_REFRESH = "[^"]*"/, `const val ACTION_REFRESH = "${pkgName}.WIDGET_REFRESH"`);
       ktContent = ktContent.replace(/const val ACTION_LOG_WATER = "[^"]*"/, `const val ACTION_LOG_WATER = "${pkgName}.WIDGET_LOG_WATER"`);
+      ktContent = ktContent.replace(/const val ACTION_NEXT_INSIGHT = "[^"]*"/, `const val ACTION_NEXT_INSIGHT = "${pkgName}.WIDGET_NEXT_INSIGHT"`);
       fs.writeFileSync(path.join(ktDir, 'RippleWidgetProvider.kt'), ktContent);
 
       let compactContent = fs.readFileSync(path.join(SRC, 'RippleCompactWidgetProvider.kt'), 'utf8');
@@ -70,6 +71,12 @@ function withAndroidWidget(config) {
       const valuesDir = path.join(root, 'app/src/main/res/values');
       fs.mkdirSync(valuesDir, { recursive: true });
       fs.writeFileSync(path.join(valuesDir, 'widget_strings.xml'), WIDGET_STRINGS_XML);
+      fs.copyFileSync(path.join(SRC, 'widget_colors.xml'), path.join(valuesDir, 'widget_colors.xml'));
+
+      // Dark-mode palette: same color names, night-qualified values
+      const nightDir = path.join(root, 'app/src/main/res/values-night');
+      fs.mkdirSync(nightDir, { recursive: true });
+      fs.copyFileSync(path.join(SRC, 'widget_colors.night.xml'), path.join(nightDir, 'widget_colors.xml'));
 
       return mod;
     },
@@ -101,6 +108,7 @@ function withAndroidWidget(config) {
               { $: { 'android:name': 'android.appwidget.action.APPWIDGET_UPDATE' } },
               { $: { 'android:name': `${pkgName}.WIDGET_REFRESH` } },
               { $: { 'android:name': `${pkgName}.WIDGET_LOG_WATER` } },
+              { $: { 'android:name': `${pkgName}.WIDGET_NEXT_INSIGHT` } },
             ],
           },
         ],

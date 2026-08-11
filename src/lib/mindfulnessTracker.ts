@@ -62,7 +62,13 @@ async function recordTodaySection(type: string): Promise<void> {
   } catch {}
 }
 
-export async function trackMindfulnessCompletion(type: string, duration_seconds?: number): Promise<void> {
+export interface MindfulnessExtras {
+  duration_seconds?: number;
+  mood_before?: number;
+  mood_after?: number;
+}
+
+export async function trackMindfulnessCompletion(type: string, extras?: MindfulnessExtras): Promise<void> {
   const total = await recordCompletion(type);
   const msg = MILESTONE_MESSAGES[total];
   if (msg) toast(msg, "success", 4500);
@@ -71,6 +77,6 @@ export async function trackMindfulnessCompletion(type: string, duration_seconds?
 
   // Sync to backend (best-effort — SecureStore already written above)
   try {
-    await api.logMindfulness({ type, ...(duration_seconds != null ? { duration_seconds } : {}) });
+    await api.logMindfulness({ type, ...extras });
   } catch { /* offline or error — local SecureStore is source of truth */ }
 }

@@ -115,7 +115,7 @@ const DEEP_LINK_ACTIONS: Record<string, () => void> = {
   "health": () => navigateWhenReady("Health"),
   "wellness": () => navigateWhenReady("Wellness"),
   "glucose": () => navigateWhenReady("Wellness", { scrollTo: "glucose" }),
-  "sleep": () => navigateWhenReady("Wellness", { scrollTo: "sleep" }),
+  "sleep": () => navigateRootWhenReady("SleepDetail"),
   "steps": () => navigateRootWhenReady("StepsDetail"),
   "heartrate": () => navigateRootWhenReady("HeartRateDetail"),
   "insights": () => navigateRootWhenReady("Insights"),

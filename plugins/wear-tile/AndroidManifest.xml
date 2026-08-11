@@ -27,6 +27,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Haptic-guided box breathing, launched from the tile or main activity -->
+        <activity
+            android:name=".RippleWearBreathingActivity"
+            android:exported="true"
+            android:label="@string/wear_app_name"
+            android:theme="@android:style/Theme.DeviceDefault" />
+
         <!-- The tile itself -->
         <service
             android:name=".RippleWearTileService"
