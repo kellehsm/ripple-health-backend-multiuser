@@ -1,14 +1,16 @@
 import { FastifyInstance } from "fastify";
 import { query, pool } from "../db.js";
 
+const COLS = "id, user_id, title, author, cover_url, total_pages, status, rating, started_at, finished_at, total_chapters, current_chapter, hardcover_id";
+
 export default async function booksRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
     const user_id = req.user_id;
     const { status } = req.query as any;
     if (status) {
-      return query(`SELECT * FROM books WHERE user_id = $1 AND status = $2 ORDER BY started_at DESC`, [user_id, status]);
+      return query(`SELECT ${COLS} FROM books WHERE user_id = $1 AND status = $2 ORDER BY started_at DESC`, [user_id, status]);
     }
-    return query(`SELECT * FROM books WHERE user_id = $1 ORDER BY started_at DESC`, [user_id]);
+    return query(`SELECT ${COLS} FROM books WHERE user_id = $1 ORDER BY started_at DESC`, [user_id]);
   });
 
   app.get("/:bookId/progress", async (req, reply) => {
@@ -62,12 +64,15 @@ export default async function booksRoutes(app: FastifyInstance) {
     return result;
   });
 
-  app.post("/", async (req) => {
+  app.post("/", async (req, reply) => {
     const user_id = req.user_id;
     const { title, author, cover_url, total_pages, total_chapters, hardcover_id } = req.body as any;
+    if (typeof title !== "string" || !title.trim()) {
+      return reply.status(400).send({ error: "title is required" });
+    }
     const rows = await query(
       `INSERT INTO books (user_id, title, author, cover_url, total_pages, total_chapters, hardcover_id, started_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7, current_date) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7, current_date) RETURNING ${COLS}`,
       [user_id, title, author, cover_url, total_pages, total_chapters ?? null, hardcover_id ?? null]
     );
     return rows[0];
@@ -77,12 +82,16 @@ export default async function booksRoutes(app: FastifyInstance) {
     const user_id = req.user_id;
     const { bookId } = req.params as any;
     const { pages_read, logged_at } = req.body as any;
+    const pages = Number(pages_read);
+    if (!Number.isFinite(pages) || pages < 0 || pages > 10000) {
+      return reply.status(400).send({ error: "pages_read must be a number between 0 and 10000" });
+    }
     const rows = await query(
       `INSERT INTO reading_logs (book_id, user_id, pages_read, logged_at)
        SELECT $1, $4, $2, COALESCE($3, current_date)
        WHERE EXISTS (SELECT 1 FROM books WHERE id = $1 AND user_id = $4)
        RETURNING *`,
-      [bookId, pages_read, logged_at, user_id]
+      [bookId, pages, logged_at, user_id]
     );
     if (!rows[0]) return reply.status(404).send({ error: "not found" });
     return rows[0];
@@ -125,7 +134,7 @@ export default async function booksRoutes(app: FastifyInstance) {
          current_chapter = COALESCE($4, current_chapter),
          total_chapters = COALESCE($5, total_chapters),
          finished_at = CASE WHEN $2 = 'finished' THEN current_date ELSE finished_at END
-       WHERE id = $1 AND user_id = $6 RETURNING *`,
+       WHERE id = $1 AND user_id = $6 RETURNING ${COLS}`,
       [bookId, status, rating, current_chapter, total_chapters, user_id]
     );
     if (!rows[0]) return reply.status(404).send({ error: "not found" });

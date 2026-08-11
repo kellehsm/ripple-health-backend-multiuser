@@ -20,6 +20,7 @@ import {
   ChallengeParticipant,
   SocialCategory,
 } from "../api/friends";
+import { formatDateLocal } from "../utils/dateUtils";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -42,10 +43,18 @@ function formatValue(value: number, category: SocialCategory): string {
 }
 
 function daysRemaining(endDate: string): number {
-  const end = new Date(endDate + "T23:59:59Z");
+  // Parse "YYYY-MM-DD" as a LOCAL date (end of day) to avoid UTC off-by-one.
+  const [y, m, d] = endDate.split("-").map(Number);
+  const end = new Date(y, m - 1, d, 23, 59, 59);
   const now = new Date();
   const diff = end.getTime() - now.getTime();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+/** Parse a "YYYY-MM-DD" string as a LOCAL date (avoids UTC shift on render). */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
 const RANK_COLORS = ["", "#F5B800", "#A8A8A8", "#C07A4A"];
@@ -118,7 +127,7 @@ export function ChallengeDetailScreen() {
     );
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatDateLocal(new Date());
   const isPast = challenge.end_date < today;
   const days = daysRemaining(challenge.end_date);
   const participants: ChallengeParticipant[] = Array.isArray(challenge.participants)
@@ -155,9 +164,9 @@ export function ChallengeDetailScreen() {
           <View style={[styles.metaBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <Ionicons name="calendar-outline" size={12} color={theme.textSoft} />
             <Text style={{ color: theme.textSoft, fontSize: 11, marginLeft: 4 }}>
-              {new Date(challenge.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {parseLocalDate(challenge.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               {" – "}
-              {new Date(challenge.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {parseLocalDate(challenge.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
             </Text>
           </View>
           <View style={[styles.metaBadge, { backgroundColor: isPast ? theme.card : theme.teal.tint, borderColor: isPast ? theme.cardBorder : theme.teal.solid }]}>
@@ -196,7 +205,7 @@ export function ChallengeDetailScreen() {
           </Text>
         </View>
       ) : (
-        <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+        <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           {participants.map((p, i) => {
             const isTop3 = p.rank <= 3;
             const medalColor = RANK_COLORS[p.rank] ?? theme.textSoft;
@@ -231,20 +240,22 @@ export function ChallengeDetailScreen() {
         </View>
       )}
 
-      {/* Leave button */}
-      <Pressable
-        onPress={handleLeave}
-        disabled={leaving}
-        style={[styles.leaveBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
-      >
-        {leaving ? (
-          <ActivityIndicator color={theme.textSoft} size="small" />
-        ) : (
-          <Text style={{ color: theme.textSoft, fontWeight: "700", fontSize: 14 }}>
-            Leave Challenge
-          </Text>
-        )}
-      </Pressable>
+      {/* Leave button — only for participants of active/upcoming challenges */}
+      {myParticipant && !isPast && (
+        <Pressable
+          onPress={handleLeave}
+          disabled={leaving}
+          style={[styles.leaveBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
+        >
+          {leaving ? (
+            <ActivityIndicator color={theme.textSoft} size="small" />
+          ) : (
+            <Text style={{ color: theme.textSoft, fontWeight: "700", fontSize: 14 }}>
+              Leave Challenge
+            </Text>
+          )}
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -288,10 +299,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   divider: { height: 1, marginHorizontal: 14 },

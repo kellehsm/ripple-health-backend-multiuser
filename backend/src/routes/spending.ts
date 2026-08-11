@@ -1,40 +1,50 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 
+const COLS = "id, user_id, logged_at, amount, category, source, merchant_name, plaid_transaction_id, notes, tag";
+
 export default async function spendingRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
     const user_id = req.user_id;
-    const { since } = req.query as any;
+    const { since, limit } = req.query as any;
+    const cap = Math.min(Math.max(Number(limit) || 500, 1), 500);
     if (since) {
       return query(
-        `SELECT * FROM spending_entries WHERE user_id = $1 AND logged_at >= $2 ORDER BY logged_at DESC LIMIT 2000`,
-        [user_id, since]
+        `SELECT ${COLS} FROM spending_entries WHERE user_id = $1 AND logged_at >= $2 ORDER BY logged_at DESC LIMIT $3`,
+        [user_id, since, cap]
       );
     }
-    return query(`SELECT * FROM spending_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 100`, [user_id]);
+    return query(`SELECT ${COLS} FROM spending_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 100`, [user_id]);
   });
 
-  app.post("/", async (req) => {
+  app.post("/", async (req, reply) => {
     const user_id = req.user_id;
     const { amount, category, merchant_name, notes, source, logged_at } = req.body as any;
+    const amt = Number(amount);
+    if (!Number.isFinite(amt) || Math.abs(amt) > 1_000_000) {
+      return reply.status(400).send({ error: "amount must be a number between -1,000,000 and 1,000,000" });
+    }
+    if (logged_at != null && Number.isNaN(Date.parse(logged_at))) {
+      return reply.status(400).send({ error: "logged_at must be a valid date" });
+    }
     const rows = await query(
       `INSERT INTO spending_entries (user_id, amount, category, merchant_name, notes, source, logged_at)
-       VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'manual'), COALESCE($7, now())) RETURNING *`,
-      [user_id, amount, category, merchant_name ?? null, notes ?? null, source, logged_at]
+       VALUES ($1, $2, $3, $4, $5, COALESCE($6, 'manual'), COALESCE($7, now())) RETURNING ${COLS}`,
+      [user_id, amt, category, merchant_name ?? null, notes ?? null, source, logged_at]
     );
     return rows[0];
   });
 
-  app.patch("/:id", async (req) => {
+  app.patch("/:id", async (req, reply) => {
     const user_id = req.user_id;
     const { id } = req.params as any;
     const { category, notes, tag } = req.body as any;
     const rows = await query(
       `UPDATE spending_entries SET category = $1, notes = $2, tag = $3
-       WHERE id = $4 AND user_id = $5 RETURNING *`,
+       WHERE id = $4 AND user_id = $5 RETURNING ${COLS}`,
       [category ?? null, notes ?? null, tag ?? null, id, user_id]
     );
-    if (!rows[0]) return { error: "Not found" };
+    if (!rows[0]) return reply.status(404).send({ error: "Not found" });
     return rows[0];
   });
 

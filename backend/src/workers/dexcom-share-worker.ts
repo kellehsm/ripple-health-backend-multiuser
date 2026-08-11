@@ -14,6 +14,7 @@
 import dotenv from "dotenv";
 import pg from "pg";
 import { fetchWithTimeout } from "../lib/http.js";
+import { decryptCredential } from "../lib/credCrypto.js";
 
 dotenv.config();
 
@@ -193,7 +194,7 @@ async function insertReadings(userId: string, readings: RawReading[]): Promise<{
 async function syncUser(userId: string, dexcomSettings: Record<string, any>): Promise<void> {
   const accountId: string = dexcomSettings.share_account_id ?? "";
   const accountName: string = dexcomSettings.share_account_name ?? "";
-  const password: string = dexcomSettings.share_password ?? "";
+  const password: string = decryptCredential(dexcomSettings.share_password ?? "");
 
   if ((!accountId && !accountName) || !password) {
     log("WARN", "Skipping user — missing credentials", { userId });

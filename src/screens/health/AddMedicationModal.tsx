@@ -26,6 +26,8 @@ export function AddMedicationModal({
     frequency?: "daily" | "weekly";
     dayOfWeek?: number | null;
     isPrn?: boolean;
+    brandName?: string;
+    genericName?: string;
   };
   editId?: string;
 }) {
@@ -44,8 +46,10 @@ export function AddMedicationModal({
   const [selectedTimes, setSelectedTimes] = useState<string[]>(initialValues?.selectedTimes ?? []);
   const [customTime, setCustomTime] = useState(initialValues?.customTime ?? '');
   const [saving, setSaving] = useState(false);
-  const [brandName, setBrandName] = useState('');
-  const [genericName, setGenericName] = useState('');
+  // Initialize from the med being edited — starting at '' wiped brand/generic
+  // names on every edit save (payload sends `|| null`).
+  const [brandName, setBrandName] = useState(initialValues?.brandName ?? '');
+  const [genericName, setGenericName] = useState(initialValues?.genericName ?? '');
   const [frequency, setFrequency] = useState<"daily" | "weekly">(initialValues?.frequency ?? "daily");
   const [dayOfWeek, setDayOfWeek] = useState<number | null>(initialValues?.dayOfWeek ?? null);
   const [isPrn, setIsPrn] = useState(initialValues?.isPrn ?? false);

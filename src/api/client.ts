@@ -1,21 +1,63 @@
 import { getToken } from "../lib/auth";
 import { setNetworkOnline } from "../utils/networkState";
-import Constants from "expo-constants";
+import { todayStr } from "../utils/dateUtils";
+import { BASE_URL } from "./baseUrl";
 
-const BASE_URL: string = (Constants.expoConfig?.extra as any)?.apiBaseUrl ?? "https://app.kels.gg/dev-api/api";
+export { BASE_URL } from "./baseUrl";
 
-async function request(path: string, options: RequestInit = {}): Promise<any> {
+/**
+ * Error thrown for non-2xx API responses. The message keeps the historical
+ * "API error <status>: <body>" format so existing string matching still works,
+ * but consumers should prefer `err instanceof ApiError && err.status === 401`.
+ */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
+// Abort hung requests so a dead connection can't stall login/startup forever.
+const REQUEST_TIMEOUT_MS = 15000;
+
+// Dedup identical GETs fired in the same window (e.g. two cards on one screen
+// requesting the same endpoint) — they share a single network request.
+const inflightGets = new Map<string, Promise<any>>();
+
+// Water metric id never changes for a user — cache it for the session.
+// Cleared on logout (lib/auth) so a different account can't reuse it.
+let waterMetricCache: any = null;
+export function clearWaterMetricCache(): void {
+  waterMetricCache = null;
+}
+
+export async function request(path: string, options: RequestInit = {}): Promise<any> {
+  const method = (options.method ?? "GET").toUpperCase();
+  if (method !== "GET") return doRequest(path, options);
+  const existing = inflightGets.get(path);
+  if (existing) return existing;
+  const p = doRequest(path, options).finally(() => inflightGets.delete(path));
+  inflightGets.set(path, p);
+  return p;
+}
+
+async function doRequest(path: string, options: RequestInit = {}): Promise<any> {
   const token = await getToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (token) headers["Authorization"] = "Bearer " + token;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(BASE_URL + path, { headers, ...options });
-    if (!res.ok) throw new Error("API error " + res.status + ": " + (await res.text()));
+    const res = await fetch(BASE_URL + path, { headers, signal: controller.signal, ...options });
+    if (!res.ok) throw new ApiError(res.status, "API error " + res.status + ": " + (await res.text()));
     setNetworkOnline(true);
     return res.json();
   } catch (err) {
     const msg = (err as Error)?.message ?? "";
     if (
+      (err as Error)?.name === "AbortError" ||
       msg.includes("Network request failed") ||
       msg.includes("Failed to fetch") ||
       (msg.includes("network") && !msg.includes("API error"))
@@ -23,12 +65,16 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
       setNetworkOnline(false);
     }
     throw err;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
 function isNetworkOrServerError(err: unknown): boolean {
+  if (err instanceof ApiError) return err.status >= 500;
   const msg = (err as Error)?.message ?? "";
   return (
+    (err as Error)?.name === "AbortError" ||
     msg.includes("Network request failed") ||
     msg.includes("Failed to fetch") ||
     msg.includes("network") ||
@@ -95,6 +141,9 @@ export const api = {
   },
 
   // ── Summary ───────────────────────────────────────────────────────────────
+  dashboard: function (date?: string) {
+    return request("/dashboard" + (date ? "?date=" + date : ""));
+  },
   today: function () {
     return request("/summary/today");
   },
@@ -111,7 +160,7 @@ export const api = {
     return request("/summary/streaks");
   },
   dailySummary: function (date?: string) {
-    const d = date ?? new Date().toISOString().slice(0, 10);
+    const d = date ?? todayStr();
     return request("/summary/daily/" + d);
   },
 
@@ -314,12 +363,18 @@ export const api = {
     return request("/metrics/" + metricId + "/monthly-breakdown?week_start_day=" + weekStartDay + "&agg=" + agg);
   },
   getOrCreateWaterMetric: async function () {
+    if (waterMetricCache) return waterMetricCache;
     const list = await request("/metrics?name=water");
-    if (list && list.length > 0) return list[0];
-    return request("/metrics", {
+    if (list && list.length > 0) {
+      waterMetricCache = list[0];
+      return list[0];
+    }
+    const created = await request("/metrics", {
       method: "POST",
       body: JSON.stringify({ name: "water", value_type: "number", unit: "glasses", icon: "water", color_key: "blue" }),
     });
+    waterMetricCache = created;
+    return created;
   },
   logWater: function (metricId: string) {
     const payload = { value: 1, logged_at: new Date().toISOString() };

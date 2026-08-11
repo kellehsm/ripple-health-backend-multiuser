@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Pressable,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,44 +66,68 @@ export function LeaderboardScreen() {
 
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [pickerTarget, setPickerTarget] = useState<LeaderboardEntry | null>(null);
+
+  const fetchData = useCallback(
+    (isCancelled?: () => boolean) => {
+      const weekStart = getWeekStart();
+      return Promise.all([
+        getLeaderboard(category),
+        getReactions(category, weekStart).catch(() => []),
+      ]).then(([data, rxns]) => {
+        if (isCancelled?.()) return;
+        const entryList = Array.isArray(data) ? data : [];
+        setEntries(entryList);
+        setReactions(Array.isArray(rxns) ? rxns : []);
+        const me = entryList.find((e) => e.is_me);
+        setMyUserId(me ? me.user_id : null);
+        setLoadError(false);
+      }).catch(() => {
+        if (!isCancelled?.()) setLoadError(true);
+      });
+    },
+    [category]
+  );
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       setLoading(true);
-      const weekStart = getWeekStart();
-      Promise.all([
-        getLeaderboard(category),
-        getReactions(category, weekStart).catch(() => []),
-      ]).then(([data, rxns]) => {
-        if (cancelled) return;
-        const entryList = Array.isArray(data) ? data : [];
-        setEntries(entryList);
-        setReactions(Array.isArray(rxns) ? rxns : []);
-        const me = entryList.find((e) => e.is_me);
-        if (me) setMyUserId(me.user_id);
-      }).catch(() => {
-        if (!cancelled) setEntries([]);
-      }).finally(() => {
+      setLoadError(false);
+      fetchData(() => cancelled).finally(() => {
         if (!cancelled) setLoading(false);
       });
       return () => { cancelled = true; };
-    }, [category])
+    }, [fetchData])
   );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await fetchData();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function handleAddReaction(entry: LeaderboardEntry, emoji: string) {
     setPickerTarget(null);
     try {
       await addReaction({ to_user_id: entry.user_id, category, emoji, week_start: getWeekStart() });
-      setReactions((prev) => {
-        const filtered = prev.filter(
-          (r) => !(r.from_user_id === myUserId && r.to_user_id === entry.user_id)
-        );
-        return [...filtered, { from_user_id: myUserId!, to_user_id: entry.user_id, emoji }];
-      });
+      // Only insert optimistically when we know our own user id (i.e. we appear
+      // in this leaderboard). Otherwise the reaction shows on next refresh.
+      if (myUserId) {
+        setReactions((prev) => {
+          const filtered = prev.filter(
+            (r) => !(r.from_user_id === myUserId && r.to_user_id === entry.user_id)
+          );
+          return [...filtered, { from_user_id: myUserId, to_user_id: entry.user_id, emoji }];
+        });
+      }
     } catch {
       toast("Could not add reaction.", "error");
     }
@@ -114,6 +139,9 @@ export function LeaderboardScreen() {
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />
+      }
     >
       {/* Header card */}
       <ShadowCard padding={16} bg={theme.teal.tint} accent={theme.teal.solid}>
@@ -150,6 +178,27 @@ export function LeaderboardScreen() {
         <View style={{ alignItems: "center", paddingVertical: 40 }}>
           <ActivityIndicator color={theme.teal.bar} size="large" />
         </View>
+      ) : loadError ? (
+        <ShadowCard padding={20}>
+          <View style={{ alignItems: "center", gap: 12 }}>
+            <Ionicons name="cloud-offline-outline" size={36} color={theme.textSoft} />
+            <Text style={{ color: theme.textStrong, fontSize: 16, fontWeight: "800", textAlign: "center" }}>
+              Couldn't load the leaderboard
+            </Text>
+            <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+              Check your connection, then pull down to refresh or tap retry.
+            </Text>
+            <Pressable
+              onPress={() => {
+                setLoading(true);
+                fetchData().finally(() => setLoading(false));
+              }}
+              style={{ borderWidth: 2, borderColor: theme.ink, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 8, backgroundColor: theme.card }}
+            >
+              <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 13 }}>Retry</Text>
+            </Pressable>
+          </View>
+        </ShadowCard>
       ) : entries.length < 2 ? (
         <ShadowCard padding={20}>
           <View style={{ alignItems: "center", gap: 12 }}>
@@ -163,7 +212,7 @@ export function LeaderboardScreen() {
           </View>
         </ShadowCard>
       ) : (
-        <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+        <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           {entries.map((entry, i) => {
             const isTop3 = entry.rank <= 3;
             const medalColor = RANK_COLORS[entry.rank] ?? theme.textSoft;
@@ -286,10 +335,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   divider: { height: 1, marginHorizontal: 14 },

@@ -24,9 +24,12 @@ export default async function metricsRoutes(app: FastifyInstance) {
   });
 
   // Create a new metric type (e.g. adding "meditation" later)
-  app.post("/", async (req) => {
+  app.post("/", async (req, reply) => {
     const user_id = req.user_id;
     const { name, value_type, unit, icon, color_key } = req.body as any;
+    if (typeof name !== "string" || !name.trim()) {
+      return reply.status(400).send({ error: "name is required" });
+    }
     const rows = await query(
       `INSERT INTO metrics (user_id, name, value_type, unit, icon, color_key)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
@@ -59,10 +62,17 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { metricId } = req.params as any;
     if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { value, note, logged_at } = req.body as any;
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      return reply.status(400).send({ error: "value must be a number" });
+    }
+    if (logged_at != null && Number.isNaN(Date.parse(logged_at))) {
+      return reply.status(400).send({ error: "logged_at must be a valid date" });
+    }
     const rows = await query(
       `INSERT INTO metric_logs (metric_id, value, note, logged_at)
        VALUES ($1,$2,$3, COALESCE($4, now())) RETURNING *`,
-      [metricId, value, note, logged_at]
+      [metricId, num, note, logged_at]
     );
     return rows[0];
   });

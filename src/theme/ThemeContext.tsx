@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import * as SecureStore from "expo-secure-store";
 import type { Theme } from "./theme";
 import {
@@ -66,8 +66,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setPalette(theme.isDark ? fam.light : fam.dark);
   }, [theme.id, theme.isDark, setPalette]);
 
+  const value = useMemo(
+    () => ({ theme, paletteId, setPalette, family, setFamily, mode, setMode, toggle }),
+    [theme, paletteId, setPalette, family, setFamily, mode, setMode, toggle]
+  );
+
   return (
-    <ThemeContext.Provider value={{ theme, paletteId, setPalette, family, setFamily, mode, setMode, toggle }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

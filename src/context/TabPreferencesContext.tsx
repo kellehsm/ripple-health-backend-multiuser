@@ -1,6 +1,6 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { TabPreferences, DEFAULT_TAB_PREFERENCES } from '../types/tabPreferences';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 
 interface TabPreferencesContextValue {
   preferences: TabPreferences;
@@ -32,8 +32,8 @@ export function TabPreferencesProvider({ children }: { children: React.ReactNode
       .then((data) => { if (!cancelled) setPreferences(data as TabPreferences); })
       .catch((err: any) => {
         if (cancelled) return;
-        const msg: string = err?.message ?? '';
-        if (!msg.includes('404')) setError(msg || 'Unknown error');
+        const is404 = err instanceof ApiError && err.status === 404;
+        if (!is404) setError(err?.message || 'Unknown error');
         setPreferences(DEFAULT_TAB_PREFERENCES);
       })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -52,8 +52,13 @@ export function TabPreferencesProvider({ children }: { children: React.ReactNode
 
   const reload = useCallback(() => setRevision((r) => r + 1), []);
 
+  const value = useMemo(
+    () => ({ preferences, loading, error, save, reload }),
+    [preferences, loading, error, save, reload]
+  );
+
   return (
-    <TabPreferencesContext.Provider value={{ preferences, loading, error, save, reload }}>
+    <TabPreferencesContext.Provider value={value}>
       {children}
     </TabPreferencesContext.Provider>
   );

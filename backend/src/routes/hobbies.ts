@@ -32,9 +32,12 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
-  app.post("/", async (req) => {
+  app.post("/", async (req, reply) => {
     const user_id = req.user_id;
     const { name, unit_label, icon, color_key } = req.body as any;
+    if (typeof name !== "string" || !name.trim()) {
+      return reply.status(400).send({ error: "name is required" });
+    }
     const rows = await query(
       `INSERT INTO hobbies (user_id, name, unit_label, icon, color_key)
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,

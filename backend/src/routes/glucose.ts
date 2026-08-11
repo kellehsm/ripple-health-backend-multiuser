@@ -16,7 +16,8 @@ export default async function glucoseRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "start/end must be ISO 8601" });
       }
       return query(
-        `SELECT * FROM glucose_readings WHERE user_id = $1 AND recorded_at BETWEEN $2 AND $3 ORDER BY recorded_at`,
+        `SELECT id, user_id, recorded_at, mg_dl, trend, source FROM glucose_readings
+         WHERE user_id = $1 AND recorded_at BETWEEN $2 AND $3 ORDER BY recorded_at LIMIT 4320`,
         [user_id, start, end]
       );
     }
@@ -25,23 +26,32 @@ export default async function glucoseRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "date must be YYYY-MM-DD" });
       }
       return query(
-        `SELECT * FROM glucose_readings WHERE user_id = $1 AND recorded_at::date = $2 ORDER BY recorded_at`,
+        `SELECT id, user_id, recorded_at, mg_dl, trend, source FROM glucose_readings
+         WHERE user_id = $1 AND recorded_at::date = $2 ORDER BY recorded_at`,
         [user_id, date]
       );
     }
     return query(
-      `SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 288`,
+      `SELECT id, user_id, recorded_at, mg_dl, trend, source FROM glucose_readings
+       WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 288`,
       [user_id]
     );
   });
 
-  app.post("/", async (req) => {
+  app.post("/", async (req, reply) => {
     const user_id = req.user_id;
     const { recorded_at, mg_dl, trend } = req.body as any;
+    const value = Number(mg_dl);
+    if (!Number.isFinite(value) || value < 10 || value > 1000) {
+      return reply.status(400).send({ error: "mg_dl must be a number between 10 and 1000" });
+    }
+    if (recorded_at != null && !ISO_RE.test(String(recorded_at))) {
+      return reply.status(400).send({ error: "recorded_at must be ISO 8601" });
+    }
     const rows = await query(
       `INSERT INTO glucose_readings (user_id, recorded_at, mg_dl, trend)
-       VALUES ($1,$2,$3,$4) RETURNING *`,
-      [user_id, recorded_at, mg_dl, trend]
+       VALUES ($1,$2,$3,$4) RETURNING id, user_id, recorded_at, mg_dl, trend, source`,
+      [user_id, recorded_at, value, trend]
     );
     return rows[0];
   });

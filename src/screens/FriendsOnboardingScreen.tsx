@@ -8,8 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Switch,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
@@ -61,6 +61,10 @@ export function FriendsOnboardingScreen() {
   async function handleSaveUsername() {
     const trimmed = usernameInput.trim();
     if (!trimmed) { next(); return; }
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(trimmed)) {
+      toast("Username must be 3–20 characters: letters, numbers, or underscores.", "error");
+      return;
+    }
     setSavingUsername(true);
     try {
       await setUsername(trimmed);
@@ -78,8 +82,9 @@ export function FriendsOnboardingScreen() {
     try {
       await updateSharingPrefs(sharing);
       next();
-    } catch {
-      next(); // non-fatal — they can change this in settings
+    } catch (e: any) {
+      // Don't silently advance — the user believes these prefs were saved.
+      toast(e?.message ?? "Could not save sharing preferences. Please try again.", "error");
     } finally {
       setSavingSharing(false);
     }

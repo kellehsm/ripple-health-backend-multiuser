@@ -1,13 +1,16 @@
 import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
 import { query, pool } from "../db.js";
-import { signToken } from "../middleware/auth.js";
+import { signToken, signWidgetToken } from "../middleware/auth.js";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
 
+// Brute-force protection: applies per-IP to credential endpoints only.
+const LOGIN_RATE_LIMIT = { rateLimit: { max: 10, timeWindow: "15 minutes" } };
+
 export default async function authRoutes(app: FastifyInstance) {
   // POST /api/auth/login — returns JWT on valid credentials
-  app.post<{ Body: { email: string; password: string } }>("/login", async (req, reply) => {
+  app.post<{ Body: { email: string; password: string } }>("/login", { config: LOGIN_RATE_LIMIT }, async (req, reply) => {
     let { email, password } = req.body;
     if (!email || !password) {
       return reply.status(400).send({ error: "email and password required" });
@@ -73,6 +76,7 @@ export default async function authRoutes(app: FastifyInstance) {
   // POST /api/auth/signup — public self-serve account creation
   app.post<{ Body: { email: string; password: string; name?: string } }>(
     "/signup",
+    { config: LOGIN_RATE_LIMIT },
     async (req, reply) => {
       const { email, password } = req.body;
       if (!email || !password) {
@@ -128,6 +132,7 @@ export default async function authRoutes(app: FastifyInstance) {
   //   -H "x-admin-secret: <secret>" -d '{"email":"...","password":"..."}'
   app.post<{ Body: { email: string; password: string } }>(
     "/create-user",
+    { config: LOGIN_RATE_LIMIT },
     async (req, reply) => {
       if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) {
         return reply.status(403).send({ error: "Forbidden" });
@@ -153,6 +158,17 @@ export default async function authRoutes(app: FastifyInstance) {
         }
         throw err;
       }
+    }
+  );
+
+  // POST /api/auth/widget-token — exchange the main JWT for a widget-scoped
+  // token. The scoped token is what gets written to the widget's plain file,
+  // so a leaked file only grants access to the widget's read/water endpoints.
+  app.post(
+    "/widget-token",
+    { preHandler: [(req, reply) => import("../middleware/auth.js").then(m => m.requireAuth(req, reply))] },
+    async (req) => {
+      return { token: signWidgetToken(req.user_id) };
     }
   );
 

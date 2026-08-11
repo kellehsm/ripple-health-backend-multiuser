@@ -1,13 +1,33 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { requireAuth } from "../middleware/auth.js";
 import { fetchWithTimeout } from "../lib/http.js";
+import { createOAuthState, consumeOAuthState } from "../lib/oauthStates.js";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const APP_REDIRECT = "ripple://oauth";
 
 export default async function googleAuthRoutes(app: FastifyInstance) {
+  // Authenticated endpoint the app calls to get the Google OAuth URL.
+  // Random single-use state (same mechanism as the Dexcom flow) prevents CSRF:
+  // an attacker can't craft a callback that binds their Google account to another user_id.
+  app.get("/url", { preHandler: [requireAuth] }, async (req) => {
+    const state = createOAuthState(req.user_id);
+    const params = new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+      response_type: "code",
+      scope: "https://www.googleapis.com/auth/drive.file",
+      access_type: "offline",
+      prompt: "consent",
+      state,
+    });
+    return { url: `${GOOGLE_AUTH_URL}?${params.toString()}` };
+  });
+
   // Called by Google after user authorizes — exchanges code, stores refresh token, redirects back to app.
-  // The frontend must pass state=<user_id> when initiating the Google OAuth URL so we know which user to save to.
+  // state must be a server-issued single-use token from GET /url above.
   app.get("/callback", async (req, reply) => {
     const { code, error, state } = req.query as any;
 
@@ -15,9 +35,12 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
       return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=${encodeURIComponent(error ?? "no_code")}`);
     }
 
-    const userId = state as string | undefined;
-    if (!userId) {
+    if (!state || typeof state !== "string") {
       return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=missing_state`);
+    }
+    const userId = consumeOAuthState(state);
+    if (!userId) {
+      return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=invalid_state`);
     }
 
     try {

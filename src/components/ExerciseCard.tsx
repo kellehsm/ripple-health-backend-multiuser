@@ -1,10 +1,8 @@
 import React, { ReactNode } from "react";
-import { View, Text, Pressable, StyleSheet, Image, ImageStyle, StyleProp, ViewStyle } from "react-native";
+import { View, Text, Pressable, StyleSheet, StyleProp, ViewStyle } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
 import { layeredShadow } from "../theme/styleUtils";
-
-// Base URL for exercise images — replaces the copy-pasted IMAGE_BASE in each screen.
-const IMAGE_BASE = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
+import { CyclingImage } from "./CyclingImage";
 
 type ExerciseData = {
   name: string;
@@ -29,23 +27,6 @@ type Props = {
   accessibilityHint?: string;
   style?: StyleProp<ViewStyle>;
 };
-
-/**
- * Cycles through provided image list every 1s so the exercise animates.
- */
-function CyclingImage({ images, style }: { images: string[]; style: StyleProp<ImageStyle> }) {
-  const [idx, setIdx] = React.useState(0);
-  React.useEffect(() => {
-    if (images.length <= 1) return;
-    const id = setInterval(() => setIdx((i) => (i + 1) % images.length), 1000);
-    return () => clearInterval(id);
-  }, [images.length]);
-  const { theme } = useTheme();
-  if (images.length === 0 || !images[idx]) {
-    return <View style={[style, { backgroundColor: theme.teal.tint, alignItems: "center", justifyContent: "center" }]}><Text style={{ fontSize: 32 }}>🏋️</Text></View>;
-  }
-  return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={style} resizeMode="cover" />;
-}
 
 export function ExerciseCard({
   exercise, variant = "compact", onPress, right, bottomAccent,

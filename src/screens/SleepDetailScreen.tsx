@@ -7,6 +7,7 @@ import { RangeSelector } from "../components/RangeSelector";
 import { ShadowCard } from "../components/ShadowCard";
 import { CardLoadingOverlay } from "../components/CardLoadingOverlay";
 import { Ionicons } from "@expo/vector-icons";
+import { formatDateLocal } from "../utils/dateUtils";
 
 type SleepSession = {
   id: string;
@@ -75,7 +76,9 @@ function dayLabel(iso: string): string {
 function consistencyStreak(sessions: SleepSession[], targetHours = 7): number {
   const byDay = new Map<string, number>();
   for (const s of sessions) {
-    const key = new Date(s.start_time).toISOString().slice(0, 10);
+    // Local date keys — UTC keys shifted evening sessions onto the wrong day in
+    // western timezones and never matched the local walk-back keys below.
+    const key = formatDateLocal(new Date(s.start_time));
     const secs = (new Date(s.end_time).getTime() - new Date(s.start_time).getTime()) / 1000;
     byDay.set(key, (byDay.get(key) ?? 0) + secs);
   }
@@ -86,7 +89,7 @@ function consistencyStreak(sessions: SleepSession[], targetHours = 7): number {
   for (let i = 1; i < 60; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
+    const key = formatDateLocal(d);
     const secs = byDay.get(key) ?? 0;
     if (secs / 3600 >= targetHours) streak++;
     else break;
@@ -127,8 +130,11 @@ export function SleepDetailScreen() {
   const nights = useMemo(() => {
     const byDay = new Map<string, { totalSecs: number; deep: number; rem: number; light: number; awake: number }>();
     for (const s of sessions) {
-      // Assign this session to the wake day (end_time), matches typical "last night" convention
-      const key = new Date(s.end_time).toISOString().slice(0, 10);
+      // Assign this session to the LOCAL wake day (end_time), matches typical
+      // "last night" convention. Must use local formatting: UTC keys made early
+      // -morning wake times land on the previous day in EST and never match the
+      // local fill keys below, so nights shifted or vanished.
+      const key = formatDateLocal(new Date(s.end_time));
       const totalSecs = (new Date(s.end_time).getTime() - new Date(s.start_time).getTime()) / 1000;
       const existing = byDay.get(key) ?? { totalSecs: 0, deep: 0, rem: 0, light: 0, awake: 0 };
       existing.totalSecs += totalSecs;
@@ -143,7 +149,7 @@ export function SleepDetailScreen() {
     const end = new Date(); end.setHours(0, 0, 0, 0);
     for (let i = rangeDays - 1; i >= 0; i--) {
       const d = new Date(end); d.setDate(end.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = formatDateLocal(d);
       const entry = byDay.get(key);
       arr.push({ date: key, totalSecs: entry?.totalSecs ?? 0, deep: entry?.deep ?? 0, rem: entry?.rem ?? 0, light: entry?.light ?? 0, awake: entry?.awake ?? 0 });
     }
@@ -163,6 +169,20 @@ export function SleepDetailScreen() {
   const streak = consistencyStreak(sessions, 7);
   const debtSecs = (GOAL_SECS - avgSecs) * rangeDays;
   const isDebt = debtSecs > 0;
+
+  if (!loadingRange && sessions.length === 0) {
+    return (
+      <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={[styles.content, { flexGrow: 1, justifyContent: "center" }]}>
+        <View style={{ alignItems: "center", gap: 10, padding: 24 }}>
+          <Ionicons name="moon-outline" size={44} color={theme.violet?.solid ?? "#7965B0"} />
+          <Text style={{ color: theme.textStrong, fontSize: 16, fontWeight: "800" }}>No sleep data yet</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+            Sync from Health Connect on the Health tab to see your nights here.
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { api } from '../../api/client';
-import { addDays, fmtDate, todayStr } from '../../utils/dateUtils';
+import { addDays, fmtDate, formatDateLocal, todayStr } from '../../utils/dateUtils';
 import { FLOW_COLORS } from '../../constants';
 import { CycleLog, Prediction } from './shared';
 
@@ -29,8 +29,10 @@ export function MonthCalendar({
   const today = todayStr();
 
   useEffect(() => {
-    const from = firstDay.toISOString().slice(0, 10);
-    const to = lastDay.toISOString().slice(0, 10);
+    // Local date formatting — toISOString() shifts to the previous UTC day in
+    // western timezones, which silently excluded the month's last day.
+    const from = formatDateLocal(firstDay);
+    const to = formatDateLocal(lastDay);
     api.getCycleLogs(from, to).then((res: any) => setLogs(res ?? [])).catch(() => setLogs([]));
     api.getCyclePrediction().then((res: any) => setPrediction(res)).catch(() => setPrediction(null));
   }, [year, month, refreshKey]);
@@ -75,7 +77,7 @@ export function MonthCalendar({
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-    <View style={[calStyles.container, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+    <View style={[calStyles.container, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
       <View style={calStyles.header}>
         <Pressable onPress={prevMonth} hitSlop={8}><Text style={{ color: theme.textStrong, fontSize: 20 }}>‹</Text></Pressable>
         <Text style={[calStyles.monthLabel, { color: theme.textStrong }]}>{monthLabel}</Text>
@@ -197,11 +199,11 @@ const calStyles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     padding: 14,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   monthLabel: { fontSize: 15, fontWeight: '800' },

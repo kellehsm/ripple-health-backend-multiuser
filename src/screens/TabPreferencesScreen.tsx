@@ -97,7 +97,7 @@ export function TabPreferencesScreen({ onDone, mode, onCancel }: TabPreferencesS
                   backgroundColor: isSelected ? theme.teal.tint : theme.card,
                   borderColor: isSelected ? theme.teal.solid : theme.cardBorder,
                   borderWidth: isSelected ? 2 : 1,
-                  shadowColor: "rgba(60,40,20,0.1)",
+                  shadowColor: "#000",
                 },
               ]}
             >
@@ -191,10 +191,10 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     borderRadius: 22,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   tileEmoji: {

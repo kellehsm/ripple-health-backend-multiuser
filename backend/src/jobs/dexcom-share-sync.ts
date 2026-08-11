@@ -1,6 +1,7 @@
 import { pool, query } from "../db.js";
 import type { FastifyBaseLogger } from "fastify";
 import { fetchWithTimeout } from "../lib/http.js";
+import { decryptCredential } from "../lib/credCrypto.js";
 
 // Dexcom Share application ID (public, fixed across all Share clients)
 const APPLICATION_ID = "d8665ade-9673-4e27-9ff6-92db4ce13d13";
@@ -49,7 +50,7 @@ async function resolveCredentials(userId: string, prefetchedDexcom?: Record<stri
     })());
     if (dexcom?.share_account_id) accountId = dexcom.share_account_id;
     if (dexcom?.share_account_name) accountName = dexcom.share_account_name;
-    if (dexcom?.share_password) password = dexcom.share_password;
+    if (dexcom?.share_password) password = decryptCredential(dexcom.share_password);
     if (dexcom?.share_region === "ous") region = "shareous1";
     else if (dexcom?.share_region === "us") region = "share2";
   } catch {

@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { query } from "../db.js";
+import { pool, query } from "../db.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -299,39 +299,53 @@ export default async function programRoutes(app: FastifyInstance) {
     };
     const name = `${goalLabels[answers.goal] ?? "My"} Plan — ${answers.days_per_week}×/week`;
 
-    // Insert program
-    const progRows = await query<any>(
-      `INSERT INTO workout_programs
-         (user_id, name, goal, experience_level, days_per_week, preferred_minutes,
-          equipment, muscle_focus, location, limitations)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING id`,
-      [
-        user_id, name, answers.goal, answers.experience,
-        answers.days_per_week, answers.preferred_minutes,
-        answers.equipment, answers.muscle_focus,
-        answers.location, answers.limitations,
-      ]
-    );
-    const programId = progRows[0].id;
+    // Insert program + days + exercises atomically — a failure partway through
+    // must not leave a half-created program behind.
+    const client = await pool.connect();
+    let programId: string;
+    try {
+      await client.query("BEGIN");
 
-    // Insert days + exercises
-    for (const day of days) {
-      const dayRows = await query<any>(
-        `INSERT INTO workout_program_days (program_id, day_number, focus)
-         VALUES ($1,$2,$3) RETURNING id`,
-        [programId, day.day_number, day.focus]
+      const progRes = await client.query(
+        `INSERT INTO workout_programs
+           (user_id, name, goal, experience_level, days_per_week, preferred_minutes,
+            equipment, muscle_focus, location, limitations)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING id`,
+        [
+          user_id, name, answers.goal, answers.experience,
+          answers.days_per_week, answers.preferred_minutes,
+          answers.equipment, answers.muscle_focus,
+          answers.location, answers.limitations,
+        ]
       );
-      const dayId = dayRows[0].id;
-      for (let j = 0; j < day.exercises.length; j++) {
-        const ex = day.exercises[j];
-        await query(
-          `INSERT INTO workout_program_exercises
-             (day_id, exercise_id, sets, rep_range_min, rep_range_max, sort_order)
-           VALUES ($1,$2,$3,$4,$5,$6)`,
-          [dayId, ex.exercise_id, ex.sets, ex.rep_range_min, ex.rep_range_max, j]
+      programId = progRes.rows[0].id;
+
+      // Insert days + exercises
+      for (const day of days) {
+        const dayRes = await client.query(
+          `INSERT INTO workout_program_days (program_id, day_number, focus)
+           VALUES ($1,$2,$3) RETURNING id`,
+          [programId, day.day_number, day.focus]
         );
+        const dayId = dayRes.rows[0].id;
+        for (let j = 0; j < day.exercises.length; j++) {
+          const ex = day.exercises[j];
+          await client.query(
+            `INSERT INTO workout_program_exercises
+               (day_id, exercise_id, sets, rep_range_min, rep_range_max, sort_order)
+             VALUES ($1,$2,$3,$4,$5,$6)`,
+            [dayId, ex.exercise_id, ex.sets, ex.rep_range_min, ex.rep_range_max, j]
+          );
+        }
       }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
 
     // Mark setup complete in user_settings

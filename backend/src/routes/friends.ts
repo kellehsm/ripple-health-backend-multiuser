@@ -101,7 +101,7 @@ export default async function friendsRoutes(app: FastifyInstance) {
 
     // Look up target user by email or username
     const targetRows = await query<any>(
-      `SELECT id FROM users WHERE email = $1 OR username = $1 LIMIT 1`,
+      `SELECT id FROM users WHERE email = $1 OR LOWER(username) = LOWER($1) LIMIT 1`,
       [identifier.trim().toLowerCase()]
     );
     if (!targetRows[0]) {
@@ -452,7 +452,7 @@ export default async function friendsRoutes(app: FastifyInstance) {
 
     const friendship = await query<any>(
       `SELECT id FROM friend_connections
-       WHERE (user_id_a = $1 AND user_id_b = $2) OR (user_id_a = $2 AND user_id_b = $1)
+       WHERE ((user_id_a = $1 AND user_id_b = $2) OR (user_id_a = $2 AND user_id_b = $1))
          AND status = 'accepted'`,
       [me, friendId]
     );

@@ -1,5 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import helmet from "@fastify/helmet";
+import rateLimit from "@fastify/rate-limit";
 import dotenv from "dotenv";
 
 import metricsRoutes from "./routes/metrics.js";
@@ -36,6 +38,7 @@ import medicationDosesRoutes from "./routes/medication-doses.js";
 import medicationCategoriesRoutes from "./routes/medication-categories.js";
 import medicationPrescribersRoutes from "./routes/medication-prescribers.js";
 import cycleRoutes from "./routes/cycle.js";
+import dashboardRoutes from "./routes/dashboard.js";
 import hintsRoutes from "./routes/hints.js";
 import mindfulnessRoutes from "./routes/mindfulness.js";
 import mediaRoutes from "./routes/media.js";
@@ -60,6 +63,7 @@ import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
 import { runHardcoverSyncJob } from "./jobs/hardcover-sync.js";
 import cron from "node-cron";
 import { query } from "./db.js";
+import { encryptCredential, isEncrypted } from "./lib/credCrypto.js";
 import { estYesterday } from "./lib/estDate.js";
 
 dotenv.config();
@@ -74,12 +78,17 @@ if (missingEnv.length > 0) {
   process.exit(1);
 }
 
-const app = Fastify({ logger: true });
+// trustProxy: Caddy fronts prod (app.kels.gg) and sets X-Forwarded-For —
+// without this every request rate-limits against 127.0.0.1 as one shared bucket.
+const app = Fastify({ logger: true, trustProxy: true });
 
 // Treat an empty JSON body as {} — the app POSTs some bodiless actions (e.g.
 // /hardcover/sync) with Content-Type: application/json, which Fastify would
 // otherwise reject with FST_ERR_CTP_EMPTY_JSON_BODY.
-app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+  // Keep the exact raw body around for webhook signature verification
+  // (Plaid signs the sha256 of the raw request body — see routes/plaid.ts).
+  (req as any).rawBody = body as string;
   const text = (body as string).trim();
   if (!text) return done(null, {});
   try {
@@ -97,7 +106,27 @@ function isPublic(url: string): boolean {
 }
 
 async function main() {
-  await app.register(cors, { origin: true });
+  // Native app requests carry no Origin header (CORS never applies to them);
+  // this list only governs browser contexts: the admin media tool (same-origin)
+  // and local Expo web / dev-server access.
+  await app.register(cors, {
+    origin: [
+      "https://app.kels.gg",
+      /^http:\/\/localhost:\d+$/,
+      /^http:\/\/129\.121\.125\.214:\d+$/,
+    ],
+  });
+  // CSP disabled: the only HTML served is the inline-scripted admin media tool.
+  await app.register(helmet, { contentSecurityPolicy: false });
+  // Global limiter is a generous safety net; strict per-route limits are set
+  // on the credential endpoints in routes/auth.ts via config.rateLimit.
+  await app.register(rateLimit, {
+    max: 300,
+    timeWindow: "1 minute",
+    // Key authenticated traffic by token (per-user buckets — also covers the
+    // dashboard endpoint's internal app.inject() calls); anonymous by IP.
+    keyGenerator: (req) => (req.headers.authorization as string | undefined) ?? req.ip,
+  });
 
   // Global auth hook — runs before every handler except public routes
   app.addHook("onRequest", async (req, reply) => {
@@ -112,7 +141,7 @@ async function main() {
   const adminHtmlPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "admin/media-admin.html");
   app.get("/admin/media", async (_req, reply) => {
     reply.type("text/html");
-    return fs.readFileSync(adminHtmlPath, "utf8");
+    return fs.promises.readFile(adminHtmlPath, "utf8");
   });
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(dexcomVerifyRoutes, { prefix: "/api/dexcom" });
@@ -153,6 +182,7 @@ async function main() {
   await app.register(medicationCategoriesRoutes, { prefix: "/api/medications/categories" });
   await app.register(medicationPrescribersRoutes, { prefix: "/api/medications/prescribers" });
   await app.register(cycleRoutes, { prefix: "/api/cycle" });
+  await app.register(dashboardRoutes, { prefix: "/api/dashboard" });
   await app.register(hintsRoutes, { prefix: "/api/hints" });
   await app.register(mindfulnessRoutes, { prefix: "/api/mindfulness" });
   await app.register(mediaRoutes, { prefix: "/api/media" });
@@ -173,6 +203,42 @@ async function main() {
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
   console.log(`Wellness multi-user API running on port ${port}`);
+
+  // One-time lazy migration: encrypt any legacy plaintext credentials at rest.
+  // Runs on every boot but no-ops once everything is encrypted (or if no key set).
+  void (async () => {
+    if (!process.env.CRED_ENCRYPTION_KEY) {
+      app.log.warn("CRED_ENCRYPTION_KEY not set — stored credentials remain plaintext");
+      return;
+    }
+    try {
+      const rows = await query<{ user_id: string; pw: string | null; hc: string | null }>(
+        `SELECT user_id,
+                settings->'dexcom'->>'share_password' AS pw,
+                settings->'hardcover'->>'api_token'  AS hc
+         FROM user_settings
+         WHERE (settings->'dexcom'->>'share_password' IS NOT NULL AND settings->'dexcom'->>'share_password' NOT LIKE 'enc:v1:%')
+            OR (settings->'hardcover'->>'api_token'  IS NOT NULL AND settings->'hardcover'->>'api_token'  NOT LIKE 'enc:v1:%')`
+      );
+      for (const { user_id, pw, hc } of rows) {
+        if (pw && !isEncrypted(pw)) {
+          await query(
+            `UPDATE user_settings SET settings = jsonb_set(settings, '{dexcom,share_password}', to_jsonb($2::text)) WHERE user_id = $1`,
+            [user_id, encryptCredential(pw)]
+          );
+        }
+        if (hc && !isEncrypted(hc)) {
+          await query(
+            `UPDATE user_settings SET settings = jsonb_set(settings, '{hardcover,api_token}', to_jsonb($2::text)) WHERE user_id = $1`,
+            [user_id, encryptCredential(hc)]
+          );
+        }
+      }
+      if (rows.length > 0) app.log.info({ users: rows.length }, "Encrypted legacy plaintext credentials");
+    } catch (err) {
+      app.log.error({ err }, "Credential encryption sweep failed");
+    }
+  })();
 
   // Daily Summary Engine — refresh today every 30 min; finalize yesterday at 1 AM
   cron.schedule("*/30 * * * *", () => void runDailySummaryJob());

@@ -61,6 +61,7 @@ import {
 import { CaffeineForm } from "../components/CaffeineForm";
 import { AlcoholForm } from "../components/AlcoholForm";
 import { MacroEditForm, type MacroValues } from "../components/MacroEditForm";
+import { formatDateLocal } from "../utils/dateUtils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -394,23 +395,35 @@ export function MealsScreen() {
     | { type: "substance"; data: SubstanceEntry; timer: ReturnType<typeof setTimeout> };
   const [undoMeal, setUndoMeal] = useState<UndoMeal | null>(null);
 
+  const mealsLoadedRef = useRef(false);
   const loadMeals = useCallback(function () {
-    const today = new Date().toISOString().split("T")[0];
-    setLoadingMeals(true);
+    const today = formatDateLocal(new Date());
+    // Only show the skeleton on the very first load — focus/pull refreshes update in place
+    if (!mealsLoadedRef.current) setLoadingMeals(true);
     setMealsError(null);
-    api.meals(today)
-      .then(function (data: Meal[]) { setMeals(Array.isArray(data) ? data : []); })
+    return api.meals(today)
+      .then(function (data: Meal[]) { mealsLoadedRef.current = true; setMeals(Array.isArray(data) ? data : []); })
       .catch(function (e: Error) { setMealsError(e.message || "Failed to load meals"); })
       .finally(function () { setLoadingMeals(false); });
   }, []);
 
+  const subsLoadedRef = useRef(false);
+  const alcoholAutoExpandedRef = useRef(false);
   const loadSubstances = useCallback(function () {
-    const today = new Date().toISOString().split("T")[0];
-    setSubLoading(true);
-    api.substancesToday(today)
+    const today = formatDateLocal(new Date());
+    if (!subsLoadedRef.current) setSubLoading(true);
+    return api.substancesToday(today)
       .then(function (data: { entries: SubstanceEntry[]; totals: SubstanceTotals }) {
+        subsLoadedRef.current = true;
         setSubEntries(Array.isArray(data?.entries) ? data.entries : []);
-        if (data?.totals) setSubTotals(data.totals);
+        if (data?.totals) {
+          setSubTotals(data.totals);
+          // Auto-expand once if there are drinks today, but respect manual collapses after
+          if (Number(data.totals.standard_drinks) > 0 && !alcoholAutoExpandedRef.current) {
+            alcoholAutoExpandedRef.current = true;
+            setAlcoholCollapsed(false);
+          }
+        }
       })
       .catch(function () {})
       .finally(function () { setSubLoading(false); });
@@ -449,6 +462,14 @@ export function MealsScreen() {
       })
       .catch(function () {});
   }, [loadMeals, loadSubstances]);
+
+  // Refresh today's data whenever the screen regains focus (mount effect covers first load)
+  const firstFocusRef = useRef(true);
+  useFocusEffect(useCallback(function () {
+    if (firstFocusRef.current) { firstFocusRef.current = false; return; }
+    loadMeals();
+    loadSubstances();
+  }, [loadMeals, loadSubstances]));
 
   const foodDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const foodSearchSeqRef = useRef(0);
@@ -659,16 +680,22 @@ export function MealsScreen() {
       .catch(function () { toast("Couldn't save that change. Try again.", "error"); });
   }
 
+  // One timer per pending delete so deleting a second item never cancels the
+  // first item's server-side delete.
+  const deleteTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
   function handleDeleteMeal(meal: Meal) {
-    if (undoMeal) clearTimeout(undoMeal.timer);
     if (expandedMealId === meal.id) setExpandedMealId(null);
     if (editingMealId === meal.id) setEditingMealId(null);
     setMeals((prev) => prev.filter((m) => m.id !== meal.id));
+    const key = "meal:" + meal.id;
     const timer = setTimeout(async () => {
-      setUndoMeal(null);
+      deleteTimersRef.current.delete(key);
+      setUndoMeal((cur) => (cur && cur.type === "meal" && cur.data.id === meal.id ? null : cur));
       try { await api.deleteMeal(meal.id); }
       catch (e: any) { setMealsError(e.message || "Failed to delete meal"); loadMeals(); }
     }, 5000);
+    deleteTimersRef.current.set(key, timer);
     setUndoMeal({ type: "meal", data: meal, timer });
   }
 
@@ -790,19 +817,22 @@ export function MealsScreen() {
   }
 
   function handleDeleteSubstance(entry: SubstanceEntry) {
-    if (undoMeal) clearTimeout(undoMeal.timer);
     setSubEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    const key = "substance:" + entry.id;
     const timer = setTimeout(async () => {
-      setUndoMeal(null);
+      deleteTimersRef.current.delete(key);
+      setUndoMeal((cur) => (cur && cur.type === "substance" && cur.data.id === entry.id ? null : cur));
       try { await api.deleteSubstance(entry.id); }
       catch { loadSubstances(); }
     }, 4000);
+    deleteTimersRef.current.set(key, timer);
     setUndoMeal({ type: "substance", data: entry, timer });
   }
 
   function handleUndoMealDelete() {
     if (!undoMeal) return;
     clearTimeout(undoMeal.timer);
+    deleteTimersRef.current.delete((undoMeal.type === "meal" ? "meal:" : "substance:") + undoMeal.data.id);
     if (undoMeal.type === "meal") {
       setMeals((prev) => [...prev, undoMeal.data as Meal]);
     } else {
@@ -981,8 +1011,8 @@ export function MealsScreen() {
                 return best;
               }, null);
               return highSpikeMeal ? (
-                <View style={{ backgroundColor: "#fef3c7", borderRadius: 12, borderWidth: 1.5, borderColor: "#f59e0b", padding: 8, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={{ fontSize: 11, color: "#92400e" }}>
+                <View style={{ backgroundColor: theme.amber.tint, borderRadius: 12, borderWidth: 1.5, borderColor: theme.amber.solid, padding: 8, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={{ fontSize: 11, color: theme.amber.sub }}>
                     {highSpikeMeal.name + " has averaged a +" + highSpikeMeal.spike + " mg/dL rise across recent logs"}
                   </Text>
                 </View>
@@ -1207,10 +1237,10 @@ export function MealsScreen() {
               {subTotals.standard_drinks} STD
             </Text>
           ) : null}
-          <Ionicons name={alcoholCollapsed && subTotals.standard_drinks === 0 ? "chevron-down" : "chevron-up"} size={16} color={theme.textSoft} />
+          <Ionicons name={alcoholCollapsed ? "chevron-down" : "chevron-up"} size={16} color={theme.textSoft} />
         </Pressable>
 
-        {(alcoholCollapsed && subTotals.standard_drinks === 0) ? null : (
+        {alcoholCollapsed ? null : (
         <View style={{ marginTop: 10 }}>
         {subTotals.standard_drinks > 0 && (
           <View style={[styles.totalBlock, { backgroundColor: theme.purple.solid, marginBottom: 10 }]}>
@@ -1312,7 +1342,12 @@ export function MealsScreen() {
             <ShadowCard skeleton skeletonHeight={64} />
           </View>
         ) : meals.length === 0 ? (
-          <MealsEmptyState onPress={() => Haptics.selectionAsync()} />
+          <MealsEmptyState onPress={() => {
+            // Open the manual-add form in the "Log a meal" card and scroll up to it
+            setPendingFood({ name: "", carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null, source_db: "manual" });
+            setSearchResults([]);
+            scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+          }} />
         ) : (
           MEAL_TYPES.filter(mt => meals.some(m => m.meal_type === mt)).map(function (groupType) {
             const groupMeals = meals.filter(m => m.meal_type === groupType);
@@ -1462,7 +1497,7 @@ export function MealsScreen() {
               const stable = [...foodReport].sort((a, b) => a.avg_spike - b.avg_spike).slice(0, 5).filter(s => s.avg_spike <= 30);
               const maxSpike = spiky[0]?.avg_spike ?? 1;
               return (
-                <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
+                <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
                     <Ionicons name="analytics-outline" size={18} color={theme.berry.solid} />
                     <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0, flex: 1 }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Food Report</Text>

@@ -19,10 +19,31 @@ export default async function syncRoutes(app: FastifyInstance) {
   // environments where the migration hasn't been run yet.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sync_log (
-      sync_id     TEXT        PRIMARY KEY,
+      sync_id     TEXT        NOT NULL,
+      user_id     UUID,
       processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `);
+  // Idempotency must be scoped per user: a global sync_id key lets one user's
+  // (or attacker's) sync_id collide with another user's and silently drop writes.
+  // Mirrors migration 036_sync_log_user_scope.sql for environments that haven't
+  // run it. Checked first because the app's DB user doesn't own the table —
+  // a blind ALTER fails on ownership even when it would be a no-op.
+  const { rows: userIdCol } = await pool.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name = 'sync_log' AND column_name = 'user_id'`
+  );
+  if (userIdCol.length === 0) {
+    await pool.query(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS user_id UUID`);
+    await pool.query(`ALTER TABLE sync_log DROP CONSTRAINT IF EXISTS sync_log_pkey`);
+  }
+  const { rows: idx } = await pool.query(
+    `SELECT 1 FROM pg_indexes WHERE indexname = 'sync_log_user_sync_idx'`
+  );
+  if (idx.length === 0) {
+    await pool.query(
+      `CREATE UNIQUE INDEX sync_log_user_sync_idx ON sync_log (user_id, sync_id)`
+    );
+  }
 
   app.post<{ Body: { items: BatchItem[] } }>("/batch", async (req) => {
     const { items } = req.body;
@@ -35,24 +56,30 @@ export default async function syncRoutes(app: FastifyInstance) {
       await client.query("BEGIN");
 
       for (const item of items) {
-        // Idempotency: skip if we already processed this sync_id successfully
+        // Idempotency: skip if we already processed this sync_id for THIS user
         const { rows: logged } = await client.query(
-          "SELECT 1 FROM sync_log WHERE sync_id = $1",
-          [item.sync_id]
+          "SELECT 1 FROM sync_log WHERE sync_id = $1 AND user_id = $2",
+          [item.sync_id, req.user_id]
         );
         if (logged.length > 0) {
           results.push({ sync_id: item.sync_id, status: "already_processed" });
           continue;
         }
 
+        // Savepoint per item: a failed item aborts the enclosing transaction
+        // (25P02) unless rolled back to a savepoint, which would make COMMIT a
+        // silent rollback while `results` still claims earlier items succeeded.
+        await client.query("SAVEPOINT sync_item");
         try {
           await processItem(client, item, req.user_id);
           await client.query(
-            "INSERT INTO sync_log (sync_id) VALUES ($1) ON CONFLICT DO NOTHING",
-            [item.sync_id]
+            "INSERT INTO sync_log (sync_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            [item.sync_id, req.user_id]
           );
+          await client.query("RELEASE SAVEPOINT sync_item");
           results.push({ sync_id: item.sync_id, status: "success" });
         } catch (err: any) {
+          await client.query("ROLLBACK TO SAVEPOINT sync_item");
           // PostgreSQL error codes:
           //   23502 = not_null_violation (missing required field)
           //   22P02 = invalid_text_representation (bad type cast)
@@ -61,7 +88,8 @@ export default async function syncRoutes(app: FastifyInstance) {
             err?.code === "23502" ||
             err?.code === "22P02" ||
             err?.code === "23514" ||
-            err?.message?.startsWith("Unknown endpoint");
+            err?.message?.startsWith("Unknown endpoint") ||
+            err?.message?.startsWith("Metric not found");
           results.push({
             sync_id: item.sync_id,
             status: isBadPayload ? "discard" : "error",
@@ -149,6 +177,15 @@ async function processItem(client: any, item: BatchItem, user_id: string): Promi
   // /metrics/:metricId/logs
   if (/^\/metrics\/[^/]+\/logs$/.test(endpoint)) {
     const metricId = endpoint.split("/")[2];
+    // Ownership check: metricId is client-supplied — without this, a user could
+    // write metric_logs rows onto another user's metric.
+    const { rows: owned } = await client.query(
+      "SELECT 1 FROM metrics WHERE id = $1 AND user_id = $2",
+      [metricId, user_id]
+    );
+    if (owned.length === 0) {
+      throw new Error(`Metric not found or not owned by user: ${metricId}`);
+    }
     await client.query(
       `INSERT INTO metric_logs (metric_id, value, note, logged_at)
        VALUES ($1,$2,$3,COALESCE($4::timestamptz, now()))`,

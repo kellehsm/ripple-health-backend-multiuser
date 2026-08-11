@@ -24,15 +24,27 @@ export async function runDailySummaryJob(date?: string): Promise<void> {
 
   const results = await Promise.allSettled(
     users.map(async ({ id: userId }) => {
-      // Pre-flight: skip users with no data at all today to avoid wasteful queries
+      // Pre-flight: skip users with no data at all today to avoid wasteful queries.
+      // Must cover every source the summary aggregates (journal, glucose, meals,
+      // sleep, custom metrics like steps/water, reading, hobbies) — checking only
+      // journal+glucose meant users logging just meals/steps/sleep never got a summary.
       const [{ has_data }] = await query<{ has_data: boolean }>(
-        `SELECT EXISTS (
-           SELECT 1 FROM journal_entries
-           WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + INTERVAL '1 day'
-           UNION ALL
-           SELECT 1 FROM glucose_readings
-           WHERE user_id = $1 AND recorded_at >= $2::date AND recorded_at < $2::date + INTERVAL '1 day'
-           LIMIT 1
+        `SELECT (
+           EXISTS (SELECT 1 FROM journal_entries
+                   WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + INTERVAL '1 day')
+           OR EXISTS (SELECT 1 FROM glucose_readings
+                      WHERE user_id = $1 AND recorded_at >= $2::date AND recorded_at < $2::date + INTERVAL '1 day')
+           OR EXISTS (SELECT 1 FROM meals
+                      WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + INTERVAL '1 day')
+           OR EXISTS (SELECT 1 FROM sleep_sessions
+                      WHERE user_id = $1 AND end_time >= $2::date AND end_time < $2::date + INTERVAL '1 day')
+           OR EXISTS (SELECT 1 FROM metric_logs ml
+                      JOIN metrics m ON m.id = ml.metric_id
+                      WHERE m.user_id = $1 AND ml.logged_at >= $2::date AND ml.logged_at < $2::date + INTERVAL '1 day')
+           OR EXISTS (SELECT 1 FROM reading_logs
+                      WHERE user_id = $1 AND logged_at = $2::date)
+           OR EXISTS (SELECT 1 FROM hobby_logs
+                      WHERE user_id = $1 AND logged_at::date = $2::date)
          ) AS has_data`,
         [userId, targetDate]
       );

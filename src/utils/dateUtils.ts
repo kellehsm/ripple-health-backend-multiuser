@@ -3,7 +3,7 @@
 
 /** Returns today's date as a YYYY-MM-DD string (local time). */
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatDateLocal(new Date());
 }
 
 /**
@@ -37,14 +37,15 @@ export function addDaysToDate(date: Date, days: number): Date {
 }
 
 /**
- * Returns the Monday-anchored start of the current week as YYYY-MM-DD.
- * (Uses Sunday as start-of-week to match leaderboard/existing behavior.)
+ * Returns the Sunday-anchored start of the current week as YYYY-MM-DD,
+ * computed entirely in local time (matches leaderboard/existing behavior).
+ * Screens that need a configurable week start pass a week-start-day param
+ * to the relevant API endpoints instead of using this helper.
  */
 export function getWeekStart(): string {
   const d = new Date();
-  d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - d.getDay());
-  return d.toISOString().slice(0, 10);
+  return formatDateLocal(d);
 }
 
 /**

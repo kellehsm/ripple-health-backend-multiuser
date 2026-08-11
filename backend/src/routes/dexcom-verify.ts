@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { requireAuth } from "../middleware/auth.js";
 import { query } from "../db.js";
 import { fetchWithTimeout } from "../lib/http.js";
+import { encryptCredential } from "../lib/credCrypto.js";
 
 const APPLICATION_ID = "d8665ade-9673-4e27-9ff6-92db4ce13d13";
 
@@ -104,7 +105,7 @@ export default async function dexcomVerifyRoutes(app: FastifyInstance) {
             JSON.stringify({
               dexcom: {
                 share_account_name: username,
-                share_password: password,
+                share_password: encryptCredential(password),
                 share_region: region ?? "us",
               },
             }),
@@ -162,7 +163,7 @@ export default async function dexcomVerifyRoutes(app: FastifyInstance) {
           JSON.stringify({
             dexcom: {
               share_account_id: account_id,
-              share_password: password,
+              share_password: encryptCredential(password),
               share_region: region ?? "us",
             },
           }),

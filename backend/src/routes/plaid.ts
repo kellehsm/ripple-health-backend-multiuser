@@ -9,6 +9,7 @@ import {
   SandboxItemFireWebhookRequestWebhookCodeEnum,
 } from "plaid";
 import { query } from "../db.js";
+import crypto from "crypto";
 
 const env = process.env.PLAID_ENV ?? "production";
 const secret =
@@ -179,9 +180,57 @@ export default async function plaidRoutes(app: FastifyInstance) {
     );
   });
 
+  // Verify the Plaid-Verification JWT on incoming webhooks (ES256, key fetched
+  // via /webhook_verification_key/get). See https://plaid.com/docs/api/webhooks/webhook-verification/
+  async function verifyPlaidWebhook(req: any): Promise<boolean> {
+    try {
+      const token = req.headers["plaid-verification"] as string | undefined;
+      if (!token) return false;
+      const parts = token.split(".");
+      if (parts.length !== 3) return false;
+
+      const header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+      if (header.alg !== "ES256" || typeof header.kid !== "string") return false;
+
+      const keyRes = await plaidClient.webhookVerificationKeyGet({ key_id: header.kid });
+      const jwk: any = keyRes.data.key;
+      if (jwk.expired_at != null) return false;
+      const publicKey = crypto.createPublicKey({
+        key: { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y },
+        format: "jwk",
+      });
+
+      // JWT ES256 signatures are raw r||s (IEEE P1363), not DER
+      const valid = crypto.verify(
+        "sha256",
+        Buffer.from(`${parts[0]}.${parts[1]}`),
+        { key: publicKey, dsaEncoding: "ieee-p1363" },
+        Buffer.from(parts[2], "base64url")
+      );
+      if (!valid) return false;
+
+      const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+      // Reject tokens older than 5 minutes (replay protection, per Plaid docs)
+      if (typeof payload.iat !== "number" || Date.now() / 1000 - payload.iat > 5 * 60) return false;
+
+      // Body integrity: the JWT covers the sha256 of the exact raw request body
+      const rawBody = (req as any).rawBody;
+      if (typeof rawBody !== "string") return false;
+      const bodyHash = crypto.createHash("sha256").update(rawBody, "utf8").digest("hex");
+      return crypto.timingSafeEqual(Buffer.from(bodyHash), Buffer.from(String(payload.request_body_sha256 ?? "")));
+    } catch {
+      return false;
+    }
+  }
+
   // Public webhook receiver — Plaid calls this when transactions are ready
   // Registered as public in server.ts PUBLIC_PREFIXES
   app.post("/webhook", { config: { public: true } } as any, async (req, reply) => {
+    if (!(await verifyPlaidWebhook(req))) {
+      req.log.warn("Plaid webhook rejected: signature verification failed");
+      return reply.code(401).send({ ok: false });
+    }
+
     const body = req.body as any;
     const { webhook_type, webhook_code, item_id } = body ?? {};
 
@@ -317,13 +366,14 @@ async function syncTransactionsForItem(
     }
     totalAdded += toUpsert.length;
 
-    // Remove transactions Plaid says were deleted/reversed
-    for (const tx of removed) {
+    // Remove transactions Plaid says were deleted/reversed (single batched DELETE)
+    if (removed.length > 0) {
+      const removedIds = removed.map((tx) => tx.transaction_id);
       await query(
-        `DELETE FROM spending_entries WHERE plaid_transaction_id = $1 AND user_id = $2`,
-        [tx.transaction_id, user_id]
+        `DELETE FROM spending_entries WHERE plaid_transaction_id = ANY($1) AND user_id = $2`,
+        [removedIds, user_id]
       );
-      totalRemoved++;
+      totalRemoved += removed.length;
     }
 
     nextCursor = next_cursor;

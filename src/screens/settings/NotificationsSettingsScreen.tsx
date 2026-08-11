@@ -39,14 +39,21 @@ type HealthNotifs = {
   cycle_log_hour?: number;
 };
 
-function HourChips({ hours, current, onSelect, accentColor, theme }: {
+// Default formatter: value is an hour of day → am/pm label.
+function formatHour(h: number): string {
+  return h === 0 ? "12am" : h < 12 ? h + "am" : h === 12 ? "12pm" : (h - 12) + "pm";
+}
+
+function HourChips({ hours, current, onSelect, accentColor, theme, format }: {
   hours: number[]; current: number; onSelect: (h: number) => void; accentColor: string; theme: any;
+  /** Formats the chip label. Defaults to am/pm hour formatting — pass one for non-hour values (mg/dL, steps, $, days). */
+  format?: (v: number) => string;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View style={{ flexDirection: "row", gap: 6, marginTop: 4 }}>
         {hours.map((h) => {
-          const label = h === 0 ? "12am" : h < 12 ? h + "am" : h === 12 ? "12pm" : (h - 12) + "pm";
+          const label = (format ?? formatHour)(h);
           return (
             <Pressable key={h} onPress={() => onSelect(h)}
               style={[styles.chip, { backgroundColor: current === h ? accentColor : theme.page, borderColor: theme.ink }]}>
@@ -80,8 +87,14 @@ function SectionHeader({ title, isCollapsed, onToggle }: { title: string; isColl
 
 export function NotificationsSettingsScreen() {
   const { theme } = useTheme();
-  const [sn, setSn] = useState<SmartNotifs>({});
-  const [hn, setHn] = useState<HealthNotifs>({});
+  const [sn, setSnState] = useState<SmartNotifs>({});
+  const [hn, setHnState] = useState<HealthNotifs>({});
+  // Refs mirror the latest state so rapid successive saves merge from the
+  // freshest values instead of a stale closure (see SocialSettingsScreen).
+  const snRef = React.useRef<SmartNotifs>({});
+  const hnRef = React.useRef<HealthNotifs>({});
+  const setSn = (v: SmartNotifs) => { snRef.current = v; setSnState(v); };
+  const setHn = (v: HealthNotifs) => { hnRef.current = v; setHnState(v); };
   const [saving, setSaving] = useState(false);
   const [muteUntilMs, setMuteUntilMs] = useState<number | null>(null);
   const [cycleEnabled, setCycleEnabled] = useState(true);
@@ -120,12 +133,19 @@ export function NotificationsSettingsScreen() {
   }
 
   async function save(patch: SmartNotifs) {
-    const merged = { ...sn, ...patch };
+    const prev = snRef.current;
+    const merged = { ...prev, ...patch };
     setSn(merged);
     setSaving(true);
     try {
-      await api.patchSettings({ smart_notifications: merged });
+      // Send the freshest merged state — a later toggle updates snRef before
+      // this request resolves, so no request reverts another's change.
+      await api.patchSettings({ smart_notifications: snRef.current });
     } catch (e: any) {
+      // Roll back only the keys this call changed, against the latest state.
+      const rollback: any = { ...snRef.current };
+      for (const k of Object.keys(patch)) rollback[k] = (prev as any)[k];
+      setSn(rollback);
       Alert.alert("Error", e?.message ?? "Failed to save.");
     } finally {
       setSaving(false);
@@ -133,21 +153,25 @@ export function NotificationsSettingsScreen() {
   }
 
   async function saveHealth(patch: HealthNotifs) {
-    const merged = { ...hn, ...patch };
+    const prev = hnRef.current;
+    const merged = { ...prev, ...patch };
     setHn(merged);
     setSaving(true);
     try {
-      await api.patchSettings({ health_notifications: merged });
+      await api.patchSettings({ health_notifications: hnRef.current });
     } catch (e: any) {
+      const rollback: any = { ...hnRef.current };
+      for (const k of Object.keys(patch)) rollback[k] = (prev as any)[k];
+      setHn(rollback);
       Alert.alert("Error", e?.message ?? "Failed to save.");
     } finally {
       setSaving(false);
     }
   }
 
-  function patchMeals(patch: object) { save({ meal_reminders: { ...(sn.meal_reminders ?? {}), ...patch } }); }
+  function patchMeals(patch: object) { save({ meal_reminders: { ...(snRef.current.meal_reminders ?? {}), ...patch } }); }
   function patchMeal(meal: "breakfast" | "lunch" | "dinner", patch: object) {
-    patchMeals({ [meal]: { ...(sn.meal_reminders?.[meal] ?? {}), ...patch } });
+    patchMeals({ [meal]: { ...(snRef.current.meal_reminders?.[meal] ?? {}), ...patch } });
   }
 
   return (
@@ -238,11 +262,11 @@ export function NotificationsSettingsScreen() {
                 <Text style={[styles.subLabel, { color: theme.textStrong }]}>Low alert (mg/dL)</Text>
                 <HourChips hours={[55, 60, 65, 70, 75, 80]} current={sn.glucose_threshold?.low_mg_dl ?? 70}
                   onSelect={(v) => save({ glucose_threshold: { ...sn.glucose_threshold, low_mg_dl: v } })}
-                  accentColor={theme.coral.sub} theme={theme} />
+                  accentColor={theme.coral.sub} theme={theme} format={(v) => String(v)} />
                 <Text style={[styles.subLabel, { color: theme.textStrong }]}>High alert (mg/dL)</Text>
                 <HourChips hours={[200, 220, 240, 250, 270, 300]} current={sn.glucose_threshold?.high_mg_dl ?? 250}
                   onSelect={(v) => save({ glucose_threshold: { ...sn.glucose_threshold, high_mg_dl: v } })}
-                  accentColor={theme.coral.sub} theme={theme} />
+                  accentColor={theme.coral.sub} theme={theme} format={(v) => String(v)} />
               </>
             )}
           </View>
@@ -258,7 +282,7 @@ export function NotificationsSettingsScreen() {
                 <Text style={[styles.subLabel, { color: theme.textStrong }]}>Daily goal</Text>
                 <HourChips hours={[5000, 7500, 8000, 10000, 12000, 15000]} current={sn.step_goal?.goal ?? 10000}
                   onSelect={(v) => save({ step_goal: { ...sn.step_goal, goal: v } })}
-                  accentColor={theme.teal.sub} theme={theme} />
+                  accentColor={theme.teal.sub} theme={theme} format={(v) => v.toLocaleString()} />
               </>
             )}
           </View>
@@ -287,7 +311,7 @@ export function NotificationsSettingsScreen() {
                 <Text style={[styles.subLabel, { color: theme.textStrong }]}>Remind after (days inactive)</Text>
                 <HourChips hours={[2, 3, 4, 5, 7]} current={sn.workout_reminder?.days_threshold ?? 3}
                   onSelect={(v) => save({ workout_reminder: { ...sn.workout_reminder, days_threshold: v } })}
-                  accentColor={theme.teal.sub} theme={theme} />
+                  accentColor={theme.teal.sub} theme={theme} format={(v) => v + (v === 1 ? " day" : " days")} />
               </>
             )}
           </View>
@@ -306,7 +330,8 @@ export function NotificationsSettingsScreen() {
                     <HourChips hours={[1, 2, 3, 4, 5]}
                       current={hn.period_approaching_lead_days ?? 2}
                       onSelect={(d) => saveHealth({ period_approaching_lead_days: d })}
-                      accentColor={theme.coral?.sub ?? "#E87A96"} theme={theme} />
+                      accentColor={theme.coral?.sub ?? "#E87A96"} theme={theme}
+                      format={(v) => v + (v === 1 ? " day" : " days")} />
                   </View>
                 )}
                 <View style={{ marginTop: 8 }}>
@@ -497,7 +522,7 @@ export function NotificationsSettingsScreen() {
                 <Text style={[styles.subLabel, { color: theme.textStrong }]}>Daily budget ($)</Text>
                 <HourChips hours={[25, 50, 75, 100, 150, 200, 250]} current={sn.spending_alerts?.daily_budget ?? 100}
                   onSelect={(v) => save({ spending_alerts: { ...sn.spending_alerts, daily_budget: v } })}
-                  accentColor={theme.teal.sub} theme={theme} />
+                  accentColor={theme.teal.sub} theme={theme} format={(v) => "$" + v} />
               </>
             )}
           </View>

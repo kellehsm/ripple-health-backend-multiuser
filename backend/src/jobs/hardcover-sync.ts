@@ -1,4 +1,5 @@
 import { query } from "../db.js";
+import { decryptCredential } from "../lib/credCrypto.js";
 
 const HARDCOVER_GRAPHQL = "https://api.hardcover.app/v1/graphql";
 
@@ -488,7 +489,7 @@ export async function runHardcoverSyncJob(log: Logger) {
 
   const results = await Promise.allSettled(
     users.map(({ user_id, api_token }) =>
-      syncUserHardcover(user_id, api_token, log).then((result) => {
+      syncUserHardcover(user_id, decryptCredential(api_token), log).then((result) => {
         if (result.pushed + result.pulled > 0) {
           log.info({ user_id, ...result }, "Hardcover sync completed");
         }

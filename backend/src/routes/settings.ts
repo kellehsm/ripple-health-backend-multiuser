@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { encryptCredential } from "../lib/credCrypto.js";
 
 export default async function settingsRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
@@ -46,6 +47,14 @@ export default async function settingsRoutes(app: FastifyInstance) {
     // Don't overwrite existing Dexcom password when an empty string is sent
     if (patch.dexcom?.share_password === "" && existing?.dexcom?.share_password) {
       merged.dexcom.share_password = existing.dexcom.share_password;
+    }
+
+    // Credentials are encrypted at rest (no-op if already encrypted or key unset)
+    if (merged.dexcom?.share_password) {
+      merged.dexcom.share_password = encryptCredential(merged.dexcom.share_password);
+    }
+    if (merged.hardcover?.api_token) {
+      merged.hardcover.api_token = encryptCredential(merged.hardcover.api_token);
     }
 
     // Upsert: create row if it doesn't exist yet, otherwise merge the patch into existing settings

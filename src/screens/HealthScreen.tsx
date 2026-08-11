@@ -39,6 +39,7 @@ import { ScreenBackground } from "../components/ScreenBackground";
 import { ThemedSurface } from "../theme/pageTemplates";
 import { type SleepStages } from "../lib/healthConnect";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
+import { toast } from "../lib/toast";
 
 type GlucoseReading = {
   recorded_at: string;
@@ -313,7 +314,7 @@ export function HealthScreen() {
   const mode = themeCtx.mode;
   const ink = theme.ink;
   const card = theme.card;
-  const styles = useMemo(() => makeStyles(ink, card, theme.isDark), [ink, card, theme.isDark]);
+  const styles = useMemo(() => makeStyles(ink, card), [ink, card]);
   const cardShadow = useCardShadow('card');
   const { cardOpacity } = useAppSettings();
   const navigation = useNavigation<any>();
@@ -536,6 +537,8 @@ export function HealthScreen() {
       if (cached) {
         setWaterMetricId(cached.metricId);
         setWaterCount(cached.count);
+        // Seed the previous-count ref so goal-celebration logic survives reopen
+        prevWaterRef.current = cached.count;
         if (cached.statLine) setWaterStatLine(cached.statLine);
         return;
       }
@@ -546,6 +549,7 @@ export function HealthScreen() {
       const logs = await api.todaysWaterCount(metric.id);
       const count = sumTodayLogs(Array.isArray(logs) ? logs : []);
       setWaterCount(count);
+      prevWaterRef.current = count;
       let statLine: string | null = null;
       try {
         const stats = await api.waterStats(metric.id);
@@ -598,11 +602,11 @@ export function HealthScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(true);
     try {
-      // Kick off a fresh Health Connect pull in parallel with the API refresh so
-      // the chips reflect the latest wearable data — result goes into hcResult
-      // for the toast pill below.
-      const hcPromise = Platform.OS === "android" ? handleHealthConnectSync() : Promise.resolve();
-      await Promise.all([hcPromise, load(rangeHours), loadWater(true), loadStepsAndSleep(true), loadHeartRate(hrRangeHours)]);
+      // Sync Health Connect FIRST so the forced reloads below pick up the fresh
+      // wearable data — running them in parallel let the sync's internal cached
+      // load race (and overwrite) the forced load's results.
+      if (Platform.OS === "android") await handleHealthConnectSync();
+      await Promise.all([load(rangeHours), loadWater(true), loadStepsAndSleep(true), loadHeartRate(hrRangeHours)]);
       setLastRefreshed(new Date());
     } finally {
       setRefreshing(false);
@@ -610,7 +614,11 @@ export function HealthScreen() {
   }
 
   async function handleLogWater() {
-    if (!waterMetricId) return;
+    if (!waterMetricId) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      toast("Water tracking is still loading — try again in a moment.");
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     waterFlashAnim.setValue(0.55);
     Animated.timing(waterFlashAnim, { toValue: 0, duration: 500, useNativeDriver: true }).start();
@@ -689,7 +697,8 @@ export function HealthScreen() {
         setSleepStages(result.sleepStages);
         AsyncStorage.setItem("ripple_sleep_stages", JSON.stringify(result.sleepStages)).catch(() => {});
       }
-      await loadStepsAndSleep();
+      // Note: the caller (handleRefresh) runs a forced loadStepsAndSleep(true)
+      // right after this sync — a cached reload here would race/overwrite it.
     } catch (e: any) {
       setHcResult("Sync failed: " + (e?.message ?? "unknown error"));
     } finally {
@@ -709,11 +718,12 @@ export function HealthScreen() {
     const yestEnd = new Date(now - dayMs).toISOString();
 
     const weekGlucoseStart = new Date(now - 7 * dayMs).toISOString();
+    // Per-fetch fallbacks: one failed call shouldn't blank the whole panel
     Promise.all([
-      api.glucoseRange(todayStart, todayEnd),
-      api.glucoseRange(yestStart, yestEnd),
-      api.glucoseStatus(),
-      api.glucoseRange(weekGlucoseStart, todayEnd),
+      api.glucoseRange(todayStart, todayEnd).catch(() => []),
+      api.glucoseRange(yestStart, yestEnd).catch(() => []),
+      api.glucoseStatus().catch(() => null),
+      api.glucoseRange(weekGlucoseStart, todayEnd).catch(() => []),
     ])
       .then(function (results) {
         const todayData = results[0];
@@ -1140,7 +1150,14 @@ export function HealthScreen() {
                   ? `Steps ${stepsCount} of ${stepGoal} daily goal`
                   : "Steps, loading"
               }
-              onPress={() => stepsMetricId && navigation.getParent()?.navigate("StepsDetail", { metricId: stepsMetricId, weekStartDay: weekStepsStart })}
+              onPress={() => {
+                if (stepsMetricId) {
+                  navigation.getParent()?.navigate("StepsDetail", { metricId: stepsMetricId, weekStartDay: weekStepsStart });
+                } else {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+                  toast("Steps data is still loading — try again in a moment.");
+                }
+              }}
             >
               <StepsRing steps={stepsCount} goal={stepGoal} color={theme.teal.solid} sub={theme.teal.sub} />
               <PopText value={stepsLabel} style={[chipStyles.val, { color: theme.teal.fg }]} />
@@ -1616,7 +1633,7 @@ export function HealthScreen() {
           return t >= windowStart && t <= now;
         }).map(function (ann) {
           const d = new Date(ann.annotated_at);
-          const timeLabel = d.getHours() % 12 || 12
+          const timeLabel = (d.getHours() % 12 || 12)
             + ":" + String(d.getMinutes()).padStart(2, "0")
             + (d.getHours() >= 12 ? "pm" : "am");
           return (
@@ -1792,7 +1809,7 @@ export function HealthScreen() {
   );
 }
 
-function makeStyles(ink: string, card: string, isDark: boolean = false) {
+function makeStyles(ink: string, card: string) {
   return StyleSheet.create({
   content: { padding: 16, gap: 12 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: CARD_GAP },
@@ -1813,7 +1830,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
     borderWidth: 2,
     padding: 12,
     gap: 4,
-    ...layeredShadow('card', isDark),
+    ...layeredShadow('card'),
   },
   peakBadge: {
     borderWidth: 2,
@@ -1834,7 +1851,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
     marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
-    ...layeredShadow('card', isDark),
+    ...layeredShadow('card'),
   },
   glucoseCurrentValue: { fontSize: 26, fontWeight: "900" },
   glucoseMinAgo: { fontSize: 10, marginTop: 1 },
@@ -1852,7 +1869,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
   scrubCard: {
     borderRadius: 16, borderWidth: 2, padding: 10, marginTop: 6,
     flexDirection: "row", alignItems: "center", gap: 12,
-    ...layeredShadow('card', isDark),
+    ...layeredShadow('card'),
   },
   scrubTime: { fontSize: 11, minWidth: 44 },
   scrubStats: { flexDirection: "row", gap: 16 },
@@ -1868,7 +1885,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
-    ...layeredShadow('card', isDark),
+    ...layeredShadow('card'),
   },
   hcBtnText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
   tirBadge: { borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 8, paddingVertical: 3 },
@@ -1886,7 +1903,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
   annotationChipTime: { fontSize: 11 },
   annotationModalCard: {
     borderRadius: 22, borderWidth: 2, padding: 14, marginTop: 10,
-    ...layeredShadow('card', isDark),
+    ...layeredShadow('card'),
   },
   annotationModalTitle: { fontSize: 14, fontWeight: "800", marginBottom: 10 },
   annotationInput: {
@@ -1912,7 +1929,7 @@ function makeStyles(ink: string, card: string, isDark: boolean = false) {
     flexDirection: "row",
     alignItems: "center",
     gap: 2,
-    ...layeredShadow('tile', isDark),
+    ...layeredShadow('tile'),
   },
   });
 }

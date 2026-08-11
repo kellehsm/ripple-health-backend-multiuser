@@ -516,20 +516,27 @@ export function OverviewScreen() {
   // Timeline scrubber
   const timelineScrubberX = useRef(0); // pixel offset from left of timeline
   const [timelineScrubberTime, setTimelineScrubberTime] = useState<string | null>(null);
+  // Latest scrubber handlers live in refs (updated each render) so the
+  // PanResponder — created once in useRef — never calls a stale closure over
+  // patternEvents from the first render.
+  const updateTimelineScrubberRef = useRef(updateTimelineScrubber);
+  updateTimelineScrubberRef.current = updateTimelineScrubber;
+  const snapTimelineScrubberRef = useRef(snapTimelineScrubber);
+  snapTimelineScrubberRef.current = snapTimelineScrubber;
   const timelinePanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
         timelineScrubberX.current = evt.nativeEvent.locationX;
-        updateTimelineScrubber(evt.nativeEvent.locationX);
+        updateTimelineScrubberRef.current(evt.nativeEvent.locationX);
       },
       onPanResponderMove: (evt) => {
         timelineScrubberX.current = evt.nativeEvent.locationX;
-        updateTimelineScrubber(evt.nativeEvent.locationX);
+        updateTimelineScrubberRef.current(evt.nativeEvent.locationX);
       },
-      onPanResponderRelease: (evt, gs) => {
-        snapTimelineScrubber(timelineScrubberX.current);
+      onPanResponderRelease: () => {
+        snapTimelineScrubberRef.current(timelineScrubberX.current);
       },
       onPanResponderTerminate: () => {},
     })
@@ -674,7 +681,7 @@ export function OverviewScreen() {
   }, []);
 
   const load = useCallback(async function () {
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayStr();
     const cacheKey = `overview:main:${today}`;
 
     const cached = getCached<{
@@ -704,42 +711,23 @@ export function OverviewScreen() {
 
     try {
       const dayMs = 24 * 60 * 60 * 1000;
-      const nowMs = Date.now();
-      const [entries, weekly, pattern, dig, day, streakData, glucSt, meals, steps, sleep, dse, insightsList, yestGluc, tirRes] =
-        await Promise.all([
-          api.journalToday(),
-          api.weeklyMoodSummary(),
-          api.pattern(),
-          api.weeklyDigest(),
-          api.dayView(today),
-          api.streaks(),
-          api.glucoseStatus().catch(() => null),
-          api.meals(today).catch(() => []),
-          api.stepsToday(today).catch(() => null),
-          api.sleepStats().catch(() => null),
-          api.dailySummary(today).catch(() => null),
-          api.getInsights().catch(() => null),
-          api.glucoseRange(
-            new Date(nowMs - dayMs - 16 * 3600 * 1000).toISOString(),
-            new Date(nowMs - dayMs).toISOString()
-          ).catch(() => []),
-          api.getGlucoseTir(today).catch(() => null),
-        ]);
-
-      // Water count (sequential — needs metricId)
-      let wCount = 0;
-      try {
-        const waterMetric = await api.getOrCreateWaterMetric();
-        if (waterMetric?.id) {
-          const logs: any[] = await api.todaysWaterCount(waterMetric.id);
-          const todayDateStr = new Date().toDateString();
-          wCount = Array.isArray(logs)
-            ? logs
-                .filter(l => new Date(l.logged_at).toDateString() === todayDateStr)
-                .reduce((sum, l) => sum + Number(l.value), 0)
-            : 0;
-        }
-      } catch (_) {}
+      // One batched request replaces ~16 individual calls (see /api/dashboard)
+      const dash: any = await api.dashboard(today);
+      const entries = dash.journal_today;
+      const weekly = dash.weekly_mood;
+      const pattern = dash.pattern;
+      const dig = dash.weekly_digest;
+      const day = dash.day;
+      const streakData = dash.streaks;
+      const glucSt = dash.glucose_status;
+      const meals = dash.meals;
+      const steps = dash.steps;
+      const sleep = dash.sleep_stats;
+      const dse = dash.daily_summary;
+      const insightsList = dash.insights;
+      const yestGluc = dash.yesterday_glucose;
+      const tirRes = dash.glucose_tir;
+      const wCount = Number(dash.water?.count ?? 0);
 
       const mealStreak     = Number(streakData?.meal_streak     ?? 0);
       const moodStreak     = Number(streakData?.mood_streak     ?? 0);
@@ -797,14 +785,18 @@ export function OverviewScreen() {
   async function handleRefresh() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRefreshing(true);
-    invalidateCache(`overview:main:${new Date().toISOString().split("T")[0]}`);
+    invalidateCache(`overview:main:${todayStr()}`);
     try { await load(); } finally { setRefreshing(false); }
   }
 
   async function handleSaveLayout(newLayout: DashboardLayout) {
     setDashboardLayout(newLayout);
     setShowEditor(false);
-    try { await api.patchSettings({ dashboard_layout: newLayout }); } catch (_) {}
+    try {
+      await api.patchSettings({ dashboard_layout: newLayout });
+    } catch (_) {
+      toast("Couldn't save your layout — it will reset next launch.", "error");
+    }
   }
 
   useEffect(function () { load(); }, [load]);
@@ -1261,7 +1253,7 @@ export function OverviewScreen() {
                   onPress={chip.onPress}
                   chipWidth={CHIP_W}
                   dimmed={chip.empty}
-                  style={[styles.metricChip, { borderColor: ink, overflow: "hidden" }]}
+                  style={[styles.metricChip, { borderColor: chip.color, overflow: "hidden" }]}
                   accessibilityLabel={chip.label + ": " + chip.value}
                   accessibilityRole={chip.onPress ? "button" : undefined}
                 >
@@ -1418,7 +1410,7 @@ export function OverviewScreen() {
                       const tipY = PAD_T;
                       const timeStr = new Date(scrub.time).getHours().toString().padStart(2, "0") + ":" + new Date(scrub.time).getMinutes().toString().padStart(2, "0");
                       const deltaStr = delta !== null ? (delta >= 0 ? "+" : "") + delta + " vs 24h ago" : "";
-                      const deltaColor = delta === null ? ink : delta > 10 ? "#CE7A92" : delta < -10 ? "#8ED4D8" : theme.textSoft;
+                      const deltaColor = delta === null ? ink : delta > 10 ? theme.berry.solid : delta < -10 ? theme.teal.solid : theme.textSoft;
                       return (
                         <>
                           <SvgLine x1={scrub.x} y1={PAD_T} x2={scrub.x} y2={CHART_H - PAD_B} stroke={ink} strokeWidth={1.5} strokeDasharray="4,3" opacity={0.6} />
@@ -1965,7 +1957,7 @@ export function OverviewScreen() {
                         else if (s.label === "Exercise") navigation.getParent()?.navigate("Exercise");
                         else if (s.label === "Reading") navigation.getParent()?.navigate("Life");
                       }}
-                      style={[styles.streakPill, { backgroundColor: isFreeze ? "#9DD9E8" : s.color(theme) }]}
+                      style={[styles.streakPill, { backgroundColor: isFreeze ? theme.blue.tint : s.color(theme) }]}
                       accessibilityRole="button"
                       accessibilityLabel={`${s.count} day ${s.label} streak`}
                     >
@@ -1974,11 +1966,11 @@ export function OverviewScreen() {
                         <AnimatedCounterText
                           animValue={counterAnim}
                           targetValue={s.count}
-                          style={[styles.streakPillText, { color: isFreeze ? "#1A6E8A" : onSolid(s.color(theme)) }]}
+                          style={[styles.streakPillText, { color: isFreeze ? theme.blue.sub : onSolid(s.color(theme)) }]}
                           format={(v) => v + "d " + s.label.toUpperCase()}
                         />
                       ) : (
-                        <Text style={[styles.streakPillText, { color: isFreeze ? "#1A6E8A" : onSolid(s.color(theme)) }]}>
+                        <Text style={[styles.streakPillText, { color: isFreeze ? theme.blue.sub : onSolid(s.color(theme)) }]}>
                           {s.count}d {s.label.toUpperCase()}
                         </Text>
                       )}

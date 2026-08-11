@@ -26,7 +26,9 @@ const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
 };
 
 function daysRemaining(endDate: string): number {
-  const end = new Date(endDate + "T23:59:59Z");
+  // Parse "YYYY-MM-DD" as a LOCAL date (end of day) to avoid UTC off-by-one.
+  const [y, m, d] = endDate.split("-").map(Number);
+  const end = new Date(y, m - 1, d, 23, 59, 59);
   const now = new Date();
   const diff = end.getTime() - now.getTime();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
@@ -40,17 +42,20 @@ export function ChallengesScreen() {
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       setLoading(true);
+      setLoadError(false);
       getChallenges()
         .then((data) => { if (!cancelled) setChallenges(Array.isArray(data) ? data : []); })
-        .catch(() => { if (!cancelled) setChallenges([]); })
+        .catch(() => { if (!cancelled) setLoadError(true); })
         .finally(() => { if (!cancelled) setLoading(false); });
       return () => { cancelled = true; };
-    }, [])
+    }, [reloadKey])
   );
 
   const today = todayStr();
@@ -65,7 +70,7 @@ export function ChallengesScreen() {
       <Pressable
         key={challenge.id}
         onPress={() => navigation.navigate("ChallengeDetail", { challengeId: challenge.id })}
-        style={[styles.challengeCard, { backgroundColor: theme.card, borderColor: theme.ink }]}
+        style={[styles.challengeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
       >
         <View style={styles.cardHeader}>
           <View style={[styles.iconBadge, { backgroundColor: theme.purple.tint, borderColor: theme.purple.solid }]}>
@@ -110,6 +115,29 @@ export function ChallengesScreen() {
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
             <ActivityIndicator color={theme.purple.solid} size="large" />
+          </View>
+        ) : loadError ? (
+          <View style={{ alignItems: "center", paddingVertical: 40, gap: 12 }}>
+            <Ionicons name="cloud-offline-outline" size={28} color={theme.textSoft} />
+            <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 15 }}>
+              Couldn't load challenges
+            </Text>
+            <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center" }}>
+              Check your connection and try again.
+            </Text>
+            <Pressable
+              onPress={() => setReloadKey((k) => k + 1)}
+              style={{
+                borderWidth: 2,
+                borderColor: theme.ink,
+                borderRadius: 14,
+                paddingHorizontal: 18,
+                paddingVertical: 8,
+                backgroundColor: theme.card,
+              }}
+            >
+              <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 13 }}>Retry</Text>
+            </Pressable>
           </View>
         ) : challenges.length === 0 ? (
           <EmptyState
@@ -176,10 +204,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 22,
     padding: 14,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   cardHeader: { flexDirection: "row", alignItems: "center" },

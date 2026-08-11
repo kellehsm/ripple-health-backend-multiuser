@@ -24,6 +24,25 @@ const CATEGORIES: { id: SocialCategory; label: string; icon: keyof typeof Ionico
   { id: "books",    label: "Books",    icon: "book-outline" },
 ];
 
+/** Parse a "YYYY-MM-DD" string as a LOCAL date (avoids UTC-midnight shift). */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** True if str is a well-formed YYYY-MM-DD string naming a real calendar date. */
+function isValidDateStr(str: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+  const [y, m, d] = str.split("-").map(Number);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return false;
+  const date = new Date(y, m - 1, d);
+  return (
+    date.getFullYear() === y &&
+    date.getMonth() === m - 1 &&
+    date.getDate() === d
+  );
+}
+
 
 export function NewChallengeScreen() {
   const { theme } = useTheme();
@@ -41,6 +60,7 @@ export function NewChallengeScreen() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,8 +81,33 @@ export function NewChallengeScreen() {
   async function handleSubmit() {
     if (!title.trim()) { toast("Please enter a title.", "error"); return; }
     if (!goalDescription.trim()) { toast("Please describe the goal.", "error"); return; }
-    if (!startDate || !endDate) { toast("Please set start and end dates.", "error"); return; }
-    if (endDate < startDate) { toast("End date must be after start date.", "error"); return; }
+    if (!startDate || !endDate) {
+      setDateError("Please set start and end dates.");
+      toast("Please set start and end dates.", "error");
+      return;
+    }
+    if (!isValidDateStr(startDate)) {
+      setDateError("Start date must be a valid date in YYYY-MM-DD format.");
+      toast("Start date must be a valid date (YYYY-MM-DD).", "error");
+      return;
+    }
+    if (!isValidDateStr(endDate)) {
+      setDateError("End date must be a valid date in YYYY-MM-DD format.");
+      toast("End date must be a valid date (YYYY-MM-DD).", "error");
+      return;
+    }
+    if (endDate < startDate) {
+      setDateError("End date must be after start date.");
+      toast("End date must be after start date.", "error");
+      return;
+    }
+    setDateError(null);
+
+    const parsedGoal = goalValue.trim() ? parseFloat(goalValue) : null;
+    if (goalValue.trim() && (parsedGoal === null || Number.isNaN(parsedGoal))) {
+      toast("Goal value must be a number, or leave it blank.", "error");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -70,7 +115,7 @@ export function NewChallengeScreen() {
         title: title.trim(),
         category,
         goal_description: goalDescription.trim(),
-        goal_value: goalValue ? parseFloat(goalValue) : null,
+        goal_value: parsedGoal,
         start_date: startDate,
         end_date: endDate,
         invite_user_ids: selectedFriends,
@@ -183,7 +228,7 @@ export function NewChallengeScreen() {
             <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "700", marginBottom: 4 }}>START DATE</Text>
             <TextInput
               value={startDate}
-              onChangeText={setStartDate}
+              onChangeText={(t) => { setStartDate(t); setDateError(null); }}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={theme.textSoft}
               style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
@@ -193,7 +238,7 @@ export function NewChallengeScreen() {
             <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "700", marginBottom: 4 }}>END DATE</Text>
             <TextInput
               value={endDate}
-              onChangeText={setEndDate}
+              onChangeText={(t) => { setEndDate(t); setDateError(null); }}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={theme.textSoft}
               style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
@@ -210,7 +255,9 @@ export function NewChallengeScreen() {
             <Pressable
               key={opt.label}
               onPress={() => {
-                const s = new Date(startDate || formatDateLocal(today));
+                setDateError(null);
+                const base = isValidDateStr(startDate) ? startDate : formatDateLocal(today);
+                const s = parseLocalDate(base);
                 setEndDate(formatDateLocal(addDaysToDate(s, opt.days)));
               }}
               style={[styles.chip, { borderColor: theme.ink, backgroundColor: theme.card }]}
@@ -219,6 +266,11 @@ export function NewChallengeScreen() {
             </Pressable>
           ))}
         </View>
+        {dateError && (
+          <Text style={{ color: theme.berry.solid, fontSize: 12, fontWeight: "700", marginTop: 8 }}>
+            {dateError}
+          </Text>
+        )}
       </ShadowCard>
 
       {/* Invite friends */}
@@ -338,10 +390,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 8,
-    shadowColor: "rgba(60,40,20,0.15)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
 });

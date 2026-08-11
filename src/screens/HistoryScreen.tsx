@@ -13,6 +13,16 @@ import { formatDate } from "../utils/dateUtils";
 
 type FilterMode = "glucose" | "meals" | "mood" | "spending";
 
+// NaN-safe numeric parsing for user-typed filter inputs
+function toInt(s: string): number | undefined {
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+function toFloat(s: string): number | undefined {
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 export function HistoryScreen() {
   const { theme } = useTheme();
   const ink = theme.ink;
@@ -45,22 +55,22 @@ export function HistoryScreen() {
       let data: any[] = [];
       if (mode === "glucose") {
         data = await api.searchGlucose({
-          threshold: glThreshold ? parseInt(glThreshold) : undefined,
+          threshold: toInt(glThreshold),
           bucket: glBucket || undefined,
         });
       } else if (mode === "meals") {
         data = await api.searchMeals({
           q: mealQ || undefined,
-          min_carbs: mealMinCarbs ? parseFloat(mealMinCarbs) : undefined,
+          min_carbs: toFloat(mealMinCarbs),
         });
       } else if (mode === "mood") {
         data = await api.searchMood({
-          min_score: moodMin ? parseInt(moodMin) : undefined,
-          max_score: moodMax ? parseInt(moodMax) : undefined,
+          min_score: toInt(moodMin),
+          max_score: toInt(moodMax),
         });
       } else if (mode === "spending") {
         data = await api.searchSpending({
-          min_amount: spendMin ? parseFloat(spendMin) : undefined,
+          min_amount: toFloat(spendMin),
           category: spendCategory || undefined,
         });
       }
@@ -81,7 +91,7 @@ export function HistoryScreen() {
         {MODES.map(m => (
           <Pressable
             key={m}
-            onPress={() => { setMode(m); setResults([]); }}
+            onPress={() => { setMode(m); setResults([]); setHasSearched(false); setSearchError(null); }}
             style={[styles.modeChip, {
               backgroundColor: mode === m ? theme.teal.bar : theme.page,
               borderColor: theme.ink,
@@ -259,14 +269,14 @@ export function HistoryScreen() {
 
 function makeStyles(ink: string, card: string) {
   const shadow = {
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12 as const,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08 as const,
+    shadowRadius: 6,
+    elevation: 3,
   };
   return StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { padding: 16, gap: 12, paddingBottom: 32 },
   modeRow: { flexDirection: "row", gap: 8 },
   modeChip: {
     flex: 1, borderWidth: 2, borderRadius: 16, paddingVertical: 8, alignItems: "center",

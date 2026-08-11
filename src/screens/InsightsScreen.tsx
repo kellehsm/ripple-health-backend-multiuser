@@ -417,7 +417,7 @@ export function InsightsScreen() {
 
 function makeStyles(page: string, ink: string, card: string) {
   return StyleSheet.create({
-    content: { padding: 16, gap: 12 },
+    content: { padding: 16, gap: 12, paddingBottom: 32 },
     headerBlock: { gap: 4, marginBottom: 4 },
     heading: { fontSize: 26, fontWeight: "900", letterSpacing: -0.8 },
     subheading: { fontSize: 13, lineHeight: 18 },
@@ -454,11 +454,11 @@ function makeStyles(page: string, ink: string, card: string) {
       borderWidth: 2,
       padding: 24,
       alignItems: "center",
-      shadowColor: "rgba(60,40,20,0.1)",
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.12,
-      shadowRadius: 14,
-      elevation: 4,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 3,
     },
     emptyTitle: { fontSize: 16, fontWeight: "800", marginBottom: 8 },
     emptyText: { fontSize: 13, lineHeight: 19, textAlign: "center" },

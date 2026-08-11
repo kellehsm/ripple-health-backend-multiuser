@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   type FontFamilyKey,
@@ -310,18 +310,29 @@ export function AppSettingsProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  const value = useMemo<AppSettingsContextValue>(
+    () => ({
+      shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride,
+      perObjectOpacity, perObjectGlassBlur, cardBgImages, elementBgImages, cardOutlineColor,
+      setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity,
+      setObjectOpacity, resetObjectOpacity, setObjectGlassBlur,
+      setCardBgImages, clearCardBgImages,
+      setElementBgImage, removeElementBgImage, clearElementBgImages,
+      setCardOutlineColor,
+    }),
+    [
+      shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride,
+      perObjectOpacity, perObjectGlassBlur, cardBgImages, elementBgImages, cardOutlineColor,
+      setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity,
+      setObjectOpacity, resetObjectOpacity, setObjectGlassBlur,
+      setCardBgImages, clearCardBgImages,
+      setElementBgImage, removeElementBgImage, clearElementBgImages,
+      setCardOutlineColor,
+    ]
+  );
+
   return (
-    <AppSettingsContext.Provider
-      value={{
-        shadowsEnabled, fontFamily, fontSizeScale, cardOpacity, cardOpacityManualOverride,
-        perObjectOpacity, perObjectGlassBlur, cardBgImages, elementBgImages, cardOutlineColor,
-        setShadowsEnabled, setFontFamily, setFontSizeScale, setCardOpacity, resetCardOpacity,
-        setObjectOpacity, resetObjectOpacity, setObjectGlassBlur,
-        setCardBgImages, clearCardBgImages,
-        setElementBgImage, removeElementBgImage, clearElementBgImages,
-        setCardOutlineColor,
-      }}
-    >
+    <AppSettingsContext.Provider value={value}>
       {children}
     </AppSettingsContext.Provider>
   );

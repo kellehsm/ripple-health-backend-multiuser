@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 
@@ -34,29 +35,40 @@ const EMPTY: SearchResults = { meals: [], mood: [], journal: [], books: [], hobb
 
 export function GlobalSearchScreen() {
   const { theme } = useTheme();
+  const navigation = useNavigation<any>();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seqRef = useRef(0);
+
+  // Clear any pending debounce timer on unmount
+  useEffect(function () {
+    return function () {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   function handleQueryChange(text: string) {
     setQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (text.trim().length < 2) { setResults(null); return; }
+    if (text.trim().length < 2) { setResults(null); setSearchError(false); return; }
     debounceRef.current = setTimeout(() => runSearch(text), 350);
   }
 
   async function runSearch(q: string) {
     const seq = ++seqRef.current;
     setLoading(true);
+    setSearchError(false);
     try {
       const data = await api.searchGlobal(q.trim());
       if (seq !== seqRef.current) return;
       setResults(data ?? EMPTY);
     } catch {
       if (seq !== seqRef.current) return;
-      setResults(EMPTY);
+      setResults(null);
+      setSearchError(true);
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
@@ -91,11 +103,25 @@ export function GlobalSearchScreen() {
         )}
       </View>
 
-      {!results && !loading && (
+      {!results && !loading && !searchError && (
         <View style={styles.emptyState}>
           <Text style={{ color: theme.textSoft, fontSize: 14, textAlign: "center" }}>
             Type to search across all your logged data
           </Text>
+        </View>
+      )}
+
+      {searchError && !loading && (
+        <View style={styles.emptyState}>
+          <Text style={{ color: theme.textSoft, fontSize: 14, textAlign: "center" }}>
+            Couldn't search right now. Check your connection.
+          </Text>
+          <Pressable
+            onPress={() => { if (query.trim().length >= 2) runSearch(query); }}
+            style={[styles.retryBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
+          >
+            <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700" }}>Retry</Text>
+          </Pressable>
         </View>
       )}
 
@@ -117,6 +143,7 @@ export function GlobalSearchScreen() {
                   title={m.name}
                   sub={[m.meal_type, m.logged_at ? relativeDate(m.logged_at) : null].filter(Boolean).join(" · ")}
                   theme={theme}
+                  onPress={() => navigation.navigate("Tabs", { screen: "Meals" })}
                 />
               ))}
             </Section>
@@ -126,9 +153,10 @@ export function GlobalSearchScreen() {
               {results.mood.map((m) => (
                 <Row
                   key={m.id}
-                  title={(m.mood_label ? m.mood_label + " " : "") + "(" + m.mood_score + "/10)"}
+                  title={(m.mood_label ? m.mood_label + " " : "") + "(" + m.mood_score + "/5)"}
                   sub={m.entry_text ? m.entry_text.slice(0, 80) : (m.logged_at ? relativeDate(m.logged_at) : "")}
                   theme={theme}
+                  onPress={() => navigation.navigate("History")}
                 />
               ))}
             </Section>
@@ -141,6 +169,7 @@ export function GlobalSearchScreen() {
                   title={j.entry_text?.slice(0, 70) ?? "Note"}
                   sub={j.logged_at ? relativeDate(j.logged_at) : ""}
                   theme={theme}
+                  onPress={() => navigation.navigate("History")}
                 />
               ))}
             </Section>
@@ -153,6 +182,11 @@ export function GlobalSearchScreen() {
                   title={b.title}
                   sub={[b.author, b.status].filter(Boolean).join(" · ")}
                   theme={theme}
+                  onPress={() =>
+                    b.status === "finished"
+                      ? navigation.navigate("Completed")
+                      : navigation.navigate("Tabs", { screen: "Life" })
+                  }
                 />
               ))}
             </Section>
@@ -165,6 +199,7 @@ export function GlobalSearchScreen() {
                   title={h.name}
                   sub={[h.category, h.status].filter(Boolean).join(" · ")}
                   theme={theme}
+                  onPress={() => navigation.navigate("Tabs", { screen: "Life" })}
                 />
               ))}
             </Section>
@@ -192,12 +227,24 @@ function Section({ title, icon, count, children, theme }: { title: string; icon:
   );
 }
 
-function Row({ title, sub, theme }: { title: string; sub: string; theme: any }) {
+function Row({ title, sub, theme, onPress }: { title: string; sub: string; theme: any; onPress?: () => void }) {
   return (
-    <View style={[styles.row, { borderBottomColor: theme.cardBorder }]}>
-      <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "600" }} numberOfLines={1}>{title}</Text>
-      {sub ? <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{sub}</Text> : null}
-    </View>
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      style={({ pressed }) => [
+        styles.row,
+        { borderBottomColor: theme.cardBorder, flexDirection: "row", alignItems: "center" },
+        pressed && onPress ? { opacity: 0.7 } : null,
+      ]}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "600" }} numberOfLines={1}>{title}</Text>
+        {sub ? <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{sub}</Text> : null}
+      </View>
+      {onPress ? <Ionicons name="chevron-forward" size={14} color={theme.textSoft} /> : null}
+    </Pressable>
   );
 }
 
@@ -224,6 +271,13 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   content: { paddingHorizontal: 16, paddingBottom: 32 },
+  retryBtn: {
+    marginTop: 12,
+    borderWidth: 2,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+  },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
   sectionLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
   countBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 1, marginLeft: 2 },
@@ -232,11 +286,11 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   row: {
     paddingHorizontal: 14,

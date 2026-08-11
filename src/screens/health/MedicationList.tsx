@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { api } from '../../api/client';
 import { addDays, todayStr } from '../../utils/dateUtils';
 import { coloredShadow } from '../../theme/styleUtils';
@@ -61,6 +61,13 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
   }, []);
 
   useEffect(() => { load(); }, [load, refresh]);
+
+  // Refresh on focus so meds added elsewhere (e.g. CSV import screen) show up
+  const firstFocusRef = useRef(true);
+  useFocusEffect(useCallback(() => {
+    if (firstFocusRef.current) { firstFocusRef.current = false; return; }
+    load();
+  }, [load]));
 
   const todayDowList = new Date().getDay(); // 0=Sun,...,6=Sat
   const buckets: Record<string, Medication[]> = { morning: [], midday: [], evening: [], custom: [] };
@@ -604,7 +611,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                       <Text style={{ color: theme.textSoft, fontSize: 12 }}>As needed (PRN)</Text>
                     ) : med.frequency === 'weekly' ? (
                       <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-                        Weekly — {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][med.day_of_week ?? 0] ?? 'No day set'}
+                        Weekly — {med.day_of_week != null ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][med.day_of_week] : 'No day set'}
                       </Text>
                     ) : (
                       <Text style={{ color: theme.textSoft, fontSize: 12 }}>
@@ -695,6 +702,8 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
             frequency: editMed.frequency ?? 'daily',
             dayOfWeek: editMed.day_of_week ?? null,
             isPrn: editMed.is_prn ?? false,
+            brandName: editMed.brand_name ?? '',
+            genericName: editMed.generic_name ?? '',
           }}
           onClose={() => { setShowEditModal(false); setEditMed(null); }}
           onSaved={() => { setShowEditModal(false); setEditMed(null); setRefresh((r) => r + 1); }}

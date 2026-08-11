@@ -1,5 +1,7 @@
 import * as SQLite from "expo-sqlite";
 import { setNetworkOnline, setNetworkPending } from "./networkState";
+import { BASE_URL } from "../api/client";
+import { getToken } from "../lib/auth";
 
 const db = SQLite.openDatabaseSync("ripple_sync.db");
 
@@ -21,7 +23,9 @@ function uuid(): string {
   });
 }
 
-const BASE_URL = "https://app.kels.gg/api";
+// Give up on an item after this many failed sync attempts so a permanently
+// rejected payload can't clog the queue (and the pending badge) forever.
+const MAX_SYNC_ATTEMPTS = 10;
 
 // Endpoints the batch sync route knows how to re-process.
 const QUEUED_PREFIXES = ["/meals", "/journal", "/spending", "/metrics/", "/substances"];
@@ -65,11 +69,15 @@ export async function processSyncQueue(): Promise<{ processed: number; remaining
 
   if (items.length === 0) return { processed: 0, remaining: 0 };
 
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = await getToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}/sync/batch`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         items: items.map((i) => ({
           sync_id: i.id,
@@ -88,7 +96,8 @@ export async function processSyncQueue(): Promise<{ processed: number; remaining
     for (const item of items) {
       db.runSync(`UPDATE sync_queue SET attempts = attempts + 1 WHERE id = ?`, [item.id]);
     }
-    return { processed: 0, remaining: items.length };
+    dropExhaustedItems();
+    return { processed: 0, remaining: getPendingQueueCount() };
   }
 
   setNetworkOnline(true);
@@ -112,10 +121,17 @@ export async function processSyncQueue(): Promise<{ processed: number; remaining
     }
   }
 
+  dropExhaustedItems();
+
   const remaining =
     db.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM sync_queue`)?.count ?? 0;
   setNetworkPending(remaining);
   return { processed, remaining };
+}
+
+/** Drop items that have exhausted their retry budget. */
+function dropExhaustedItems(): void {
+  db.runSync(`DELETE FROM sync_queue WHERE attempts >= ?`, [MAX_SYNC_ATTEMPTS]);
 }
 
 export function getPendingQueueCount(): number {

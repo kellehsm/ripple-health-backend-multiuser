@@ -278,11 +278,11 @@ export function HeartRateDetailScreen() {
 
 function makeStyles(ink: string, card: string) {
   const shadow = {
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12 as const,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08 as const,
+    shadowRadius: 6,
+    elevation: 3,
   };
   return StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 32 },

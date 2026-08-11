@@ -134,7 +134,7 @@ export function AdherenceHero({
       {/* Hero card */}
       <View style={[heroStyles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, ...coloredShadow(teal.solid) }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <ProgressRing size={84} stroke={9} progress={ringProgress} color={allDoneToday ? teal.solid : teal.solid} track={teal.tint}>
+          <ProgressRing size={84} stroke={9} progress={ringProgress} color={teal.solid} track={teal.tint}>
             {totalToday > 0 ? (
               <View style={{ alignItems: 'center' }}>
                 <Text style={{ color: theme.textStrong, fontSize: 18, fontWeight: '900' }} allowFontScaling maxFontSizeMultiplier={1.2}>

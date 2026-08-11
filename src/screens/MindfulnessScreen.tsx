@@ -49,9 +49,10 @@ type MeditationMode = "guided" | "unguided" | null;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COLOR_TEAL   = "#3FA0A6";
-const COLOR_PURPLE = "#7B3FBF";
-const COLOR_CORAL  = "#E8654E";
+// Phase order: inhale, hold, exhale, hold — themed so palette switching works
+function phaseColorsFor(theme: any): string[] {
+  return [theme.teal.solid, theme.purple.solid, theme.coral.solid, theme.purple.solid];
+}
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -63,8 +64,6 @@ const BREATH_PATTERNS: Record<BreathPattern, { label: string; desc: string; phas
 };
 
 const PHASE_LABELS = ["INHALE", "HOLD", "EXHALE", "HOLD"];
-
-const PHASE_COLORS: string[] = [COLOR_TEAL, COLOR_PURPLE, COLOR_CORAL, COLOR_PURPLE];
 
 const PMR_STEPS = [
   "Feet & toes",
@@ -130,6 +129,8 @@ function BoxBreathingAnimation({
   phase: number;
   phaseSecsLeft: number;
 }) {
+  const { theme } = useTheme();
+  const phaseColors = phaseColorsFor(theme);
   const BOX = 190;
   const LINE_THICKNESS = 6;
 
@@ -155,7 +156,7 @@ function BoxBreathingAnimation({
     extrapolate: "clamp",
   });
 
-  const phaseColor = PHASE_COLORS[phase] ?? COLOR_TEAL;
+  const phaseColor = phaseColors[phase] ?? phaseColors[0];
   const phaseLabel = PHASE_LABELS[phase] ?? "INHALE";
 
   return (
@@ -189,7 +190,7 @@ function BoxBreathingAnimation({
           left: 0,
           height: LINE_THICKNESS,
           width: topWidth,
-          backgroundColor: COLOR_TEAL,
+          backgroundColor: phaseColors[0],
           borderRadius: 3,
         }} />
 
@@ -200,7 +201,7 @@ function BoxBreathingAnimation({
           right: 0,
           width: LINE_THICKNESS,
           height: rightHeight,
-          backgroundColor: COLOR_PURPLE,
+          backgroundColor: phaseColors[1],
           borderRadius: 3,
         }} />
 
@@ -211,7 +212,7 @@ function BoxBreathingAnimation({
           right: 0,
           height: LINE_THICKNESS,
           width: bottomWidth,
-          backgroundColor: COLOR_CORAL,
+          backgroundColor: phaseColors[2],
           borderRadius: 3,
         }} />
 
@@ -222,7 +223,7 @@ function BoxBreathingAnimation({
           left: 0,
           width: LINE_THICKNESS,
           height: leftHeight,
-          backgroundColor: COLOR_PURPLE,
+          backgroundColor: phaseColors[3],
           borderRadius: 3,
         }} />
 
@@ -260,8 +261,10 @@ function CircleBreathingAnimation({
   phaseSecsLeft: number;
   pattern: BreathPattern;
 }) {
+  const { theme } = useTheme();
+  const phaseColors = phaseColorsFor(theme);
   const scaleInterp = breathAnim.interpolate({ inputRange: [0.5, 1], outputRange: [0.5, 1] });
-  const phaseColor = PHASE_COLORS[phase] ?? COLOR_TEAL;
+  const phaseColor = phaseColors[phase] ?? phaseColors[0];
   const phases = BREATH_PATTERNS[pattern].phases;
 
   // Mini phase indicator bars
@@ -330,6 +333,14 @@ export function MindfulnessScreen() {
   const [quickReset, setQuickReset] = useState(false);
   const [hubVisit, setHubVisit] = useState(0);
   const contentFade = useRef(new Animated.Value(1)).current;
+  const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (fadeTimeoutRef.current) {
+      clearTimeout(fadeTimeoutRef.current);
+      fadeTimeoutRef.current = null;
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -348,11 +359,13 @@ export function MindfulnessScreen() {
   function fadeTransition(onChange: () => void) {
     Animated.timing(contentFade, { toValue: 0, duration: 140, useNativeDriver: true }).start(() => {
       setSectionLoading(true);
-      setTimeout(() => {
+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
+      fadeTimeoutRef.current = setTimeout(() => {
+        fadeTimeoutRef.current = null;
         onChange();
         setSectionLoading(false);
         Animated.timing(contentFade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-      }, 800);
+      }, 200);
     });
   }
 
@@ -382,7 +395,7 @@ export function MindfulnessScreen() {
     <ScreenBackground pageId="mindfulness" />
     <ScrollView
       style={{ backgroundColor: "transparent" }}
-      contentContainerStyle={{ padding: 16 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       keyboardShouldPersistTaps="handled"
     >
       {sectionLoading ? (
@@ -1327,6 +1340,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
   const [gracePendingDuration, setGracePendingDuration] = useState<number | null>(null);
   const [moodBefore, setMoodBefore] = useState<number | null>(null);
   const [moodAfter, setMoodAfter] = useState<number | null>(null);
+  const [endedEarlySecs, setEndedEarlySecs] = useState<number | null>(null);
   const [intervalBells, setIntervalBells] = useState(false);
   const [chimes, setChimes] = useState<MeditationAsset[]>([]);
   const [ambients, setAmbients] = useState<MeditationAsset[]>([]);
@@ -1379,6 +1393,11 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
 
   function startAmbient() {
     if (!ambientId) return;
+    // Release any existing player first so we never orphan a looping player.
+    if (ambientPlayerRef.current) {
+      try { ambientPlayerRef.current.pause(); ambientPlayerRef.current.remove(); } catch {}
+      ambientPlayerRef.current = null;
+    }
     try {
       const p = createAudioPlayer(authedSource(ambientId));
       p.loop = true;
@@ -1420,6 +1439,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
     setDuration(mins);
     setRemaining(mins * 60);
     setRunning(true);
+    setEndedEarlySecs(null);
     loggedRef.current = false;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     activateKeepAwakeAsync("meditation").catch(() => {});
@@ -1481,13 +1501,14 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
     setRunning(false);
     setDuration(null);
     setRemaining(0);
+    setEndedEarlySecs(null);
   }
 
   function logCompletion(withMood: boolean) {
     if (loggedRef.current || duration === null) return;
     loggedRef.current = true;
     trackMindfulnessCompletion("meditation", {
-      duration_seconds: duration * 60,
+      duration_seconds: endedEarlySecs ?? duration * 60,
       ...(withMood && moodBefore != null ? { mood_before: moodBefore } : {}),
       ...(withMood && moodAfter != null ? { mood_after: moodAfter } : {}),
     });
@@ -1497,10 +1518,36 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
     if (duration === null) return;
     const savedDuration = duration;
     stopTimer();
+    // Stop + release ambient/bell audio so restarting never leaves an
+    // orphaned looping player behind.
+    stopAudio();
+    deactivateKeepAwake("meditation").catch(() => {});
     setRunning(false);
     setDuration(null);
     setRemaining(0);
+    setEndedEarlySecs(null);
     setMeditationWaiting(savedDuration);
+  }
+
+  function endSessionEarly() {
+    if (duration === null) { stopSession(); return; }
+    const elapsed = duration * 60 - remaining;
+    stopTimer();
+    stopAudio();
+    deactivateKeepAwake("meditation").catch(() => {});
+    setRunning(false);
+    if (elapsed < 60) {
+      // Under a minute — nothing meaningful to log; discard like before.
+      setDuration(null);
+      setRemaining(0);
+      setEndedEarlySecs(null);
+      return;
+    }
+    // Route to the completion screen so the partial session gets logged
+    // (elapsed time) and the mood-after step is kept.
+    setEndedEarlySecs(elapsed);
+    setRemaining(0);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
   function fullStop() {

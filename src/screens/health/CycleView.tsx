@@ -91,7 +91,7 @@ export function CycleView({ theme }: { theme: any }) {
   const currentPhase = prediction?.currentCycleDay != null ? getPhaseLabel(prediction.currentCycleDay) : null;
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 96 }}>
       {/* Cycle hero — day ring, phase, countdown, fertile window */}
       <CycleHero theme={theme} prediction={prediction} />
 
@@ -124,7 +124,7 @@ export function CycleView({ theme }: { theme: any }) {
 
       {/* Instruction card */}
       {instructionDismissed === false && (
-        <View style={[insStyles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, shadowColor: "rgba(60,40,20,0.1)" }]}>
+        <View style={[insStyles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, shadowColor: "#000" }]}>
           <Text style={[insStyles.cardTitle, { color: theme.teal.fg }]}>Getting started with Cycle Tracking</Text>
           <Text style={{ color: theme.teal.fg, fontSize: 13, lineHeight: 19, marginTop: 4 }}>
             Log your flow, symptoms, and mood each day to see predictions and patterns.
@@ -146,9 +146,9 @@ export function CycleView({ theme }: { theme: any }) {
         </View>
       )}
 
-      {/* Calendar */}
+      {/* Calendar — refreshKey triggers an internal refetch; no key remount, so
+          the user's selected month is preserved when a log is saved. */}
       <MonthCalendar
-        key={calRefresh}
         theme={theme}
         onDayPress={onDayPress}
         refreshKey={calRefresh}
@@ -156,7 +156,7 @@ export function CycleView({ theme }: { theme: any }) {
 
       {/* Selected day detail panel */}
       {selectedDate && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>
             {selectedDateLabel}{selectedPhase ? ` · ${selectedPhase} phase` : ''}
           </Text>
@@ -219,7 +219,7 @@ export function CycleView({ theme }: { theme: any }) {
 
       {/* Cycle insights card */}
       {showInsightsCard && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>Cycle Insights</Text>
           <View style={{ gap: 6, marginTop: 6 }}>
             {prediction?.avgCycleLength != null && (
@@ -256,7 +256,7 @@ export function CycleView({ theme }: { theme: any }) {
 
       {/* Cycle history */}
       {history.length > 0 && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>Cycle History</Text>
           {history.slice(0, 6).map((h, i) => (
             <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: 'rgba(0,0,0,0.06)' }}>
@@ -297,11 +297,11 @@ const insStyles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     padding: 16,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   cardTitle: { fontSize: 14, fontWeight: '800' },
   btn: {
@@ -315,11 +315,11 @@ const insStyles = StyleSheet.create({
     borderWidth: 2,
     padding: 14,
     gap: 4,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   panelTitle: { fontSize: 14, fontWeight: '800' },
   quickBtn: {

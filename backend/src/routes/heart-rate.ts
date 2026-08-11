@@ -9,7 +9,7 @@ export default async function heartRateRoutes(app: FastifyInstance) {
       return query(
         `SELECT recorded_at, bpm FROM heart_rate_readings
          WHERE user_id = $1 AND recorded_at BETWEEN $2 AND $3
-         ORDER BY recorded_at`,
+         ORDER BY recorded_at LIMIT 20000`,
         [user_id, start, end]
       );
     }

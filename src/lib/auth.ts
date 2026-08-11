@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import * as FileSystem from "expo-file-system/legacy";
 import { clearAllBarcodeCache } from "../utils/barcodeCache";
+import { BASE_URL } from "../api/baseUrl";
 
 const TOKEN_KEY = "ripple_jwt";
 const WIDGET_AUTH_FILE = "widget_auth.json";
@@ -17,13 +18,28 @@ export async function getToken(): Promise<string | null> {
 
 export async function setToken(token: string): Promise<void> {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
-  // Mirror to a plain file so the Android widget (same package) can read it
+  // The widget reads its token from a plain file (SecureStore isn't reachable
+  // from the widget process), so we write a widget-SCOPED token there instead
+  // of the main JWT — a leaked file only grants the widget's few endpoints.
+  void refreshWidgetToken(token);
+}
+
+async function refreshWidgetToken(mainToken: string): Promise<void> {
   try {
+    const res = await fetch(BASE_URL + "/auth/widget-token", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + mainToken },
+    });
+    if (!res.ok) return; // keep the previous widget token; retried on next app open
+    const { token } = await res.json();
+    if (!token) return;
     await FileSystem.writeAsStringAsync(
       FileSystem.documentDirectory + WIDGET_AUTH_FILE,
       JSON.stringify({ token })
     );
-  } catch {}
+  } catch (err) {
+    console.warn("Widget token refresh failed:", err);
+  }
 }
 
 export async function clearToken(): Promise<void> {
@@ -32,7 +48,9 @@ export async function clearToken(): Promise<void> {
     const path = FileSystem.documentDirectory + WIDGET_AUTH_FILE;
     const info = await FileSystem.getInfoAsync(path);
     if (info.exists) await FileSystem.deleteAsync(path);
-  } catch {}
+  } catch (err) {
+    console.warn("Failed to delete widget auth file on logout:", err);
+  }
 }
 
 export async function getUserId(): Promise<string | null> {
@@ -56,5 +74,10 @@ export function registerLogoutHandler(cb: () => void): void {
 export async function logout(): Promise<void> {
   await clearToken();
   try { clearAllBarcodeCache(); } catch {}
+  // Dynamic import: client.ts imports this module, so a static import would cycle
+  try {
+    const { clearWaterMetricCache } = await import("../api/client");
+    clearWaterMetricCache();
+  } catch {}
   _logoutHandler?.();
 }

@@ -3,6 +3,18 @@ import { query } from "../db.js";
 
 const DEFAULT_SYMPTOMS = ["cramps", "headache", "fatigue", "bloating", "mood_change"];
 
+const FLOW_VALUES = new Set(["none", "spotting", "light", "medium", "heavy"]);
+
+// Prediction is recomputed from up to 180 days of logs on every call, so cache
+// per user and invalidate whenever a day log is written or deleted.
+const PREDICTION_TTL_MS = 6 * 60 * 60 * 1000;
+// dayKey guards the calendar-day-dependent fields (currentCycleDay) across midnight
+const predictionCache = new Map<string, { data: any; computedAt: number; dayKey: string }>();
+
+export function invalidatePrediction(user_id: string): void {
+  predictionCache.delete(user_id);
+}
+
 function detectPeriods(flowDays: string[]): Array<{ start: string; end: string }> {
   if (flowDays.length === 0) return [];
   const sorted = [...flowDays].sort();
@@ -27,9 +39,22 @@ function detectPeriods(flowDays: string[]): Array<{ start: string; end: string }
 }
 
 export default async function cycleRoutes(app: FastifyInstance) {
-  app.post("/logs", async (req) => {
+  app.post("/logs", async (req, reply) => {
     const user_id = req.user_id;
     const { log_date, flow_intensity, symptoms, mood_label, notes, energy_level } = req.body as any;
+    if (!log_date || Number.isNaN(Date.parse(log_date))) {
+      return reply.status(400).send({ error: "log_date must be a valid date" });
+    }
+    if (flow_intensity != null && !FLOW_VALUES.has(flow_intensity)) {
+      return reply.status(400).send({ error: "flow_intensity must be one of: none, spotting, light, medium, heavy" });
+    }
+    if (energy_level != null && (!Number.isFinite(Number(energy_level)) || energy_level < 1 || energy_level > 10)) {
+      return reply.status(400).send({ error: "energy_level must be between 1 and 10" });
+    }
+    if (symptoms != null && (!Array.isArray(symptoms) || symptoms.some((s: any) => typeof s !== "string"))) {
+      return reply.status(400).send({ error: "symptoms must be an array of strings" });
+    }
+    invalidatePrediction(user_id);
     const [row] = await query<any>(
       `INSERT INTO cycle_day_logs (user_id, log_date, flow_intensity, symptoms, mood_label, notes, energy_level)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -78,6 +103,7 @@ export default async function cycleRoutes(app: FastifyInstance) {
   app.delete("/logs/:date", async (req) => {
     const user_id = req.user_id;
     const { date } = req.params as any;
+    invalidatePrediction(user_id);
     await query(
       `DELETE FROM cycle_day_logs WHERE user_id = $1 AND log_date = $2`,
       [user_id, date]
@@ -160,6 +186,11 @@ export default async function cycleRoutes(app: FastifyInstance) {
 
   app.get("/prediction", async (req) => {
     const user_id = req.user_id;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const cached = predictionCache.get(user_id);
+    if (cached && cached.dayKey === todayKey && Date.now() - cached.computedAt < PREDICTION_TTL_MS) {
+      return cached.data;
+    }
     const flowRows = await query<any>(
       `SELECT log_date::text FROM cycle_day_logs
        WHERE user_id = $1 AND flow_intensity != 'none' AND flow_intensity IS NOT NULL
@@ -177,7 +208,7 @@ export default async function cycleRoutes(app: FastifyInstance) {
         ? Math.round((Date.now() - new Date(lastPeriod.start).getTime()) / 86400000) + 1
         : null;
       const cyclesLogged = Math.max(0, periods.length - 1); // complete cycles measured so far
-      return {
+      const empty = {
         predictedNextStart: null,
         avgCycleLength: null,
         cycleLengthsUsed: cyclesLogged,
@@ -187,6 +218,8 @@ export default async function cycleRoutes(app: FastifyInstance) {
         lastPeriodStart: lastPeriod?.start ?? null,
         currentCycleDay,
       };
+      predictionCache.set(user_id, { data: empty, computedAt: Date.now(), dayKey: todayKey });
+      return empty;
     }
 
     const starts = periods.map((p) => p.start);
@@ -224,7 +257,7 @@ export default async function cycleRoutes(app: FastifyInstance) {
     const fertileWindowEnd = new Date(nextStartMs - 13 * 86400000).toISOString().slice(0, 10);
     const predictedPeriodEnd = new Date(nextStartMs + (avgPeriodLength - 1) * 86400000).toISOString().slice(0, 10);
 
-    return {
+    const result = {
       predictedNextStart,
       predictedPeriodEnd,
       ovulationDay,
@@ -238,6 +271,8 @@ export default async function cycleRoutes(app: FastifyInstance) {
       lastPeriodStart,
       currentCycleDay,
     };
+    predictionCache.set(user_id, { data: result, computedAt: Date.now(), dayKey: todayKey });
+    return result;
   });
 
   // ── Symptom/mood × phase patterns across completed cycles ────────────────────
@@ -424,20 +459,25 @@ export default async function cycleRoutes(app: FastifyInstance) {
       // D: cycle-phase symptom correlation across past cycles
       const phaseStart = currentCycleDay <= 5 ? 1 : currentCycleDay <= 13 ? 6 : 14;
       const phaseEnd   = currentCycleDay <= 5 ? 5 : currentCycleDay <= 13 ? 13 : 999;
+      // One query over the whole span, bucketed into per-cycle phase windows in
+      // JS — replaces the previous per-cycle query loop (N+1).
+      const allSymRows = await query<any>(
+        `SELECT log_date::text, unnest(symptoms) AS symptom FROM cycle_day_logs
+         WHERE user_id = $1 AND log_date >= $2 AND log_date < $3 AND symptoms IS NOT NULL`,
+        [user_id, starts[0], starts[starts.length - 1]]
+      );
       const cycleSymSets: Set<string>[] = [];
-
       for (let i = 0; i < starts.length - 1; i++) {
         const cycleMs = new Date(starts[i]).getTime();
         const phaseFrom = new Date(cycleMs + (phaseStart - 1) * 86400000).toISOString().slice(0, 10);
         const rawTo     = new Date(cycleMs + (phaseEnd   - 1) * 86400000).toISOString().slice(0, 10);
         const nextMinus1 = new Date(new Date(starts[i + 1]).getTime() - 86400000).toISOString().slice(0, 10);
         const actualTo = rawTo < nextMinus1 ? rawTo : nextMinus1;
-        const symRows = await query<any>(
-          `SELECT unnest(symptoms) AS symptom FROM cycle_day_logs
-           WHERE user_id = $1 AND log_date >= $2 AND log_date <= $3`,
-          [user_id, phaseFrom, actualTo]
-        );
-        cycleSymSets.push(new Set<string>(symRows.map((r: any) => r.symptom)));
+        cycleSymSets.push(new Set<string>(
+          allSymRows
+            .filter((r: any) => r.log_date >= phaseFrom && r.log_date <= actualTo)
+            .map((r: any) => r.symptom)
+        ));
       }
 
       if (cycleSymSets.length > 0) {

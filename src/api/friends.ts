@@ -1,55 +1,6 @@
-import { api as baseApi } from "./client";
-
-// Re-use the internal request mechanism by importing raw request through the api object's
-// pattern (api.get/post/patch/delete). Since the existing client doesn't expose a generic
-// get/post directly, we replicate the same approach: import a thin wrapper around the
-// existing client module.
-
-// We piggy-back on the same BASE_URL + auth logic by importing the existing fetch wrapper.
-// The client.ts file exports `api` which wraps `request(path, options)`. We cannot import
-// `request` directly (it's not exported), so we define a minimal typed wrapper that calls
-// the same underlying fetch path via the exported `api.login` pattern's internal `request`.
-// The cleanest approach: import the underlying fetch helper through a re-export trick.
-// However since `request` isn't exported, we call through a direct fetch duplication pattern
-// OR we simply type-annotate thin wrappers that call the already-exported `api` methods.
-//
-// For social endpoints that do NOT exist in client.ts yet, we need raw fetch access.
-// Solution: import `api` and call a cast-friendly generic method approach, OR
-// we just import getToken + BASE_URL from client internals.
-//
-// Best approach given the constraint: create a local request helper that mirrors client.ts.
-
-import { getToken } from "../lib/auth";
-import Constants from "expo-constants";
-import { setNetworkOnline } from "../utils/networkState";
-
-const BASE_URL: string =
-  (Constants.expoConfig?.extra as any)?.apiBaseUrl ??
-  "https://app.kels.gg/dev-api/api";
-
-async function req(path: string, options: RequestInit = {}): Promise<any> {
-  const token = await getToken();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = "Bearer " + token;
-  try {
-    const res = await fetch(BASE_URL + path, { headers, ...options });
-    if (!res.ok) {
-      throw new Error("API error " + res.status + ": " + (await res.text()));
-    }
-    setNetworkOnline(true);
-    return res.json();
-  } catch (err) {
-    const msg = (err as Error)?.message ?? "";
-    if (
-      msg.includes("Network request failed") ||
-      msg.includes("Failed to fetch") ||
-      (msg.includes("network") && !msg.includes("API error"))
-    ) {
-      setNetworkOnline(false);
-    }
-    throw err;
-  }
-}
+// Social endpoints share the exact same BASE_URL + auth + error handling as the
+// rest of the app by reusing the `request` helper exported from client.ts.
+import { request as req } from "./client";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 

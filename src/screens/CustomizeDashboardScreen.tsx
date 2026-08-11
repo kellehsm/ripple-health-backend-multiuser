@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
   View, Text, Pressable, ScrollView, StyleSheet, Switch
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
+import { toast, Msg } from "../lib/toast";
 import { DASHBOARD_CARDS, DEFAULT_CARD_ORDER, resolveLayout, type CardId, type DashboardLayout } from "../constants/dashboardCards";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 
@@ -25,11 +26,32 @@ export function CustomizeDashboardScreen() {
       .finally(function () { setLoading(false); });
   }, []);
 
+  // Serialized saves: rapid taps update `pendingLayoutRef`; only one PATCH is
+  // in flight at a time, and the final desired state is always sent last.
+  const pendingLayoutRef = useRef<DashboardLayout | null>(null);
+  const inFlightRef = useRef(false);
+
   const save = useCallback(function (next: DashboardLayout) {
+    pendingLayoutRef.current = next;
+    if (inFlightRef.current) return; // current flush loop will pick this up
+    inFlightRef.current = true;
     setSaving(true);
-    api.patchSettings({ dashboard_layout: next })
-      .catch(function () {})
-      .finally(function () { setSaving(false); });
+    (async function flush() {
+      try {
+        while (pendingLayoutRef.current) {
+          const toSend = pendingLayoutRef.current;
+          pendingLayoutRef.current = null;
+          try {
+            await api.patchSettings({ dashboard_layout: toSend });
+          } catch {
+            toast(Msg.saveSettings, "error");
+          }
+        }
+      } finally {
+        inFlightRef.current = false;
+        setSaving(false);
+      }
+    })();
   }, []);
 
   function moveUp(index: number) {
@@ -151,10 +173,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 22,
     padding: 12,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   label: { fontSize: 14, fontWeight: "900", marginBottom: 2 },

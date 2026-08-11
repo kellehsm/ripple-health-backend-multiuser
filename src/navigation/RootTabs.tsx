@@ -17,7 +17,6 @@ import { HistoryScreen } from "../screens/HistoryScreen";
 import { StepsDetailScreen } from "../screens/StepsDetailScreen";
 import { HeartRateDetailScreen } from "../screens/HeartRateDetailScreen";
 import { SleepDetailScreen } from "../screens/SleepDetailScreen";
-import { TrendsScreen } from "../screens/TrendsScreen";
 import { CompletedScreen } from "../screens/CompletedScreen";
 import { InsightsScreen } from "../screens/InsightsScreen";
 import { InsightsTrendsScreen } from "../screens/InsightsTrendsScreen";
@@ -127,7 +126,8 @@ function TabNavigator() {
       // fade crossfade transitions natively. To enable swipe + animated crossfade,
       // this would need to be migrated to createMaterialTopTabNavigator (rendered
       // at the bottom via tabBarPosition="bottom") or a gesture-based custom navigator.
-      // lazy: false pre-loads all tab screens so switching feels instant.
+      // Tabs are lazily mounted (default) — eager-mounting all 7 tabs at startup
+      // cost significant launch time/memory for no data dependency.
       screenOptions={({ route, navigation }) => {
         const accentMap: Record<string, string> = {
           Wellness: theme.teal.tint,
@@ -140,7 +140,6 @@ function TabNavigator() {
         };
         const headerBg = accentMap[route.name] ?? theme.page;
         return ({
-        lazy: false,
         animation: 'fade' as const,
         animationDuration: 100,
         tabBarHideOnKeyboard: true,
@@ -219,7 +218,6 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="HeartRateDetail" component={HeartRateDetailScreen} options={{ title: "Heart Rate" }} />
         <Stack.Screen name="SleepDetail" component={SleepDetailScreen} options={{ title: "Sleep" }} />
         <Stack.Screen name="InsightsTrends" component={InsightsTrendsScreen} options={{ title: "Insights & Trends" }} />
-        <Stack.Screen name="Trends" component={TrendsScreen} options={{ title: "Trends" }} />
         <Stack.Screen name="Completed" component={CompletedScreen} options={{ title: "My Bookshelf" }} />
         <Stack.Screen name="Insights" component={InsightsScreen} options={{ title: "Insights" }} />
         <Stack.Screen name="Mindfulness" component={MindfulnessScreen} options={{ title: "Mindfulness" }} />

@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { syncUserHardcover } from "../jobs/hardcover-sync.js";
+import { encryptCredential, decryptCredential } from "../lib/credCrypto.js";
 
 export default async function hardcoverRoutes(app: FastifyInstance) {
   // GET /api/hardcover/status — returns connection status (never returns the token)
@@ -63,7 +64,7 @@ export default async function hardcoverRoutes(app: FastifyInstance) {
            jsonb_build_object('hardcover',
              COALESCE(user_settings.settings->'hardcover', '{}'::jsonb) ||
              jsonb_build_object('api_token', $2::text))`,
-      [user_id, api_token]
+      [user_id, encryptCredential(api_token)]
     );
 
     return { ok: true, username: me.username };
@@ -93,7 +94,7 @@ export default async function hardcoverRoutes(app: FastifyInstance) {
     }
 
     try {
-      const result = await syncUserHardcover(user_id, token, app.log);
+      const result = await syncUserHardcover(user_id, decryptCredential(token), app.log);
       return result;
     } catch (err: any) {
       return reply.status(500).send({ error: err?.message ?? "Sync failed" });

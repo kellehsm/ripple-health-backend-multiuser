@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { query } from "../db.js";
+import { pool, query } from "../db.js";
 
 // Only these categories are permitted — privacy boundary
 const ALLOWED_CATEGORIES = new Set(["steps", "exercise", "hobbies", "books"]);
@@ -57,8 +57,8 @@ async function computeProgressBatch(
        FROM books
        WHERE user_id = ANY($1::uuid[])
          AND status = 'finished'
-         AND finished_at >= $2
-         AND finished_at <= $3
+         AND finished_at >= $2::date
+         AND finished_at < ($3::date + INTERVAL '1 day')
        GROUP BY user_id`,
       [userIds, start_date, end_date]
     );
@@ -168,27 +168,41 @@ export default async function challengesRoutes(app: FastifyInstance) {
       }
     }
 
-    // Create challenge
-    const chalRows = await query<any>(
-      `INSERT INTO challenges (created_by, title, category, goal_description, goal_value, start_date, end_date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, title, category, goal_description, goal_value, start_date, end_date, status, created_at`,
-      [me, title, category, goal_description, goal_value ?? null, start_date, end_date]
-    );
-    const challenge = chalRows[0];
+    // Create challenge + participants atomically — a failure partway through
+    // must not leave a challenge without its participants.
+    const client = await pool.connect();
+    let challenge: any;
+    try {
+      await client.query("BEGIN");
 
-    // Add creator as participant
-    await query(
-      `INSERT INTO challenge_participants (challenge_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [challenge.id, me]
-    );
-
-    // Add friend participants
-    for (const fid of friend_ids) {
-      await query(
-        `INSERT INTO challenge_participants (challenge_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-        [challenge.id, fid]
+      const chalRes = await client.query(
+        `INSERT INTO challenges (created_by, title, category, goal_description, goal_value, start_date, end_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, title, category, goal_description, goal_value, start_date, end_date, status, created_at`,
+        [me, title, category, goal_description, goal_value ?? null, start_date, end_date]
       );
+      challenge = chalRes.rows[0];
+
+      // Add creator as participant
+      await client.query(
+        `INSERT INTO challenge_participants (challenge_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [challenge.id, me]
+      );
+
+      // Add friend participants
+      for (const fid of friend_ids) {
+        await client.query(
+          `INSERT INTO challenge_participants (challenge_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [challenge.id, fid]
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
 
     return reply.status(201).send(challenge);
@@ -234,11 +248,11 @@ export default async function challengesRoutes(app: FastifyInstance) {
     const batchEntries = participants.map((p: any) => ({ userId: p.user_id, challengeId: challenge.id }));
     const batchProgress = await computeProgressBatch(batchEntries, challenge.category, startStr, endStr);
 
+    // Only expose the minimal identity field the app renders (display_name).
+    // Raw email/username fields are intentionally not returned to participants.
     const participantsWithProgress = participants.map((p: any) => ({
       user_id: p.user_id,
       display_name: p.username ?? p.email,
-      email: p.email,
-      username: p.username,
       joined_at: p.joined_at,
       progress: batchProgress.get(`${challenge.id}:${p.user_id}`) ?? 0,
       is_me: p.user_id === me,
@@ -267,7 +281,7 @@ export default async function challengesRoutes(app: FastifyInstance) {
 
     // Verify challenge exists and is active
     const chalRows = await query<any>(
-      `SELECT id, status FROM challenges WHERE id = $1`,
+      `SELECT id, status, created_by FROM challenges WHERE id = $1`,
       [id]
     );
     if (!chalRows[0]) {
@@ -275,6 +289,31 @@ export default async function challengesRoutes(app: FastifyInstance) {
     }
     if (chalRows[0].status !== "active") {
       return reply.status(400).send({ error: "Challenge is not active" });
+    }
+
+    // Gate: joining requires an accepted friendship with the creator or an
+    // existing participant. Without this, anyone could join any challenge and
+    // then read participants' identities and progress via GET /:id.
+    const memberRows = await query<any>(
+      `SELECT user_id FROM challenge_participants WHERE challenge_id = $1`,
+      [id]
+    );
+    const memberIds: string[] = [
+      chalRows[0].created_by,
+      ...memberRows.map((r: any) => r.user_id),
+    ];
+    const friendRows = await query<any>(
+      `SELECT 1 FROM friend_connections
+       WHERE status = 'accepted'
+         AND (
+           (user_id_a = $1 AND user_id_b = ANY($2::uuid[]))
+           OR (user_id_b = $1 AND user_id_a = ANY($2::uuid[]))
+         )
+       LIMIT 1`,
+      [me, memberIds]
+    );
+    if (!friendRows[0]) {
+      return reply.status(403).send({ error: "You must be friends with the challenge creator or a participant to join" });
     }
 
     // Check if already a participant

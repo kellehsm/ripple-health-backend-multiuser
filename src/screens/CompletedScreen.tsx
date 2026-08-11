@@ -235,7 +235,7 @@ function BookShelf({
                             {selectedBook.rating ? (
                               <View style={{ flexDirection: "row", gap: 2 }}>
                                 {[1,2,3,4,5].map((i) => (
-                                  <Text key={i} style={{ fontSize: 11, color: i <= (selectedBook.rating ?? 0) ? "#E8AB30" : theme.cardBorder }}>★</Text>
+                                  <Text key={i} style={{ fontSize: 11, color: i <= (selectedBook.rating ?? 0) ? theme.amber.solid : theme.cardBorder }}>★</Text>
                                 ))}
                               </View>
                             ) : null}
@@ -275,10 +275,11 @@ function BookShelf({
 
 
 function StarRating({ rating }: { rating: number }) {
+  const { theme } = useTheme();
   return (
     <View style={{ flexDirection: "row", gap: 2, marginTop: 2 }}>
       {[1, 2, 3, 4, 5].map((i) => (
-        <Ionicons key={i} name={i <= rating ? "star" : "star-outline"} size={12} color="#E8AB30" />
+        <Ionicons key={i} name={i <= rating ? "star" : "star-outline"} size={12} color={theme.amber.solid} />
       ))}
     </View>
   );
@@ -295,9 +296,11 @@ export function CompletedScreen() {
   const [readingBooks, setReadingBooks] = useState<ReadingBook[]>([]);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    setLoadError(false);
     try {
       const [completedData, readingData] = await Promise.all([
         api.completed(),
@@ -318,6 +321,7 @@ export function CompletedScreen() {
       setProgress(progMap);
     } catch (e) {
       console.error("Failed to load bookshelf", e);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -341,6 +345,7 @@ export function CompletedScreen() {
   }
 
   const completedBooks = items.filter((i) => i.kind === "book");
+  const completedHobbies = items.filter((i) => i.kind === "hobby");
 
   return (
     <ScrollView
@@ -356,6 +361,14 @@ export function CompletedScreen() {
         </View>
       ) : (
         <>
+          {loadError && (
+            <ShadowCard size="card" bg={theme.coral.tint}>
+              <Text style={{ color: theme.coral.fg, fontSize: 13 }}>
+                Couldn't load your bookshelf. Pull down to retry.
+              </Text>
+            </ShadowCard>
+          )}
+
           <BookShelf readingBooks={readingBooks} completedBooks={completedBooks} progress={progress} />
 
           {completedBooks.length > 0 && (
@@ -419,7 +432,26 @@ export function CompletedScreen() {
             </>
           )}
 
-          {completedBooks.length === 0 && readingBooks.length === 0 && (
+          {completedHobbies.length > 0 && (
+            <>
+              <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>HOBBIES COMPLETED · {completedHobbies.length}</Text>
+              {completedHobbies.map((item) => (
+                <View key={item.id} style={[styles.card, { backgroundColor: theme.violet.tint }]}>
+                  <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                    <View style={[styles.iconTile, { backgroundColor: theme.violet.bg, borderColor: ink }]}>
+                      <Text style={{ fontSize: 20 }}>{item.icon || "🎯"}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.title, { color: theme.textStrong }]} numberOfLines={2}>{item.name}</Text>
+                      <Text style={[styles.dateLabel, { color: theme.textSoft }]}>Completed {formatDate(item.completed_at)}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+
+          {completedBooks.length === 0 && readingBooks.length === 0 && completedHobbies.length === 0 && !loadError && (
             <EmptyState icon="📚" title="No books yet" subtitle="Add one from the Life tab to start your shelf." />
           )}
 
@@ -431,7 +463,7 @@ export function CompletedScreen() {
 
 function makeStyles(ink: string) {
   return StyleSheet.create({
-    content: { padding: 16, gap: 12 },
+    content: { padding: 16, gap: 12, paddingBottom: 32 },
     sectionLabel: {
       fontSize: 9,
       fontWeight: "900",
@@ -445,11 +477,11 @@ function makeStyles(ink: string) {
       borderWidth: 2,
       borderColor: ink,
       padding: 14,
-      shadowColor: "rgba(60,40,20,0.1)",
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.12,
-      shadowRadius: 14,
-      elevation: 4,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 6,
+      elevation: 3,
     },
     cover: { width: 44, height: 64, borderRadius: 4 },
     title: { fontSize: 15, fontWeight: "900", marginBottom: 2 },

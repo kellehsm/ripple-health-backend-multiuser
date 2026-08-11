@@ -11,6 +11,35 @@ export function signToken(user_id: string): string {
   return jwt.sign({ user_id }, JWT_SECRET!, { expiresIn: JWT_EXPIRY });
 }
 
+// Widget tokens live in a plain file readable by the Android home-screen widget
+// (SecureStore is not accessible from the widget process), so they carry a
+// "widget" scope that restricts them to the handful of endpoints the widget uses.
+export function signWidgetToken(user_id: string): string {
+  return jwt.sign({ user_id, scope: "widget" }, JWT_SECRET!, { expiresIn: JWT_EXPIRY });
+}
+
+const WIDGET_GET_PREFIXES = [
+  "/api/glucose/status",
+  "/api/health-connect/steps",
+  "/api/heart-rate",
+  "/api/sleep/stats",
+  "/api/metrics",
+  "/api/insights",
+  "/api/mindfulness/stats",
+];
+
+function isWidgetAllowed(method: string, url: string): boolean {
+  const path = url.split("?")[0];
+  if (method === "GET") {
+    return WIDGET_GET_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
+  }
+  if (method === "POST") {
+    // Widget water logging: create water metric + append a log entry
+    return path === "/api/metrics" || /^\/api\/metrics\/[^/]+\/logs$/.test(path);
+  }
+  return false;
+}
+
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   // URL-based downloads use a short-lived single-use ?dl= token minted via
   // /api/auth/download-token. This keeps the long-lived JWT out of logs,
@@ -29,7 +58,10 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Pro
   }
   const token = auth.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET!) as { user_id: string };
+    const payload = jwt.verify(token, JWT_SECRET!) as { user_id: string; scope?: string };
+    if (payload.scope === "widget" && !isWidgetAllowed(req.method, req.url)) {
+      return reply.status(403).send({ error: "Widget token not permitted for this endpoint" });
+    }
     req.user_id = payload.user_id;
   } catch {
     return reply.status(401).send({ error: "Invalid or expired token" });

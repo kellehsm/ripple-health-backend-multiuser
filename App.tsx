@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Linking, Platform, ToastAndroid, Alert, View, StyleSheet, Text, Pressable, AppState as RNAppState } from "react-native";
 import { StatusBar } from "expo-status-bar";
 // Notifee is a native module — stub it so the app doesn't crash if the module
@@ -40,7 +40,7 @@ import { LoginScreen } from "./src/screens/LoginScreen";
 import { SignupScreen } from "./src/screens/SignupScreen";
 import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 import { navigationRef } from "./src/navigation/navigationRef";
-import { api } from "./src/api/client";
+import { api, ApiError } from "./src/api/client";
 import { getToken, setToken, clearToken, registerLogoutHandler } from "./src/lib/auth";
 import {
   isBiometricLockEnabled,
@@ -52,7 +52,8 @@ import {
 
 type AppState = "loading" | "login" | "signup" | "onboarding" | "app";
 
-type TabName = "Meals" | "Health" | "Home" | "Life" | "Finance" | "Mindfulness" | "Exercise";
+// Must match the Tab.Screen names registered in src/navigation/RootTabs.tsx.
+type TabName = "Wellness" | "Meals" | "Health" | "Exercise" | "Home" | "Life" | "Finance";
 
 function navigateWhenReady(name: TabName, params?: Record<string, unknown>) {
   const attempt = () => {
@@ -180,7 +181,8 @@ function handleNotificationAction(data: any, actionId?: string) {
     return;
   }
   if (target === "mindfulness") {
-    navigateWhenReady("Mindfulness");
+    // Mindfulness lives on the root stack (not a tab) — navigate there directly.
+    navigateRootWhenReady("Mindfulness");
     return;
   }
   if (target === "exercise") {
@@ -197,15 +199,44 @@ function handleNotificationAction(data: any, actionId?: string) {
   }
 }
 
-// Keep for backward compat with existing references
-function shouldGoToMeals(data: any, actionId?: string): boolean {
-  return data?.target === "meals" || actionId === "log-meal";
-}
-
 /** Must be rendered inside ThemeProvider so it can read the current theme. */
 function ThemedStatusBar() {
   const { theme } = useTheme();
   return <StatusBar style={theme.isDark ? "light" : "dark"} backgroundColor={theme.page} />;
+}
+
+// ── Nav-transition ripple overlay ─────────────────────────────────────────────
+// Self-contained so showing/hiding the ripple only re-renders this tiny
+// component instead of the whole app tree (previously 2 full-tree renders per
+// tab switch). RootTabs' onStateChange calls triggerNavRipple(), which notifies
+// the mounted overlay via a module-level listener.
+let navRippleListener: (() => void) | null = null;
+function triggerNavRipple() {
+  navRippleListener?.();
+}
+
+function NavRippleOverlay() {
+  const [visible, setVisible] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    navRippleListener = () => {
+      if (timer.current) clearTimeout(timer.current);
+      setVisible(true);
+      timer.current = setTimeout(() => setVisible(false), 480);
+    };
+    return () => {
+      navRippleListener = null;
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  if (!visible) return null;
+  return (
+    <View pointerEvents="none" style={transitionStyles.overlay}>
+      <RippleLoader size="large" />
+    </View>
+  );
 }
 
 applyGlobalFontPatch();
@@ -220,22 +251,11 @@ export default function App() {
   });
   const [appState, setAppState] = useState<AppState>("loading");
   const [biometricLocked, setBiometricLocked] = useState(false);
-  const [showRippleTransition, setShowRippleTransition] = useState(false);
-  const rippleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleNavigationStateChange = useCallback(() => {
-    if (rippleTimer.current) clearTimeout(rippleTimer.current);
-    setShowRippleTransition(true);
-    rippleTimer.current = setTimeout(() => setShowRippleTransition(false), 480);
-  }, []);
-
-  // Clear the ripple timeout on unmount so it can't fire against a torn-down component.
-  useEffect(() => () => {
-    if (rippleTimer.current) clearTimeout(rippleTimer.current);
-  }, []);
 
   // Register logout handler so Settings can sign the user out
-  registerLogoutHandler(() => setAppState("login"));
+  useEffect(() => {
+    registerLogoutHandler(() => setAppState("login"));
+  }, []);
 
   useEffect(() => {
     const appStateSub = RNAppState.addEventListener("change", async (nextState) => {
@@ -311,8 +331,7 @@ export default function App() {
     } catch (err: any) {
       // Only clear the token on actual auth rejection (401/403). Network errors or
       // server hiccups should not log the user out — just trust the stored token.
-      const msg: string = err?.message ?? "";
-      if (msg.includes("API error 401") || msg.includes("API error 403")) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
         await clearToken();
         setAppState("login");
       } else {
@@ -429,13 +448,9 @@ export default function App() {
           <StringsProvider>
           <TabPreferencesProvider>
           <ThemedStatusBar />
-          <RootTabs onNavigationStateChange={handleNavigationStateChange} />
+          <RootTabs onNavigationStateChange={triggerNavRipple} />
           <OfflineBanner />
-          {showRippleTransition && (
-            <View pointerEvents="none" style={transitionStyles.overlay}>
-              <RippleLoader size="large" />
-            </View>
-          )}
+          <NavRippleOverlay />
           {biometricLocked && (
             <View style={lockStyles.overlay}>
               <RippleLoader size="large" style={lockStyles.loader} />

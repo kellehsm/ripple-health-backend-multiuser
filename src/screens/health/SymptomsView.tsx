@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { api } from '../../api/client';
+import { formatDateLocal } from '../../utils/dateUtils';
 import { CycleLog } from './shared';
 
 interface PhaseEntry { label: string; phase: string; cycles: number }
@@ -25,8 +26,8 @@ export function SymptomsView({ theme }: { theme: any }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const end = new Date().toISOString().slice(0, 10);
-    const start90 = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+    const end = formatDateLocal(new Date());
+    const start90 = formatDateLocal(new Date(Date.now() - 90 * 86400000));
     const yearStart = `${end.slice(0, 4)}-01-01`;
 
     Promise.all([
@@ -69,7 +70,7 @@ export function SymptomsView({ theme }: { theme: any }) {
   const year = new Date().getFullYear();
   const logByDate: Record<string, CycleLog> = {};
   for (const l of yearLogs) logByDate[l.log_date] = l;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = formatDateLocal(new Date());
   const anyYearData = yearLogs.length > 0;
 
   function pixelColor(log: CycleLog | undefined): { bg: string; opacity: number } {
@@ -182,10 +183,10 @@ const svStyles = StyleSheet.create({
   card: {
     borderRadius: 22,
     borderWidth: 2,
-    shadowColor: 'rgba(60,40,20,0.1)',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.1, textTransform: 'uppercase' },

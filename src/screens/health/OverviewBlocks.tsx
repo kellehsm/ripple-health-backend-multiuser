@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { api } from '../../api/client';
@@ -24,10 +24,10 @@ export function OverviewBlocks({
   const [insight, setInsight] = useState<{ id: string; text: string; confidence: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     const weekStart = getWeekStart();
     const today = todayStr();
-    Promise.all([
+    return Promise.all([
       api.getMedications().catch(() => [] as Medication[]),
       api.getCyclePrediction().catch(() => null),
       api.getCycleLogs(weekStart, today).catch(() => []),
@@ -44,6 +44,10 @@ export function OverviewBlocks({
       setInsight(ins);
     }).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const todayDow = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
   const scheduledMeds = medications.filter((m) => {
@@ -101,7 +105,15 @@ export function OverviewBlocks({
               {
                 text: 'Mark all morning taken',
                 onPress: async () => {
-                  try { await api.markSlotTaken('morning'); } catch {}
+                  try {
+                    await api.markSlotTaken('morning');
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+                    // Refresh so the "x of y taken" summary reflects the change
+                    loadData();
+                  } catch {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+                    Alert.alert('Something went wrong', "Couldn't mark morning doses as taken. Try again.");
+                  }
                 },
               },
               { text: 'Cancel', style: 'cancel' },

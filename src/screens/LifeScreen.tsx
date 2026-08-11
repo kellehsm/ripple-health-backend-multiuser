@@ -167,6 +167,10 @@ export function LifeScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
   const hobbySwipeableRefs = useRef<Record<string, Swipeable | null>>({});
+  const hobbyInputRef = useRef<TextInput>(null);
+  // Week-start-day for hobby stats — kept in a ref so quick-log refreshes use
+  // the same wsd that loadHobbies passes.
+  const hobbyWsdRef = useRef(1);
 
   const LIFE_TOUR: TourStep[] = [
     { ref: tourBooksRef,   title: "Books & Reading", body: "Add books you're reading and log your progress. Search by title or author, and track pages or chapters." },
@@ -266,11 +270,13 @@ export function LifeScreen() {
         hobbies: Hobby[];
         hobbyStats: Record<string, HobbyStats>;
         hobbyStreaks: Record<string, number>;
+        wsd?: number;
       }>('life:hobbies');
       if (cached) {
         setHobbies(cached.hobbies);
         setHobbyStats(cached.hobbyStats);
         setHobbyStreaks(cached.hobbyStreaks);
+        if (cached.wsd !== undefined) hobbyWsdRef.current = cached.wsd;
         setLoadingHobbies(false);
         return;
       }
@@ -280,6 +286,7 @@ export function LifeScreen() {
     try {
       const settings = await api.getSettings().catch(() => null);
       const wsd: number = settings?.week_start?.hobbies ?? 1;
+      hobbyWsdRef.current = wsd;
       const data: Hobby[] = await api.hobbies();
       const list = Array.isArray(data) ? data : [];
       setHobbies(list);
@@ -302,7 +309,7 @@ export function LifeScreen() {
       const streaksMap = Object.fromEntries(logsEntries);
       setHobbyStats(statsMap);
       setHobbyStreaks(streaksMap);
-      setCached('life:hobbies', { hobbies: list, hobbyStats: statsMap, hobbyStreaks: streaksMap });
+      setCached('life:hobbies', { hobbies: list, hobbyStats: statsMap, hobbyStreaks: streaksMap, wsd });
     } catch (e: any) {
       setHobbyListError((e as Error).message || "Failed to load hobbies");
     } finally {
@@ -332,15 +339,9 @@ export function LifeScreen() {
     loadBooks();
     loadHobbies();
     loadCompletedCount();
-    // Check whether a gratitude entry exists today by scanning journal entries
+    // Check whether a gratitude entry exists today by scanning journal entries.
+    // We only show the prompt when there are no journal entries at all for today with text.
     api.journalToday().then((entries: any[]) => {
-      const today = new Date().toISOString().slice(0, 10);
-      const found = Array.isArray(entries) && entries.some(e =>
-        e.entry_type === "gratitude" ||
-        (e.entry_text && e.entry_text.toLowerCase().includes("grateful")) ||
-        (e.entry_type === "period" && e.entry_text && e.logged_at?.slice(0, 10) === today)
-      );
-      // We only show the prompt when there are no journal entries at all for today with text
       const hasAnyText = Array.isArray(entries) && entries.some(e => e.entry_text && e.entry_text.trim().length > 0);
       setHasGratitudeToday(hasAnyText);
     }).catch(() => {});
@@ -559,7 +560,7 @@ export function LifeScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       toast(`Logged ${amount} min for ${hobbyName} today.`);
       const [s, logs] = await Promise.all([
-        api.hobbyStats(hobbyId),
+        api.hobbyStats(hobbyId, hobbyWsdRef.current),
         api.getHobbyLogs(hobbyId).catch(() => []),
       ]);
       setHobbyStats((prev) => ({ ...prev, [hobbyId]: s }));
@@ -772,6 +773,7 @@ export function LifeScreen() {
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Hobbies</Text>
         <View style={styles.searchRow}>
           <TextInput
+            ref={hobbyInputRef}
             placeholder="search hobbies..."
             value={hobbyName}
             onChangeText={(v) => { setHobbyName(v); setShowSuggestions(true); }}
@@ -820,9 +822,9 @@ export function LifeScreen() {
           </View>
         )}
 
-        {createHobbyError ? <Text style={{ color: theme.teal.sub, fontSize: 12, marginTop: 6 }}>{createHobbyError}</Text> : null}
-        {logHobbyError ? <Text style={{ color: theme.teal.sub, fontSize: 12, marginTop: 6 }}>{logHobbyError}</Text> : null}
-        {hobbyListError ? <Text style={{ color: theme.teal.sub, fontSize: 12, marginTop: 6 }}>{hobbyListError}</Text> : null}
+        {createHobbyError ? <Text style={{ color: theme.danger, fontSize: 12, marginTop: 6 }}>{createHobbyError}</Text> : null}
+        {logHobbyError ? <Text style={{ color: theme.danger, fontSize: 12, marginTop: 6 }}>{logHobbyError}</Text> : null}
+        {hobbyListError ? <Text style={{ color: theme.danger, fontSize: 12, marginTop: 6 }}>{hobbyListError}</Text> : null}
       </ShadowCard>
       </View>
 
@@ -833,7 +835,7 @@ export function LifeScreen() {
           <ShadowCard skeleton skeletonHeight={120} />
         </View>
       ) : hobbies.length === 0 ? (
-        <LifeEmptyState onPress={() => Haptics.selectionAsync()} />
+        <LifeEmptyState onPress={() => hobbyInputRef.current?.focus()} />
       ) : (
         hobbies.map(function (hobby) {
           const stats = hobbyStats[hobby.id];
@@ -1013,7 +1015,7 @@ export function LifeScreen() {
 
 function makeStyles(ink: string, card: string, border: string) {
   return StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { padding: 16, gap: 12, paddingBottom: 32 },
 
   completedBtn: {
     flexDirection: "row",
@@ -1023,10 +1025,10 @@ function makeStyles(ink: string, card: string, border: string) {
     borderWidth: 2,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
 
@@ -1108,7 +1110,7 @@ function makeStyles(ink: string, card: string, border: string) {
     borderColor: ink,
     paddingHorizontal: 7,
     paddingVertical: 3,
-    backgroundColor: "#fff",
+    backgroundColor: card,
     shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,

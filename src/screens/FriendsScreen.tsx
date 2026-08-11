@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
@@ -11,6 +11,7 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  Share,
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
@@ -42,6 +43,7 @@ import {
   SocialCategory,
 } from "../api/friends";
 import { api } from "../api/client";
+import { todayStr } from "../utils/dateUtils";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -104,6 +106,8 @@ export function FriendsScreen() {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [actingOnRequest, setActingOnRequest] = useState<string | null>(null);
   const [nudges, setNudges] = useState<Nudge[]>([]);
@@ -119,6 +123,17 @@ export function FriendsScreen() {
   const challengesRef = useRef<View>(null);
   const [showTour, setShowTour] = useState(false);
   const [tourPadding, setTourPadding] = useState(0);
+  const tourTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear any pending tour timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (tourTimeoutRef.current) {
+        clearTimeout(tourTimeoutRef.current);
+        tourTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const TOUR_STEPS: TourStep[] = [
     { ref: usernameRef,    title: "Your Username",      body: "Set a username so friends can find and add you by name instead of email." },
@@ -132,16 +147,21 @@ export function FriendsScreen() {
       let cancelled = false;
       async function load() {
         setLoading(true);
+        setLoadError(false);
+        let anyError = false;
+        const tracked = <T,>(p: Promise<T>, fallback: T): Promise<T> =>
+          p.catch(() => { anyError = true; return fallback; });
         try {
           const [me, reqs, friendList, cList, nudgeList, feed] = await Promise.all([
-            api.me().catch(() => null),
-            getFriendRequests().catch(() => []),
-            getFriends().catch(() => []),
-            getChallenges().catch(() => []),
-            getNudges().catch(() => []),
-            getActivityFeed().catch(() => []),
+            tracked(api.me(), null as any),
+            tracked(getFriendRequests(), [] as FriendRequest[]),
+            tracked(getFriends(), [] as Friend[]),
+            tracked(getChallenges(), [] as Challenge[]),
+            tracked(getNudges(), [] as Nudge[]),
+            tracked(getActivityFeed(), [] as FeedEntry[]),
           ]);
           if (cancelled) return;
+          setLoadError(anyError);
           setUsernameState(me?.username ?? null);
           setRequests(Array.isArray(reqs) ? reqs : []);
           setFriends(Array.isArray(friendList) ? friendList : []);
@@ -152,11 +172,16 @@ export function FriendsScreen() {
           // Show feature tour first time
           const seen = await hasSeenTooltip("friends-tour");
           if (!seen && !cancelled) {
-            markTooltipSeen("friends-tour");
-            setTimeout(() => setShowTour(true), 500);
+            if (tourTimeoutRef.current) clearTimeout(tourTimeoutRef.current);
+            tourTimeoutRef.current = setTimeout(() => {
+              tourTimeoutRef.current = null;
+              // Mark seen only once the tour actually shows
+              markTooltipSeen("friends-tour");
+              setShowTour(true);
+            }, 500);
           }
         } catch {
-          // silently ignore
+          if (!cancelled) setLoadError(true);
         } finally {
           if (!cancelled) setLoading(false);
         }
@@ -171,9 +196,27 @@ export function FriendsScreen() {
         }
       });
 
-      return () => { cancelled = true; };
-    }, [])
+      return () => {
+        cancelled = true;
+        if (tourTimeoutRef.current) {
+          clearTimeout(tourTimeoutRef.current);
+          tourTimeoutRef.current = null;
+        }
+      };
+    }, [reloadKey])
   );
+
+  async function handleInviteFriend() {
+    try {
+      await Share.share({
+        message:
+          "Join me on Ripple Wellness! We can compare steps, exercise, hobbies, and books, and take on challenges together." +
+          (username ? " Add me — my username is @" + username + "." : ""),
+      });
+    } catch {
+      // user dismissed the share sheet or sharing failed — nothing to do
+    }
+  }
 
   async function handleSaveUsername() {
     const trimmed = usernameInput.trim();
@@ -252,10 +295,8 @@ export function FriendsScreen() {
     }
   }
 
-  const activeChallenges = challenges.filter((c) => {
-    const now = new Date().toISOString().slice(0, 10);
-    return c.end_date >= now;
-  });
+  const localToday = todayStr();
+  const activeChallenges = challenges.filter((c) => c.end_date >= localToday);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
@@ -267,6 +308,22 @@ export function FriendsScreen() {
       onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
       scrollEventThrottle={16}
     >
+      {/* Load-error banner (partial failure; full failure shows in the friends section) */}
+      {!loading && loadError && friends.length > 0 && (
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 8 }]}>
+          <Ionicons name="cloud-offline-outline" size={16} color={theme.textSoft} />
+          <Text style={{ color: theme.textSoft, fontSize: 12, flex: 1 }}>
+            Some of your friends data couldn't be loaded.
+          </Text>
+          <Pressable
+            onPress={() => setReloadKey((k) => k + 1)}
+            style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.ink }]}
+          >
+            <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>Retry</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Nudge banner */}
       {nudges.length > 0 && (
         <View style={[styles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, paddingHorizontal: 14, paddingVertical: 12, gap: 4 }]}>
@@ -428,8 +485,21 @@ export function FriendsScreen() {
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 20 }]}>
           <ActivityIndicator color={theme.teal.bar} />
         </View>
+      ) : friends.length === 0 && loadError ? (
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 20, paddingHorizontal: 14, gap: 10 }]}>
+          <Ionicons name="cloud-offline-outline" size={24} color={theme.textSoft} />
+          <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center" }}>
+            Couldn't load your friends. Check your connection and try again.
+          </Text>
+          <Pressable
+            onPress={() => setReloadKey((k) => k + 1)}
+            style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.ink }]}
+          >
+            <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>Retry</Text>
+          </Pressable>
+        </View>
       ) : friends.length === 0 ? (
-        <FriendsEmptyState onPress={() => Haptics.selectionAsync()} />
+        <FriendsEmptyState onPress={handleInviteFriend} />
       ) : (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           {friends.map((friend, i) => (
@@ -521,7 +591,7 @@ export function FriendsScreen() {
           <Pressable
             key={cat}
             onPress={() => navigation.navigate("Leaderboard", { category: cat })}
-            style={[styles.leaderboardCard, { backgroundColor: theme.card, borderColor: theme.ink }]}
+            style={[styles.leaderboardCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
           >
             <Ionicons name={CATEGORY_ICON[cat]} size={26} color={theme.teal.solid} />
             <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "800", marginTop: 6, textAlign: "center" }}>
@@ -578,10 +648,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   divider: { height: 1, marginHorizontal: 14 },
@@ -666,10 +736,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 14,
     alignItems: "center",
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     elevation: 3,
   },
   challengeBtn: {
