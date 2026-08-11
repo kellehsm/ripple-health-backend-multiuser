@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, View, Text, Switch, Pressable, StyleSheet, Alert, Platform } from "react-native";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/core";
-import { getGrantedPermissions } from "react-native-health-connect";
+import { getGrantedPermissions, initialize } from "react-native-health-connect";
 import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../../theme/ThemeContext";
 import { onSolid } from "../../theme/colorUtils";
@@ -21,6 +21,7 @@ export function HealthConnectSettingsScreen() {
   const { theme } = useTheme();
   const [hc, setHc] = useState<HCSettings>({});
   const [hcGranted, setHcGranted] = useState<boolean | null>(null);
+  const [grantedRecords, setGrantedRecords] = useState<{ steps: boolean; sleep: boolean; heart: boolean }>({ steps: false, sleep: false, heart: false });
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -35,13 +36,23 @@ export function HealthConnectSettingsScreen() {
       setLiveTracking(running);
     } catch (_) {}
     try {
+      // Health Connect requires initialize() before every session — without it,
+      // getGrantedPermissions() often returns [] or throws, which used to flip
+      // the UI to "Not granted" and made permissions look like they were being
+      // revoked on every focus.
+      const ready = await initialize();
+      if (!ready) return; // keep prior known state instead of downgrading
       const granted = await getGrantedPermissions();
       const hasSteps = granted.some((p: any) => p.recordType === "Steps" && p.accessType === "read");
       const hasSleep = granted.some((p: any) => p.recordType === "SleepSession" && p.accessType === "read");
       const hasHR = granted.some((p: any) => p.recordType === "HeartRate" && p.accessType === "read");
-      setHcGranted(hasSteps && hasSleep && hasHR);
+      setGrantedRecords({ steps: hasSteps, sleep: hasSleep, heart: hasHR });
+      // "Granted" = at least one record connected. Partial grants are valid;
+      // the per-record chips below tell the user exactly what's on.
+      setHcGranted(hasSteps || hasSleep || hasHR);
     } catch (_) {
-      setHcGranted(false);
+      // Transient IPC failure — keep the last known state rather than flipping
+      // to "Not granted" and confusing the user.
     }
   }, []);
 
@@ -138,15 +149,42 @@ export function HealthConnectSettingsScreen() {
         <View style={styles.statusRow}>
           <Text style={{ color: theme.textStrong, flex: 1 }}>Health Connect permissions</Text>
           <Text style={{ color: hcGranted ? theme.teal.fg : theme.coral.fg, fontWeight: "700", fontSize: 13 }}>
-            {hcGranted === null ? "Checking…" : hcGranted ? "Granted" : "Not granted"}
+            {hcGranted === null ? "Checking…" : hcGranted ? "Connected" : "Not connected"}
           </Text>
         </View>
-        {hcGranted === false && (
+        {hcGranted !== null && (
+          <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+            {[
+              { label: "Steps", on: grantedRecords.steps },
+              { label: "Sleep", on: grantedRecords.sleep },
+              { label: "Heart rate", on: grantedRecords.heart },
+            ].map((chip) => (
+              <View
+                key={chip.label}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                  borderRadius: 8,
+                  borderWidth: 1.5,
+                  borderColor: chip.on ? theme.teal.solid : theme.cardBorder,
+                  backgroundColor: chip.on ? theme.teal.tint : theme.card,
+                }}
+              >
+                <Text style={{ color: chip.on ? theme.teal.fg : theme.textSoft, fontSize: 11, fontWeight: "700" }}>
+                  {chip.on ? "✓ " : "○ "}{chip.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+        {(hcGranted === false || (hcGranted && !(grantedRecords.steps && grantedRecords.sleep && grantedRecords.heart))) && (
           <Pressable
-            onPress={async () => { const g = await requestHealthPermissions().catch(() => false); setHcGranted(!!g); }}
+            onPress={async () => { await requestHealthPermissions().catch(() => false); checkPermissions(); }}
             style={[styles.btn, { backgroundColor: theme.teal.solid, borderColor: theme.teal.sub }]}
           >
-            <Text style={{ color: onSolid(theme.teal.solid), fontWeight: "600" }}>Grant Health Connect permissions</Text>
+            <Text style={{ color: onSolid(theme.teal.solid), fontWeight: "600" }}>
+              {hcGranted ? "Grant remaining permissions" : "Grant Health Connect permissions"}
+            </Text>
           </Pressable>
         )}
       </View>
