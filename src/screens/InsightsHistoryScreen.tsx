@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
+import { ScrollView, View, Text, StyleSheet, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { EmptyState } from "../components/EmptyState";
+import { LoadingMessage } from "../components/LoadingMessage";
 import { api } from "../api/client";
 import { adaptiveInsight, Confidence } from "../lib/softenInsight";
 import { fmtDate } from "../utils/dateUtils";
@@ -47,8 +48,8 @@ export function InsightsHistoryScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: theme.page, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator color={theme.teal.solid} size="large" />
+      <View style={{ flex: 1, backgroundColor: theme.page, justifyContent: "center" }}>
+        <LoadingMessage kind="insights" />
       </View>
     );
   }

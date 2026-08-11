@@ -8,6 +8,28 @@ import {
   StyleSheet,
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const RECENT_KEY = "ripple.search.recent";
+const MAX_RECENT = 5;
+
+async function loadRecentSearches(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(RECENT_KEY);
+    return raw ? (JSON.parse(raw) as string[]).filter((s) => typeof s === "string") : [];
+  } catch { return []; }
+}
+
+async function saveRecentSearch(q: string): Promise<string[]> {
+  const trimmed = q.trim();
+  if (trimmed.length < 2) return await loadRecentSearches();
+  try {
+    const list = await loadRecentSearches();
+    const next = [trimmed, ...list.filter((s) => s.toLowerCase() !== trimmed.toLowerCase())].slice(0, MAX_RECENT);
+    await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    return next;
+  } catch { return []; }
+}
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
@@ -42,9 +64,10 @@ export function GlobalSearchScreen() {
   const [searchError, setSearchError] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seqRef = useRef(0);
+  const [recent, setRecent] = useState<string[]>([]);
 
-  // Clear any pending debounce timer on unmount
   useEffect(function () {
+    loadRecentSearches().then(setRecent);
     return function () {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
@@ -65,6 +88,7 @@ export function GlobalSearchScreen() {
       const data = await api.searchGlobal(q.trim());
       if (seq !== seqRef.current) return;
       setResults(data ?? EMPTY);
+      saveRecentSearch(q).then(setRecent).catch(() => {});
     } catch {
       if (seq !== seqRef.current) return;
       setResults(null);
@@ -108,6 +132,31 @@ export function GlobalSearchScreen() {
           <Text style={{ color: theme.textSoft, fontSize: 14, textAlign: "center" }}>
             Type to search across all your logged data
           </Text>
+          {recent.length > 0 && (
+            <View style={{ marginTop: 20, width: "100%", paddingHorizontal: 24 }}>
+              <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 1.2, marginBottom: 8 }}>RECENT</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                {recent.map((q) => (
+                  <Pressable
+                    key={q}
+                    onPress={() => { setQuery(q); runSearch(q); }}
+                    style={{
+                      borderWidth: 1.5,
+                      borderColor: theme.cardBorder,
+                      backgroundColor: theme.card,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 14,
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={"Search again for " + q}
+                  >
+                    <Text style={{ color: theme.textStrong, fontSize: 12 }}>{q}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
       )}
 

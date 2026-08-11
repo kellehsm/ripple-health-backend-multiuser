@@ -20,6 +20,7 @@ import Svg, { Rect, Text as SvgText, Polyline, Circle, Line as SvgLine, Path, De
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 import { onSolid } from "../theme/colorUtils";
 import { coloredShadow } from "../theme/styleUtils";
 import { ShadowCard } from "../components/ShadowCard";
@@ -238,10 +239,7 @@ function computeInsights(params: {
 function SkeletonBox({ style }: { style?: object }) {
   const { theme } = useTheme();
   const shimmer = useRef(new Animated.Value(0)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
-  }, []);
+  const reduceMotion = useReduceMotion();
   useEffect(() => {
     if (reduceMotion) return;
     Animated.loop(
