@@ -174,7 +174,7 @@ export function SettingsScreen() {
       )}
 
       {/* Appearance */}
-      {matches("Theme", "Appearance", "Customize Tabs", "Tabs", "bottom bar", "colour", "color") && (
+      {matches("Theme", "Appearance", "Customize Tabs", "Tabs", "bottom bar", "colour", "color", "Watch", "Wear", "tiles") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>APPEARANCE</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -186,6 +186,12 @@ export function SettingsScreen() {
             )}
             {matches("Customize Tabs", "Tabs", "bottom bar") && (
               <MenuRow title="Customize Tabs" subtitle="Choose which tabs appear in the bottom bar" onPress={() => nav("SettingsCustomizeTabs")} theme={theme} />
+            )}
+            {matches("Customize Tabs", "Tabs", "bottom bar") && matches("Watch", "Wear", "tiles") && (
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+            )}
+            {matches("Watch", "Wear", "tiles") && (
+              <MenuRow title="Watch Tiles" subtitle="Wear OS tile concepts — glance, log & breathe" onPress={() => nav("WatchTiles")} theme={theme} />
             )}
           </View>
         </>
