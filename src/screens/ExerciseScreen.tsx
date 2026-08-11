@@ -85,18 +85,41 @@ const FOCUS_LABEL: Record<string, string> = {
 
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
+// See ExerciseSessionScreen.CyclingImage — GIF-native pacing (400ms) + prefetch
+// + stacked frames toggled by opacity to avoid RN's cross-fade + re-decode.
 function CyclingImage({ images, style }: { images: string[]; style: any }) {
   const { theme } = useTheme();
   const [idx, setIdx] = useState(0);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    if (images.length <= 1) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % images.length), 2000);
+    setReady(false);
+    if (images.length === 0) return;
+    let cancelled = false;
+    Promise.all(images.map(uri => Image.prefetch(IMAGE_BASE + uri).catch(() => null)))
+      .then(() => { if (!cancelled) setReady(true); });
+    return () => { cancelled = true; };
+  }, [images.join("|")]);
+  useEffect(() => {
+    if (!ready || images.length <= 1) return;
+    const t = setInterval(() => setIdx(i => (i + 1) % images.length), 400);
     return () => clearInterval(t);
-  }, [images.length]);
+  }, [ready, images.length]);
   if (!images.length) {
     return <View style={[style, { backgroundColor: theme.teal.bg, opacity: 0.5 }]} />;
   }
-  return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={style} resizeMode="cover" />;
+  return (
+    <View style={[style, { overflow: "hidden" }]}>
+      {images.map((uri, i) => (
+        <Image
+          key={uri}
+          source={{ uri: IMAGE_BASE + uri }}
+          style={[StyleSheet.absoluteFill, { opacity: i === idx ? 1 : 0 }]}
+          resizeMode="cover"
+          fadeDuration={0}
+        />
+      ))}
+    </View>
+  );
 }
 
 function ExerciseEmptyState({ onPress }: { onPress: () => void }) {

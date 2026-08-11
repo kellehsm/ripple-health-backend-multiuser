@@ -17,6 +17,8 @@ export type MacroValues = {
   calories: number | null;
   caffeine_mg: number | null;
   sodium_mg: number | null;
+  /** Number of servings actually eaten. Nutrition fields above are PER-SERVING. Defaults to 1. */
+  servings?: number | null;
 };
 
 export function MacroEditForm({
@@ -40,6 +42,7 @@ export function MacroEditForm({
   const [cals, setCals] = useState(initial.calories != null ? String(initial.calories) : "");
   const [caffeine, setCaffeine] = useState(initial.caffeine_mg != null ? String(initial.caffeine_mg) : "");
   const [sodium, setSodium] = useState(initial.sodium_mg != null ? String(initial.sodium_mg) : "");
+  const [servings, setServings] = useState(initial.servings != null && initial.servings > 0 ? String(initial.servings) : "1");
   const [nameErr, setNameErr] = useState("");
   const [macroErr, setMacroErr] = useState("");
 
@@ -51,6 +54,7 @@ export function MacroEditForm({
   }
 
   function doSaveMacro() {
+    const servingsVal = parseNum(servings);
     onSave({
       name: name.trim(),
       carbs_g: parseNum(carbs),
@@ -58,6 +62,7 @@ export function MacroEditForm({
       calories: parseNum(cals),
       caffeine_mg: parseNum(caffeine),
       sodium_mg: parseNum(sodium),
+      servings: servingsVal != null && servingsVal > 0 ? servingsVal : 1,
     });
   }
 
@@ -165,6 +170,42 @@ export function MacroEditForm({
         <Text style={[styles.macroLabel, { color: ink }]}>SODIUM</Text>
       </View>
       {macroErr ? <Text style={{ color: theme.coral.solid, fontSize: 11 }}>{macroErr}</Text> : null}
+
+      {/* Servings — nutrition above is PER-SERVING; totals scale by this. */}
+      <View style={styles.servingsRow}>
+        <Text style={[styles.servingsLabel, { color: ink }]}>SERVINGS</Text>
+        <Pressable
+          onPress={() => {
+            const cur = parseFloat(servings) || 1;
+            const next = Math.max(0.25, Math.round((cur - 0.5) * 4) / 4);
+            setServings(String(next));
+          }}
+          style={[styles.stepBtn, { borderColor: ink }]}
+          accessibilityLabel="Decrease servings"
+        >
+          <Text style={[styles.stepBtnText, { color: ink }]}>–</Text>
+        </Pressable>
+        <TextInput
+          value={servings}
+          onChangeText={(v) => setServings(v)}
+          keyboardType="decimal-pad"
+          selectTextOnFocus
+          style={[styles.servingsInput, { color: theme.textStrong, borderColor: ink, backgroundColor: card }]}
+          accessibilityLabel="Servings"
+        />
+        <Pressable
+          onPress={() => {
+            const cur = parseFloat(servings) || 1;
+            const next = Math.round((cur + 0.5) * 4) / 4;
+            setServings(String(next));
+          }}
+          style={[styles.stepBtn, { borderColor: ink }]}
+          accessibilityLabel="Increase servings"
+        >
+          <Text style={[styles.stepBtnText, { color: ink }]}>+</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.editFormButtons}>
         <Pressable onPress={onCancel} style={styles.cancelBtn}>
           <Text style={styles.cancelBtnText}>CANCEL</Text>
@@ -244,5 +285,16 @@ function makeStyles(ink: string, card: string, _border: string) {
       elevation: 2,
     },
     actionBtnText: { fontWeight: "800", fontSize: 11, letterSpacing: 0.4 },
+    servingsRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+    servingsLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6, flex: 1 },
+    stepBtn: {
+      width: 34, height: 34, borderRadius: 17, borderWidth: 2,
+      alignItems: "center", justifyContent: "center", backgroundColor: card,
+    },
+    stepBtnText: { fontSize: 18, fontWeight: "900", lineHeight: 20 },
+    servingsInput: {
+      width: 62, borderWidth: 2, borderRadius: 14, textAlign: "center",
+      paddingVertical: 6, fontSize: 14, fontWeight: "700",
+    },
   });
 }

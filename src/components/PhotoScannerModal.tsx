@@ -78,7 +78,13 @@ type ResolvedItem = {
 type Props = {
   visible: boolean;
   onClose: () => void;
+  /** Called with one or more selected foods. Legacy callers using a single
+   *  onResult(food) receive the first item so nothing breaks. */
   onResult: (food: PhotoFoodResult) => void;
+  /** New multi-select-friendly callback. If provided, gets the full array. */
+  onResults?: (foods: PhotoFoodResult[]) => void;
+  /** Optional: user tapped "Add manually" — parent should open their macro form. */
+  onManualAdd?: () => void;
 };
 
 // ── Module-level SDK key cache (avoid re-fetching across modal open/close) ────
@@ -131,7 +137,7 @@ function advisorInfoToFood(info: PassioAdvisorFoodInfo, index: number): PhotoFoo
 type SdkStatus = "idle" | "loading" | "ready" | "error";
 type ScanStatus = "camera" | "capturing" | "recognizing" | "results" | "error";
 
-export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
+export function PhotoScannerModal({ visible, onClose, onResult, onResults, onManualAdd }: Props) {
   const { theme } = useTheme();
   const accent = theme.coral.solid;
   const [permission, requestPermission] = useCameraPermissions();
@@ -142,6 +148,15 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
   const [scanStatus, setScanStatus] = useState<ScanStatus>("camera");
   const [scanError, setScanError] = useState<string | null>(null);
   const [items, setItems] = useState<ResolvedItem[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   const cameraRef = useRef<any>(null);
 
@@ -218,6 +233,7 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
       setScanStatus("camera");
       setScanError(null);
       setItems([]);
+      setSelectedIds(new Set());
     }
   }, [visible]);
 
@@ -320,6 +336,8 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
       );
 
       setItems(resolved);
+      // Default to all detected items selected — user usually wants everything on the plate.
+      setSelectedIds(new Set(resolved.map((r) => r.id)));
       setScanStatus("results");
     } catch (e: any) {
       setScanStatus("error");
@@ -333,15 +351,30 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
 
   // ── Result selection ────────────────────────────────────────────────────────
 
-  function handleSelect(item: ResolvedItem) {
+  function handleLogSelected() {
+    const chosen = items.filter((it) => selectedIds.has(it.id)).map((it) => it.food);
+    if (chosen.length === 0) return;
     handleClose();
-    onResult(item.food);
+    if (onResults) onResults(chosen);
+    else chosen.forEach((food) => onResult(food));
+  }
+
+  function handleManualAdd() {
+    handleClose();
+    if (onManualAdd) onManualAdd();
+    else onResult({
+      source_food_id: "manual-" + Date.now(),
+      name: "",
+      carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null,
+      source_db: "manual",
+    });
   }
 
   function handleClose() {
     setScanStatus("camera");
     setScanError(null);
     setItems([]);
+    setSelectedIds(new Set());
     onClose();
   }
 
@@ -349,6 +382,7 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
     setScanStatus("camera");
     setScanError(null);
     setItems([]);
+    setSelectedIds(new Set());
   }
 
   // ── Nutrition preview line ───────────────────────────────────────────────────
@@ -421,7 +455,7 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
                 : `Detected ${items.length} food items`}
             </Text>
             <Text style={styles.resultsSubtitle}>
-              Tap an item to review and log it
+              Tap to toggle. Selected items log together — you can also add one manually.
             </Text>
             <ScrollView
               style={styles.resultsList}
@@ -429,12 +463,19 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
             >
               {items.map((item) => {
                 const preview = nutritionLine(item.food);
+                const checked = selectedIds.has(item.id);
                 return (
                   <Pressable
                     key={item.id}
-                    style={styles.resultRow}
-                    onPress={() => handleSelect(item)}
+                    style={[styles.resultRow, checked && { borderColor: accent, borderWidth: 2 }]}
+                    onPress={() => toggleSelected(item.id)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked }}
+                    accessibilityLabel={item.food.name}
                   >
+                    <View style={[styles.checkbox, checked && { backgroundColor: accent, borderColor: accent }]}>
+                      {checked && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.resultName} numberOfLines={2}>
                         {item.food.name}
@@ -448,21 +489,38 @@ export function PhotoScannerModal({ visible, onClose, onResult }: Props) {
                         <Text style={styles.resultMeta}>{preview}</Text>
                       ) : null}
                     </View>
-                    <Ionicons
-                      name="create-outline"
-                      size={22}
-                      color={accent}
-                      style={{ marginLeft: 12 }}
-                    />
                   </Pressable>
                 );
               })}
+              <Pressable
+                onPress={handleManualAdd}
+                style={styles.manualAddRow}
+                accessibilityRole="button"
+                accessibilityLabel="Add an item manually"
+              >
+                <Ionicons name="add-circle-outline" size={22} color="#fff" />
+                <Text style={styles.manualAddText}>Add an item manually</Text>
+              </Pressable>
             </ScrollView>
             <Text style={styles.aiNote}>
               AI recognition — verify nutrition before logging
             </Text>
             <Pressable
-              style={[styles.btn, { backgroundColor: "rgba(255,255,255,0.15)", marginTop: 12 }]}
+              style={[styles.btn, { backgroundColor: accent, marginTop: 12, opacity: selectedIds.size === 0 ? 0.35 : 1 }]}
+              onPress={handleLogSelected}
+              disabled={selectedIds.size === 0}
+              accessibilityLabel={"Log " + selectedIds.size + " selected items"}
+            >
+              <Text style={styles.btnText}>
+                {selectedIds.size === 0
+                  ? "Select at least one"
+                  : selectedIds.size === 1
+                    ? "Log 1 item"
+                    : "Log " + selectedIds.size + " items"}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, { backgroundColor: "rgba(255,255,255,0.12)", marginTop: 8 }]}
               onPress={handleRetry}
             >
               <Text style={[styles.btnText, { color: "#fff" }]}>
@@ -655,4 +713,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  checkbox: {
+    width: 24, height: 24, borderRadius: 6, borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.35)", alignItems: "center", justifyContent: "center",
+    marginRight: 12,
+  },
+  manualAddRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.2)",
+    borderStyle: "dashed",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 4,
+  },
+  manualAddText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 });

@@ -17,16 +17,43 @@ import { fireRestTimerDone } from '../lib/smartNotifications';
 
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
+// Exercise images cycle through 2-4 poses to imitate a GIF. Two things matter
+// for the "feels like a GIF" feel: (1) the interval — GIF-native pacing is
+// 400ms per frame, not 2s — and (2) prefetching every URI before the first
+// swap so the browser cache is warm and the flip is instant. We also render
+// all frames stacked and toggle opacity instead of swapping the Image `source`
+// prop, which avoids RN's built-in cross-fade + re-decode on every change.
 function CyclingImage({ images, style }: { images: string[]; style: any }) {
   const { theme } = useTheme();
   const [idx, setIdx] = useState(0);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
-    if (images.length <= 1) return;
-    const t = setInterval(() => setIdx(i => (i + 1) % images.length), 2000);
+    setReady(false);
+    if (images.length === 0) return;
+    let cancelled = false;
+    Promise.all(images.map(uri => Image.prefetch(IMAGE_BASE + uri).catch(() => null)))
+      .then(() => { if (!cancelled) setReady(true); });
+    return () => { cancelled = true; };
+  }, [images.join("|")]);
+  useEffect(() => {
+    if (!ready || images.length <= 1) return;
+    const t = setInterval(() => setIdx(i => (i + 1) % images.length), 400);
     return () => clearInterval(t);
-  }, [images.length]);
+  }, [ready, images.length]);
   if (!images.length) return <View style={[style, { backgroundColor: theme.teal.bg, opacity: 0.4, borderRadius: 14 }]} />;
-  return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={[style, { borderRadius: 14 }]} resizeMode="cover" />;
+  return (
+    <View style={[style, { borderRadius: 14, overflow: "hidden" }]}>
+      {images.map((uri, i) => (
+        <Image
+          key={uri}
+          source={{ uri: IMAGE_BASE + uri }}
+          style={[StyleSheet.absoluteFill, { opacity: i === idx ? 1 : 0 }]}
+          resizeMode="cover"
+          fadeDuration={0}
+        />
+      ))}
+    </View>
+  );
 }
 
 interface LogEntry {

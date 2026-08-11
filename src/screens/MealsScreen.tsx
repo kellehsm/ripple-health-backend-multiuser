@@ -101,6 +101,7 @@ type Meal = {
   caffeine_mg: number | null;
   sodium_mg: number | null;
   logged_at?: string;
+  servings?: number | null;
 };
 
 type PendingFood = {
@@ -519,6 +520,38 @@ export function MealsScreen() {
     foodDebounceRef.current = setTimeout(function () { handleSearch(text); }, 450);
   }
 
+  async function handleLogMultipleFoods(foods: FoodResult[]) {
+    // Photo scan multi-select — log each item at 1 serving as-detected. User
+    // can tap the pencil on any card to tweak macros or servings after.
+    let successCount = 0;
+    for (const food of foods) {
+      try {
+        await api.addMeal({
+          meal_type: mealType,
+          source_food_id: food.source_food_id,
+          source_db: food.source_db ?? "passio",
+          name: food.name,
+          carbs_g: food.carbs_g,
+          sugar_g: food.sugar_g,
+          calories: food.calories,
+          caffeine_mg: food.caffeine_mg ?? null,
+          sodium_mg: food.sodium_mg ?? null,
+          servings: 1,
+        });
+        successCount++;
+      } catch (_) { /* keep going */ }
+    }
+    if (successCount > 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(function () {});
+      toast(successCount === foods.length
+        ? "Logged " + successCount + " item" + (successCount === 1 ? "" : "s")
+        : "Logged " + successCount + " of " + foods.length + " — some failed");
+      loadMeals();
+    } else {
+      toast("Couldn't log those items. Try again.", "error");
+    }
+  }
+
   function handleSelectFood(food: FoodResult) {
     setPendingFood({
       name: food.name,
@@ -662,6 +695,7 @@ export function MealsScreen() {
       calories: values.calories,
       caffeine_mg: values.caffeine_mg,
       sodium_mg: values.sodium_mg,
+      servings: values.servings ?? 1,
     })
       .then(function () {
         setPendingFood(null);
@@ -686,6 +720,20 @@ export function MealsScreen() {
     api.updateMeal(mealId, values)
       .then(function () { setEditingMealId(null); loadMeals(); })
       .catch(function () { toast("Couldn't save that change. Try again.", "error"); });
+  }
+
+  function handleAddServing(meal: Meal) {
+    const current = Number(meal.servings) || 1;
+    const next = Math.round((current + 1) * 4) / 4;
+    // Optimistic bump
+    setMeals(function (prev) { return prev.map(function (m) { return m.id === meal.id ? Object.assign({}, m, { servings: next }) : m; }); });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(function () {});
+    api.updateMeal(meal.id, { servings: next })
+      .then(function () { toast("Added a serving to " + meal.name); })
+      .catch(function () {
+        setMeals(function (prev) { return prev.map(function (m) { return m.id === meal.id ? Object.assign({}, m, { servings: current }) : m; }); });
+        toast("Couldn't add a serving. Try again.", "error");
+      });
   }
 
   // One timer per pending delete so deleting a second item never cancels the
@@ -879,17 +927,18 @@ export function MealsScreen() {
       });
   }
 
+  // Nutrition columns are per-serving; totals multiply by servings (defaults to 1).
   const totals = meals.length > 0 ? {
     calories: meals.some(function (m) { return m.calories != null; })
-      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.calories) || 0); }, 0)) : null,
+      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.calories) || 0) * (Number(m.servings) || 1); }, 0)) : null,
     carbs: meals.some(function (m) { return m.carbs_g != null; })
-      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.carbs_g) || 0); }, 0)) : null,
+      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.carbs_g) || 0) * (Number(m.servings) || 1); }, 0)) : null,
     sugar: meals.some(function (m) { return m.sugar_g != null; })
-      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.sugar_g) || 0); }, 0)) : null,
+      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.sugar_g) || 0) * (Number(m.servings) || 1); }, 0)) : null,
     caffeine: meals.some(function (m) { return m.caffeine_mg != null; })
-      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.caffeine_mg) || 0); }, 0)) : null,
+      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.caffeine_mg) || 0) * (Number(m.servings) || 1); }, 0)) : null,
     sodium: meals.some(function (m) { return m.sodium_mg != null; })
-      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.sodium_mg) || 0); }, 0)) : null,
+      ? Math.round(meals.reduce(function (s, m) { return s + (Number(m.sodium_mg) || 0) * (Number(m.servings) || 1); }, 0)) : null,
   } : null;
 
   return (
@@ -1361,7 +1410,7 @@ export function MealsScreen() {
             const groupMeals = meals.filter(m => m.meal_type === groupType);
             const isCollapsed = collapsedGroups.has(groupType);
             const groupColor = mealSolidColor(groupType, theme);
-            const groupCals = groupMeals.reduce((s, m) => s + (m.calories ?? 0), 0);
+            const groupCals = groupMeals.reduce((s, m) => s + (Number(m.calories ?? 0) * (Number(m.servings) || 1)), 0);
             return (
               <View key={groupType} style={{ marginTop: 8 }}>
                 <Pressable
@@ -1430,7 +1479,10 @@ export function MealsScreen() {
                           {meal.meal_type.toUpperCase()}
                         </Text>
                         {nutrition ? (
-                          <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 2 }}>{nutrition}</Text>
+                          <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 2 }}>
+                            {nutrition}
+                            {Number(meal.servings) > 1 ? "  ·  ×" + Number(meal.servings) + " servings" : ""}
+                          </Text>
                         ) : null}
                       </View>
                       <View
@@ -1447,6 +1499,15 @@ export function MealsScreen() {
                       </View>
                     </Pressable>
 
+                    <Pressable
+                      onPress={function () { handleAddServing(meal); }}
+                      style={styles.iconBtn}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Add a serving to ${meal.name}`}
+                    >
+                      <Ionicons name="add-circle-outline" size={17} color={theme.teal.solid} />
+                    </Pressable>
                     <Pressable onPress={function () { handleOpenEdit(meal); }} style={styles.iconBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Edit ${meal.name}`}>
                       <Ionicons name="pencil-outline" size={15} color={isEditing ? theme.coral.solid : theme.textSoft} />
                     </Pressable>
@@ -1458,7 +1519,7 @@ export function MealsScreen() {
                   {isEditing ? (
                     <View style={[styles.glucosePanel, { borderTopColor: theme.cardBorder }]}>
                       <MacroEditForm
-                        initial={{ name: meal.name, carbs_g: meal.carbs_g, sugar_g: meal.sugar_g, calories: meal.calories, caffeine_mg: meal.caffeine_mg, sodium_mg: meal.sodium_mg }}
+                        initial={{ name: meal.name, carbs_g: meal.carbs_g, sugar_g: meal.sugar_g, calories: meal.calories, caffeine_mg: meal.caffeine_mg, sodium_mg: meal.sodium_mg, servings: meal.servings ?? 1 }}
                         saveLabel="Save"
                         onSave={function (values) { handleSaveEdit(meal.id, values); }}
                         onCancel={function () { setEditingMealId(null); }}
@@ -1588,6 +1649,8 @@ export function MealsScreen() {
         visible={photoScannerVisible}
         onClose={function () { setPhotoScannerVisible(false); }}
         onResult={function (food) { handleSelectFood(food); }}
+        onResults={function (foods) { handleLogMultipleFoods(foods); }}
+        onManualAdd={function () { setPendingFood({ name: "", carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null, source_food_id: undefined, source_db: "manual" }); }}
       />
       <RecipeBuilderModal
         visible={showRecipeBuilder}

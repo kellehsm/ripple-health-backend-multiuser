@@ -7,7 +7,8 @@ export default async function mealsRoutes(app: FastifyInstance) {
     const { date } = req.query as any;
     const cols = `id, user_id, name, meal_type, source_db, source_food_id, logged_at,
       carbs_g::float AS carbs_g, sugar_g::float AS sugar_g, calories::float AS calories,
-      caffeine_mg::float AS caffeine_mg, sodium_mg::float AS sodium_mg`;
+      caffeine_mg::float AS caffeine_mg, sodium_mg::float AS sodium_mg,
+      servings::float AS servings`;
     if (date) {
       return query(
         `SELECT ${cols} FROM meals WHERE user_id = $1 AND logged_at::date = $2 ORDER BY logged_at`,
@@ -19,15 +20,17 @@ export default async function mealsRoutes(app: FastifyInstance) {
 
   app.post("/", async (req) => {
     const user_id = req.user_id;
-    const { name, meal_type, carbs_g, sugar_g, calories, caffeine_mg, sodium_mg, source_db, source_food_id, logged_at, context } = req.body as any;
+    const { name, meal_type, carbs_g, sugar_g, calories, caffeine_mg, sodium_mg, source_db, source_food_id, logged_at, context, servings } = req.body as any;
+    const servingsVal = typeof servings === "number" && servings > 0 ? servings : 1;
     const rows = await query(
-      `INSERT INTO meals (user_id, name, meal_type, carbs_g, sugar_g, calories, caffeine_mg, sodium_mg, source_db, source_food_id, context, logged_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb, COALESCE($12, now()))
+      `INSERT INTO meals (user_id, name, meal_type, carbs_g, sugar_g, calories, caffeine_mg, sodium_mg, source_db, source_food_id, context, logged_at, servings)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb, COALESCE($12, now()), $13)
        RETURNING id, user_id, name, meal_type, source_db, source_food_id, context, logged_at,
          carbs_g::float AS carbs_g, sugar_g::float AS sugar_g, calories::float AS calories,
-         caffeine_mg::float AS caffeine_mg, sodium_mg::float AS sodium_mg`,
+         caffeine_mg::float AS caffeine_mg, sodium_mg::float AS sodium_mg,
+         servings::float AS servings`,
       [user_id, name, meal_type, carbs_g, sugar_g, calories, caffeine_mg ?? null, sodium_mg ?? null,
-       source_db, source_food_id, context ? JSON.stringify(context) : null, logged_at]
+       source_db, source_food_id, context ? JSON.stringify(context) : null, logged_at, servingsVal]
     );
     return rows[0];
   });
@@ -35,7 +38,7 @@ export default async function mealsRoutes(app: FastifyInstance) {
   app.patch("/:id", async (req, reply) => {
     const user_id = req.user_id;
     const { id } = req.params as any;
-    const { name, meal_type, carbs_g, sugar_g, calories, caffeine_mg, sodium_mg, context } = req.body as any;
+    const { name, meal_type, carbs_g, sugar_g, calories, caffeine_mg, sodium_mg, context, servings } = req.body as any;
     const rows = await query(
       `UPDATE meals SET
          name        = COALESCE($2, name),
@@ -45,13 +48,16 @@ export default async function mealsRoutes(app: FastifyInstance) {
          calories    = COALESCE($6, calories),
          caffeine_mg = COALESCE($7, caffeine_mg),
          sodium_mg   = COALESCE($8, sodium_mg),
-         context     = CASE WHEN $9::jsonb IS NOT NULL THEN $9::jsonb ELSE context END
+         context     = CASE WHEN $9::jsonb IS NOT NULL THEN $9::jsonb ELSE context END,
+         servings    = COALESCE($11, servings)
        WHERE id = $1 AND user_id = $10
        RETURNING id, user_id, name, meal_type, source_db, source_food_id, context, logged_at,
          carbs_g::float AS carbs_g, sugar_g::float AS sugar_g, calories::float AS calories,
-         caffeine_mg::float AS caffeine_mg, sodium_mg::float AS sodium_mg`,
+         caffeine_mg::float AS caffeine_mg, sodium_mg::float AS sodium_mg,
+         servings::float AS servings`,
       [id, name, meal_type, carbs_g, sugar_g, calories, caffeine_mg ?? null, sodium_mg ?? null,
-       context ? JSON.stringify(context) : null, user_id]
+       context ? JSON.stringify(context) : null, user_id,
+       typeof servings === "number" && servings > 0 ? servings : null]
     );
     if (!rows[0]) return reply.status(404).send({ error: "not found" });
     return rows[0];
