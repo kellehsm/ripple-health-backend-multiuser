@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ripple Media Manager</title>
+<style>
+  :root {
+    --cream:#F5F1E8; --card:#FFFFFF; --ink:#111111; --teal:#3FA0A6;
+    --coral:#E8654E; --purple:#7B3FBF; --berry:#A62A50; --soft:#6E655A;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--cream); color:var(--ink);
+         font-family:'Nunito','Segoe UI',system-ui,sans-serif; }
+  .wrap { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:22px; font-weight:900; display:flex; align-items:center; gap:10px; }
+  h1 .dot { width:14px; height:14px; border-radius:7px; background:var(--teal); display:inline-block; }
+  .card { background:var(--card); border:2px solid var(--ink); border-radius:18px;
+          padding:18px; margin-bottom:16px; box-shadow:0 6px 0 rgba(17,17,17,0.9); }
+  label { font-size:11px; font-weight:900; letter-spacing:.6px; color:var(--soft); display:block; margin:10px 0 4px; }
+  input, select { width:100%; padding:10px 12px; border:2px solid var(--ink); border-radius:12px;
+          font-family:inherit; font-size:14px; background:#fff; }
+  button { padding:10px 18px; border:2px solid var(--ink); border-radius:12px; background:var(--teal);
+          color:#fff; font-family:inherit; font-weight:900; font-size:13px; letter-spacing:.4px;
+          cursor:pointer; box-shadow:0 3px 0 rgba(17,17,17,0.9); }
+  button:active { transform:translateY(2px); box-shadow:0 1px 0 rgba(17,17,17,0.9); }
+  button.danger { background:var(--coral); }
+  button.ghost { background:#fff; color:var(--ink); }
+  button:disabled { opacity:.45; cursor:default; }
+  .row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:130px; }
+  .asset { display:flex; gap:12px; align-items:center; padding:12px 0; border-bottom:1px dashed #d8d2c4; }
+  .asset:last-child { border-bottom:none; }
+  .thumb { width:56px; height:56px; border-radius:12px; border:2px solid var(--ink); object-fit:cover;
+           background:#EDE8DC; display:flex; align-items:center; justify-content:center; font-size:24px; flex:none; }
+  .meta { flex:1; min-width:0; }
+  .title { font-weight:900; font-size:15px; }
+  .sub { font-size:12px; color:var(--soft); }
+  .pill { display:inline-block; font-size:10px; font-weight:900; letter-spacing:.5px; padding:2px 8px;
+          border-radius:9px; border:1.5px solid var(--ink); margin-right:6px; }
+  .pill.audio { background:#CDE9EB; } .pill.image { background:#EFD9C8; }
+  .pill.video { background:#E3D3F2; } .pill.other { background:#eee; }
+  .actions { display:flex; gap:6px; flex:none; }
+  .actions button { padding:7px 10px; font-size:11px; box-shadow:0 2px 0 rgba(17,17,17,0.9); }
+  #dropzone { border:2.5px dashed var(--ink); border-radius:14px; padding:26px; text-align:center;
+              color:var(--soft); font-weight:700; margin-top:12px; cursor:pointer; }
+  #dropzone.hover { background:#EAF5F5; border-color:var(--teal); color:var(--teal); }
+  #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink);
+           color:#fff; padding:10px 20px; border-radius:14px; font-weight:800; font-size:13px;
+           opacity:0; transition:opacity .25s; pointer-events:none; }
+  #toast.show { opacity:1; }
+  .filter { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .filter button { padding:6px 14px; font-size:11px; }
+  .filter button.off { background:#fff; color:var(--ink); }
+  audio, video { max-width:100%; margin-top:8px; }
+  progress { width:100%; height:10px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="dot"></span>Ripple Media Manager</h1>
+
+  <div id="login" class="card">
+    <div style="font-weight:900; margin-bottom:4px;">Admin sign in</div>
+    <div class="sub">Use your Ripple account. Only admin accounts can manage media.</div>
+    <label>EMAIL</label><input id="email" type="email" autocomplete="username">
+    <label>PASSWORD</label><input id="password" type="password" autocomplete="current-password">
+    <div style="margin-top:14px;"><button onclick="login()">SIGN IN</button></div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="card">
+      <div style="display:flex; align-items:center;">
+        <div style="font-weight:900; flex:1;">Upload asset</div>
+        <button class="ghost" onclick="logout()">SIGN OUT</button>
+      </div>
+      <div class="row">
+        <div><label>TITLE</label><input id="u_title" placeholder="Gentle rain"></div>
+        <div><label>CATEGORY</label>
+          <select id="u_category">
+            <option value="soundscape">soundscape (ambient loops)</option>
+            <option value="chime">chime (bells, session cues)</option>
+            <option value="guide">guide (guided audio)</option>
+            <option value="theme">theme (icons & images)</option>
+            <option value="">— none —</option>
+          </select>
+        </div>
+        <div><label>EMOJI (optional)</label><input id="u_emoji" placeholder="🌧" maxlength="4"></div>
+        <div><label>SORT</label><input id="u_sort" type="number" value="0"></div>
+      </div>
+      <div id="dropzone">Drop a file here or click to choose<br>
+        <span style="font-size:11px;">audio (mp3, m4a, wav, ogg) · images (png, jpg, webp, gif) · video (mp4, webm) · max 200MB</span>
+      </div>
+      <input id="file" type="file" style="display:none"
+             accept="audio/*,image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm">
+      <progress id="prog" max="100" value="0" style="display:none;"></progress>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:900; margin-bottom:10px;">Library</div>
+      <div class="filter" id="filters"></div>
+      <div id="list"><div class="sub">Loading…</div></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const API = location.origin + "/api";
+let token = localStorage.getItem("ripple_admin_token") || "";
+let assets = [];
+let filter = "all";
+const blobCache = {};
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({ Authorization: "Bearer " + token }, opts.headers || {});
+  const res = await fetch(API + path, opts);
+  if (res.status === 401) { logout(); throw new Error("Session expired"); }
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  return res.status === 204 ? null : res.json();
+}
+
+async function login() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  try {
+    const res = await fetch(API + "/auth/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) throw new Error("Login failed");
+    token = (await res.json()).token;
+    const me = await api("/media/me");
+    if (!me.is_admin) { token = ""; toast("This account is not an admin."); return; }
+    localStorage.setItem("ripple_admin_token", token);
+    show();
+  } catch (e) { toast(e.message); }
+}
+
+function logout() {
+  token = ""; localStorage.removeItem("ripple_admin_token");
+  document.getElementById("app").style.display = "none";
+  document.getElementById("login").style.display = "block";
+}
+
+async function show() {
+  document.getElementById("login").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  await refresh();
+}
+
+async function refresh() {
+  assets = await api("/media");
+  renderFilters(); render();
+}
+
+function renderFilters() {
+  const kinds = ["all", ...new Set(assets.map(a => a.kind))];
+  document.getElementById("filters").innerHTML = kinds.map(k =>
+    `<button class="${filter === k ? "" : "off"}" onclick="filter='${k}';renderFilters();render()">${k.toUpperCase()}</button>`
+  ).join("");
+}
+
+function fmtSize(b) {
+  b = parseInt(b, 10);
+  return b > 1048576 ? (b / 1048576).toFixed(1) + " MB" : Math.round(b / 1024) + " KB";
+}
+
+function render() {
+  const list = document.getElementById("list");
+  const shown = assets.filter(a => filter === "all" || a.kind === filter);
+  if (!shown.length) { list.innerHTML = '<div class="sub">No assets yet — upload one above.</div>'; return; }
+  list.innerHTML = shown.map(a => `
+    <div class="asset" id="asset-${a.id}">
+      <div class="thumb" id="thumb-${a.id}">${a.meta?.emoji || (a.kind === "audio" ? "🎧" : a.kind === "video" ? "🎬" : "🖼")}</div>
+      <div class="meta">
+        <div class="title">${esc(a.title)}</div>
+        <div class="sub">
+          <span class="pill ${a.kind}">${a.kind.toUpperCase()}</span>
+          ${a.category ? esc(a.category) + " · " : ""}${fmtSize(a.size_bytes)} · sort ${a.sort_order}
+        </div>
+        <div id="preview-${a.id}"></div>
+      </div>
+      <div class="actions">
+        <button class="ghost" onclick="preview('${a.id}')">▶</button>
+        <button class="ghost" onclick="rename('${a.id}')">✎</button>
+        <button class="danger" onclick="del('${a.id}')">✕</button>
+      </div>
+    </div>`).join("");
+  shown.filter(a => a.kind === "image").forEach(a => thumb(a));
+}
+
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+async function fileBlobUrl(id) {
+  if (blobCache[id]) return blobCache[id];
+  const res = await fetch(API + "/media/file/" + id, { headers: { Authorization: "Bearer " + token } });
+  if (!res.ok) throw new Error("Fetch failed");
+  blobCache[id] = URL.createObjectURL(await res.blob());
+  return blobCache[id];
+}
+
+async function thumb(a) {
+  try {
+    const url = await fileBlobUrl(a.id);
+    document.getElementById("thumb-" + a.id).innerHTML =
+      `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:9px;">`;
+  } catch {}
+}
+
+async function preview(id) {
+  const a = assets.find(x => x.id === id);
+  const el = document.getElementById("preview-" + id);
+  if (el.innerHTML) { el.innerHTML = ""; return; }
+  try {
+    const url = await fileBlobUrl(id);
+    if (a.kind === "audio") el.innerHTML = `<audio controls autoplay src="${url}"></audio>`;
+    else if (a.kind === "video") el.innerHTML = `<video controls src="${url}" style="max-height:220px;border-radius:10px;"></video>`;
+    else el.innerHTML = `<img src="${url}" style="max-height:220px;border-radius:10px;margin-top:8px;">`;
+  } catch (e) { toast(e.message); }
+}
+
+async function rename(id) {
+  const a = assets.find(x => x.id === id);
+  const title = prompt("Title:", a.title); if (title == null) return;
+  const category = prompt("Category (soundscape / chime / guide / theme / blank):", a.category || "");
+  const emoji = prompt("Emoji:", a.meta?.emoji || "");
+  const sort = prompt("Sort order:", a.sort_order);
+  try {
+    await api("/media/" + id, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title, category: category || null,
+        meta: Object.assign({}, a.meta, { emoji: emoji || undefined }),
+        sort_order: parseInt(sort, 10) || 0,
+      }),
+    });
+    toast("Saved"); refresh();
+  } catch (e) { toast(e.message); }
+}
+
+async function del(id) {
+  const a = assets.find(x => x.id === id);
+  if (!confirm(`Delete "${a.title}"? The app will stop seeing it immediately.`)) return;
+  try { await api("/media/" + id, { method: "DELETE" }); toast("Deleted"); refresh(); }
+  catch (e) { toast(e.message); }
+}
+
+// Upload wiring
+const dz = document.getElementById("dropzone");
+const fileInput = document.getElementById("file");
+dz.onclick = () => fileInput.click();
+dz.ondragover = e => { e.preventDefault(); dz.classList.add("hover"); };
+dz.ondragleave = () => dz.classList.remove("hover");
+dz.ondrop = e => { e.preventDefault(); dz.classList.remove("hover"); if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); };
+fileInput.onchange = () => { if (fileInput.files[0]) upload(fileInput.files[0]); };
+
+function upload(file) {
+  const fd = new FormData();
+  fd.append("title", document.getElementById("u_title").value || file.name.replace(/\.[^.]+$/, ""));
+  fd.append("category", document.getElementById("u_category").value);
+  fd.append("sort_order", document.getElementById("u_sort").value || "0");
+  const emoji = document.getElementById("u_emoji").value.trim();
+  if (emoji) fd.append("meta", JSON.stringify({ emoji }));
+  fd.append("file", file);
+
+  const prog = document.getElementById("prog");
+  prog.style.display = "block"; prog.value = 0;
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", API + "/media");
+  xhr.setRequestHeader("Authorization", "Bearer " + token);
+  xhr.upload.onprogress = e => { if (e.lengthComputable) prog.value = (e.loaded / e.total) * 100; };
+  xhr.onload = () => {
+    prog.style.display = "none";
+    if (xhr.status >= 200 && xhr.status < 300) {
+      toast("Uploaded ✓");
+      document.getElementById("u_title").value = "";
+      document.getElementById("u_emoji").value = "";
+      fileInput.value = "";
+      refresh();
+    } else {
+      let msg = "Upload failed";
+      try { msg = JSON.parse(xhr.responseText).error || msg; } catch {}
+      toast(msg);
+    }
+  };
+  xhr.onerror = () => { prog.style.display = "none"; toast("Upload failed"); };
+  xhr.send(fd);
+}
+
+// Auto-login if token still valid
+if (token) {
+  api("/media/me").then(me => { if (me.is_admin) show(); else logout(); }).catch(() => logout());
+}
+</script>
+</body>
+</html>

@@ -34,6 +34,36 @@ export default async function medicationDosesRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // PRN (as-needed) doses have no slot — multiple per day are allowed since
+  // NULL slot_id rows bypass the unique constraint.
+  app.post("/prn", async (req) => {
+    const user_id = req.user_id;
+    const { medication_id } = req.body as any;
+    const [row] = await query<any>(
+      `INSERT INTO medication_dose_logs (user_id, medication_id, slot_id, log_date, status)
+       SELECT $1, m.id, NULL, CURRENT_DATE, 'taken'
+       FROM medications m WHERE m.id = $2 AND m.user_id = $1 AND m.is_prn = true
+       RETURNING id, medication_id, log_date, taken_at`,
+      [user_id, medication_id]
+    );
+    if (!row) throw { statusCode: 404, message: "PRN medication not found" };
+    return row;
+  });
+
+  app.get("/prn-summary", async (req) => {
+    const user_id = req.user_id;
+    return query<any>(
+      `SELECT medication_id,
+              COUNT(*) FILTER (WHERE log_date = CURRENT_DATE)::int AS today_count,
+              MAX(taken_at) AS last_taken,
+              (ARRAY_AGG(id ORDER BY taken_at DESC) FILTER (WHERE log_date = CURRENT_DATE))[1] AS last_log_id
+       FROM medication_dose_logs
+       WHERE user_id = $1 AND slot_id IS NULL AND status = 'taken'
+       GROUP BY medication_id`,
+      [user_id]
+    );
+  });
+
   app.delete("/:id", async (req) => {
     const user_id = req.user_id;
     const { id } = req.params as any;

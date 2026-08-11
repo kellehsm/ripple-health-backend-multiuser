@@ -216,15 +216,137 @@ export default async function cycleRoutes(app: FastifyInstance) {
     });
     const avgPeriodLength = Math.round(periodLengths.reduce((a, b) => a + b, 0) / periodLengths.length);
 
+    // Fertile-window estimate: ovulation ≈ next period − 14 days, window −5/+1.
+    // Descriptive estimate only — not contraception-grade.
+    const nextStartMs = new Date(predictedNextStart).getTime();
+    const ovulationDay = new Date(nextStartMs - 14 * 86400000).toISOString().slice(0, 10);
+    const fertileWindowStart = new Date(nextStartMs - 19 * 86400000).toISOString().slice(0, 10);
+    const fertileWindowEnd = new Date(nextStartMs - 13 * 86400000).toISOString().slice(0, 10);
+    const predictedPeriodEnd = new Date(nextStartMs + (avgPeriodLength - 1) * 86400000).toISOString().slice(0, 10);
+
     return {
       predictedNextStart,
+      predictedPeriodEnd,
+      ovulationDay,
+      fertileWindowStart,
+      fertileWindowEnd,
       avgCycleLength: avg,
       avgPeriodLength,
+      cycleLengths: recent,
       cycleLengthsUsed: recent.length,
       confidence,
       lastPeriodStart,
       currentCycleDay,
     };
+  });
+
+  // ── Symptom/mood × phase patterns across completed cycles ────────────────────
+  app.get("/phase-patterns", async (req) => {
+    const user_id = req.user_id;
+    const flowRows = await query<any>(
+      `SELECT log_date::text FROM cycle_day_logs
+       WHERE user_id = $1 AND flow_intensity != 'none' AND flow_intensity IS NOT NULL
+       ORDER BY log_date ASC LIMIT 180`,
+      [user_id]
+    );
+    const periods = detectPeriods(flowRows.map((r: any) => r.log_date));
+    if (periods.length < 2) return { totalCycles: 0, symptoms: [], moods: [] };
+
+    const starts = periods.map((p) => p.start);
+    const logs = await query<any>(
+      `SELECT log_date::text, symptoms, mood_label FROM cycle_day_logs
+       WHERE user_id = $1 AND log_date >= $2
+       ORDER BY log_date ASC`,
+      [user_id, starts[0]]
+    );
+
+    function phaseOf(cycleDay: number): string {
+      if (cycleDay <= 5) return "menstrual";
+      if (cycleDay <= 11) return "follicular";
+      if (cycleDay <= 16) return "ovulatory";
+      return "luteal";
+    }
+
+    // Per completed cycle, the set of (phase, label) pairs seen
+    const totalCycles = starts.length - 1;
+    const symCycles = new Map<string, Set<number>>();
+    const moodCycles = new Map<string, Set<number>>();
+
+    for (const log of logs) {
+      const t = new Date(log.log_date).getTime();
+      let ci = -1;
+      for (let i = 0; i < totalCycles; i++) {
+        if (t >= new Date(starts[i]).getTime() && t < new Date(starts[i + 1]).getTime()) { ci = i; break; }
+      }
+      if (ci === -1) continue;
+      const cycleDay = Math.round((t - new Date(starts[ci]).getTime()) / 86400000) + 1;
+      const phase = phaseOf(cycleDay);
+      for (const s of (log.symptoms ?? [])) {
+        const key = `${s}|${phase}`;
+        if (!symCycles.has(key)) symCycles.set(key, new Set());
+        symCycles.get(key)!.add(ci);
+      }
+      if (log.mood_label) {
+        for (const m of String(log.mood_label).split(",").map((x: string) => x.trim()).filter(Boolean)) {
+          const key = `${m}|${phase}`;
+          if (!moodCycles.has(key)) moodCycles.set(key, new Set());
+          moodCycles.get(key)!.add(ci);
+        }
+      }
+    }
+
+    function shape(map: Map<string, Set<number>>) {
+      return [...map.entries()]
+        .map(([key, set]) => {
+          const [label, phase] = key.split("|");
+          return { label, phase, cycles: set.size };
+        })
+        .filter((x) => x.cycles >= 2)
+        .sort((a, b) => b.cycles - a.cycles)
+        .slice(0, 8);
+    }
+
+    return { totalCycles, symptoms: shape(symCycles), moods: shape(moodCycles) };
+  });
+
+  // ── Personal energy curve: average energy by cycle day ───────────────────────
+  app.get("/energy-curve", async (req) => {
+    const user_id = req.user_id;
+    const flowRows = await query<any>(
+      `SELECT log_date::text FROM cycle_day_logs
+       WHERE user_id = $1 AND flow_intensity != 'none' AND flow_intensity IS NOT NULL
+       ORDER BY log_date ASC LIMIT 180`,
+      [user_id]
+    );
+    const periods = detectPeriods(flowRows.map((r: any) => r.log_date));
+    if (periods.length === 0) return [];
+    const starts = periods.map((p) => new Date(p.start).getTime()).sort((a, b) => a - b);
+
+    const logs = await query<any>(
+      `SELECT log_date::text, energy_level FROM cycle_day_logs
+       WHERE user_id = $1 AND energy_level IS NOT NULL
+       ORDER BY log_date ASC LIMIT 400`,
+      [user_id]
+    );
+
+    const acc = new Map<number, { sum: number; n: number }>();
+    for (const log of logs) {
+      const t = new Date(log.log_date).getTime();
+      // Most recent period start on or before this log
+      let startMs: number | null = null;
+      for (const s of starts) { if (s <= t) startMs = s; else break; }
+      if (startMs === null) continue;
+      const cycleDay = Math.round((t - startMs) / 86400000) + 1;
+      if (cycleDay > 40) continue;
+      const cur = acc.get(cycleDay) ?? { sum: 0, n: 0 };
+      cur.sum += log.energy_level;
+      cur.n += 1;
+      acc.set(cycleDay, cur);
+    }
+
+    return [...acc.entries()]
+      .map(([cycle_day, { sum, n }]) => ({ cycle_day, avg_energy: Math.round((sum / n) * 10) / 10, n }))
+      .sort((a, b) => a.cycle_day - b.cycle_day);
   });
 
   app.get("/instruction-card", async (req) => {

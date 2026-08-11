@@ -498,6 +498,209 @@ export default async function medicationsRoutes(app: FastifyInstance) {
     );
   });
 
+  // ── Adherence stats ──────────────────────────────────────────────────────────
+  app.get("/adherence", async (req) => {
+    const user_id = req.user_id;
+
+    // Per-day expected vs taken over the last 84 days. Weekly meds only count
+    // on their scheduled weekday; meds don't count before they were created.
+    const days = await query<any>(
+      `WITH days AS (SELECT (CURRENT_DATE - g.n)::date AS day FROM generate_series(0, 83) AS g(n)),
+       slots AS (
+         SELECT s.id AS slot_id, m.frequency, m.day_of_week, m.created_at::date AS created
+         FROM medication_schedule_slots s
+         JOIN medications m ON m.id = s.medication_id
+         WHERE m.user_id = $1 AND m.active = true AND m.is_prn = false
+       ),
+       expected AS (
+         SELECT d.day, COUNT(*) AS expected
+         FROM days d
+         JOIN slots s ON s.created <= d.day
+           AND (s.frequency IS DISTINCT FROM 'weekly' OR s.day_of_week = EXTRACT(DOW FROM d.day)::int)
+         GROUP BY d.day
+       ),
+       taken AS (
+         SELECT log_date AS day, COUNT(*) AS taken
+         FROM medication_dose_logs
+         WHERE user_id = $1 AND status = 'taken' AND slot_id IS NOT NULL
+           AND log_date >= CURRENT_DATE - 83
+         GROUP BY log_date
+       )
+       SELECT d.day::text, COALESCE(e.expected, 0)::int AS expected, COALESCE(t.taken, 0)::int AS taken
+       FROM days d
+       LEFT JOIN expected e ON e.day = d.day
+       LEFT JOIN taken t ON t.day = d.day
+       ORDER BY d.day ASC`,
+      [user_id]
+    );
+
+    // Cap taken at expected (schedule edits can strand extra logs)
+    const series = days.map((d: any) => ({
+      day: d.day,
+      expected: d.expected,
+      taken: Math.min(d.taken, d.expected),
+    }));
+
+    function pctOver(n: number): number | null {
+      const window = series.slice(-n);
+      const exp = window.reduce((a, d) => a + d.expected, 0);
+      const tak = window.reduce((a, d) => a + d.taken, 0);
+      return exp > 0 ? Math.round((tak / exp) * 100) : null;
+    }
+
+    // Streak of fully-complete days; today may still be in progress, so a
+    // partial today doesn't break the streak (it just doesn't extend it yet).
+    let streak = 0;
+    for (let i = series.length - 1; i >= 0; i--) {
+      const d = series[i];
+      if (d.expected === 0) { if (i === series.length - 1) continue; else break; }
+      if (d.taken >= d.expected) streak += 1;
+      else if (i === series.length - 1) continue;
+      else break;
+    }
+
+    const last30 = series.slice(-30);
+    const perfectDays30 = last30.filter((d) => d.expected > 0 && d.taken >= d.expected).length;
+
+    // Per-med 30-day adherence
+    const perMed = await query<any>(
+      `WITH days AS (SELECT (CURRENT_DATE - g.n)::date AS day FROM generate_series(0, 29) AS g(n)),
+       slots AS (
+         SELECT s.id AS slot_id, m.id AS med_id, m.name, m.frequency, m.day_of_week, m.created_at::date AS created
+         FROM medication_schedule_slots s
+         JOIN medications m ON m.id = s.medication_id
+         WHERE m.user_id = $1 AND m.active = true AND m.is_prn = false
+       ),
+       exp AS (
+         SELECT s.med_id, MAX(s.name) AS name, COUNT(*) AS expected
+         FROM days d
+         JOIN slots s ON s.created <= d.day
+           AND (s.frequency IS DISTINCT FROM 'weekly' OR s.day_of_week = EXTRACT(DOW FROM d.day)::int)
+         GROUP BY s.med_id
+       ),
+       tak AS (
+         SELECT medication_id, COUNT(*) AS taken
+         FROM medication_dose_logs
+         WHERE user_id = $1 AND status = 'taken' AND slot_id IS NOT NULL
+           AND log_date >= CURRENT_DATE - 29
+         GROUP BY medication_id
+       )
+       SELECT e.med_id AS id, e.name, e.expected::int, COALESCE(t.taken, 0)::int AS taken
+       FROM exp e LEFT JOIN tak t ON t.medication_id = e.med_id
+       ORDER BY e.name`,
+      [user_id]
+    );
+
+    // Yesterday's missed doses (for the recovery banner)
+    const yesterdayMissed = await query<any>(
+      `SELECT s.id AS slot_id, s.time_of_day, m.id AS medication_id, m.name, m.dosage
+       FROM medication_schedule_slots s
+       JOIN medications m ON m.id = s.medication_id
+       WHERE m.user_id = $1 AND m.active = true AND m.is_prn = false
+         AND m.created_at::date <= CURRENT_DATE - 1
+         AND (m.frequency IS DISTINCT FROM 'weekly' OR m.day_of_week = EXTRACT(DOW FROM (CURRENT_DATE - 1))::int)
+         AND NOT EXISTS (
+           SELECT 1 FROM medication_dose_logs dl
+           WHERE dl.user_id = $1 AND dl.slot_id = s.id AND dl.log_date = CURRENT_DATE - 1
+         )
+       ORDER BY m.name`,
+      [user_id]
+    );
+
+    return {
+      adherence7: pctOver(7),
+      adherence30: pctOver(30),
+      streak,
+      perfectDays30,
+      days: series,
+      perMed: perMed.map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        expected: m.expected,
+        taken: Math.min(m.taken, m.expected),
+        pct: m.expected > 0 ? Math.round((Math.min(m.taken, m.expected) / m.expected) * 100) : null,
+      })),
+      yesterdayMissed,
+    };
+  });
+
+  // ── Per-med dose stats (detail screen) ───────────────────────────────────────
+  app.get("/:id/dose-stats", async (req) => {
+    const user_id = req.user_id;
+    const { id } = req.params as any;
+    const [med] = await query<any>(
+      `SELECT id, is_prn, frequency, day_of_week, created_at::date AS created FROM medications WHERE id = $1 AND user_id = $2`,
+      [id, user_id]
+    );
+    if (!med) throw { statusCode: 404, message: "Not found" };
+
+    const logs = await query<any>(
+      `SELECT log_date::text, taken_at, slot_id FROM medication_dose_logs
+       WHERE user_id = $1 AND medication_id = $2 AND status = 'taken'
+         AND log_date >= CURRENT_DATE - 89
+       ORDER BY log_date ASC`,
+      [user_id, id]
+    );
+
+    const [totalRow] = await query<any>(
+      `SELECT COUNT(*)::int AS total FROM medication_dose_logs
+       WHERE user_id = $1 AND medication_id = $2 AND status = 'taken'`,
+      [user_id, id]
+    );
+
+    // Usual take hour (mode of taken_at hour)
+    const [hourRow] = await query<any>(
+      `SELECT EXTRACT(HOUR FROM taken_at)::int AS hour, COUNT(*)::int AS n
+       FROM medication_dose_logs
+       WHERE user_id = $1 AND medication_id = $2 AND status = 'taken'
+       GROUP BY 1 ORDER BY n DESC LIMIT 1`,
+      [user_id, id]
+    );
+
+    // Expected doses per day for this med over the last 30 days
+    const expDays = await query<any>(
+      `WITH days AS (SELECT (CURRENT_DATE - g.n)::date AS day FROM generate_series(0, 29) AS g(n))
+       SELECT d.day::text, COUNT(s.id)::int AS expected
+       FROM days d
+       LEFT JOIN medication_schedule_slots s ON s.medication_id = $1
+         AND $2::date <= d.day
+         AND ($3::text IS DISTINCT FROM 'weekly' OR $4::int = EXTRACT(DOW FROM d.day)::int)
+       GROUP BY d.day ORDER BY d.day ASC`,
+      [id, med.created, med.frequency ?? "daily", med.day_of_week ?? -1]
+    );
+
+    const takenByDay = new Map<string, number>();
+    for (const l of logs) takenByDay.set(l.log_date, (takenByDay.get(l.log_date) ?? 0) + 1);
+
+    let exp30 = 0, tak30 = 0;
+    for (const d of expDays) {
+      exp30 += d.expected;
+      tak30 += Math.min(takenByDay.get(d.day) ?? 0, d.expected);
+    }
+
+    // Streak of consecutive complete days (partial today tolerated)
+    let streak = 0;
+    if (!med.is_prn) {
+      for (let i = expDays.length - 1; i >= 0; i--) {
+        const d = expDays[i];
+        const t = Math.min(takenByDay.get(d.day) ?? 0, d.expected);
+        if (d.expected === 0) { if (i === expDays.length - 1) continue; else break; }
+        if (t >= d.expected) streak += 1;
+        else if (i === expDays.length - 1) continue;
+        else break;
+      }
+    }
+
+    return {
+      is_prn: med.is_prn ?? false,
+      adherence30: exp30 > 0 ? Math.round((tak30 / exp30) * 100) : null,
+      streak,
+      totalDoses: totalRow?.total ?? 0,
+      usualHour: hourRow?.hour ?? null,
+      takenDays: [...takenByDay.entries()].map(([day, count]) => ({ day, count })),
+    };
+  });
+
   // ── Import: preview (multi-format) ──────────────────────────────────────────
   app.post("/import/preview", async (req) => {
     const { fileBase64, filename } = req.body as any;

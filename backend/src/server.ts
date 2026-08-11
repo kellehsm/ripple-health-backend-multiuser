@@ -38,6 +38,10 @@ import medicationPrescribersRoutes from "./routes/medication-prescribers.js";
 import cycleRoutes from "./routes/cycle.js";
 import hintsRoutes from "./routes/hints.js";
 import mindfulnessRoutes from "./routes/mindfulness.js";
+import mediaRoutes from "./routes/media.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import experimentsRoutes from "./routes/experiments.js";
 import errorReportsRoutes from "./routes/error-reports.js";
 import authRoutes from "./routes/auth.js";
@@ -73,7 +77,7 @@ if (missingEnv.length > 0) {
 const app = Fastify({ logger: true });
 
 // Routes that don't need authentication (auth itself + OAuth callbacks)
-const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google", "/api/plaid/webhook", "/api/medications/import/template"];
+const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google", "/api/plaid/webhook", "/api/medications/import/template", "/admin/media"];
 
 function isPublic(url: string): boolean {
   return PUBLIC_PREFIXES.some((p) => url === p || url.startsWith(p + "/") || url.startsWith(p + "?"));
@@ -90,6 +94,13 @@ async function main() {
 
   // Public routes
   app.get("/health", async () => ({ ok: true }));
+
+  // Admin media manager — static single-page tool; login happens client-side
+  const adminHtmlPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "admin/media-admin.html");
+  app.get("/admin/media", async (_req, reply) => {
+    reply.type("text/html");
+    return fs.readFileSync(adminHtmlPath, "utf8");
+  });
   await app.register(authRoutes, { prefix: "/api/auth" });
   await app.register(dexcomVerifyRoutes, { prefix: "/api/dexcom" });
   await app.register(dexcomAuthRoutes, { prefix: "/auth/dexcom" });
@@ -131,6 +142,7 @@ async function main() {
   await app.register(cycleRoutes, { prefix: "/api/cycle" });
   await app.register(hintsRoutes, { prefix: "/api/hints" });
   await app.register(mindfulnessRoutes, { prefix: "/api/mindfulness" });
+  await app.register(mediaRoutes, { prefix: "/api/media" });
   await app.register(errorReportsRoutes, { prefix: "/api/errors" });
   await app.register(experimentsRoutes, { prefix: "/api/experiments" });
   await app.register(friendsRoutes, { prefix: "/api/friends" });
