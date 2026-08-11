@@ -79,9 +79,9 @@ export function MonthCalendar({
   return (
     <View style={[calStyles.container, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
       <View style={calStyles.header}>
-        <Pressable onPress={prevMonth} hitSlop={8}><Text style={{ color: theme.textStrong, fontSize: 20 }}>‹</Text></Pressable>
+        <Pressable onPress={prevMonth} hitSlop={8} accessibilityRole="button" accessibilityLabel="Previous month"><Text style={{ color: theme.textStrong, fontSize: 20 }}>‹</Text></Pressable>
         <Text style={[calStyles.monthLabel, { color: theme.textStrong }]}>{monthLabel}</Text>
-        <Pressable onPress={nextMonth} hitSlop={8}><Text style={{ color: theme.textStrong, fontSize: 20 }}>›</Text></Pressable>
+        <Pressable onPress={nextMonth} hitSlop={8} accessibilityRole="button" accessibilityLabel="Next month"><Text style={{ color: theme.textStrong, fontSize: 20 }}>›</Text></Pressable>
       </View>
       <View style={calStyles.dowRow}>
         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (

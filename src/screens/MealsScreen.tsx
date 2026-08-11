@@ -402,7 +402,15 @@ export function MealsScreen() {
     if (!mealsLoadedRef.current) setLoadingMeals(true);
     setMealsError(null);
     return api.meals(today)
-      .then(function (data: Meal[]) { mealsLoadedRef.current = true; setMeals(Array.isArray(data) ? data : []); })
+      .then(function (data: Meal[]) {
+        if (mealsLoadedRef.current) {
+          if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+            UIManager.setLayoutAnimationEnabledExperimental(true);
+          }
+          LayoutAnimation.configureNext(LayoutAnimation.create(220, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
+        }
+        mealsLoadedRef.current = true; setMeals(Array.isArray(data) ? data : []);
+      })
       .catch(function (e: Error) { setMealsError(e.message || "Failed to load meals"); })
       .finally(function () { setLoadingMeals(false); });
   }, []);
@@ -1439,10 +1447,10 @@ export function MealsScreen() {
                       </View>
                     </Pressable>
 
-                    <Pressable onPress={function () { handleOpenEdit(meal); }} style={styles.iconBtn} hitSlop={8}>
+                    <Pressable onPress={function () { handleOpenEdit(meal); }} style={styles.iconBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Edit ${meal.name}`}>
                       <Ionicons name="pencil-outline" size={15} color={isEditing ? theme.coral.solid : theme.textSoft} />
                     </Pressable>
-                    <Pressable onPress={function () { handleDeleteMeal(meal); }} style={styles.iconBtn} hitSlop={8}>
+                    <Pressable onPress={function () { handleDeleteMeal(meal); }} style={styles.iconBtn} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${meal.name}`}>
                       <Ionicons name="trash-outline" size={15} color={theme.coral.solid} />
                     </Pressable>
                   </View>

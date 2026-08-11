@@ -18,13 +18,14 @@ import { fireRestTimerDone } from '../lib/smartNotifications';
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
 function CyclingImage({ images, style }: { images: string[]; style: any }) {
+  const { theme } = useTheme();
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     if (images.length <= 1) return;
     const t = setInterval(() => setIdx(i => (i + 1) % images.length), 2000);
     return () => clearInterval(t);
   }, [images.length]);
-  if (!images.length) return <View style={[style, { backgroundColor: '#D8F5EB', opacity: 0.4, borderRadius: 14 }]} />;
+  if (!images.length) return <View style={[style, { backgroundColor: theme.teal.bg, opacity: 0.4, borderRadius: 14 }]} />;
   return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={[style, { borderRadius: 14 }]} resizeMode="cover" />;
 }
 
@@ -829,7 +830,7 @@ const styles = StyleSheet.create({
   plannedImage: { width: 72, height: 72 },
   plannedInfo: { flex: 1, gap: 4 },
   plannedName: { fontSize: 15, fontWeight: '700', lineHeight: 19 },
-  plannedMuscles: { fontSize: 12, textTransform: 'capitalize', color: '#888' },
+  plannedMuscles: { fontSize: 12, textTransform: 'capitalize' },
   logChip: {
     alignSelf: 'flex-start',
     borderRadius: 10,

@@ -16,7 +16,18 @@ import {
   Alert,
   Modal,
   RefreshControl,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+function animateListChange() {
+  LayoutAnimation.configureNext(LayoutAnimation.create(220, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
+}
 import { LinearGradient } from "expo-linear-gradient";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { toast, Msg } from "../lib/toast";
@@ -247,7 +258,7 @@ export function LifeScreen() {
     setLoadingBooks(true);
     try {
       const data = await api.books("reading");
-      setBooks(data);
+      setBooks((prev) => { if (prev.length !== data.length) animateListChange(); return data; });
       const entries = await Promise.all(
         data.map(async (b: Book) => {
           const p = await api.bookProgress(b.id);
@@ -289,7 +300,7 @@ export function LifeScreen() {
       hobbyWsdRef.current = wsd;
       const data: Hobby[] = await api.hobbies();
       const list = Array.isArray(data) ? data : [];
-      setHobbies(list);
+      setHobbies((prev) => { if (prev.length !== list.length) animateListChange(); return list; });
       const [statsEntries, logsEntries] = await Promise.all([
         Promise.all(
           list.map(async (h) => {
@@ -453,6 +464,7 @@ export function LifeScreen() {
     const deleted = books.find((b) => b.id === bookId);
     if (!deleted) return;
     if (undoInfo) clearTimeout(undoInfo.timer);
+    animateListChange();
     setBooks((prev) => prev.filter((b) => b.id !== bookId));
     const timer = setTimeout(async () => {
       setUndoInfo(null);
@@ -491,6 +503,7 @@ export function LifeScreen() {
     const deleted = hobbies.find((h) => h.id === hobbyId);
     if (!deleted) return;
     if (undoInfo) clearTimeout(undoInfo.timer);
+    animateListChange();
     setHobbies((prev) => prev.filter((h) => h.id !== hobbyId));
     const timer = setTimeout(async () => {
       setUndoInfo(null);
@@ -506,6 +519,7 @@ export function LifeScreen() {
   function handleUndoDelete() {
     if (!undoInfo) return;
     clearTimeout(undoInfo.timer);
+    animateListChange();
     if (undoInfo.type === "book") {
       setBooks((prev) => [...prev, undoInfo.data as Book]);
     } else {
@@ -554,11 +568,19 @@ export function LifeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLogHobbyError(null);
     const hobbyName = hobbies.find(h => h.id === hobbyId)?.name ?? "hobby";
+    // Optimistic: bump this week's total instantly, reconcile with the server after
+    const prevStats = hobbyStats[hobbyId];
+    if (prevStats) {
+      setHobbyStats((prev) => ({
+        ...prev,
+        [hobbyId]: { ...prevStats, this_week_total: prevStats.this_week_total + amount },
+      }));
+    }
+    toast(`Logged ${amount} min for ${hobbyName} today.`);
     try {
       await api.logHobby(hobbyId, amount, undefined, undefined);
       invalidateCache('life:hobbies');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast(`Logged ${amount} min for ${hobbyName} today.`);
       const [s, logs] = await Promise.all([
         api.hobbyStats(hobbyId, hobbyWsdRef.current),
         api.getHobbyLogs(hobbyId).catch(() => []),
@@ -566,6 +588,7 @@ export function LifeScreen() {
       setHobbyStats((prev) => ({ ...prev, [hobbyId]: s }));
       setHobbyStreaks((prev) => ({ ...prev, [hobbyId]: calcStreak(Array.isArray(logs) ? logs : []) }));
     } catch {
+      if (prevStats) setHobbyStats((prev) => ({ ...prev, [hobbyId]: prevStats }));
       toast(Msg.logHobby, "error");
     }
   }
@@ -704,7 +727,7 @@ export function LifeScreen() {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
                     <Text style={[styles.bookTitle, { color: theme.textStrong, flex: 1 }]} numberOfLines={2}>{book.title}</Text>
-                    <Pressable onPress={() => handleDeleteBook(book.id, book.title)} hitSlop={8} style={{ marginLeft: 8 }}>
+                    <Pressable onPress={() => handleDeleteBook(book.id, book.title)} hitSlop={8} style={{ marginLeft: 8 }} accessibilityRole="button" accessibilityLabel={`Delete ${book.title}`}>
                       <Ionicons name="trash-outline" size={16} color={theme.textSoft} />
                     </Pressable>
                   </View>
@@ -998,7 +1021,7 @@ export function LifeScreen() {
             <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <Pressable key={n} onPress={() => handleRateBook(n)} hitSlop={6}>
-                  <Text style={{ fontSize: 36, color: n <= pendingRating ? "#E8AB30" : theme.cardBorder }}>★</Text>
+                  <Text style={{ fontSize: 36, color: n <= pendingRating ? theme.amber.solid : theme.cardBorder }}>★</Text>
                 </Pressable>
               ))}
             </View>

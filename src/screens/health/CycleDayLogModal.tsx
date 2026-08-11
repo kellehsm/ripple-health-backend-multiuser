@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, Modal, TextInput, Alert } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { api } from '../../api/client';
 import { fmtDate } from '../../utils/dateUtils';
 import { FLOW_OPTIONS, FLOW_COLORS } from '../../constants';
@@ -80,6 +81,7 @@ export function CycleDayLogModal({
         notes: notes || null,
         energy_level: energy ?? null,
       });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSaved();
     } catch (err: any) {
       Alert.alert('Error', err?.message ?? 'Failed to save');

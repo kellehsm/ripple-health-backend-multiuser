@@ -172,6 +172,8 @@ function TabNavigator() {
                 <Pressable
                   onPress={() => (navigation as any).getParent()?.navigate(btn.screen, btn.params)}
                   style={{ alignItems: "center", justifyContent: "center", paddingHorizontal: 10, paddingVertical: 6 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={btn.label.charAt(0) + btn.label.slice(1).toLowerCase()}
                 >
                   <Text style={{ fontSize: 18 }}>{btn.emoji}</Text>
                   <Text style={{ fontSize: 9, fontWeight: "700", letterSpacing: 0.5, color: theme.ink, marginTop: 2 }}>

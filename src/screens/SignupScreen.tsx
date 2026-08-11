@@ -176,7 +176,7 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
 
   // ── HeartbeatLine ─────────────────────────────────────────────────────────
   function HeartbeatLine() {
-    const lineColor = "#7B3FBF";
+    const lineColor = theme.purple?.solid ?? "#7B3FBF";
     return (
       <View style={{ width: 88, height: 22, overflow: "hidden" }}>
         <Animated.View style={{ transform: [{ translateX: heartbeatReveal }] }}>

@@ -743,7 +743,7 @@ export function FinanceScreen() {
             <ScrollView contentContainerStyle={s.modalContent} keyboardShouldPersistTaps="handled">
               <View style={s.modalHeader}>
                 <Text style={[s.modalTitle, { color: theme.textStrong }]}>Log expense</Text>
-                <Pressable onPress={() => { setShowAdd(false); resetAdd(); }}>
+                <Pressable onPress={() => { setShowAdd(false); resetAdd(); }} accessibilityRole="button" accessibilityLabel="Close add entry">
                   <Ionicons name="close" size={24} color={theme.textSoft} />
                 </Pressable>
               </View>
@@ -756,10 +756,10 @@ export function FinanceScreen() {
                 placeholder="0.00"
                 placeholderTextColor={theme.textSoft}
                 autoFocus
-                style={[s.amountInput, { color: theme.textStrong, borderColor: addError ? "#E8654E" : ink }]}
+                style={[s.amountInput, { color: theme.textStrong, borderColor: addError ? theme.danger : ink }]}
                 returnKeyType="done"
               />
-              {addError ? <Text style={[s.errorText, { color: "#E8654E" }]}>{addError}</Text> : null}
+              {addError ? <Text style={[s.errorText, { color: theme.danger }]}>{addError}</Text> : null}
 
               <Text style={[s.fieldLabel, { color: theme.textSoft }]}>Category</Text>
               <View style={s.chipWrap}>
@@ -862,7 +862,7 @@ export function FinanceScreen() {
                     </Text>
                   )}
                 </View>
-                <Pressable onPress={() => setEditEntry(null)} style={{ marginLeft: 12 }}>
+                <Pressable onPress={() => setEditEntry(null)} style={{ marginLeft: 12 }} accessibilityRole="button" accessibilityLabel="Close edit entry">
                   <Ionicons name="close" size={24} color={theme.textSoft} />
                 </Pressable>
               </View>
@@ -911,7 +911,7 @@ export function FinanceScreen() {
               </Pressable>
 
               <Pressable onPress={handleDeleteFromEdit} style={[s.deleteBtn, { borderColor: ink }]}>
-                <Text style={[s.deleteBtnText, { color: "#E8654E" }]}>Delete entry</Text>
+                <Text style={[s.deleteBtnText, { color: theme.danger }]}>Delete entry</Text>
               </Pressable>
             </ScrollView>
           </TouchableWithoutFeedback>

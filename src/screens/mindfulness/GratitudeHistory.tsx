@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, LayoutAnimation, Platform, UIManager } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { api } from "../../api/client";
 import { sharedStyles } from "./shared";
@@ -48,7 +48,18 @@ export function GratitudeHistory({ theme, ink, refreshKey }: { theme: any; ink: 
     useCallback(() => {
       let cancelled = false;
       api.mindfulnessJournal()
-        .then((rows: JournalEntry[]) => { if (!cancelled) setEntries(rows); })
+        .then((rows: JournalEntry[]) => {
+          if (cancelled) return;
+          setEntries((prev) => {
+            if (prev !== null && rows.length !== prev.length) {
+              if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+                UIManager.setLayoutAnimationEnabledExperimental(true);
+              }
+              LayoutAnimation.configureNext(LayoutAnimation.create(220, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
+            }
+            return rows;
+          });
+        })
         .catch(() => { if (!cancelled) setEntries([]); });
       return () => { cancelled = true; };
     }, [refreshKey])
@@ -98,7 +109,14 @@ export function GratitudeHistory({ theme, ink, refreshKey }: { theme: any; ink: 
         </View>
       ))}
       {entries.length > 3 && (
-        <Pressable onPress={() => setExpanded(!expanded)} style={{ alignItems: "center", paddingVertical: 6 }} accessibilityRole="button">
+        <Pressable
+          onPress={() => {
+            LayoutAnimation.configureNext(LayoutAnimation.create(220, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
+            setExpanded(!expanded);
+          }}
+          style={{ alignItems: "center", paddingVertical: 6 }}
+          accessibilityRole="button"
+        >
           <Text style={{ color: berry.solid ?? ink, fontSize: 13, fontWeight: "800" }}>
             {expanded ? "Show less ↑" : `Show all ↓`}
           </Text>

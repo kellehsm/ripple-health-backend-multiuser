@@ -9,6 +9,7 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -44,6 +45,7 @@ export function ChallengesScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -53,7 +55,7 @@ export function ChallengesScreen() {
       getChallenges()
         .then((data) => { if (!cancelled) setChallenges(Array.isArray(data) ? data : []); })
         .catch(() => { if (!cancelled) setLoadError(true); })
-        .finally(() => { if (!cancelled) setLoading(false); });
+        .finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
       return () => { cancelled = true; };
     }, [reloadKey])
   );
@@ -111,7 +113,17 @@ export function ChallengesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); setReloadKey((k) => k + 1); }}
+            tintColor={theme.teal.solid}
+            colors={[theme.teal.solid]}
+          />
+        }
+      >
         {loading ? (
           <View style={{ alignItems: "center", paddingVertical: 40 }}>
             <ActivityIndicator color={theme.purple.solid} size="large" />
@@ -182,6 +194,8 @@ export function ChallengesScreen() {
       <Pressable
         onPress={() => navigation.navigate("NewChallenge")}
         style={[styles.fab, { backgroundColor: theme.purple.solid, borderColor: theme.ink }]}
+        accessibilityRole="button"
+        accessibilityLabel="Create a new challenge"
       >
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>

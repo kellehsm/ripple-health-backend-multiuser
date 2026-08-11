@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Animated, Easing } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 import * as Haptics from 'expo-haptics';
 import { api } from '../../api/client';
 import { coloredShadow } from '../../theme/styleUtils';
@@ -24,14 +26,20 @@ export function ProgressRing({ size, stroke, progress, color, track, children }:
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(1, progress));
+  const anim = React.useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    // SVG props can't use the native driver
+    Animated.timing(anim, { toValue: clamped, duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [clamped, anim]);
+  const dashOffset = anim.interpolate({ inputRange: [0, 1], outputRange: [c, 0] });
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={track} strokeWidth={stroke} fill="none" />
-        <Circle
+        <AnimatedCircle
           cx={size / 2} cy={size / 2} r={r}
           stroke={color} strokeWidth={stroke} fill="none"
-          strokeDasharray={`${c}`} strokeDashoffset={c * (1 - clamped)}
+          strokeDasharray={`${c}`} strokeDashoffset={dashOffset}
           strokeLinecap="round"
         />
       </Svg>

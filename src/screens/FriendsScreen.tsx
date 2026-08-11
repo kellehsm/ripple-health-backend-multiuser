@@ -5,6 +5,7 @@ import { findIntro } from "../onboarding/featureIntros";
 import { ScreenBackground } from "../components/ScreenBackground";
 import {
   ScrollView,
+  RefreshControl,
   View,
   Text,
   TextInput,
@@ -108,6 +109,7 @@ export function FriendsScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [actingOnRequest, setActingOnRequest] = useState<string | null>(null);
   const [nudges, setNudges] = useState<Nudge[]>([]);
@@ -183,7 +185,7 @@ export function FriendsScreen() {
         } catch {
           if (!cancelled) setLoadError(true);
         } finally {
-          if (!cancelled) setLoading(false);
+          if (!cancelled) { setLoading(false); setRefreshing(false); }
         }
       }
 
@@ -307,6 +309,14 @@ export function FriendsScreen() {
       contentContainerStyle={[styles.content, tourPadding > 0 && { paddingBottom: tourPadding }]}
       onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
       scrollEventThrottle={16}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); setReloadKey((k) => k + 1); }}
+          tintColor={theme.teal.solid}
+          colors={[theme.teal.solid]}
+        />
+      }
     >
       {/* Load-error banner (partial failure; full failure shows in the friends section) */}
       {!loading && loadError && friends.length > 0 && (

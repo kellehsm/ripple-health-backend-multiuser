@@ -622,30 +622,38 @@ export function HealthScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     waterFlashAnim.setValue(0.55);
     Animated.timing(waterFlashAnim, { toValue: 0, duration: 500, useNativeDriver: true }).start();
+    // Optimistic: bump the count instantly, reconcile with the server after
+    const prevCount = prevWaterRef.current;
+    const wasAtGoal = prevCount >= waterGoal;
+    const optimistic = prevCount + 1;
+    prevWaterRef.current = optimistic;
+    setWaterCount(optimistic);
+    // Pop the count number on each log
+    Animated.sequence([
+      Animated.spring(waterCountScaleAnim, { toValue: 1.35, useNativeDriver: true, speed: 40, bounciness: 10 }),
+      Animated.spring(waterCountScaleAnim, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }),
+    ]).start();
+    if (optimistic >= waterGoal && !wasAtGoal) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      waterCelebAnim.setValue(0);
+      Animated.sequence([
+        Animated.timing(waterCelebAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.delay(1200),
+        Animated.timing(waterCelebAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+      ]).start();
+    }
     try {
       await api.logWater(waterMetricId);
       invalidateCache(`health:water:${new Date().toDateString()}`);
       const logs = await api.todaysWaterCount(waterMetricId);
       const newCount = sumTodayLogs(Array.isArray(logs) ? logs : []);
-      const wasAtGoal = prevWaterRef.current >= waterGoal;
       prevWaterRef.current = newCount;
       setWaterCount(newCount);
-      // Pop the count number on each log
-      Animated.sequence([
-        Animated.spring(waterCountScaleAnim, { toValue: 1.35, useNativeDriver: true, speed: 40, bounciness: 10 }),
-        Animated.spring(waterCountScaleAnim, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 6 }),
-      ]).start();
-      if (newCount >= waterGoal && !wasAtGoal) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        waterCelebAnim.setValue(0);
-        Animated.sequence([
-          Animated.timing(waterCelebAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-          Animated.delay(1200),
-          Animated.timing(waterCelebAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
-        ]).start();
-      }
     } catch (e) {
       console.error("Failed to log water", e);
+      prevWaterRef.current = prevCount;
+      setWaterCount(prevCount);
+      toast("Couldn't log that glass of water. Try again.", "error");
     }
   }
 

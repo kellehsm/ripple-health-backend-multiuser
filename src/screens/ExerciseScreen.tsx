@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Modal } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Modal, RefreshControl } from 'react-native';
 import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
 import { useFeatureIntro } from '../onboarding/useFeatureIntro';
 import { findIntro } from '../onboarding/featureIntros';
@@ -86,6 +86,7 @@ const FOCUS_LABEL: Record<string, string> = {
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
 function CyclingImage({ images, style }: { images: string[]; style: any }) {
+  const { theme } = useTheme();
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     if (images.length <= 1) return;
@@ -93,7 +94,7 @@ function CyclingImage({ images, style }: { images: string[]; style: any }) {
     return () => clearInterval(t);
   }, [images.length]);
   if (!images.length) {
-    return <View style={[style, { backgroundColor: '#D8F5EB', opacity: 0.5 }]} />;
+    return <View style={[style, { backgroundColor: theme.teal.bg, opacity: 0.5 }]} />;
   }
   return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={style} resizeMode="cover" />;
 }
@@ -140,6 +141,8 @@ export function ExerciseScreen() {
   const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(null);
   const [plannerVisible, setPlannerVisible] = useState(false);
   const [plannerInitialQueue, setPlannerInitialQueue] = useState<PlanExercise[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Wizard gate — null = loading, false = show wizard, true = show main screen
   const [wizardDone, setWizardDone] = useState<boolean | null>(null);
@@ -186,10 +189,11 @@ export function ExerciseScreen() {
       setSuggestion(cached.suggestion);
       setActiveProgram(cached.activeProgram);
       setLoading(false);
+      setRefreshing(false);
       return () => { cancelled = true; };
     }
 
-    setLoading(true);
+    if (!refreshing) setLoading(true);
     Promise.all([
       api.getWorkoutWizardStatus().catch(() => ({ complete: false })),
       api.listExerciseSessions(20, 0).catch(() => []),
@@ -212,9 +216,9 @@ export function ExerciseScreen() {
         setSuggestion(sugVal);
         setActiveProgram(activeProgramVal);
       }
-    }).finally(() => { if (!cancelled) setLoading(false); });
+    }).finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
     return () => { cancelled = true; };
-  }, [prefsLoading, preferences.selectedModules]));
+  }, [prefsLoading, preferences.selectedModules, reloadKey]));
 
   async function handleBeginWorkout(queue: PlanExercise[]) {
     const session = await api.startExerciseSession();
@@ -279,7 +283,22 @@ export function ExerciseScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.page }]}>
       <ScreenBackground pageId="exercise" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              invalidateCache('exercise:main');
+              setRefreshing(true);
+              setReloadKey((k) => k + 1);
+            }}
+            tintColor={theme.teal.solid}
+            colors={[theme.teal.solid]}
+          />
+        }
+      >
 
         {showTooltip && (
           <TooltipBubble

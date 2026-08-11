@@ -497,6 +497,7 @@ export function OverviewScreen() {
   // Number counter animations (0→1, interpolate to real value)
   const stepsCounterAnim = useRef(new Animated.Value(0)).current;
   const waterCounterAnim = useRef(new Animated.Value(0)).current;
+  const glucoseCounterAnim = useRef(new Animated.Value(0)).current;
   // Per-streak counter anims — rebuilt when allStreaks changes
   const streakCounterAnims = useRef<Animated.Value[]>([]);
 
@@ -964,7 +965,13 @@ export function OverviewScreen() {
     } else {
       waterCounterAnim.setValue(1);
     }
-  }, [loading, stepsCount, waterCount]);
+    if (glucoseStatus?.hasData && glucoseStatus.mg_dl != null) {
+      glucoseCounterAnim.setValue(0);
+      Animated.timing(glucoseCounterAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
+    } else {
+      glucoseCounterAnim.setValue(1);
+    }
+  }, [loading, stepsCount, waterCount, glucoseStatus?.mg_dl]);
 
   // Streak counter anims — rebuild when allStreaks changes
   useEffect(function () {
@@ -1243,8 +1250,10 @@ export function OverviewScreen() {
               // Determine if this chip uses an animated counter
               const isSteps = chip.label === "STEPS" && stepsCount !== null && stepsCount > 0;
               const isWater = chip.label === "WATER" && waterCount > 0;
-              const animValue = isSteps ? stepsCounterAnim : isWater ? waterCounterAnim : null;
-              const realNum  = isSteps ? stepsCount! : isWater ? waterCount : 0;
+              const isGlucose = chip.label === "GLUCOSE" && !!glucoseStatus?.hasData && glucoseStatus.mg_dl != null;
+              const animValue = isSteps ? stepsCounterAnim : isWater ? waterCounterAnim : isGlucose ? glucoseCounterAnim : null;
+              const realNum  = isSteps ? stepsCount! : isWater ? waterCount : isGlucose ? glucoseStatus!.mg_dl! : 0;
+              const glucoseArrow = isGlucose && glucoseStatus?.arrow ? " " + glucoseStatus.arrow : "";
               const entranceAnim = chipAnims.current[index] ?? new Animated.Value(1);
               return (
                 <AnimatedChip
@@ -1286,7 +1295,7 @@ export function OverviewScreen() {
                       animValue={animValue}
                       targetValue={realNum}
                       style={[styles.chipValue, { color: theme.textStrong }]}
-                      format={isSteps ? (v) => v.toLocaleString() : undefined}
+                      format={isSteps ? (v) => v.toLocaleString() : isGlucose ? (v) => String(v) + glucoseArrow : undefined}
                     />
                   ) : (
                     <Text style={[styles.chipValue, { color: theme.textStrong }]} numberOfLines={1}>{chip.value}</Text>

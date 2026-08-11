@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Line, Rect, Text as SvgText } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
@@ -105,6 +105,19 @@ export function SleepDetailScreen() {
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [loadingRange, setLoadingRange] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        loadRange(rangeDays),
+        api.sleepStats().then((s: StatsPayload) => setStats(s)).catch(() => {}),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [rangeDays]);
 
   const loadRange = useCallback(async (days: number) => {
     setLoadingRange(true);
@@ -172,7 +185,13 @@ export function SleepDetailScreen() {
 
   if (!loadingRange && sessions.length === 0) {
     return (
-      <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={[styles.content, { flexGrow: 1, justifyContent: "center" }]}>
+      <ScrollView
+        style={{ backgroundColor: theme.page }}
+        contentContainerStyle={[styles.content, { flexGrow: 1, justifyContent: "center" }]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />
+        }
+      >
         <View style={{ alignItems: "center", gap: 10, padding: 24 }}>
           <Ionicons name="moon-outline" size={44} color={theme.violet?.solid ?? "#7965B0"} />
           <Text style={{ color: theme.textStrong, fontSize: 16, fontWeight: "800" }}>No sleep data yet</Text>
@@ -185,7 +204,13 @@ export function SleepDetailScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={{ backgroundColor: theme.page }}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />
+      }
+    >
 
       {/* Range picker + averages */}
       <ShadowCard size="card" accent={theme.violet?.solid ?? "#7965B0"} padding={14}>
