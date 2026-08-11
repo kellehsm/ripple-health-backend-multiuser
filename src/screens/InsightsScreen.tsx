@@ -7,6 +7,7 @@ import {
   Animated, Easing, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -85,6 +86,7 @@ const TYPE_GROUPS: { label: string; types: string[]; emoji: string }[] = [
 
 export function InsightsScreen() {
   const { theme } = useTheme();
+  const navigation = useNavigation<any>();
   const insightsIntro = findIntro("insights")!;
   const [introVisible, dismissIntro] = useFeatureIntro(insightsIntro.key);
   const ink = theme.ink;
@@ -398,6 +400,32 @@ export function InsightsScreen() {
           )}
         </View>
       )}
+
+      <Pressable
+        onPress={() => navigation.navigate("InsightsHistory")}
+        style={({ pressed }) => [
+          {
+            marginTop: 12,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderWidth: 1.5,
+            borderRadius: 14,
+            borderColor: theme.cardBorder,
+            backgroundColor: theme.card,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="View past insights"
+      >
+        <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: 13 }}>
+          View past insights
+        </Text>
+        <Text style={{ color: theme.textSoft, fontSize: 16 }}>›</Text>
+      </Pressable>
 
       <Text style={[styles.footer, { color: theme.textSoft }]}>
         Insights are based on statistical patterns in your personal data only. They describe observations, never diagnoses. Always consult a healthcare professional for medical decisions.

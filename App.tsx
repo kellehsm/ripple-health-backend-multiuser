@@ -33,6 +33,7 @@ import { AppSettingsProvider } from "./src/theme/AppSettingsContext";
 import { StringsProvider } from "./src/strings/StringsContext";
 import { TabPreferencesProvider } from "./src/context/TabPreferencesContext";
 import { OfflineBanner } from "./src/components/OfflineBanner";
+import { WhatsNewModal } from "./src/components/WhatsNewModal";
 import { RootTabs } from "./src/navigation/RootTabs";
 import { RippleLoader } from "./src/components/RippleLoader";
 import { OnboardingFlow } from "./src/screens/OnboardingFlow";
@@ -451,6 +452,7 @@ export default function App() {
           <RootTabs onNavigationStateChange={triggerNavRipple} />
           <OfflineBanner />
           <NavRippleOverlay />
+          <WhatsNewModal />
           {biometricLocked && (
             <View style={lockStyles.overlay}>
               <RippleLoader size="large" style={lockStyles.loader} />

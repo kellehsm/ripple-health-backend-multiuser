@@ -50,6 +50,7 @@ import { NewChallengeScreen } from "../screens/NewChallengeScreen";
 import { SocialSettingsScreen } from "../screens/settings/SocialSettingsScreen";
 import { CardImageSplitterScreen } from "../screens/CardImageSplitterScreen";
 import { WatchTilesScreen } from "../screens/WatchTilesScreen";
+import { InsightsHistoryScreen } from "../screens/InsightsHistoryScreen";
 import { MedicationRemindersScreen } from "../screens/settings/MedicationRemindersScreen";
 import { BottomNav } from "../components/BottomNav";
 import { useTabPreferences } from "../hooks/useTabPreferences";
@@ -223,6 +224,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="InsightsTrends" component={InsightsTrendsScreen} options={{ title: "Insights & Trends" }} />
         <Stack.Screen name="Completed" component={CompletedScreen} options={{ title: "My Bookshelf" }} />
         <Stack.Screen name="Insights" component={InsightsScreen} options={{ title: "Insights" }} />
+        <Stack.Screen name="InsightsHistory" component={InsightsHistoryScreen} options={{ title: "Past Insights" }} />
         <Stack.Screen name="Mindfulness" component={MindfulnessScreen} options={{ title: "Mindfulness" }} />
         <Stack.Screen name="CustomizeDashboard" component={CustomizeDashboardScreen} options={{ title: "Customize Dashboard" }} />
         <Stack.Screen name="GlobalSearch" component={GlobalSearchScreen} options={{ title: "Search" }} />

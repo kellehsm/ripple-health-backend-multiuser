@@ -13,6 +13,8 @@ import {
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { EmptyState } from "../components/EmptyState";
 import { ShadowCard } from "../components/ShadowCard";
+import { UndoBanner } from "../components/UndoBanner";
+import { toast } from "../lib/toast";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
@@ -335,19 +337,39 @@ export function CompletedScreen() {
     setRefreshing(false);
   }
 
+  const [pendingDelete, setPendingDelete] = React.useState<null | { id: string; name: string; item: CompletedItem; timer: any }>(null);
+
   function handleDeleteBook(id: string, name: string) {
-    Alert.alert("Remove book", `Remove "${name}" from completed?`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: async () => {
-        try { await api.deleteBook(id); load(); } catch (e) { console.error(e); }
-      }},
-    ]);
+    const victim = items.find((i) => i.id === id);
+    if (!victim) return;
+    // Optimistic remove — the API call fires after a 5s undo window so the user
+    // can cancel without the delete ever hitting the server.
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    if (pendingDelete?.timer) clearTimeout(pendingDelete.timer);
+    const timer = setTimeout(async () => {
+      setPendingDelete(null);
+      try { await api.deleteBook(id); }
+      catch (e) {
+        console.error(e);
+        toast("Couldn't remove that book. Try again.", "error");
+        load();
+      }
+    }, 5000);
+    setPendingDelete({ id, name, item: victim, timer });
+  }
+
+  function handleUndoDelete() {
+    if (!pendingDelete) return;
+    clearTimeout(pendingDelete.timer);
+    setItems((prev) => [...prev, pendingDelete.item]);
+    setPendingDelete(null);
   }
 
   const completedBooks = items.filter((i) => i.kind === "book");
   const completedHobbies = items.filter((i) => i.kind === "hobby");
 
   return (
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
@@ -458,6 +480,14 @@ export function CompletedScreen() {
         </>
       )}
     </ScrollView>
+    {pendingDelete && (
+      <UndoBanner
+        message={`Removed "${pendingDelete.name.slice(0, 40)}${pendingDelete.name.length > 40 ? '…' : ''}"`}
+        onUndo={handleUndoDelete}
+        theme={theme}
+      />
+    )}
+    </View>
   );
 }
 
