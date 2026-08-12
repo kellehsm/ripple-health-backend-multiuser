@@ -403,21 +403,54 @@ export function ExerciseScreen() {
             onDismiss={() => setShowTooltip(false)}
           />
         )}
-        {/* Active session banner */}
+        {/* Active session banner — tap the row to continue, tap the X to
+            discard the unfinished session (removes it and its log entries). */}
         {openSession && (
-          <Pressable
-            onPress={() => navigation.navigate('ExerciseSession', { sessionId: openSession.id })}
-            style={[styles.activeBanner, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}
-          >
-            <View style={[styles.activeDot, { backgroundColor: theme.teal.solid }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.activeBannerTitle, { color: theme.teal.sub }]}>Session in progress</Text>
-              <Text style={[styles.activeBannerSub, { color: theme.textSoft }]}>
-                Started {new Date(openSession.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · tap to continue
-              </Text>
-            </View>
-            <Text style={{ color: theme.teal.solid, fontSize: 18 }}>›</Text>
-          </Pressable>
+          <View style={[styles.activeBanner, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
+            <Pressable
+              onPress={() => navigation.navigate('ExerciseSession', { sessionId: openSession.id })}
+              style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
+            >
+              <View style={[styles.activeDot, { backgroundColor: theme.teal.solid }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.activeBannerTitle, { color: theme.teal.sub }]}>Session in progress</Text>
+                <Text style={[styles.activeBannerSub, { color: theme.textSoft }]}>
+                  Started {new Date(openSession.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · tap to continue
+                </Text>
+              </View>
+              <Text style={{ color: theme.teal.solid, fontSize: 18 }}>›</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                Alert.alert(
+                  "Discard this session?",
+                  "The unfinished session and any sets you logged in it will be deleted.",
+                  [
+                    { text: "Keep it", style: "cancel" },
+                    {
+                      text: "Discard", style: "destructive",
+                      onPress: async () => {
+                        try {
+                          await api.deleteExerciseSession(openSession.id);
+                          invalidateCache('exercise:main');
+                          setReloadKey((k) => k + 1);
+                          toast("Session discarded.");
+                        } catch {
+                          toast("Couldn't discard that session.", "error");
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+              hitSlop={12}
+              style={{ paddingHorizontal: 10, paddingVertical: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Discard this unfinished session"
+            >
+              <Ionicons name="close-circle" size={22} color={theme.coral.solid} />
+            </Pressable>
+          </View>
         )}
 
         {/* Start new session button */}
@@ -429,6 +462,37 @@ export function ExerciseScreen() {
             <Text style={[styles.startBtnText, { color: theme.page }]}>🏃 Start workout session</Text>
           </Pressable>
         )}
+
+        {/* Always-visible plan-creation shortcuts. Users can restart the AI
+            wizard or hand-build a plan at any time, whether or not they
+            already have an active plan. The overflow menu on the active
+            program card still surfaces these too. */}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Pressable
+            onPress={() => { navigation.navigate('CustomPlanBuilder'); }}
+            style={({ pressed }) => [
+              styles.planShortcut,
+              { borderColor: theme.teal.solid, backgroundColor: pressed ? theme.teal.tint : "transparent" },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Build a custom workout plan"
+          >
+            <Ionicons name="construct-outline" size={16} color={theme.teal.solid} />
+            <Text style={[styles.planShortcutText, { color: theme.teal.solid }]}>Build my own plan</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleRestartWizard}
+            style={({ pressed }) => [
+              styles.planShortcut,
+              { borderColor: theme.textSoft, backgroundColor: pressed ? theme.page : "transparent" },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Take the plan quiz"
+          >
+            <Ionicons name="sparkles-outline" size={16} color={theme.textStrong} />
+            <Text style={[styles.planShortcutText, { color: theme.textStrong }]}>Take the plan quiz</Text>
+          </Pressable>
+        </View>
 
         {/* Active workout program */}
         {activeProgram && (
@@ -525,32 +589,70 @@ export function ExerciseScreen() {
           <>
             <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>RECENT SESSIONS</Text>
             {sessions.filter((s) => s.ended_at).map((session) => (
-              <Pressable
+              <View
                 key={session.id}
-                onPress={() => navigation.navigate('ExerciseDetail', { sessionId: session.id })}
                 style={[styles.sessionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
               >
-                <View style={styles.sessionCardRow}>
-                  <Text style={[styles.sessionDate, { color: theme.textStrong }]}>
-                    {formatDate(session.started_at)}
-                  </Text>
-                  <Text style={[styles.sessionDuration, { color: theme.textSoft }]}>
-                    {formatDuration(session.duration_seconds)}
-                  </Text>
-                </View>
-                {session.exercise_names && session.exercise_names.length > 0 && (
-                  <Text style={[styles.sessionExercises, { color: theme.textSoft }]} numberOfLines={1}>
-                    {session.exercise_names.slice(0, 3).join(' · ')}
-                    {session.exercise_names.length > 3 ? ` +${session.exercise_names.length - 3}` : ''}
-                  </Text>
-                )}
-                <View style={styles.sessionCardRow}>
-                  <Text style={[styles.sessionCount, { color: theme.teal.fg }]}>
-                    {session.entry_count} exercise{session.entry_count !== 1 ? 's' : ''}
-                  </Text>
-                  <Text style={{ color: theme.textSoft, fontSize: 16 }}>›</Text>
-                </View>
-              </Pressable>
+                <Pressable
+                  onPress={() => navigation.navigate('ExerciseDetail', { sessionId: session.id })}
+                  style={{ flex: 1 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View session from ${formatDate(session.started_at)}`}
+                >
+                  <View style={styles.sessionCardRow}>
+                    <Text style={[styles.sessionDate, { color: theme.textStrong }]}>
+                      {formatDate(session.started_at)}
+                    </Text>
+                    <Text style={[styles.sessionDuration, { color: theme.textSoft }]}>
+                      {formatDuration(session.duration_seconds)}
+                    </Text>
+                  </View>
+                  {session.exercise_names && session.exercise_names.length > 0 && (
+                    <Text style={[styles.sessionExercises, { color: theme.textSoft }]} numberOfLines={1}>
+                      {session.exercise_names.slice(0, 3).join(' · ')}
+                      {session.exercise_names.length > 3 ? ` +${session.exercise_names.length - 3}` : ''}
+                    </Text>
+                  )}
+                  <View style={styles.sessionCardRow}>
+                    <Text style={[styles.sessionCount, { color: theme.teal.fg }]}>
+                      {session.entry_count} exercise{session.entry_count !== 1 ? 's' : ''}
+                    </Text>
+                    <Pressable
+                      onPress={() => {
+                        Alert.alert(
+                          "Delete this workout?",
+                          `${formatDate(session.started_at)} and all its logged sets will be removed.`,
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: "Delete", style: "destructive",
+                              onPress: async () => {
+                                // Optimistic remove — reverts if the API rejects.
+                                const prev = sessions;
+                                setSessions((cur) => cur.filter((s) => s.id !== session.id));
+                                try {
+                                  await api.deleteExerciseSession(session.id);
+                                  invalidateCache('exercise:main');
+                                  toast("Workout deleted.");
+                                } catch {
+                                  setSessions(prev);
+                                  toast("Couldn't delete that session.", "error");
+                                }
+                              },
+                            },
+                          ]
+                        );
+                      }}
+                      hitSlop={12}
+                      style={{ padding: 6 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete workout from ${formatDate(session.started_at)}`}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={theme.textSoft} />
+                    </Pressable>
+                  </View>
+                </Pressable>
+              </View>
             ))}
           </>
         )}
@@ -682,6 +784,18 @@ export function ExerciseScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, gap: 12, paddingBottom: 32 },
+  planShortcut: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  planShortcutText: { fontSize: 13, fontWeight: "700" },
   activeBanner: {
     flexDirection: 'row',
     alignItems: 'center',

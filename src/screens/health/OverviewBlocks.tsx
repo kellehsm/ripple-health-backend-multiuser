@@ -1,11 +1,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { api } from '../../api/client';
 import { ShadowCard } from '../../components/ShadowCard';
 import { getWeekStart, todayStr } from '../../utils/dateUtils';
 import { softenInsight } from '../../lib/softenInsight';
 import { SubTab, Medication, CycleLog, Prediction, nextDoseCallout, getPhaseLabel } from './shared';
+
+// Locally dismissed cycle/adherence insight IDs — persisted per-device so a
+// dismissed observation doesn't come back on every screen focus. The
+// backend-side /cycle/overview-insight is computed dynamically, so there's
+// no server-side dismissed flag to lean on.
+const DISMISSED_KEY = 'ripple.cycleInsight.dismissed';
+async function loadDismissedIds(): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(DISMISSED_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch { return new Set(); }
+}
+async function saveDismissedId(id: string): Promise<void> {
+  try {
+    const cur = Array.from(await loadDismissedIds());
+    if (!cur.includes(id)) {
+      cur.push(id);
+      // Cap so this can't grow unbounded — 200 ids covers years of variety
+      await AsyncStorage.setItem(DISMISSED_KEY, JSON.stringify(cur.slice(-200)));
+    }
+  } catch {}
+}
 
 export function OverviewBlocks({
   onNavigate,
@@ -32,7 +56,7 @@ export function OverviewBlocks({
       api.getCyclePrediction().catch(() => null),
       api.getCycleLogs(weekStart, today).catch(() => []),
       api.getHealthOverviewInsight().catch(() => null),
-    ]).then(([meds, pred, weekLogs, ins]) => {
+    ]).then(async ([meds, pred, weekLogs, ins]) => {
       setMedications((meds as Medication[]) ?? []);
       setPrediction(pred);
       // count unique symptoms across all logs this week
@@ -41,7 +65,10 @@ export function OverviewBlocks({
         for (const s of (log.symptoms ?? [])) symptomSet.add(s);
       }
       setWeekSymptomCount(symptomSet.size);
-      setInsight(ins);
+      // Filter out anything the user has already swiped away locally.
+      const dismissed = await loadDismissedIds();
+      const insCand = ins as { id: string; text: string; confidence: string } | null;
+      setInsight(insCand && !dismissed.has(insCand.id) ? insCand : null);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -180,14 +207,30 @@ export function OverviewBlocks({
 
       {insight && (
         <ShadowCard size="tile" bg={theme.purple?.tint ?? '#F3EEFF'} accent={theme.purple?.sub ?? '#9B6DFF'} rotate={0.5} padding={14}>
-          <Text style={{ color: theme.purple?.fg ?? '#5B21B6', fontSize: 13, fontWeight: '700', lineHeight: 18 }}>
-            {softenInsight(insight.text)}
-          </Text>
-          {insight.confidence === 'tentative' && (
-            <Text style={{ color: theme.purple?.sub ?? '#9B6DFF', fontSize: 11, marginTop: 2 }}>
-              Based on limited data — may change as more cycles are logged.
-            </Text>
-          )}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.purple?.fg ?? '#5B21B6', fontSize: 13, fontWeight: '700', lineHeight: 18 }}>
+                {softenInsight(insight.text)}
+              </Text>
+              {insight.confidence === 'tentative' && (
+                <Text style={{ color: theme.purple?.sub ?? '#9B6DFF', fontSize: 11, marginTop: 2 }}>
+                  Based on limited data — may change as more cycles are logged.
+                </Text>
+              )}
+            </View>
+            <Pressable
+              onPress={async () => {
+                Haptics.selectionAsync().catch(() => {});
+                await saveDismissedId(insight.id);
+                setInsight(null);
+              }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss this observation"
+            >
+              <Ionicons name="close" size={16} color={theme.purple?.sub ?? '#9B6DFF'} />
+            </Pressable>
+          </View>
         </ShadowCard>
       )}
     </View>

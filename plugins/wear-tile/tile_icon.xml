@@ -1,10 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ripple 4-quadrant droplet icon — shown in the Wear OS tile picker so the
+  Ripple tile is recognizable when the user browses "Add a tile" on the watch.
+  Matches the phone app icon (teal / coral / purple / berry-wine quadrants).
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"
     android:viewportWidth="48"
     android:viewportHeight="48">
+
+    <!-- Droplet silhouette in ink so any coloured quadrant that under-fills
+         the shape still reads as one solid teardrop. -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M24,4 C24,4 6,22.5 6,32 A18,18 0 0,0 42,32 C42,22.5 24,4 24,4 Z" />
+
+    <!-- Top-left quadrant: teal -->
     <path
         android:fillColor="#3FA0A6"
-        android:pathData="M24,4 C29,14 38,20 38,28 C38,36 32,42 24,42 C16,42 10,36 10,28 C10,20 19,14 24,4 Z" />
+        android:pathData="M24,24 L24,6 C24,6 8.5,22.5 8.5,32 A15.5,15.5 0 0,0 24,47.5 L24,24 Z" />
+    <!-- Top-right quadrant: coral -->
+    <path
+        android:fillColor="#E8654E"
+        android:pathData="M24,24 L24,6 C24,6 39.5,22.5 39.5,32 A15.5,15.5 0 0,1 24,47.5 L24,24 Z" />
+    <!-- Bottom-left quadrant: purple (drawn after so it wins on the bottom
+         half where it overlaps the top quadrant fills) -->
+    <path
+        android:fillColor="#7B3FBF"
+        android:pathData="M24,24 L8.5,24 A15.5,15.5 0 0,0 24,47.5 L24,24 Z" />
+    <!-- Bottom-right quadrant: berry-wine -->
+    <path
+        android:fillColor="#A62A50"
+        android:pathData="M24,24 L39.5,24 A15.5,15.5 0 0,1 24,47.5 L24,24 Z" />
+
+    <!-- Center pulse/heartbeat line -->
+    <path
+        android:strokeColor="#111111"
+        android:strokeWidth="1.6"
+        android:pathData="M9,24 L15,24 L17,20 L20,28 L23,18 L26,30 L29,22 L32,26 L34,24 L39,24" />
 </vector>
