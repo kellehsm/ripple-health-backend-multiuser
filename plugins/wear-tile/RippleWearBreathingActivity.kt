@@ -12,40 +12,113 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.view.Gravity
+import android.view.View
 import android.view.WindowManager
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.LinearInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 /**
- * Haptic-guided box breathing (4-4-4-4) for the wrist. The circle grows on
- * inhale, holds, shrinks on exhale — each phase change is marked with a
- * distinct vibration so the practice works eyes-closed.
+ * Haptic-guided breathing for the wrist. Five paces, each with its own
+ * timing pattern and animation character:
+ *
+ *   BOX 4-4-4-4          — stress reset, linear grow/hold/shrink/hold
+ *   RELAX 4-7-8          — sleep aid, long exhale, ease-in-out
+ *   COHERENT 5-5         — HRV balance, smooth continuous sine
+ *   ENERGIZE 2-2         — quick wake-up, snappy overshoot animation
+ *   SIGH 3-1-8           — physiological sigh (Huberman), sharp inhale-topper
+ *
+ * Each transition marks a distinct vibration so the practice works
+ * eyes-closed. All labels are large + bold for readability on the wrist.
  */
 class RippleWearBreathingActivity : Activity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var vibrator: Vibrator? = null
     private var animator: ValueAnimator? = null
+
+    private var pace: Pace? = null
     private var running = false
     private var phaseIndex = 0
     private var cyclesDone = 0
 
-    private lateinit var circle: FrameLayout
-    private lateinit var phaseLabel: TextView
-    private lateinit var countLabel: TextView
-    private lateinit var cycleLabel: TextView
+    private lateinit var root: FrameLayout
+    private var circle: FrameLayout? = null
+    private var phaseLabel: TextView? = null
+    private var countLabel: TextView? = null
+    private var cycleLabel: TextView? = null
+
+    /**
+     * A breathing pace. `curve` picks the animator interpolator for a
+     * personality — LINEAR feels metronomic (BOX), SMOOTH feels wave-like
+     * (COHERENT / RELAX), SNAPPY feels punchy (ENERGIZE).
+     */
+    enum class Curve { LINEAR, SMOOTH, SNAPPY }
+
+    enum class Pace(
+        val id: String,
+        val title: String,
+        val subtitle: String,
+        val accent: Int,
+        val phaseSeconds: IntArray,
+        val phaseNames: Array<String>,
+        val curve: Curve,
+    ) {
+        BOX(
+            id = "box",
+            title = "BOX",
+            subtitle = "4·4·4·4 — stress reset",
+            accent = 0xFF4ECDC4.toInt(),
+            phaseSeconds = intArrayOf(4, 4, 4, 4),
+            phaseNames = arrayOf("INHALE", "HOLD", "EXHALE", "HOLD"),
+            curve = Curve.LINEAR,
+        ),
+        RELAX(
+            id = "relax",
+            title = "RELAX",
+            subtitle = "4·7·8 — fall asleep",
+            accent = 0xFFB79CFF.toInt(),
+            phaseSeconds = intArrayOf(4, 7, 8),
+            phaseNames = arrayOf("INHALE", "HOLD", "EXHALE"),
+            curve = Curve.SMOOTH,
+        ),
+        COHERENT(
+            id = "coherent",
+            title = "COHERENT",
+            subtitle = "5·5 — balance HRV",
+            accent = 0xFF5EA0F0.toInt(),
+            phaseSeconds = intArrayOf(5, 5),
+            phaseNames = arrayOf("INHALE", "EXHALE"),
+            curve = Curve.SMOOTH,
+        ),
+        ENERGIZE(
+            id = "energize",
+            title = "ENERGIZE",
+            subtitle = "2·2 — quick wake-up",
+            accent = 0xFFFF7A6B.toInt(),
+            phaseSeconds = intArrayOf(2, 2),
+            phaseNames = arrayOf("INHALE", "EXHALE"),
+            curve = Curve.SNAPPY,
+        ),
+        SIGH(
+            id = "sigh",
+            title = "SIGH",
+            subtitle = "3·1·8 — Huberman reset",
+            accent = 0xFFF5A623.toInt(),
+            phaseSeconds = intArrayOf(3, 1, 8),
+            phaseNames = arrayOf("INHALE", "TOP-UP", "EXHALE"),
+            curve = Curve.SMOOTH,
+        );
+    }
 
     companion object {
-        private val BG = 0xFF10141A.toInt()
-        private val TEAL = 0xFF4ECDC4.toInt()
-        private const val TEAL_DIM = 0x334ECDC4
-        private val LABEL_GRAY = 0xFF8A93A0.toInt()
-        private val WHITE = 0xFFF2F4F7.toInt()
-
-        private const val PHASE_MS = 4000L
-        private val PHASE_NAMES = arrayOf("INHALE", "HOLD", "EXHALE", "HOLD")
+        private const val BG = 0xFF10141A.toInt()
+        private const val LABEL_GRAY = 0xFF8A93A0.toInt()
+        private const val WHITE = 0xFFF2F4F7.toInt()
         private const val SCALE_MIN = 0.55f
         private const val SCALE_MAX = 1.0f
     }
@@ -61,17 +134,129 @@ class RippleWearBreathingActivity : Activity() {
             getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         }
 
+        root = FrameLayout(this).apply { setBackgroundColor(BG) }
+        setContentView(root)
+        showPacePicker()
+    }
+
+    /** Scrollable pace menu. Five options each with title + subtitle. */
+    private fun showPacePicker() {
         val density = resources.displayMetrics.density
-        fun dp(v: Int) = (v * density).toInt()
+        fun px(v: Int) = (v * density).toInt()
 
-        val root = FrameLayout(this).apply { setBackgroundColor(BG) }
+        root.removeAllViews()
 
-        val circleSize = dp(140)
+        val scroll = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(px(20), px(30), px(20), px(24))
+        }
+
+        col.addView(TextView(this).apply {
+            text = "BREATHE"
+            textSize = 14f
+            setTextColor(WHITE)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            letterSpacing = 0.2f
+        })
+        col.addView(TextView(this).apply {
+            text = "PICK A PACE"
+            textSize = 10f
+            setTextColor(LABEL_GRAY)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            letterSpacing = 0.15f
+            setPadding(0, px(4), 0, px(10))
+        })
+
+        Pace.values().forEach { p ->
+            col.addView(paceRow(px, p), rowLp(px))
+        }
+
+        col.addView(TextView(this).apply {
+            text = "CANCEL"
+            textSize = 11f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(LABEL_GRAY)
+            gravity = Gravity.CENTER
+            letterSpacing = 0.15f
+            setPadding(0, px(14), 0, 0)
+            setOnClickListener { finish() }
+        }, rowLp(px))
+
+        scroll.addView(col)
+        root.addView(scroll, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            Gravity.CENTER
+        ))
+    }
+
+    private fun rowLp(px: (Int) -> Int): LinearLayout.LayoutParams {
+        return LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = px(8); gravity = Gravity.CENTER_HORIZONTAL }
+    }
+
+    private fun paceRow(px: (Int) -> Int, p: Pace): View {
+        val density = resources.displayMetrics.density
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                cornerRadius = px(14).toFloat()
+                setColor(0x00000000)
+                setStroke((2 * density).toInt(), p.accent)
+            }
+            setPadding(px(14), px(10), px(14), px(10))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                pace = p
+                startSession()
+            }
+        }
+        card.addView(TextView(this).apply {
+            text = p.title
+            textSize = 16f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(p.accent)
+            gravity = Gravity.CENTER
+            letterSpacing = 0.14f
+        })
+        card.addView(TextView(this).apply {
+            text = p.subtitle
+            textSize = 11f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(LABEL_GRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, px(2), 0, 0)
+        })
+        return card
+    }
+
+    /** Guided session — big pulsing circle, BOLD large phase text, tap ends. */
+    private fun startSession() {
+        val p = pace ?: return
+        val density = resources.displayMetrics.density
+        fun px(v: Int) = (v * density).toInt()
+
+        root.removeAllViews()
+
+        val circleSize = px(150)
+        val dimAccent = (p.accent and 0x00FFFFFF) or 0x33000000 // ~20% alpha
         circle = FrameLayout(this).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(TEAL_DIM)
-                setStroke(dp(3), TEAL)
+                setColor(dimAccent)
+                setStroke(px(3), p.accent)
             }
             scaleX = SCALE_MIN
             scaleY = SCALE_MIN
@@ -83,95 +268,111 @@ class RippleWearBreathingActivity : Activity() {
             gravity = Gravity.CENTER
         }
         phaseLabel = TextView(this).apply {
-            text = "BREATHE"
-            textSize = 15f
+            textSize = 22f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
             setTextColor(WHITE)
             gravity = Gravity.CENTER
-            letterSpacing = 0.1f
+            letterSpacing = 0.14f
         }
         countLabel = TextView(this).apply {
-            text = "tap to start"
-            textSize = 11f
-            setTextColor(LABEL_GRAY)
+            textSize = 16f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(p.accent)
             gravity = Gravity.CENTER
         }
         cycleLabel = TextView(this).apply {
-            text = "box 4·4·4·4"
-            textSize = 9f
+            textSize = 11f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
             setTextColor(LABEL_GRAY)
             gravity = Gravity.CENTER
+            text = "TAP TO END"
+            letterSpacing = 0.15f
         }
         col.addView(phaseLabel)
-        col.addView(countLabel)
-        col.addView(cycleLabel)
+        col.addView(countLabel, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = px(2); gravity = Gravity.CENTER })
+        col.addView(cycleLabel, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = px(10); gravity = Gravity.CENTER })
+
         root.addView(col, FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
 
-        root.setOnClickListener {
-            if (running) stopAndFinish() else startBreathing()
-        }
+        root.setOnClickListener { stopAndFinish() }
 
-        setContentView(root)
-    }
-
-    private fun startBreathing() {
         running = true
         phaseIndex = 0
         cyclesDone = 0
-        cycleLabel.text = "tap to end"
         runPhase()
     }
 
     private fun runPhase() {
+        val p = pace ?: return
         if (!running) return
-        val name = PHASE_NAMES[phaseIndex]
-        phaseLabel.text = name
-        vibrateForPhase(phaseIndex)
+        val name = p.phaseNames[phaseIndex]
+        val secs = p.phaseSeconds[phaseIndex]
+        val phaseMs = secs * 1000L
+
+        phaseLabel?.text = name
+        vibrateForPhase(name)
 
         animator?.cancel()
-        when (phaseIndex) {
-            0 -> animateCircle(SCALE_MIN, SCALE_MAX)  // inhale: grow
-            2 -> animateCircle(SCALE_MAX, SCALE_MIN)  // exhale: shrink
-            else -> animator = null                    // hold: stay
+        when (name) {
+            "INHALE"  -> animateCircle(currentScale(), SCALE_MAX, phaseMs, p.curve)
+            "TOP-UP"  -> animateCircle(currentScale(), SCALE_MAX + 0.08f, phaseMs, Curve.SNAPPY)
+            "EXHALE"  -> animateCircle(currentScale(), SCALE_MIN, phaseMs, p.curve)
+            else      -> animator = null  // HOLD: hold current scale
         }
 
-        // 4-3-2-1 countdown inside the phase
-        for (i in 0 until 4) {
+        for (i in 0 until secs) {
             handler.postDelayed({
-                if (running) countLabel.text = (4 - i).toString()
+                if (running) countLabel?.text = (secs - i).toString()
             }, i * 1000L)
         }
 
         handler.postDelayed({
             if (!running) return@postDelayed
-            phaseIndex = (phaseIndex + 1) % 4
+            phaseIndex = (phaseIndex + 1) % p.phaseSeconds.size
             if (phaseIndex == 0) {
                 cyclesDone += 1
-                cycleLabel.text = if (cyclesDone == 1) "1 cycle · tap to end" else "$cyclesDone cycles · tap to end"
+                cycleLabel?.text = "${cyclesDone}× · TAP TO END"
             }
             runPhase()
-        }, PHASE_MS)
+        }, phaseMs)
     }
 
-    private fun animateCircle(from: Float, to: Float) {
+    private fun currentScale(): Float = circle?.scaleX ?: SCALE_MIN
+
+    private fun animateCircle(from: Float, to: Float, duration: Long, curve: Curve) {
         animator = ValueAnimator.ofFloat(from, to).apply {
-            duration = PHASE_MS
-            interpolator = LinearInterpolator()
+            this.duration = duration
+            interpolator = when (curve) {
+                Curve.LINEAR -> LinearInterpolator()
+                Curve.SMOOTH -> AccelerateDecelerateInterpolator()
+                Curve.SNAPPY -> OvershootInterpolator(1.5f)
+            }
             addUpdateListener { a ->
                 val s = a.animatedValue as Float
-                circle.scaleX = s
-                circle.scaleY = s
+                circle?.scaleX = s
+                circle?.scaleY = s
             }
             start()
         }
     }
 
-    private fun vibrateForPhase(phase: Int) {
+    private fun vibrateForPhase(name: String) {
         val v = vibrator ?: return
-        val effect = when (phase) {
-            0 -> VibrationEffect.createWaveform(longArrayOf(0, 80, 80, 80), -1)          // inhale: two short pulses
-            2 -> VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE)   // exhale: one long pulse
-            else -> VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE) // hold: tick
+        val effect = when (name) {
+            "INHALE" -> VibrationEffect.createWaveform(longArrayOf(0, 80, 80, 80), -1)
+            "TOP-UP" -> VibrationEffect.createOneShot(60, VibrationEffect.DEFAULT_AMPLITUDE)
+            "EXHALE" -> VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE)
+            else     -> VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE)
         }
         try { v.vibrate(effect) } catch (_: Exception) {}
     }

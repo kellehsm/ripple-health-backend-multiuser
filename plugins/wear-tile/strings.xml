@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="wear_app_name">Ripple</string>
-    <string name="wear_tile_name">Ripple Health</string>
+    <string name="wear_tile_name">Ripple — Glance</string>
+    <string name="wear_tile_log_name">Ripple — Log</string>
+    <string name="wear_tile_breathe_name">Ripple — Breathe</string>
 </resources>

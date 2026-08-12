@@ -1,0 +1,129 @@
+package __PACKAGE__
+
+import android.content.Context
+import android.util.Log
+import com.google.android.gms.wearable.MessageEvent
+import com.google.android.gms.wearable.WearableListenerService
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+import org.json.JSONArray
+import org.json.JSONObject
+
+/**
+ * Receives water/mood log messages from the paired Wear OS device and calls
+ * the Ripple backend on behalf of the user. The watch has no auth token —
+ * the phone reads its JWT from the same widget_auth.json file the home-
+ * screen widget uses.
+ *
+ * Paths:
+ *   /ripple/log-water   payload: (ignored)                 → POST /metrics/{water}/logs value=1
+ *   /ripple/log-mood    payload: single byte (mood score)  → POST /mood-log/moment
+ */
+class WearMessageListener : WearableListenerService() {
+
+    companion object {
+        private const val TAG = "WearMessageListener"
+        private const val API_BASE = "https://app.kels.gg/api"
+        private const val AUTH_FILE = "widget_auth.json"
+    }
+
+    override fun onMessageReceived(event: MessageEvent) {
+        val token = readToken(this) ?: run {
+            Log.w(TAG, "no auth cached — user must open the phone app first")
+            return
+        }
+        try {
+            when (event.path) {
+                "/ripple/log-water" -> logWater(token)
+                "/ripple/log-mood"  -> {
+                    val score = if (event.data.isNotEmpty()) event.data[0].toInt() else 3
+                    logMood(token, score)
+                }
+                else -> {}
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "handling ${event.path}: ${e.message}")
+        }
+    }
+
+    private fun readToken(context: Context): String? {
+        return try {
+            val f = File(context.filesDir, AUTH_FILE)
+            if (!f.exists()) return null
+            val token = JSONObject(f.readText()).optString("token")
+            token.ifEmpty { null }
+        } catch (e: Exception) { null }
+    }
+
+    private fun logWater(token: String) {
+        val metricId = fetchOrCreateWaterMetric(token) ?: return
+        val body = JSONObject().put("value", 1).toString()
+        postJson("$API_BASE/metrics/$metricId/logs", token, body)
+    }
+
+    private fun logMood(token: String, score: Int) {
+        val body = JSONObject()
+            .put("mood_score", score.coerceIn(1, 5))
+            .put("entry_type", "moment")
+            .put("mood_label", when (score) { 2 -> "Low"; 3 -> "OK"; 4 -> "Good"; else -> "Neutral" })
+            .toString()
+        postJson("$API_BASE/mood-log", token, body)
+    }
+
+    private fun fetchOrCreateWaterMetric(token: String): String? {
+        val list = getJsonArray("$API_BASE/metrics", token)
+        if (list != null) {
+            for (i in 0 until list.length()) {
+                val m = list.optJSONObject(i) ?: continue
+                if (m.optString("name").equals("Water", ignoreCase = true)) {
+                    val id = m.optString("id")
+                    if (id.isNotEmpty()) return id
+                }
+            }
+        }
+        val body = JSONObject()
+            .put("name", "Water")
+            .put("unit", "glass")
+            .put("category", "hydration")
+            .toString()
+        val res = postJson("$API_BASE/metrics", token, body) ?: return null
+        return try { JSONObject(res).optString("id").ifEmpty { null } } catch (_: Exception) { null }
+    }
+
+    private fun postJson(url: String, token: String, body: String): String? {
+        return try {
+            val c = URL(url).openConnection() as HttpURLConnection
+            c.requestMethod = "POST"
+            c.setRequestProperty("Content-Type", "application/json")
+            c.setRequestProperty("Authorization", "Bearer $token")
+            c.doOutput = true
+            c.connectTimeout = 10000
+            c.readTimeout = 10000
+            c.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            if (c.responseCode in 200..299) {
+                BufferedReader(InputStreamReader(c.inputStream)).use { it.readText() }
+            } else {
+                Log.w(TAG, "POST $url → ${c.responseCode}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "POST $url threw: ${e.message}"); null
+        }
+    }
+
+    private fun getJsonArray(url: String, token: String): JSONArray? {
+        return try {
+            val c = URL(url).openConnection() as HttpURLConnection
+            c.requestMethod = "GET"
+            c.setRequestProperty("Authorization", "Bearer $token")
+            c.connectTimeout = 10000
+            c.readTimeout = 10000
+            if (c.responseCode != 200) return null
+            val text = BufferedReader(InputStreamReader(c.inputStream)).use { it.readText() }
+            JSONArray(text)
+        } catch (_: Exception) { null }
+    }
+}

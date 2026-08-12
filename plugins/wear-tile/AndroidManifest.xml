@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-feature android:name="android.hardware.type.watch" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="false"
@@ -15,7 +17,7 @@
             android:name="com.google.android.wearable.standalone"
             android:value="true" />
 
-        <!-- Minimal launcher activity so the app is installable and appears in the app drawer -->
+        <!-- Minimal launcher activity — appears in the app drawer -->
         <activity
             android:name=".RippleWearMainActivity"
             android:exported="true"
@@ -27,25 +29,58 @@
             </intent-filter>
         </activity>
 
-        <!-- Haptic-guided box breathing, launched from the tile or main activity -->
+        <!-- Log activity: water + mood pills, launched from the Log tile -->
+        <activity
+            android:name=".RippleWearLogActivity"
+            android:exported="true"
+            android:label="@string/wear_app_name"
+            android:theme="@android:style/Theme.DeviceDefault" />
+
+        <!-- Breathing session — pace picker then guided circle -->
         <activity
             android:name=".RippleWearBreathingActivity"
             android:exported="true"
             android:label="@string/wear_app_name"
             android:theme="@android:style/Theme.DeviceDefault" />
 
-        <!-- The tile itself -->
+        <!-- ── Tiles: the user can add any of the three faces individually ── -->
         <service
             android:name=".RippleWearTileService"
             android:exported="true"
             android:label="@string/wear_tile_name"
             android:icon="@drawable/tile_icon"
             android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
-
             <intent-filter>
                 <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
             </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_preview" />
+        </service>
 
+        <service
+            android:name=".RippleWearLogTileService"
+            android:exported="true"
+            android:label="@string/wear_tile_log_name"
+            android:icon="@drawable/tile_icon"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/tile_preview" />
+        </service>
+
+        <service
+            android:name=".RippleWearBreatheTileService"
+            android:exported="true"
+            android:label="@string/wear_tile_breathe_name"
+            android:icon="@drawable/tile_icon"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
             <meta-data
                 android:name="androidx.wear.tiles.PREVIEW"
                 android:resource="@drawable/tile_preview" />

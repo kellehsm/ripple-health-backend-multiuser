@@ -1,4 +1,4 @@
-const { withDangerousMod, withAppBuildGradle, withSettingsGradle, withProjectBuildGradle } = require('@expo/config-plugins');
+const { withDangerousMod, withAppBuildGradle, withSettingsGradle, withProjectBuildGradle, withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
@@ -39,6 +39,9 @@ function withWearOsTile(config) {
         'RippleWearMainActivity.kt',
         'RippleWearBreathingActivity.kt',
         'RippleWearTileService.kt',
+        'RippleWearLogTileService.kt',
+        'RippleWearBreatheTileService.kt',
+        'RippleWearLogActivity.kt',
         'WearCache.kt',
         'WearDataListenerService.kt',
       ];
@@ -80,6 +83,13 @@ function withWearOsTile(config) {
         .replace('__PACKAGE__', pkgName);
       fs.writeFileSync(path.join(phoneJava, 'WearDataBridge.kt'), bridgeSrc);
 
+      // Phone-side WearableListenerService — receives water/mood log messages
+      // sent from the watch's Log activity and calls the Ripple backend using
+      // the JWT the phone app already cached.
+      const listenerSrc = fs.readFileSync(path.join(SRC, 'WearMessageListener.kt.template'), 'utf8')
+        .replace('__PACKAGE__', pkgName);
+      fs.writeFileSync(path.join(phoneJava, 'WearMessageListener.kt'), listenerSrc);
+
       return mod;
     },
   ]);
@@ -105,7 +115,35 @@ function withWearOsTile(config) {
     return mod;
   });
 
-  // 4. Make sure Google Maven repo is available (wear/protolayout libs live there)
+  // Register the phone-side WearMessageListener in AndroidManifest so it
+  // wakes to receive water/mood log messages from the watch's Log activity.
+  config = withAndroidManifest(config, (mod) => {
+    const app = AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults);
+    app.service = app.service || [];
+    const already = app.service.some(
+      (s) => s.$?.['android:name'] === '.WearMessageListener'
+    );
+    if (!already) {
+      app.service.push({
+        $: {
+          'android:name': '.WearMessageListener',
+          'android:exported': 'true',
+        },
+        'intent-filter': [
+          {
+            action: [{ $: { 'android:name': 'com.google.android.gms.wearable.MESSAGE_RECEIVED' } }],
+            data: [
+              { $: { 'android:scheme': 'wear', 'android:host': '*', 'android:pathPrefix': '/ripple/log-water' } },
+              { $: { 'android:scheme': 'wear', 'android:host': '*', 'android:pathPrefix': '/ripple/log-mood' } },
+            ],
+          },
+        ],
+      });
+    }
+    return mod;
+  });
+
+  // Make sure Google Maven repo is available (wear/protolayout libs live there)
   config = withProjectBuildGradle(config, (mod) => {
     // Expo templates already include google() but this is cheap insurance
     if (!mod.modResults.contents.includes('google()')) {
