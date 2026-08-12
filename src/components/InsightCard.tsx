@@ -286,6 +286,7 @@ function formatSupportingData(data: Record<string, unknown>): Array<{ label: str
 interface InsightCardProps {
   insight: Insight;
   onDismiss?: (id: string) => void;
+  onSnooze?: (id: string, days: number) => void;
   onPin?: (id: string, pinned: boolean) => void;
   isPinned?: boolean;
   compact?: boolean;
@@ -293,7 +294,7 @@ interface InsightCardProps {
   onPressOut?: () => void;
 }
 
-export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compact = false, onPressIn, onPressOut }: InsightCardProps) {
+export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = false, compact = false, onPressIn, onPressOut }: InsightCardProps) {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(false);
 
@@ -417,14 +418,26 @@ export function InsightCard({ insight, onDismiss, onPin, isPinned = false, compa
             <TryThisButton insightId={insight.id} theme={theme} />
           )}
           {onDismiss && (
-            <Pressable
-              onPress={() => onDismiss(insight.id)}
-              style={[styles.dismissBtn, { borderColor: ink + "44" }]}
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss this insight"
-            >
-              <Text style={[styles.dismissText, { color: theme.textSoft }]}>Dismiss</Text>
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {onSnooze && (
+                <Pressable
+                  onPress={() => onSnooze(insight.id, 7)}
+                  style={[styles.dismissBtn, { borderColor: ink + "44", flex: 1 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Snooze this insight for a week"
+                >
+                  <Text style={[styles.dismissText, { color: theme.textSoft }]}>Snooze 7d</Text>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={() => onDismiss(insight.id)}
+                style={[styles.dismissBtn, { borderColor: ink + "44", flex: 1 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss this insight"
+              >
+                <Text style={[styles.dismissText, { color: theme.textSoft }]}>Dismiss</Text>
+              </Pressable>
+            </View>
           )}
         </View>
       )}

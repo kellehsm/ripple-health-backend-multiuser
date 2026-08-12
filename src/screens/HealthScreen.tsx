@@ -40,6 +40,7 @@ import { ThemedSurface } from "../theme/pageTemplates";
 import { type SleepStages } from "../lib/healthConnect";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 import { toast } from "../lib/toast";
+import { emojiForWaterCount } from "../lib/mealEmoji";
 
 type GlucoseReading = {
   recorded_at: string;
@@ -204,7 +205,10 @@ function WaterDropletButton({ count, goal, color, onPress }: { count: number; go
         <Path d={DROP} fill="none" stroke="#111" strokeWidth="1.5" opacity={0.3} />
       </Svg>
       <View style={{ position: "absolute", bottom: 14, left: 0, right: 0, alignItems: "center" }}>
-        <Text style={{ fontSize: 20, fontWeight: "900", color: labelColor }}>+1</Text>
+        {/* Small rotating water glyph above the +1 — a tiny sense of "the
+            tally is growing" without shouting. Cycles every 4 glasses. */}
+        <Text style={{ fontSize: 14, marginBottom: 1 }}>{emojiForWaterCount(count)}</Text>
+        <Text style={{ fontSize: 18, fontWeight: "900", color: labelColor }}>+1</Text>
       </View>
     </Pressable>
   );

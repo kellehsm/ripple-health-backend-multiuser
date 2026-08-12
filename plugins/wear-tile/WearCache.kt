@@ -18,7 +18,8 @@ object WearCache {
         val heart: String,
         val sleep: String,
         val insight: String,
-        val updatedAt: String
+        val updatedAt: String,
+        val mindStreak: Int          // mindfulness day-streak — Breathe tile hero
     )
 
     fun read(context: Context): Snapshot {
@@ -35,7 +36,8 @@ object WearCache {
             heart         = p.getString("heart", "--") ?: "--",
             sleep         = p.getString("sleep", "--") ?: "--",
             insight       = p.getString("insight", "") ?: "",
-            updatedAt     = p.getString("updatedAt", "") ?: ""
+            updatedAt     = p.getString("updatedAt", "") ?: "",
+            mindStreak    = p.getInt("mindStreak", 0)
         )
     }
 
@@ -52,7 +54,8 @@ object WearCache {
         heart: String?,
         sleep: String?,
         insight: String?,
-        updatedAt: String?
+        updatedAt: String?,
+        mindStreak: Int?
     ) {
         val edit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
         if (glucose != null)      edit.putString("glucose", glucose)
@@ -67,6 +70,7 @@ object WearCache {
         if (sleep != null)        edit.putString("sleep", sleep)
         if (insight != null)      edit.putString("insight", insight)
         if (updatedAt != null)    edit.putString("updatedAt", updatedAt)
+        if (mindStreak != null)   edit.putInt("mindStreak", mindStreak)
         edit.apply()
     }
 }

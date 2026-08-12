@@ -118,6 +118,9 @@ class RippleWearLogTileService : TileService() {
         col.addContent(logGlassPill(context))
         col.addContent(Spacer.Builder().setHeight(dp(6f)).build())
         col.addContent(text("TAP TO LOG A GLASS OR MOOD", 8, LABEL_GRAY.toInt(), bold = true))
+        col.addContent(Spacer.Builder().setHeight(dp(2f)).build())
+        val stamp = if (cache.updatedAt.isNotEmpty()) "Updated ${cache.updatedAt}" else "Open Ripple to sync"
+        col.addContent(text(stamp, 7, LABEL_GRAY.toInt()))
 
         return Box.Builder()
             .setWidth(expand())

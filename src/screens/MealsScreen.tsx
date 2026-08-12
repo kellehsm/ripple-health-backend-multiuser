@@ -40,6 +40,7 @@ import { Swipeable } from "react-native-gesture-handler";
 import { SPACING, RADIUS } from "../theme/tokens";
 import { BarcodeScannerModal } from "../components/BarcodeScannerModal";
 import { PhotoScannerModal } from "../components/PhotoScannerModal";
+import { emojiForMealName } from "../lib/mealEmoji";
 import { invalidateBarcodeCache } from "../utils/barcodeCache";
 import { RecipeBuilderModal, Recipe } from "../components/RecipeBuilderModal";
 import { toast, Msg } from "../lib/toast";
@@ -569,6 +570,21 @@ export function MealsScreen() {
   }
 
   function handleSelectFrequent(meal: FrequentMeal) {
+    if (isLikelyDuplicate(meal.name)) {
+      Alert.alert(
+        "Log this twice?",
+        `"${meal.name}" was already logged in the last 15 min. Add another?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Yes, add another", onPress: () => openFrequentPending(meal) },
+        ]
+      );
+      return;
+    }
+    openFrequentPending(meal);
+  }
+
+  function openFrequentPending(meal: FrequentMeal) {
     setSearchResults([]);
     setSearchQuery("");
     setPendingFood({
@@ -583,7 +599,37 @@ export function MealsScreen() {
     });
   }
 
+  /**
+   * Guard against double-taps that accidentally log the same meal twice.
+   * If a same-named meal was logged within the last 15 minutes, prompt
+   * before adding a second entry. Silent on brand-new meal names.
+   */
+  function isLikelyDuplicate(name: string): boolean {
+    const cutoff = Date.now() - 15 * 60 * 1000;
+    const normalized = name.trim().toLowerCase();
+    return meals.some((m) => {
+      if (!m.logged_at) return false;
+      if (m.name.trim().toLowerCase() !== normalized) return false;
+      return new Date(m.logged_at).getTime() >= cutoff;
+    });
+  }
+
   function handleQuickDrink(drink: QuickDrink) {
+    if (isLikelyDuplicate(drink.name)) {
+      Alert.alert(
+        "Log this twice?",
+        `"${drink.name}" was already logged in the last 15 min. Add another?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Yes, add another", onPress: () => actuallyLogQuickDrink(drink) },
+        ]
+      );
+      return;
+    }
+    actuallyLogQuickDrink(drink);
+  }
+
+  function actuallyLogQuickDrink(drink: QuickDrink) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     api.addMeal({
       meal_type: mealType,
@@ -704,7 +750,21 @@ export function MealsScreen() {
         setSearchQuery("");
         setSearchResults([]);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        // Multi-item plates are common — surface an "Add another" so the
+        // user can chain a second item without re-tapping through the
+        // search + type-picker again. Tapping "Add another" opens the
+        // add-food sheet pre-focused.
         toast("Meal logged.");
+        setTimeout(function () {
+          Alert.alert(
+            "Add another?",
+            "You can chain another item to this meal without going back through search.",
+            [
+              { text: "Done", style: "cancel" },
+              { text: "Add another", onPress: function () { setAddSheetVisible(true); } },
+            ]
+          );
+        }, 250);
         loadMeals();
         const h = new Date().getHours();
         const periodKey = h >= 4 && h < 11 ? "breakfast" : h >= 11 && h < 15 ? "lunch" : h >= 17 && h < 23 ? "dinner" : null;
@@ -1438,8 +1498,13 @@ export function MealsScreen() {
                 <Animated.View style={{ transform: [{ scale: mealScale }] }}>
                 <View style={[styles.mealCard, { borderColor: ink, backgroundColor: mealTintColor(meal.meal_type, theme) }]}>
                   <View style={styles.mealContent}>
-                    {/* Colored icon tile */}
-                    <IconBadge name="restaurant" color={onSolid(mealColor)} bgColor={mealColor} size={16} containerSize={40} borderRadius={12} />
+                    {/* Colored badge — emoji auto-picked from the meal name
+                        (pizza → 🍕, coffee → ☕, etc). Falls back to a
+                        neutral utensils glyph so unknown names still look
+                        intentional rather than blank. */}
+                    <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: mealColor, alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ fontSize: 20 }}>{emojiForMealName(meal.name)}</Text>
+                    </View>
 
                     <Pressable
                       style={styles.mealMain}

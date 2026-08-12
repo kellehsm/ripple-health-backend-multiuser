@@ -37,7 +37,8 @@ object WearDataBridge {
         glucoseLabel: String = "",
         glucoseTrend: String = "",
         glucoseDelta: Int = 0,
-        glucoseStale: Boolean = false
+        glucoseStale: Boolean = false,
+        mindStreak: Int = 0
     ) {
         try {
             val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
@@ -48,6 +49,7 @@ object WearDataBridge {
                 dataMap.putString("glucoseTrend", glucoseTrend)
                 dataMap.putInt("glucoseDelta", glucoseDelta)
                 dataMap.putBoolean("glucoseStale", glucoseStale)
+                dataMap.putInt("mindStreak", mindStreak)
                 dataMap.putString("steps", steps)
                 dataMap.putString("water", water)
                 dataMap.putString("heart", heart)

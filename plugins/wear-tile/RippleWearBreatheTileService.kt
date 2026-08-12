@@ -81,15 +81,10 @@ class RippleWearBreatheTileService : TileService() {
             )
             .build()
 
-        // Streak / today / sessions come from the phone via WearCache.
-        // Only "streak" is pushed today (as a number in a dedicated field).
-        // Fall back to zeroes when nothing has been pushed yet.
-        val streak = cache.insight.let {
-            // We don't have a dedicated streak field yet — the phone side of
-            // this needs enrichment later. For now show "—" so the tile
-            // stays honest rather than lying about a made-up streak.
-            "—"
-        }
+        // Mindfulness day-streak pushed from the phone in WearCache.mindStreak.
+        // 0 is a valid state (nothing logged yet) — render "—" so the tile
+        // reads as "no data" rather than lying about a zero streak.
+        val streak = if (cache.mindStreak > 0) cache.mindStreak.toString() else "—"
 
         val col = Column.Builder()
             .setWidth(expand())
@@ -113,6 +108,9 @@ class RippleWearBreatheTileService : TileService() {
         col.addContent(breathePill(context))
         col.addContent(Spacer.Builder().setHeight(dp(6f)).build())
         col.addContent(text("HAPTIC-GUIDED · TWO PACES", 8, LABEL_GRAY.toInt(), bold = true))
+        col.addContent(Spacer.Builder().setHeight(dp(2f)).build())
+        val stamp = if (cache.updatedAt.isNotEmpty()) "Updated ${cache.updatedAt}" else "Open Ripple to sync"
+        col.addContent(text(stamp, 7, LABEL_GRAY.toInt()))
 
         return Box.Builder()
             .setWidth(expand())

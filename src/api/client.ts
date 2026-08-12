@@ -480,6 +480,9 @@ export const api = {
   dismissInsight: function (id: string) {
     return request("/insights/" + id + "/dismiss", { method: "POST", body: JSON.stringify({}) });
   },
+  snoozeInsight: function (id: string, days: number = 7) {
+    return request("/insights/" + id + "/snooze", { method: "POST", body: JSON.stringify({ days }) });
+  },
   undismissInsight: function (id: string) {
     return request("/insights/" + id + "/undismiss", { method: "POST", body: JSON.stringify({}) });
   },

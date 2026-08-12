@@ -120,6 +120,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 // Mirror the freshest values to any paired Wear OS device.
                 // Silently no-ops if Google Play Services / wear isn't around.
                 try {
+                    val mindStreak = if (token != null) fetchMindStreak(token) else 0
                     WearDataBridge.push(
                         context = context,
                         glucose = gluInfo.mg?.toString() ?: "--",
@@ -132,7 +133,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         glucoseLabel = gluInfo.label(),
                         glucoseTrend = gluInfo.trend,
                         glucoseDelta = gluInfo.delta,
-                        glucoseStale = gluInfo.isStale
+                        glucoseStale = gluInfo.isStale,
+                        mindStreak = mindStreak
                     )
                 } catch (_: Throwable) {}
             } catch (e: Exception) {
@@ -545,6 +547,16 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             Log.w(TAG, "fetchMindfulnessInsight: ${e.message}")
             null
         }
+    }
+
+    /** Just the streak number — pushed to the Wear Breathe tile so it can
+     *  render the mindfulness hero without another API call. */
+    private fun fetchMindStreak(token: String): Int {
+        return try {
+            val (code, body) = get(token, "/mindfulness/stats")
+            if (code != 200) return 0
+            JSONObject(body).optInt("streak", 0)
+        } catch (_: Exception) { 0 }
     }
 
     /** Mirrors the app's getOrCreateWaterMetric + logWater client calls. */

@@ -474,6 +474,7 @@ export async function getActiveInsights(userId: string): Promise<StoredInsight[]
     `SELECT * FROM user_insights
      WHERE user_id = $1
        AND dismissed = FALSE
+       AND (snoozed_until IS NULL OR snoozed_until <= NOW())
        AND status = 'active'
        AND NOT (supporting_data ? 'duplicate_of')
      ORDER BY pinned DESC NULLS LAST,

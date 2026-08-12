@@ -51,10 +51,12 @@ function SkeletonCard() {
 function AnimatedCard({
   insight,
   onDismiss,
+  onSnooze,
   animValue,
 }: {
   insight: Insight;
   onDismiss?: (id: string) => void;
+  onSnooze?: (id: string, days: number) => void;
   animValue: Animated.Value;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -65,6 +67,7 @@ function AnimatedCard({
       <InsightCard
         insight={insight}
         onDismiss={onDismiss}
+        onSnooze={onSnooze}
         onPressIn={() => Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
         onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
       />
@@ -156,6 +159,21 @@ export function InsightsScreen() {
     load();
     return () => { loadCancelledRef.current = true; };
   }, []));
+
+  async function handleSnooze(id: string, days: number) {
+    // Optimistic: same UX as dismiss — the card leaves the active list and
+    // the undo-timeout banner surfaces so the user can revert.
+    try {
+      await api.snoozeInsight(id, days);
+      const item = insights.find(i => i.id === id);
+      setInsights(prev => prev.filter(i => i.id !== id));
+      if (item) {
+        if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+        setUndoItem(item);
+        undoTimerRef.current = setTimeout(() => setUndoItem(null), 3500);
+      }
+    } catch (_) {}
+  }
 
   async function handleDismiss(id: string) {
     try {
@@ -343,6 +361,7 @@ export function InsightsScreen() {
                 key={`${animationKey}-${insight.id}`}
                 insight={insight}
                 onDismiss={handleDismiss}
+                onSnooze={handleSnooze}
                 animValue={cardAnims.current[i] ?? new Animated.Value(1)}
               />
             ))}
@@ -362,6 +381,7 @@ export function InsightsScreen() {
                 key={`${animationKey}-${insight.id}`}
                 insight={insight}
                 onDismiss={handleDismiss}
+                onSnooze={handleSnooze}
                 animValue={cardAnims.current[streaks.length + i] ?? new Animated.Value(1)}
               />
             ))}

@@ -49,6 +49,22 @@ export default async function insightsRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // POST /insights/:id/snooze — hide for N days (default 7). Body: { days? }
+  app.post("/:id/snooze", async (req, reply) => {
+    const user_id = req.user_id;
+    const { id } = req.params as { id: string };
+    const daysRaw = (req.body as any)?.days;
+    const days = typeof daysRaw === "number" && daysRaw > 0 && daysRaw <= 90 ? daysRaw : 7;
+    const rows = await query(
+      `UPDATE user_insights
+         SET snoozed_until = NOW() + ($3 || ' days')::interval, updated_at = NOW()
+       WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [id, user_id, days]
+    );
+    if (!rows.length) return reply.code(404).send({ error: "Insight not found" });
+    return { ok: true, days };
+  });
+
   // POST /insights/:id/undismiss — restore a dismissed insight
   app.post("/:id/undismiss", async (req, reply) => {
     const user_id = req.user_id;
