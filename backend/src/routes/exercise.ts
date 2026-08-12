@@ -173,6 +173,20 @@ export default async function exerciseRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
+  // DELETE /sessions/:id — remove a whole session (and all its log entries)
+  app.delete("/sessions/:id", async (req, reply) => {
+    const user_id = req.user_id;
+    const { id } = req.params as any;
+    // exercise_log_entries FK to exercise_sessions cascades on delete, so a
+    // single DELETE against the session cleans up every set/rep row too.
+    const rows = await query(
+      `DELETE FROM exercise_sessions WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [id, user_id]
+    );
+    if (!rows.length) return reply.code(404).send({ error: "Session not found" });
+    return { ok: true };
+  });
+
   // ── Smart suggestion (priority waterfall — matches /cycle/overview-insight) ──
   app.get("/suggestion", async (req) => {
     const user_id = req.user_id;

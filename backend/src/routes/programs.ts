@@ -419,4 +419,154 @@ export default async function programRoutes(app: FastifyInstance) {
     );
     return rows;
   });
+
+  // DELETE /api/exercise/programs/:id
+  // Cascades to workout_program_days → workout_program_exercises.
+  app.delete("/programs/:id", async (req, reply) => {
+    const user_id = req.user_id;
+    const { id } = req.params as { id: string };
+    const rows = await query(
+      `DELETE FROM workout_programs WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [id, user_id]
+    );
+    if (!rows.length) return reply.code(404).send({ error: "Program not found" });
+    return { ok: true };
+  });
+
+  // PATCH /api/exercise/programs/:id
+  // Rename (and later, toggle active). Body: { name?, is_active? }
+  app.patch("/programs/:id", async (req, reply) => {
+    const user_id = req.user_id;
+    const { id } = req.params as { id: string };
+    const { name, is_active } = (req.body ?? {}) as { name?: string; is_active?: boolean };
+    if (name == null && is_active == null) return reply.code(400).send({ error: "Nothing to update" });
+    // If activating this program, deactivate the user's other programs in the same tx
+    if (is_active === true) {
+      await query(`UPDATE workout_programs SET is_active = false WHERE user_id = $1 AND id != $2`, [user_id, id]);
+    }
+    const rows = await query(
+      `UPDATE workout_programs
+       SET name = COALESCE($3, name), is_active = COALESCE($4, is_active)
+       WHERE id = $1 AND user_id = $2 RETURNING id, name, is_active`,
+      [id, user_id, name ?? null, is_active ?? null]
+    );
+    if (!rows.length) return reply.code(404).send({ error: "Program not found" });
+    return rows[0];
+  });
+
+  // POST /api/exercise/wizard/reset
+  // Clears the "wizard done" flag so the setup flow shows again. Doesn't
+  // delete existing programs — those are managed independently.
+  app.post("/wizard/reset", async (req) => {
+    const user_id = req.user_id;
+    await query(
+      `INSERT INTO user_settings (user_id, settings)
+       VALUES ($1, jsonb_set('{}'::jsonb, '{workout_setup_complete}', 'false'::jsonb))
+       ON CONFLICT (user_id) DO UPDATE SET settings = jsonb_set(user_settings.settings, '{workout_setup_complete}', 'false'::jsonb)`,
+      [user_id]
+    );
+    return { ok: true };
+  });
+
+  // POST /api/exercise/programs
+  // Create a custom program from scratch. Body:
+  //   { name, days_per_week, days: [{ focus, exercises: [{ exercise_id, sets, rep_range_min, rep_range_max }] }] }
+  // Marks itself active and deactivates any prior programs. Wraps in a
+  // transaction so a partial insert never leaves an empty shell behind.
+  app.post("/programs", async (req, reply) => {
+    const user_id = req.user_id;
+    const body = (req.body ?? {}) as any;
+    const name = String(body.name ?? "").trim();
+    const days = Array.isArray(body.days) ? body.days : [];
+    if (!name) return reply.code(400).send({ error: "name required" });
+    if (days.length === 0) return reply.code(400).send({ error: "at least one day required" });
+
+    const client = await (await import("../db.js")).pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`UPDATE workout_programs SET is_active = false WHERE user_id = $1`, [user_id]);
+      const prog = await client.query(
+        `INSERT INTO workout_programs (user_id, name, goal, experience_level, days_per_week, preferred_minutes, equipment, muscle_focus, location, limitations, is_active)
+         VALUES ($1, $2, 'general_fitness', 'intermediate', $3, 45, '{}', '{}', 'any', '{}', true) RETURNING id`,
+        [user_id, name, days.length]
+      );
+      const progId = prog.rows[0].id;
+      for (let i = 0; i < days.length; i++) {
+        const d = days[i] as any;
+        const focus = String(d.focus ?? "full_body");
+        const dayRow = await client.query(
+          `INSERT INTO workout_program_days (program_id, day_number, focus) VALUES ($1, $2, $3) RETURNING id`,
+          [progId, i + 1, focus]
+        );
+        const dayId = dayRow.rows[0].id;
+        const exList = Array.isArray(d.exercises) ? d.exercises : [];
+        for (let j = 0; j < exList.length; j++) {
+          const ex = exList[j] as any;
+          if (!ex.exercise_id) continue;
+          await client.query(
+            `INSERT INTO workout_program_exercises (day_id, exercise_id, sets, rep_range_min, rep_range_max, sort_order)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [dayId, ex.exercise_id, ex.sets ?? 3, ex.rep_range_min ?? 8, ex.rep_range_max ?? 12, j]
+          );
+        }
+      }
+      // Also flip wizard-complete on so the user isn't dropped back into the wizard next visit
+      await client.query(
+        `INSERT INTO user_settings (user_id, settings)
+         VALUES ($1, jsonb_set('{}'::jsonb, '{workout_setup_complete}', 'true'::jsonb))
+         ON CONFLICT (user_id) DO UPDATE SET settings = jsonb_set(user_settings.settings, '{workout_setup_complete}', 'true'::jsonb)`,
+        [user_id]
+      );
+      await client.query("COMMIT");
+      return { id: progId, ok: true };
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  });
+
+  // POST /api/exercise/programs/days/:day_id/exercises
+  // Add an exercise to an existing day. Body: { exercise_id, sets?, rep_range_min?, rep_range_max? }
+  app.post("/programs/days/:day_id/exercises", async (req, reply) => {
+    const user_id = req.user_id;
+    const { day_id } = req.params as { day_id: string };
+    const { exercise_id, sets, rep_range_min, rep_range_max } = (req.body ?? {}) as any;
+    if (!exercise_id) return reply.code(400).send({ error: "exercise_id required" });
+    // Guard: the day must belong to a program owned by this user
+    const owns = await query<any>(
+      `SELECT d.id FROM workout_program_days d
+       JOIN workout_programs p ON p.id = d.program_id
+       WHERE d.id = $1 AND p.user_id = $2`,
+      [day_id, user_id]
+    );
+    if (!owns.length) return reply.code(404).send({ error: "Day not found" });
+    const nextOrder = await query<{ n: number }>(
+      `SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM workout_program_exercises WHERE day_id = $1`,
+      [day_id]
+    );
+    const rows = await query<any>(
+      `INSERT INTO workout_program_exercises (day_id, exercise_id, sets, rep_range_min, rep_range_max, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [day_id, exercise_id, sets ?? 3, rep_range_min ?? 8, rep_range_max ?? 12, nextOrder[0].n]
+    );
+    return { id: rows[0].id, ok: true };
+  });
+
+  // DELETE /api/exercise/program-exercises/:id
+  // Remove a single exercise from a day. Verifies user ownership via the join.
+  app.delete("/program-exercises/:id", async (req, reply) => {
+    const user_id = req.user_id;
+    const { id } = req.params as { id: string };
+    const rows = await query(
+      `DELETE FROM workout_program_exercises pe
+       USING workout_program_days d, workout_programs p
+       WHERE pe.id = $1 AND pe.day_id = d.id AND d.program_id = p.id AND p.user_id = $2
+       RETURNING pe.id`,
+      [id, user_id]
+    );
+    if (!rows.length) return reply.code(404).send({ error: "Exercise not found" });
+    return { ok: true };
+  });
 }

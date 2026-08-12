@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Modal, RefreshControl } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Modal, RefreshControl, TextInput } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { toast } from '../lib/toast';
 import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
 import { useFeatureIntro } from '../onboarding/useFeatureIntro';
 import { findIntro } from '../onboarding/featureIntros';
@@ -170,6 +172,11 @@ export function ExerciseScreen() {
   // Wizard gate — null = loading, false = show wizard, true = show main screen
   const [wizardDone, setWizardDone] = useState<boolean | null>(null);
 
+  // Program overflow menu / rename state
+  const [programMenuVisible, setProgramMenuVisible] = useState(false);
+  const [renamingProgram, setRenamingProgram] = useState(false);
+  const [renameText, setRenameText] = useState("");
+
   interface DayExercise {
     exercise_id: string;
     name: string;
@@ -242,6 +249,73 @@ export function ExerciseScreen() {
     }).finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
     return () => { cancelled = true; };
   }, [prefsLoading, preferences.selectedModules, reloadKey]));
+
+  function handleOpenProgramMenu() {
+    Haptics.selectionAsync().catch(() => {});
+    setProgramMenuVisible(true);
+  }
+
+  function handleStartRename() {
+    if (!activeProgram) return;
+    setRenameText(activeProgram.name);
+    setRenamingProgram(true);
+    setProgramMenuVisible(false);
+  }
+
+  async function handleSaveRename() {
+    if (!activeProgram) return;
+    const next = renameText.trim();
+    if (!next || next === activeProgram.name) { setRenamingProgram(false); return; }
+    try {
+      await api.patchWorkoutProgram(activeProgram.id, { name: next });
+      invalidateCache('exercise:main');
+      setActiveProgram({ ...activeProgram, name: next });
+      setRenamingProgram(false);
+    } catch {
+      toast("Couldn't rename that plan.", "error");
+    }
+  }
+
+  function handleDeletePlan() {
+    if (!activeProgram) return;
+    setProgramMenuVisible(false);
+    Alert.alert(
+      "Delete this plan?",
+      `"${activeProgram.name}" and all its days will be removed. Past workout sessions are not affected.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete", style: "destructive",
+          onPress: async () => {
+            try {
+              await api.deleteWorkoutProgram(activeProgram.id);
+              invalidateCache('exercise:main');
+              setActiveProgram(null);
+              toast("Plan removed.");
+            } catch {
+              toast("Couldn't delete that plan.", "error");
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  async function handleRestartWizard() {
+    setProgramMenuVisible(false);
+    try {
+      await api.resetWorkoutWizard();
+      invalidateCache('exercise:main');
+      setWizardDone(false);
+    } catch {
+      toast("Couldn't restart the wizard.", "error");
+    }
+  }
+
+  function handleBuildCustom() {
+    setProgramMenuVisible(false);
+    navigation.navigate('CustomPlanBuilder');
+  }
 
   async function handleBeginWorkout(queue: PlanExercise[]) {
     const session = await api.startExerciseSession();
@@ -361,10 +435,44 @@ export function ExerciseScreen() {
           <>
             <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>YOUR PLAN</Text>
             <View style={[styles.programCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
-              <Text style={[styles.programName, { color: theme.textStrong }]}>{activeProgram.name}</Text>
-              <Text style={{ color: theme.textSoft, fontSize: 12, marginBottom: 8 }}>
-                {activeProgram.preferred_minutes} min · {activeProgram.days_per_week} day{activeProgram.days_per_week !== 1 ? 's' : ''}/week
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                <View style={{ flex: 1 }}>
+                  {renamingProgram ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <TextInput
+                        value={renameText}
+                        onChangeText={setRenameText}
+                        autoFocus
+                        style={{
+                          flex: 1, borderWidth: 2, borderColor: ink, borderRadius: 12,
+                          paddingHorizontal: 10, paddingVertical: 6, fontSize: 15,
+                          fontWeight: "900", color: theme.textStrong,
+                        }}
+                      />
+                      <Pressable onPress={handleSaveRename} hitSlop={8}>
+                        <Ionicons name="checkmark" size={20} color={theme.teal.solid} />
+                      </Pressable>
+                      <Pressable onPress={() => setRenamingProgram(false)} hitSlop={8}>
+                        <Ionicons name="close" size={20} color={theme.textSoft} />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Text style={[styles.programName, { color: theme.textStrong }]}>{activeProgram.name}</Text>
+                  )}
+                  <Text style={{ color: theme.textSoft, fontSize: 12, marginBottom: 8 }}>
+                    {activeProgram.preferred_minutes} min · {activeProgram.days_per_week} day{activeProgram.days_per_week !== 1 ? 's' : ''}/week
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={handleOpenProgramMenu}
+                  hitSlop={8}
+                  style={{ padding: 4 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Plan options"
+                >
+                  <Ionicons name="ellipsis-horizontal" size={20} color={theme.textSoft} />
+                </Pressable>
+              </View>
               {(activeProgram.days ?? []).map((day, i) => (
                 <Pressable
                   key={day.id}
@@ -454,6 +562,43 @@ export function ExerciseScreen() {
         onBegin={handleBeginWorkout}
         initialQueue={plannerInitialQueue}
       />
+
+      {/* Plan overflow menu */}
+      <Modal visible={programMenuVisible} transparent animationType="fade" onRequestClose={() => setProgramMenuVisible(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }} onPress={() => setProgramMenuVisible(false)}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: theme.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 2, borderBottomWidth: 0, borderColor: theme.cardBorder, padding: 12, gap: 4 }}>
+            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 1, textAlign: "center", paddingVertical: 8 }}>PLAN OPTIONS</Text>
+            {[
+              { label: "Rename plan", icon: "create-outline" as const, onPress: handleStartRename },
+              { label: "Build my own plan", icon: "construct-outline" as const, onPress: handleBuildCustom },
+              { label: "Start over with the wizard", icon: "sparkles-outline" as const, onPress: handleRestartWizard },
+              { label: "Delete this plan", icon: "trash-outline" as const, onPress: handleDeletePlan, danger: true },
+            ].map((row) => (
+              <Pressable
+                key={row.label}
+                onPress={row.onPress}
+                style={({ pressed }) => ({
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingVertical: 14,
+                  paddingHorizontal: 12,
+                  borderRadius: 12,
+                  backgroundColor: pressed ? theme.page : "transparent",
+                })}
+                accessibilityRole="button"
+                accessibilityLabel={row.label}
+              >
+                <Ionicons name={row.icon} size={20} color={row.danger ? theme.coral.solid : theme.textStrong} />
+                <Text style={{ color: row.danger ? theme.coral.solid : theme.textStrong, fontSize: 15, fontWeight: "600" }}>{row.label}</Text>
+              </Pressable>
+            ))}
+            <Pressable onPress={() => setProgramMenuVisible(false)} style={{ paddingVertical: 12, alignItems: "center" }}>
+              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: "700" }}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={!!selectedDay}

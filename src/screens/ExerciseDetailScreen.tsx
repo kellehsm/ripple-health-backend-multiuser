@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { toast } from '../lib/toast';
 import Svg, { Polyline, Line, Text as SvgText, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
@@ -143,8 +145,31 @@ function HRChart({ samples, theme }: { samples: Array<{ recorded_at: string; bpm
 export function ExerciseDetailScreen() {
   const { theme } = useTheme();
   const route = useRoute<any>();
+  const navigation = useNavigation<any>();
   const { sessionId } = route.params as { sessionId: string };
   const ink = theme.ink;
+
+  function handleDeleteSession() {
+    Alert.alert(
+      "Delete this workout?",
+      "This session and all its logged sets will be removed. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete", style: "destructive",
+          onPress: async () => {
+            try {
+              await api.deleteExerciseSession(sessionId);
+              toast("Workout deleted.");
+              navigation.goBack();
+            } catch {
+              toast("Couldn't delete that session.", "error");
+            }
+          },
+        },
+      ]
+    );
+  }
 
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -307,6 +332,28 @@ export function ExerciseDetailScreen() {
           </View>
         ))
       )}
+
+      <Pressable
+        onPress={handleDeleteSession}
+        style={({ pressed }) => ({
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          marginTop: 24,
+          marginBottom: 12,
+          paddingVertical: 12,
+          borderRadius: 14,
+          borderWidth: 1.5,
+          borderColor: theme.coral.solid,
+          backgroundColor: pressed ? theme.coral.tint : "transparent",
+        })}
+        accessibilityRole="button"
+        accessibilityLabel="Delete this workout session"
+      >
+        <Ionicons name="trash-outline" size={16} color={theme.coral.solid} />
+        <Text style={{ color: theme.coral.solid, fontWeight: "700", fontSize: 14 }}>Delete workout</Text>
+      </Pressable>
     </ScrollView>
   );
 }

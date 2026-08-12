@@ -727,7 +727,16 @@ export function LifeScreen() {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
                     <Text style={[styles.bookTitle, { color: theme.textStrong, flex: 1 }]} numberOfLines={2}>{book.title}</Text>
-                    <Pressable onPress={() => handleDeleteBook(book.id, book.title)} hitSlop={8} style={{ marginLeft: 8 }} accessibilityRole="button" accessibilityLabel={`Delete ${book.title}`}>
+                    <Pressable
+                      onPress={() => handleMarkBookFinished(book.id)}
+                      hitSlop={8}
+                      style={{ marginLeft: 8 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Mark ${book.title} as done`}
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={18} color={theme.teal.solid} />
+                    </Pressable>
+                    <Pressable onPress={() => handleDeleteBook(book.id, book.title)} hitSlop={8} style={{ marginLeft: 6 }} accessibilityRole="button" accessibilityLabel={`Delete ${book.title}`}>
                       <Ionicons name="trash-outline" size={16} color={theme.textSoft} />
                     </Pressable>
                   </View>
@@ -754,32 +763,30 @@ export function LifeScreen() {
                     <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 4 }}>{pagesTotal} pages read</Text>
                   ) : null}
 
-                  <View style={styles.quickBtnRow}>
-                    {[10, 20, 30].map((n) => (
-                      <Pressable key={n} onPress={() => { Haptics.selectionAsync(); handleLogPages(book.id, n); }} style={[styles.quickBtn, { backgroundColor: theme.coral.tint }]}>
-                        <Text style={[styles.quickBtnText, { color: theme.coral.fg }]}>+{n}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-
-                  <View style={styles.manualRow}>
+                  {/* Single row: manual input + LOG + +10 + +20 (dropped +30 and the
+                      stacked done/delete row; done+trash moved into the title row). */}
+                  <View style={styles.bookLogRow}>
                     <TextInput
                       placeholder="pages"
                       keyboardType="numeric"
                       value={pageInputs[book.id] ?? ""}
                       onChangeText={(v) => setPageInputs((prev) => ({ ...prev, [book.id]: v }))}
-                      style={[styles.manualInput, { color: theme.textStrong }]}
+                      style={[styles.bookLogInput, { color: theme.textStrong, borderColor: ink }]}
                       placeholderTextColor={theme.textSoft}
                     />
-                    <Pressable style={[styles.actionBtn, { backgroundColor: theme.teal.solid }]} onPress={() => handleManualPages(book.id)}>
-                      <Text style={styles.actionBtnText}>LOG</Text>
+                    <Pressable style={[styles.bookLogBtn, { backgroundColor: theme.teal.solid, borderColor: ink }]} onPress={() => handleManualPages(book.id)} accessibilityLabel="Log the entered page count">
+                      <Text style={[styles.bookLogBtnText, { color: onSolid(theme.teal.solid) }]}>LOG</Text>
                     </Pressable>
-                    <Pressable
-                      onPress={() => handleMarkBookFinished(book.id)}
-                      style={[styles.actionBtn, { backgroundColor: theme.teal.tint, borderColor: ink }]}
-                    >
-                      <Text style={[styles.actionBtnText, { color: theme.teal.fg }]}>DONE ✓</Text>
-                    </Pressable>
+                    {[10, 20].map((n) => (
+                      <Pressable
+                        key={n}
+                        onPress={() => { Haptics.selectionAsync(); handleLogPages(book.id, n); }}
+                        style={[styles.bookLogBtn, { backgroundColor: theme.coral.tint, borderColor: ink }]}
+                        accessibilityLabel={`Log ${n} pages`}
+                      >
+                        <Text style={[styles.bookLogBtnText, { color: theme.coral.fg }]}>+{n}</Text>
+                      </Pressable>
+                    ))}
                   </View>
                 </View>
               </View>
@@ -1141,6 +1148,27 @@ function makeStyles(ink: string, card: string, border: string) {
     elevation: 2,
   },
   quickBtnText: { fontSize: 10, fontWeight: "800", color: ink, letterSpacing: 0.3 },
+
+  bookLogRow: { flexDirection: "row", gap: 6, marginTop: 10, alignItems: "center" },
+  bookLogInput: {
+    flex: 1,
+    minWidth: 54,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    fontSize: 13,
+  },
+  bookLogBtn: {
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bookLogBtnText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.3 },
 
   manualRow: { flexDirection: "row", gap: 8, marginTop: 6, flexWrap: "wrap" },
   manualInput: {

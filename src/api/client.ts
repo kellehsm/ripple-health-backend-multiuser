@@ -602,6 +602,33 @@ export const api = {
   listWorkoutPrograms: function () {
     return request('/exercise/programs');
   },
+  deleteWorkoutProgram: function (id: string) {
+    return request('/exercise/programs/' + id, { method: 'DELETE' });
+  },
+  patchWorkoutProgram: function (id: string, patch: { name?: string; is_active?: boolean }) {
+    return request('/exercise/programs/' + id, { method: 'PATCH', body: JSON.stringify(patch) });
+  },
+  resetWorkoutWizard: function () {
+    return request('/exercise/wizard/reset', { method: 'POST', body: '{}' });
+  },
+  createCustomWorkoutProgram: function (payload: {
+    name: string;
+    days: Array<{
+      focus: string;
+      exercises: Array<{ exercise_id: string; sets?: number; rep_range_min?: number; rep_range_max?: number }>;
+    }>;
+  }) {
+    return request('/exercise/programs', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  addProgramExercise: function (dayId: string, payload: { exercise_id: string; sets?: number; rep_range_min?: number; rep_range_max?: number }) {
+    return request('/exercise/programs/days/' + dayId + '/exercises', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  removeProgramExercise: function (id: string) {
+    return request('/exercise/program-exercises/' + id, { method: 'DELETE' });
+  },
+  deleteExerciseSession: function (id: string) {
+    return request('/exercise/sessions/' + id, { method: 'DELETE' });
+  },
 
   // ── Medications ───────────────────────────────────────────────────────────────
   getMedications: function () {

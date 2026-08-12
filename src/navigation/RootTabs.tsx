@@ -51,6 +51,7 @@ import { SocialSettingsScreen } from "../screens/settings/SocialSettingsScreen";
 import { CardImageSplitterScreen } from "../screens/CardImageSplitterScreen";
 import { WatchTilesScreen } from "../screens/WatchTilesScreen";
 import { InsightsHistoryScreen } from "../screens/InsightsHistoryScreen";
+import { CustomPlanBuilderScreen } from "../screens/CustomPlanBuilderScreen";
 import { MedicationRemindersScreen } from "../screens/settings/MedicationRemindersScreen";
 import { BottomNav } from "../components/BottomNav";
 import { useTabPreferences } from "../hooks/useTabPreferences";
@@ -242,6 +243,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="SettingsBanks" component={BanksSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Connected Banks" /> }} />
         <Stack.Screen name="SettingsHardcover" component={HardcoverSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Hardcover" /> }} />
         <Stack.Screen name="ExerciseSession" component={ExerciseSessionScreen} options={{ title: "Workout Session" }} />
+        <Stack.Screen name="CustomPlanBuilder" component={CustomPlanBuilderScreen} options={{ title: "Build a Plan" }} />
         <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} options={{ title: "Session Details" }} />
         <Stack.Screen name="MedicationReminders" component={MedicationRemindersScreen} options={{ headerTitle: () => <SettingsTitle title="Medication Reminders" /> }} />
         <Stack.Screen name="MedicationImport" component={MedicationImportScreen} options={{ title: "Import Medications" }} />

@@ -368,6 +368,8 @@ export function MealsScreen() {
   const [subScannerVisible, setSubScannerVisible] = useState(false);
   const [photoScannerVisible, setPhotoScannerVisible] = useState(false);
   const [pendingFood, setPendingFood] = useState<PendingFood | null>(null);
+  const [mealTypePickerVisible, setMealTypePickerVisible] = useState(false);
+  const [addSheetVisible, setAddSheetVisible] = useState(false);
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
   const [frequentMeals, setFrequentMeals] = useState<FrequentMeal[]>([]);
   const [impactScores, setImpactScores] = useState<Record<string, number>>({});
@@ -1194,41 +1196,20 @@ export function MealsScreen() {
           </Pressable>
         ))}
 
-        {/* Meal type selector */}
-        <View
-          style={styles.chipRow}
-          accessibilityLabel={`Meal type selector. Currently ${mealType}.`}
+        {/* Compact meal-type pill (replaces the FOR chip row). Tap opens the
+            picker sheet — saves a full row of vertical space. */}
+        <Pressable
+          onPress={function () { Haptics.selectionAsync(); setMealTypePickerVisible(true); }}
+          style={[styles.typePill, { borderColor: ink, backgroundColor: card }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Meal type: ${mealType}. Tap to change.`}
         >
-          <Text
-            style={{ color: theme.textSoft, fontSize: 9, fontWeight: "800", letterSpacing: 0.5, marginRight: 4, alignSelf: "center" }}
-            allowFontScaling
-            maxFontSizeMultiplier={1.3}
-          >
-            FOR
-          </Text>
-          {MEAL_TYPES.map(function (type) {
-            const selected = mealType === type;
-            return (
-              <Pressable
-                key={type}
-                onPress={function () { Haptics.selectionAsync(); setMealType(type); }}
-                style={[
-                  styles.typeChip,
-                  { backgroundColor: selected ? ink : card },
-                ]}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`Log as ${type}`}
-              >
-                <Text style={{ color: selected ? "#ffffff" : ink, fontSize: 11, fontWeight: "800", letterSpacing: 0.3 }} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {type.toUpperCase()}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+          <Text style={{ color: theme.textSoft, fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>FOR</Text>
+          <Text style={{ color: ink, fontSize: 12, fontWeight: "800", marginLeft: 6 }}>{mealType.toUpperCase()}</Text>
+          <Ionicons name="chevron-down" size={12} color={theme.textSoft} style={{ marginLeft: 4 }} />
+        </Pressable>
 
-        {/* Search + scan bar */}
+        {/* Search + single "+ Add food" action (opens sheet with Barcode / Photo / Manual) */}
         <SearchScanBar
           placeholder="Search foods (pizza, salad…)"
           query={searchQuery}
@@ -1239,12 +1220,7 @@ export function MealsScreen() {
           error={searchError}
           errorColor={theme.coral.sub}
           actions={[
-            { label: "SCAN BARCODE", icon: "barcode-outline", onPress: () => setScannerVisible(true), accessibilityLabel: "Scan a food barcode" },
-            { label: "SCAN A PHOTO", icon: "image-outline",   onPress: () => setPhotoScannerVisible(true), accessibilityLabel: "Identify a food from a photo" },
-            { label: "+ ADD MANUALLY", onPress: () => {
-              setPendingFood({ name: "", carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null, source_db: "manual" });
-              setSearchResults([]);
-            }, accessibilityLabel: "Add a food manually" },
+            { label: "+ ADD FOOD", icon: "add-circle-outline", onPress: () => setAddSheetVisible(true), accessibilityLabel: "Add a food — scan barcode, photo, or enter manually" },
           ]}
         />
 
@@ -1631,6 +1607,67 @@ export function MealsScreen() {
         </Pressable>
       </Modal>
 
+      {/* Meal-type picker sheet (opens from the compact "For X ▾" pill) */}
+      <Modal visible={mealTypePickerVisible} transparent animationType="fade" onRequestClose={function () { setMealTypePickerVisible(false); }}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }} onPress={function () { setMealTypePickerVisible(false); }}>
+          <Pressable onPress={function (e) { e.stopPropagation(); }} style={{ backgroundColor: card, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 2, borderBottomWidth: 0, borderColor: theme.cardBorder, padding: 12 }}>
+            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 1, textAlign: "center", paddingVertical: 8 }}>LOG THIS AS</Text>
+            {MEAL_TYPES.map(function (type) {
+              const selected = mealType === type;
+              return (
+                <Pressable
+                  key={type}
+                  onPress={function () { Haptics.selectionAsync(); setMealType(type); setMealTypePickerVisible(false); }}
+                  style={function (state: any) { return { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, backgroundColor: state.pressed ? theme.page : "transparent" }; }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={{ flex: 1, color: theme.textStrong, fontSize: 15, fontWeight: selected ? "800" : "600" }}>{type[0].toUpperCase() + type.slice(1)}</Text>
+                  {selected ? <Ionicons name="checkmark" size={20} color={theme.teal.solid} /> : null}
+                </Pressable>
+              );
+            })}
+            <Pressable onPress={function () { setMealTypePickerVisible(false); }} style={{ paddingVertical: 12, alignItems: "center" }}>
+              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: "700" }}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Add-food action sheet (replaces the 3 stacked scan buttons) */}
+      <Modal visible={addSheetVisible} transparent animationType="fade" onRequestClose={function () { setAddSheetVisible(false); }}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }} onPress={function () { setAddSheetVisible(false); }}>
+          <Pressable onPress={function (e) { e.stopPropagation(); }} style={{ backgroundColor: card, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 2, borderBottomWidth: 0, borderColor: theme.cardBorder, padding: 12 }}>
+            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 1, textAlign: "center", paddingVertical: 8 }}>ADD A FOOD</Text>
+            {[
+              { label: "Scan a barcode",   icon: "barcode-outline" as const, onPress: function () { setAddSheetVisible(false); setScannerVisible(true); } },
+              { label: "Snap a photo",     icon: "camera-outline"  as const, onPress: function () { setAddSheetVisible(false); setPhotoScannerVisible(true); } },
+              { label: "Enter manually",   icon: "create-outline"  as const, onPress: function () {
+                setAddSheetVisible(false);
+                setPendingFood({ name: "", carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null, source_db: "manual" });
+                setSearchResults([]);
+              } },
+            ].map(function (row) {
+              return (
+                <Pressable
+                  key={row.label}
+                  onPress={row.onPress}
+                  style={function (state: any) { return { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, backgroundColor: state.pressed ? theme.page : "transparent" }; }}
+                  accessibilityRole="button"
+                  accessibilityLabel={row.label}
+                >
+                  <Ionicons name={row.icon} size={20} color={theme.textStrong} />
+                  <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "600" }}>{row.label}</Text>
+                </Pressable>
+              );
+            })}
+            <Pressable onPress={function () { setAddSheetVisible(false); }} style={{ paddingVertical: 12, alignItems: "center" }}>
+              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: "700" }}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <BarcodeScannerModal
         visible={scannerVisible}
         onClose={function () { setScannerVisible(false); }}
@@ -1735,6 +1772,11 @@ function makeStyles(ink: string, card: string, border: string) {
   },
 
   chipRow: { flexDirection: "row", gap: 6, marginBottom: 10, flexWrap: "wrap" },
+  typePill: {
+    flexDirection: "row", alignItems: "center", alignSelf: "flex-start",
+    borderWidth: 2, borderRadius: 999,
+    paddingHorizontal: 12, paddingVertical: 6, marginBottom: 8,
+  },
   typeChip: {
     borderWidth: 2,
     borderColor: ink,

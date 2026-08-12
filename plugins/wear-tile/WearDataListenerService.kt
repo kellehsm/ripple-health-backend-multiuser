@@ -22,14 +22,19 @@ class WearDataListenerService : WearableListenerService() {
             if (item.uri.path != "/ripple/metrics") continue
             val map = DataMapItem.fromDataItem(item).dataMap
             WearCache.write(
-                this,
-                glucose = map.getString("glucose"),
-                steps = map.getString("steps"),
-                water = map.getString("water"),
-                heart = map.getString("heart"),
-                sleep = map.getString("sleep"),
-                insight = map.getString("insight"),
-                updatedAt = map.getString("updatedAt")
+                context      = this,
+                glucose      = map.getString("glucose"),
+                glucoseArrow = map.getString("glucoseArrow"),
+                glucoseLabel = map.getString("glucoseLabel"),
+                glucoseTrend = map.getString("glucoseTrend"),
+                glucoseDelta = if (map.containsKey("glucoseDelta")) map.getInt("glucoseDelta") else null,
+                glucoseStale = if (map.containsKey("glucoseStale")) map.getBoolean("glucoseStale") else null,
+                steps        = map.getString("steps"),
+                water        = map.getString("water"),
+                heart        = map.getString("heart"),
+                sleep        = map.getString("sleep"),
+                insight      = map.getString("insight"),
+                updatedAt    = map.getString("updatedAt")
             )
             updated = true
         }

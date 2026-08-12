@@ -213,9 +213,29 @@ class RippleWearTileService : TileService() {
             col.addContent(text("RIPPLE WELLNESS", 8, TEAL.toInt(), bold = true))
             col.addContent(Spacer.Builder().setHeight(dp(1f)).build())
 
-            // Glucose hero
-            col.addContent(text(cache.glucose.ifEmpty { "--" }, 30, glucoseColor(cache.glucose), bold = true))
-            col.addContent(text("mg/dL", 8, LABEL_GRAY.toInt()))
+            // Glucose hero — big number with the trend arrow beside it, and
+            // the state label ("IN RANGE" / "ELEVATED" / "RISING HIGH" /
+            // "STALE 32M" / etc.) directly below. Color escalates to red when
+            // the reading is out of range OR trending into trouble (elevated
+            // + rising, or dropping + falling), so the wearer sees "act now"
+            // at a glance without reading the label.
+            val gluCol = glucoseColor(cache)
+            val gluText = cache.glucose.ifEmpty { "--" }
+            if (cache.glucoseArrow.isNotEmpty()) {
+                col.addContent(
+                    Row.Builder()
+                        .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM)
+                        .addContent(text(gluText, 30, gluCol, bold = true))
+                        .addContent(Spacer.Builder().setWidth(dp(4f)).build())
+                        .addContent(text(cache.glucoseArrow, 18, gluCol, bold = true))
+                        .build()
+                )
+            } else {
+                col.addContent(text(gluText, 30, gluCol, bold = true))
+            }
+            val label = cache.glucoseLabel.ifEmpty { "mg/dL" }
+            val labelColor = if (cache.glucoseLabel.isEmpty()) LABEL_GRAY.toInt() else gluCol
+            col.addContent(text(label, 8, labelColor, bold = cache.glucoseLabel.isNotEmpty()))
             col.addContent(Spacer.Builder().setHeight(dp(4f)).build())
 
             // 2x2 metric grid
@@ -327,13 +347,26 @@ class RippleWearTileService : TileService() {
             }
         }
 
-        private fun glucoseColor(glucose: String): Int {
-            val mg = glucose.trim().split(" ")[0].toIntOrNull()
+        // Palette-agnostic glucose color that mirrors WatchTilesScreen.tsx +
+        // the design brief: red when out of range OR trending toward it,
+        // amber when merely elevated, green when in range, grey when stale.
+        private fun glucoseColor(cache: WearCache.Snapshot): Int {
+            // Try structured (mg parsed from cache.glucose) first, fall back
+            // to the legacy embedded-arrow string just in case an old push
+            // is still cached.
+            val mg = cache.glucose.trim().split(" ")[0].toIntOrNull()
+            if (mg == null) return 0xFFE85C82.toInt()          // unknown → berry
+            if (cache.glucoseStale) return 0xFF8A93A0.toInt()  // grey out
+            val trend = cache.glucoseTrend
+            val delta = cache.glucoseDelta
+            val rising = trend.contains("Up", ignoreCase = true) || delta >= 10
+            val falling = trend.contains("Down", ignoreCase = true) || delta <= -10
             return when {
-                mg == null -> 0xFFE85C82.toInt()
-                mg < 70 || mg > 180 -> 0xFFFF5252.toInt()
-                mg > 140 -> 0xFFF5A623.toInt()
-                else -> 0xFF2ECC71.toInt()
+                mg < 70 || mg > 180                -> 0xFFFF5252.toInt() // red
+                mg > 140 && rising                  -> 0xFFFF5252.toInt() // rising into high
+                mg < 80 && falling                  -> 0xFFFF5252.toInt() // dropping toward low
+                mg > 140                            -> 0xFFF5A623.toInt() // amber elevated
+                else                                -> 0xFF2ECC71.toInt() // green in range
             }
         }
 

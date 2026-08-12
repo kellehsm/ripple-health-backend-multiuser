@@ -18,6 +18,13 @@ object WearDataBridge {
     private const val PATH = "/ripple/metrics"
     private const val TAG = "WearDataBridge"
 
+    /**
+     * Push metrics to the watch. Glucose is passed as the raw mg/dL string
+     * (no arrow embedded); the arrow/label/trend/delta/stale flags are pushed
+     * as separate fields so the tile can render the color-coded state
+     * (red when high-and-rising, low-and-falling, etc.) and the "STALE 32M"
+     * treatment for aged readings.
+     */
     fun push(
         context: Context,
         glucose: String,
@@ -25,12 +32,22 @@ object WearDataBridge {
         water: String,
         heart: String = "--",
         sleep: String = "--",
-        insight: String = ""
+        insight: String = "",
+        glucoseArrow: String = "",
+        glucoseLabel: String = "",
+        glucoseTrend: String = "",
+        glucoseDelta: Int = 0,
+        glucoseStale: Boolean = false
     ) {
         try {
             val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
             val req = PutDataMapRequest.create(PATH).apply {
                 dataMap.putString("glucose", glucose)
+                dataMap.putString("glucoseArrow", glucoseArrow)
+                dataMap.putString("glucoseLabel", glucoseLabel)
+                dataMap.putString("glucoseTrend", glucoseTrend)
+                dataMap.putInt("glucoseDelta", glucoseDelta)
+                dataMap.putBoolean("glucoseStale", glucoseStale)
                 dataMap.putString("steps", steps)
                 dataMap.putString("water", water)
                 dataMap.putString("heart", heart)

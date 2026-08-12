@@ -95,12 +95,16 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         Thread {
             try {
                 val token = readToken(context)
+                // Fetch once with the enriched glucose payload so we can (1)
+                // show the arrow inside the widget, and (2) push trend/label/
+                // stale flags to the watch tile in the same call.
+                val gluInfo: GlucoseInfo = if (token == null) GlucoseInfo(null, "--", "", "", 0, false, 0) else fetchGlucoseInfo(token)
                 val data = if (token == null) {
                     WidgetData("--", "--", "--", "--", "--", emptyList(), "Sign in to app")
                 } else {
                     val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
                     WidgetData(
-                        fetchGlucose(token),
+                        gluInfo.display,
                         fetchSteps(token),
                         fetchHeart(token),
                         fetchWater(token),
@@ -117,8 +121,18 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 // Silently no-ops if Google Play Services / wear isn't around.
                 try {
                     WearDataBridge.push(
-                        context, data.glucose, data.steps, data.water,
-                        data.heart, data.sleep, data.insights.firstOrNull()?.title ?: ""
+                        context = context,
+                        glucose = gluInfo.mg?.toString() ?: "--",
+                        steps = data.steps,
+                        water = data.water,
+                        heart = data.heart,
+                        sleep = data.sleep,
+                        insight = data.insights.firstOrNull()?.title ?: "",
+                        glucoseArrow = gluInfo.arrow,
+                        glucoseLabel = gluInfo.label(),
+                        glucoseTrend = gluInfo.trend,
+                        glucoseDelta = gluInfo.delta,
+                        glucoseStale = gluInfo.isStale
                     )
                 } catch (_: Throwable) {}
             } catch (e: Exception) {
@@ -157,9 +171,20 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         context.sendBroadcast(Intent(context, siblingClass()).setAction(ACTION_REFRESH))
                     } catch (_: Exception) {}
                     try {
+                        // Water-log refresh — strip the arrow from the cached
+                        // display string so the tile's separate arrow slot
+                        // isn't rendered twice. Trend/label/stale come from
+                        // the next full refresh; leaving them at defaults
+                        // preserves the previous cached state on the watch.
+                        val gluOnly = d.glucose.split(" ").firstOrNull() ?: d.glucose
                         WearDataBridge.push(
-                            context, d.glucose, d.steps, d.water,
-                            d.heart, d.sleep, d.insights.firstOrNull()?.title ?: ""
+                            context = context,
+                            glucose = gluOnly,
+                            steps = d.steps,
+                            water = d.water,
+                            heart = d.heart,
+                            sleep = d.sleep,
+                            insight = d.insights.firstOrNull()?.title ?: ""
                         )
                     } catch (_: Throwable) {}
                 }
@@ -355,23 +380,56 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             .getString("auth_token", null)?.takeIf { it.isNotEmpty() }
     }
 
-    private fun fetchGlucose(token: String): String {
-        return try {
-            val (code, body) = get(token, "/glucose/status")
-            if (code == 401 || code == 403) return "Sign in"
-            if (code == 200) {
-                val obj = JSONObject(body)
-                if (obj.optBoolean("hasData", false)) {
-                    val mg = obj.optInt("mg_dl", 0)
-                    val arrow = obj.optString("arrow", "").trim()
-                    if (arrow.isNotEmpty()) "$mg $arrow" else "$mg"
-                } else "--"
-            } else "--"
-        } catch (e: Exception) {
-            Log.w(TAG, "fetchGlucose: ${e.message}")
-            "--"
+    /** Structured glucose payload used to enrich the Wear tile (arrow, label, trend, stale). */
+    data class GlucoseInfo(
+        val mg: Int?,           // null when unknown
+        val display: String,    // widget display string (already includes arrow when present)
+        val arrow: String,
+        val trend: String,      // raw Dexcom trend (Rising / SingleUp / etc.)
+        val delta: Int,         // signed mg/dL from previous reading (0 if unknown)
+        val isStale: Boolean,
+        val minutesSince: Int   // 0 if unknown; used to build "STALE 32M" label
+    ) {
+        /** Label for the tile: "IN RANGE" / "ELEVATED" / "HIGH" / "LOW" / "RISING HIGH" /
+         *  "DROPPING" / "STALE 32M" — mirrors WatchTilesScreen's glucoseState(). */
+        fun label(): String {
+            if (mg == null) return ""
+            if (isStale) return if (minutesSince > 0) "STALE ${minutesSince}M" else "STALE"
+            val rising = trend.contains("Up", ignoreCase = true) || delta >= 10
+            val falling = trend.contains("Down", ignoreCase = true) || delta <= -10
+            return when {
+                mg < 70            -> if (falling) "LOW & FALLING" else "LOW"
+                mg > 180           -> if (rising) "HIGH & RISING" else "HIGH"
+                mg > 140 && rising -> "RISING HIGH"
+                mg < 80 && falling -> "DROPPING"
+                mg > 140           -> "ELEVATED"
+                else               -> "IN RANGE"
+            }
         }
     }
+
+    private fun fetchGlucoseInfo(token: String): GlucoseInfo {
+        return try {
+            val (code, body) = get(token, "/glucose/status")
+            if (code == 401 || code == 403) return GlucoseInfo(null, "Sign in", "", "", 0, false, 0)
+            if (code != 200) return GlucoseInfo(null, "--", "", "", 0, false, 0)
+            val obj = JSONObject(body)
+            if (!obj.optBoolean("hasData", false)) return GlucoseInfo(null, "--", "", "", 0, false, 0)
+            val mg = obj.optInt("mg_dl", 0)
+            val arrow = obj.optString("arrow", "").trim()
+            val trend = obj.optString("trend", "").trim()
+            val delta = obj.optInt("delta", 0)
+            val isStale = obj.optBoolean("isStale", false)
+            val mins = obj.optInt("minutesSinceReading", 0)
+            val display = if (arrow.isNotEmpty()) "$mg $arrow" else "$mg"
+            GlucoseInfo(mg, display, arrow, trend, delta, isStale, mins)
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchGlucose: ${e.message}")
+            GlucoseInfo(null, "--", "", "", 0, false, 0)
+        }
+    }
+
+    private fun fetchGlucose(token: String): String = fetchGlucoseInfo(token).display
 
     private fun fetchSteps(token: String): String {
         return try {
