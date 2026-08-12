@@ -183,6 +183,50 @@ export default async function summaryRoutes(app: FastifyInstance) {
     };
   });
 
+  // GET /summary/what-changed — this week vs last week deltas on the key
+  // metrics. Powers the "What changed" card on Overview so users see the
+  // biggest movers at a glance without doing chart math themselves.
+  app.get("/what-changed", async (req) => {
+    const user_id = req.user_id;
+    const rows = await query<any>(
+      `WITH weeks AS (
+         SELECT
+           SUM(CASE WHEN date >= date_trunc('week', CURRENT_DATE) THEN 1 ELSE 0 END)::int AS this_days,
+           SUM(CASE WHEN date >= date_trunc('week', CURRENT_DATE - INTERVAL '7 days')
+                     AND date <  date_trunc('week', CURRENT_DATE) THEN 1 ELSE 0 END)::int AS last_days,
+           AVG(CASE WHEN date >= date_trunc('week', CURRENT_DATE) THEN steps          END)::float AS this_steps,
+           AVG(CASE WHEN date >= date_trunc('week', CURRENT_DATE - INTERVAL '7 days')
+                     AND date <  date_trunc('week', CURRENT_DATE) THEN steps          END)::float AS last_steps,
+           AVG(CASE WHEN date >= date_trunc('week', CURRENT_DATE) THEN sleep_hours    END)::float AS this_sleep,
+           AVG(CASE WHEN date >= date_trunc('week', CURRENT_DATE - INTERVAL '7 days')
+                     AND date <  date_trunc('week', CURRENT_DATE) THEN sleep_hours    END)::float AS last_sleep,
+           AVG(CASE WHEN date >= date_trunc('week', CURRENT_DATE) THEN avg_glucose    END)::float AS this_glu,
+           AVG(CASE WHEN date >= date_trunc('week', CURRENT_DATE - INTERVAL '7 days')
+                     AND date <  date_trunc('week', CURRENT_DATE) THEN avg_glucose    END)::float AS last_glu,
+           AVG(CASE WHEN date >= date_trunc('week', CURRENT_DATE) THEN overall_score  END)::float AS this_score,
+           AVG(CASE WHEN date >= date_trunc('week', CURRENT_DATE - INTERVAL '7 days')
+                     AND date <  date_trunc('week', CURRENT_DATE) THEN overall_score  END)::float AS last_score
+         FROM daily_summaries
+         WHERE user_id = $1 AND date >= date_trunc('week', CURRENT_DATE - INTERVAL '7 days')
+       )
+       SELECT * FROM weeks`,
+      [user_id]
+    );
+    const r = rows[0] ?? {};
+    function delta(now: number | null, prev: number | null) {
+      if (now == null || prev == null || prev === 0) return null;
+      return Math.round(((now - prev) / prev) * 100);
+    }
+    return {
+      this_days_logged: r.this_days ?? 0,
+      last_days_logged: r.last_days ?? 0,
+      steps:   { this: r.this_steps,  last: r.last_steps,  pct: delta(r.this_steps,  r.last_steps) },
+      sleep:   { this: r.this_sleep,  last: r.last_sleep,  pct: delta(r.this_sleep,  r.last_sleep) },
+      glucose: { this: r.this_glu,    last: r.last_glu,    pct: delta(r.this_glu,    r.last_glu) },
+      score:   { this: r.this_score,  last: r.last_score,  pct: delta(r.this_score,  r.last_score) },
+    };
+  });
+
   // Powers the Overview tab's top stat row — reads from precomputed daily_summaries.
   app.get("/today", async (req) => {
     const user_id = req.user_id;

@@ -115,6 +115,7 @@ type PendingFood = {
   source_food_id?: string;
   source_db?: string;
   barcode?: string;
+  servings?: number | null;
 };
 
 type QuickDrink = {
@@ -584,9 +585,58 @@ export function MealsScreen() {
     openFrequentPending(meal);
   }
 
+  // Per-frequent-meal servings default lives in AsyncStorage — no backend
+  // schema change needed since it's a local convenience.
+  const FREQ_SERVINGS_KEY = "ripple_frequent_servings";
+  async function loadFrequentServings(name: string): Promise<number | null> {
+    try {
+      const raw = await AsyncStorage.getItem(FREQ_SERVINGS_KEY);
+      const map: Record<string, number> = raw ? JSON.parse(raw) : {};
+      const v = map[name];
+      return typeof v === "number" && v > 0 ? v : null;
+    } catch { return null; }
+  }
+  async function saveFrequentServings(name: string, servings: number) {
+    try {
+      const raw = await AsyncStorage.getItem(FREQ_SERVINGS_KEY);
+      const map: Record<string, number> = raw ? JSON.parse(raw) : {};
+      map[name] = servings;
+      await AsyncStorage.setItem(FREQ_SERVINGS_KEY, JSON.stringify(map));
+    } catch {}
+  }
+  function promptFrequentServings(name: string) {
+    Alert.prompt(
+      "Default servings for " + name,
+      "Every time you tap this chip, log this many servings by default (0.25 – 10).",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save",
+          onPress: async (input?: string) => {
+            const v = parseFloat((input ?? "1").trim());
+            if (!isFinite(v) || v <= 0 || v > 10) {
+              toast("Enter a number between 0.25 and 10.", "error");
+              return;
+            }
+            await saveFrequentServings(name, v);
+            toast("Default set to " + v + " serving" + (v === 1 ? "" : "s"));
+          },
+        },
+      ],
+      "plain-text",
+      "1"
+    );
+  }
+
   function openFrequentPending(meal: FrequentMeal) {
     setSearchResults([]);
     setSearchQuery("");
+    // Apply the saved default servings on the pending food so the user can
+    // still edit before saving. Fire-and-forget — if it fails, we just
+    // don't prefill.
+    loadFrequentServings(meal.name).then((s) => {
+      if (s != null && s !== 1) setPendingFood((cur) => cur ? { ...cur, servings: s } as any : cur);
+    });
     setPendingFood({
       name: meal.name,
       carbs_g: meal.carbs_g,
@@ -1188,12 +1238,16 @@ export function MealsScreen() {
                       onLongPress={function () {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                         Alert.alert(
-                          "Hide from suggestions?",
-                          `"${meal.name}" won't appear in your usuals.`,
+                          meal.name,
+                          "Long-press options",
                           [
                             { text: "Cancel", style: "cancel" },
                             {
-                              text: "Hide",
+                              text: "Set default servings",
+                              onPress: function () { promptFrequentServings(meal.name); },
+                            },
+                            {
+                              text: "Hide from usuals",
                               style: "destructive",
                               onPress: async function () {
                                 try {

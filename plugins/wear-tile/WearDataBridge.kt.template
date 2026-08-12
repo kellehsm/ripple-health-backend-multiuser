@@ -18,6 +18,25 @@ object WearDataBridge {
     private const val PATH = "/ripple/metrics"
     private const val TAG = "WearDataBridge"
 
+    /** Small helper: after handling a watch-initiated log, phone-side code
+     *  broadcasts just the status flip so the Log tile flashes ✓ or ✗ for
+     *  the user. Uses the same Data Layer path so the wear listener picks
+     *  it up alongside metric pushes. */
+    fun pushLogResult(context: Context, ok: Boolean) {
+        try {
+            val req = PutDataMapRequest.create(PATH).apply {
+                dataMap.putString("lastLogStatus", if (ok) "ok" else "fail")
+                dataMap.putLong("lastLogStatusAt", System.currentTimeMillis())
+                dataMap.putLong("nonce", System.currentTimeMillis())
+            }
+            Wearable.getDataClient(context.applicationContext)
+                .putDataItem(req.asPutDataRequest().setUrgent())
+                .addOnFailureListener { e -> Log.w(TAG, "pushLogResult failed", e) }
+        } catch (e: Exception) {
+            Log.w(TAG, "pushLogResult threw", e)
+        }
+    }
+
     /**
      * Push metrics to the watch. Glucose is passed as the raw mg/dL string
      * (no arrow embedded); the arrow/label/trend/delta/stale flags are pushed
@@ -38,7 +57,9 @@ object WearDataBridge {
         glucoseTrend: String = "",
         glucoseDelta: Int = 0,
         glucoseStale: Boolean = false,
-        mindStreak: Int = 0
+        mindStreak: Int = 0,
+        lastLogStatus: String = "",
+        lastLogStatusAt: Long = 0L
     ) {
         try {
             val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
@@ -50,6 +71,8 @@ object WearDataBridge {
                 dataMap.putInt("glucoseDelta", glucoseDelta)
                 dataMap.putBoolean("glucoseStale", glucoseStale)
                 dataMap.putInt("mindStreak", mindStreak)
+                dataMap.putString("lastLogStatus", lastLogStatus)
+                dataMap.putLong("lastLogStatusAt", lastLogStatusAt)
                 dataMap.putString("steps", steps)
                 dataMap.putString("water", water)
                 dataMap.putString("heart", heart)

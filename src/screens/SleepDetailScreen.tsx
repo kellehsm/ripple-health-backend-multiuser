@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Dimensions, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Line, Rect, Text as SvgText } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
@@ -106,6 +106,37 @@ export function SleepDetailScreen() {
   const [loadingRange, setLoadingRange] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [scoreExplainerVisible, setScoreExplainerVisible] = useState(false);
+
+  // Compute a client-side sleep score (0-100) for the last session so
+  // there's something concrete to tap. Blends duration, deep+REM balance,
+  // and awake time. Only uses fields the DB actually returns.
+  const scored = React.useMemo(() => {
+    const s = sessions[0];
+    if (!s) return null;
+    const totalMs = new Date(s.end_time).getTime() - new Date(s.start_time).getTime();
+    const totalMin = Math.max(0, totalMs / 60000);
+    // Duration: 7-9h ideal → 100; 6h or 10h → 70; 4h or 12h → 20
+    const durHours = totalMin / 60;
+    const durationScore = durHours >= 7 && durHours <= 9 ? 100
+      : durHours >= 6 && durHours <= 10 ? 70
+      : durHours >= 4 && durHours <= 12 ? 40 : 15;
+    // Deep+REM share (target ~35% combined)
+    const deepPlusRem = ((s.deep_ms ?? 0) + (s.rem_ms ?? 0)) / (totalMs || 1);
+    const stagesScore = deepPlusRem >= 0.30 ? 100
+      : deepPlusRem >= 0.20 ? 75
+      : deepPlusRem > 0 ? 45 : 55;   // 55 baseline when device doesn't report stages
+    // Awake share (lower is better)
+    const awakeShare = (s.awake_ms ?? 0) / (totalMs || 1);
+    const awakeScore = awakeShare < 0.05 ? 100 : awakeShare < 0.10 ? 80 : awakeShare < 0.20 ? 55 : 25;
+    const overall = Math.round(0.5 * durationScore + 0.3 * stagesScore + 0.2 * awakeScore);
+    return {
+      score: overall,
+      durHours: Number(durHours.toFixed(1)),
+      deepPlusRemPct: Math.round(deepPlusRem * 100),
+      awakePct: Math.round(awakeShare * 100),
+    };
+  }, [sessions]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -211,6 +242,54 @@ export function SleepDetailScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />
       }
     >
+
+      {/* Last-night score — tap to see the breakdown */}
+      {scored && (
+        <Pressable
+          onPress={() => setScoreExplainerVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel={`Last night's sleep score ${scored.score} out of 100. Tap to see the breakdown.`}
+        >
+          <ShadowCard size="card" accent={theme.violet?.solid ?? "#7965B0"} padding={14}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View>
+                <Text style={{ fontSize: 11, fontWeight: "800", color: theme.textSoft, letterSpacing: 0.5 }}>LAST NIGHT'S SCORE</Text>
+                <Text style={{ fontSize: 32, fontWeight: "900", color: ink, letterSpacing: -1, marginTop: 2 }}>
+                  {scored.score}<Text style={{ fontSize: 16, color: theme.textSoft }}> / 100</Text>
+                </Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={{ color: theme.textSoft, fontSize: 11 }}>{scored.durHours}h · {scored.deepPlusRemPct}% deep+REM</Text>
+                <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 2 }}>tap to explain ›</Text>
+              </View>
+            </View>
+          </ShadowCard>
+        </Pressable>
+      )}
+
+      {/* Score-explainer modal */}
+      <Modal visible={scoreExplainerVisible} transparent animationType="fade" onRequestClose={() => setScoreExplainerVisible(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 }} onPress={() => setScoreExplainerVisible(false)}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: theme.card, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, padding: 20, gap: 10 }}>
+            <Text style={{ color: theme.textStrong, fontSize: 17, fontWeight: "900" }}>How the score is calculated</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 12 }}>Blended from three things, weighted:</Text>
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: theme.textStrong, fontSize: 13 }}>• <Text style={{ fontWeight: "900" }}>Duration (50%)</Text> — 7–9h is ideal. You had <Text style={{ fontWeight: "900" }}>{scored?.durHours}h</Text>.</Text>
+              <Text style={{ color: theme.textStrong, fontSize: 13 }}>• <Text style={{ fontWeight: "900" }}>Deep + REM (30%)</Text> — target 30%+ combined. You had <Text style={{ fontWeight: "900" }}>{scored?.deepPlusRemPct}%</Text>.</Text>
+              <Text style={{ color: theme.textStrong, fontSize: 13 }}>• <Text style={{ fontWeight: "900" }}>Awake time (20%)</Text> — less is better. You were awake <Text style={{ fontWeight: "900" }}>{scored?.awakePct}%</Text> of the night.</Text>
+            </View>
+            <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 4 }}>
+              This is a heuristic — not medical or diagnostic. If your device doesn't report sleep stages, that section falls back to a middle score.
+            </Text>
+            <Pressable
+              onPress={() => setScoreExplainerVisible(false)}
+              style={{ marginTop: 8, borderWidth: 2, borderColor: theme.ink, borderRadius: 14, paddingVertical: 10, alignItems: "center", backgroundColor: theme.teal.solid }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "900", letterSpacing: 0.5 }}>Got it</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Range picker + averages */}
       <ShadowCard size="card" accent={theme.violet?.solid ?? "#7965B0"} padding={14}>

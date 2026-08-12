@@ -46,17 +46,23 @@ class WearMessageListener : WearableListenerService() {
             try {
                 val token = readToken(this) ?: run {
                     Log.w(TAG, "no auth cached — user must open the phone app first")
+                    WearDataBridge.pushLogResult(this, false)
                     return@execute
                 }
-                when (path) {
+                val ok = when (path) {
                     "/ripple/log-water" -> logWater(token)
                     "/ripple/log-mood"  -> {
                         val score = if (data.isNotEmpty()) data[0].toInt() else 3
                         logMood(token, score)
                     }
+                    else -> false
                 }
+                // Broadcast the outcome back to the watch so the Log tile can
+                // flash ✓ or ✗ for a moment before returning to normal state.
+                WearDataBridge.pushLogResult(this, ok)
             } catch (e: Exception) {
                 Log.w(TAG, "handling $path: ${e.message}")
+                WearDataBridge.pushLogResult(this, false)
             }
         }
     }
@@ -70,19 +76,19 @@ class WearMessageListener : WearableListenerService() {
         } catch (e: Exception) { null }
     }
 
-    private fun logWater(token: String) {
-        val metricId = fetchOrCreateWaterMetric(token) ?: return
+    private fun logWater(token: String): Boolean {
+        val metricId = fetchOrCreateWaterMetric(token) ?: return false
         val body = JSONObject().put("value", 1).toString()
-        postJson("$API_BASE/metrics/$metricId/logs", token, body)
+        return postJson("$API_BASE/metrics/$metricId/logs", token, body) != null
     }
 
-    private fun logMood(token: String, score: Int) {
+    private fun logMood(token: String, score: Int): Boolean {
         val body = JSONObject()
             .put("mood_score", score.coerceIn(1, 5))
             .put("entry_type", "moment")
             .put("mood_label", when (score) { 2 -> "Low"; 3 -> "OK"; 4 -> "Good"; else -> "Neutral" })
             .toString()
-        postJson("$API_BASE/mood-log", token, body)
+        return postJson("$API_BASE/mood-log", token, body) != null
     }
 
     private fun fetchOrCreateWaterMetric(token: String): String? {

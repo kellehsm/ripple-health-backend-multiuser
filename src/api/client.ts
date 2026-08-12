@@ -156,6 +156,9 @@ export const api = {
   weeklyDigest: function () {
     return request("/summary/weekly-digest");
   },
+  whatChanged: function () {
+    return request("/summary/what-changed");
+  },
   streaks: function () {
     return request("/summary/streaks");
   },

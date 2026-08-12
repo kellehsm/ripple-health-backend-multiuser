@@ -19,7 +19,12 @@ object WearCache {
         val sleep: String,
         val insight: String,
         val updatedAt: String,
-        val mindStreak: Int          // mindfulness day-streak — Breathe tile hero
+        val mindStreak: Int,         // mindfulness day-streak — Breathe tile hero
+        val lastLogStatus: String,   // "ok" | "fail" | "" — set by the phone after a
+                                     // watch-initiated log; the Log tile renders a
+                                     // green ✓ / red ✗ flash for a short window
+        val lastLogStatusAt: Long    // epoch ms — used so the tile can auto-clear
+                                     // the flash once it's older than ~10s
     )
 
     fun read(context: Context): Snapshot {
@@ -37,7 +42,9 @@ object WearCache {
             sleep         = p.getString("sleep", "--") ?: "--",
             insight       = p.getString("insight", "") ?: "",
             updatedAt     = p.getString("updatedAt", "") ?: "",
-            mindStreak    = p.getInt("mindStreak", 0)
+            mindStreak    = p.getInt("mindStreak", 0),
+            lastLogStatus = p.getString("lastLogStatus", "") ?: "",
+            lastLogStatusAt = p.getLong("lastLogStatusAt", 0L)
         )
     }
 
@@ -55,7 +62,9 @@ object WearCache {
         sleep: String?,
         insight: String?,
         updatedAt: String?,
-        mindStreak: Int?
+        mindStreak: Int?,
+        lastLogStatus: String?,
+        lastLogStatusAt: Long?
     ) {
         val edit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
         if (glucose != null)      edit.putString("glucose", glucose)
@@ -71,6 +80,8 @@ object WearCache {
         if (insight != null)      edit.putString("insight", insight)
         if (updatedAt != null)    edit.putString("updatedAt", updatedAt)
         if (mindStreak != null)   edit.putInt("mindStreak", mindStreak)
+        if (lastLogStatus != null)   edit.putString("lastLogStatus", lastLogStatus)
+        if (lastLogStatusAt != null) edit.putLong("lastLogStatusAt", lastLogStatusAt)
         edit.apply()
     }
 }

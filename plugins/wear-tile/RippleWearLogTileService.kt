@@ -97,7 +97,20 @@ class RippleWearLogTileService : TileService() {
             .setWidth(expand())
             .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
 
-        col.addContent(text("RIPPLE", 10, TEAL.toInt(), bold = true))
+        // Header line — normally "RIPPLE", but for ~10s after a log
+        // finishes we flip it to a green "✓ LOGGED" or red "✗ TRY AGAIN"
+        // so the wearer sees the outcome without opening the app.
+        val flashMs = System.currentTimeMillis() - cache.lastLogStatusAt
+        val flash = when {
+            cache.lastLogStatusAt > 0 && flashMs in 0..10_000 && cache.lastLogStatus == "ok"   -> Pair("✓ LOGGED", 0xFF2ECC71.toInt())
+            cache.lastLogStatusAt > 0 && flashMs in 0..10_000 && cache.lastLogStatus == "fail" -> Pair("✗ TRY AGAIN", 0xFFFF5252.toInt())
+            else -> null
+        }
+        if (flash != null) {
+            col.addContent(text(flash.first, 11, flash.second, bold = true))
+        } else {
+            col.addContent(text("RIPPLE", 10, TEAL.toInt(), bold = true))
+        }
         col.addContent(Spacer.Builder().setHeight(dp(4f)).build())
         col.addContent(text("WATER — GLASSES", 9, LABEL_GRAY.toInt(), bold = true))
         col.addContent(Spacer.Builder().setHeight(dp(2f)).build())

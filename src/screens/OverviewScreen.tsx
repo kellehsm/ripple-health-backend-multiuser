@@ -26,6 +26,7 @@ import { coloredShadow } from "../theme/styleUtils";
 import { ShadowCard } from "../components/ShadowCard";
 import { api } from "../api/client";
 import { DailySummaryCard, type DailySummaryData } from "../components/DailySummaryCard";
+import { WhatChangedCard } from "../components/WhatChangedCard";
 import { InsightCard, type Insight } from "../components/InsightCard";
 import { toast, Msg } from "../lib/toast";
 import { MoodCheckInModal, type MoodPeriod } from "../components/MoodCheckInModal";
@@ -1330,7 +1331,15 @@ export function OverviewScreen() {
         );
 
       case "daily_summary":
-        return dailySummary ? <DailySummaryCard data={dailySummary} /> : null;
+        return (
+          <View style={{ gap: 12 }}>
+            {dailySummary ? <DailySummaryCard data={dailySummary} /> : null}
+            {/* Sits under the daily summary — same section slot, so hiding
+                the daily-summary tile also hides this. No-ops until the
+                user has ≥3 days logged in each of the two weeks compared. */}
+            <WhatChangedCard />
+          </View>
+        );
 
       case "top_insight":
         return topInsight ? (
