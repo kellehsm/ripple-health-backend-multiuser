@@ -19,6 +19,7 @@ import summaryRoutes from "./routes/summary.js";
 import healthConnectRoutes from "./routes/health-connect.js";
 import heartRateRoutes from "./routes/heart-rate.js";
 import settingsRoutes from "./routes/settings.js";
+import adminRoutes from "./routes/admin.js";
 import exportRoutes from "./routes/export.js";
 import searchRoutes from "./routes/search.js";
 import googleAuthRoutes from "./routes/google-auth.js";
@@ -144,6 +145,7 @@ async function main() {
     return fs.promises.readFile(adminHtmlPath, "utf8");
   });
   await app.register(authRoutes, { prefix: "/api/auth" });
+  await app.register(adminRoutes, { prefix: "/api/admin" });
   await app.register(dexcomVerifyRoutes, { prefix: "/api/dexcom" });
   await app.register(dexcomAuthRoutes, { prefix: "/auth/dexcom" });
   await app.register(googleAuthRoutes, { prefix: "/auth/google" });

@@ -36,6 +36,30 @@ export default async function insightsRoutes(app: FastifyInstance) {
     return getInsightHistory(user_id);
   });
 
+  // GET /insights/impact/:rule_id — cross-user average outcome so an insight
+  // card can show "People who tried this saw ~X change".  Returns
+  // { available: false } when the sample size is too small to be honest.
+  app.get("/impact/:rule_id", async (req) => {
+    const { rule_id } = req.params as { rule_id: string };
+    const [row] = await query<any>(
+      `SELECT
+         COUNT(*)::int                                                   AS sample,
+         ROUND(AVG(after_mean - before_mean)::numeric, 1)::float          AS mean_delta,
+         MODE() WITHIN GROUP (ORDER BY direction)                        AS common_direction
+       FROM insight_experiment_results
+       WHERE rule_id = $1 AND before_mean IS NOT NULL AND after_mean IS NOT NULL`,
+      [rule_id]
+    );
+    const sample = row?.sample ?? 0;
+    if (sample < 5) return { available: false, sample };
+    return {
+      available: true,
+      sample,
+      mean_delta: row.mean_delta,
+      direction: row.common_direction,
+    };
+  });
+
   // POST /insights/:id/dismiss — dismiss an insight so it stops showing
   app.post("/:id/dismiss", async (req, reply) => {
     const user_id = req.user_id;

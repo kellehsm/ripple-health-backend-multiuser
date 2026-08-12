@@ -24,13 +24,78 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
     const user_id = req.user_id;
     const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);
     const gd = rows[0]?.settings?.google_drive ?? {};
+    // Derive a client-side "stale" flag so the UI doesn't have to duplicate
+    // this math. Anything >7 days old is stale; >30 days is critical.
+    const lastMs = gd.last_backup ? new Date(gd.last_backup).getTime() : 0;
+    const ageDays = lastMs ? Math.floor((Date.now() - lastMs) / 86_400_000) : null;
+    const stale    = ageDays != null && ageDays > 7;
+    const critical = ageDays != null && ageDays > 30;
     return {
       connected: !!gd.refresh_token,
       last_backup: gd.last_backup ?? null,
+      last_backup_age_days: ageDays,
+      last_backup_stale: stale,
+      last_backup_critical: critical,
+      last_verified_at: gd.last_verified_at ?? null,
+      last_verified_ok: gd.last_verified_ok ?? null,
       auto_backup: gd.auto_backup ?? false,
       connected_at: gd.connected_at ?? null,
     };
   });
+
+  // POST /verify-latest — reach out to Drive, list backups, HEAD the newest
+  // file to confirm it's actually there and readable. Cheap end-to-end
+  // sanity check so users know their backup isn't silently broken.
+  app.post("/verify-latest", async (req, reply) => {
+    const user_id = req.user_id;
+    const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);
+    const gd = rows[0]?.settings?.google_drive ?? {};
+    if (!gd.refresh_token) return reply.code(400).send({ error: "Google Drive not connected" });
+    try {
+      const accessToken = await refreshAccessToken(gd.refresh_token);
+      const listRes = await fetchWithTimeout(
+        "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=1&orderBy=modifiedTime%20desc&fields=files(id,name,modifiedTime,size)",
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const listJson: any = await listRes.json();
+      const file = listJson?.files?.[0];
+      if (!file) {
+        await recordVerify(user_id, false, "no backups found");
+        return { ok: false, reason: "no backups found" };
+      }
+      // HEAD-style check: request 1 byte of the file to confirm it's readable
+      const headRes = await fetchWithTimeout(
+        `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+        { headers: { Authorization: `Bearer ${accessToken}`, Range: "bytes=0-0" } }
+      );
+      const readable = headRes.status === 200 || headRes.status === 206;
+      await recordVerify(user_id, readable, readable ? null : `HTTP ${headRes.status}`);
+      return {
+        ok: readable,
+        latest: { id: file.id, name: file.name, modifiedTime: file.modifiedTime, size: file.size },
+      };
+    } catch (e: any) {
+      await recordVerify(user_id, false, e?.message ?? "unknown");
+      return reply.code(500).send({ ok: false, error: e?.message ?? "verify failed" });
+    }
+  });
+
+  async function recordVerify(userId: string, ok: boolean, reason: string | null) {
+    // Stamp last_verified_* alongside last_backup — jsonb_set-per-key so we
+    // never clobber sibling google_drive fields (refresh_token etc.).
+    await query(
+      `UPDATE user_settings
+       SET settings = jsonb_set(
+              jsonb_set(
+                jsonb_set(settings, '{google_drive,last_verified_at}', to_jsonb($2::text)),
+                '{google_drive,last_verified_ok}', to_jsonb($3::boolean)
+              ),
+              '{google_drive,last_verified_reason}', to_jsonb($4::text)
+            )
+       WHERE user_id = $1`,
+      [userId, new Date().toISOString(), ok, reason]
+    );
+  }
 
   app.post("/backup", async (req) => {
     const user_id = req.user_id;

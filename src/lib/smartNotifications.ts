@@ -1159,3 +1159,30 @@ export async function maybeFireWeeklyDigest(digest: {
     android: { channelId: CH_WEEKLY, smallIcon: "ic_notification", pressAction: { id: "default" } },
   });
 }
+
+// ─── Sunday-evening week-ahead prompt ────────────────────────────────────────
+// One gentle nudge Sunday between 6-9pm asking "any workouts to schedule
+// this week?". Deep-links to the exercise plan builder. Idempotent per week
+// via the same isoWeek AsyncStorage key pattern as the digest above.
+export async function maybeFireSundayWeekAheadPrompt() {
+  if (await areMuted()) return;
+  const now = new Date();
+  if (now.getDay() !== 0) return;               // Sunday only
+  if (now.getHours() < 18 || now.getHours() >= 21) return;
+
+  const key = `sunday_prompt_${isoWeek(now)}`;
+  const already = await AsyncStorage.getItem(key);
+  if (already) return;
+  await AsyncStorage.setItem(key, "1");
+
+  await notifee.displayNotification({
+    title: "Plan your week?",
+    body: "Any workouts you want to line up for the week ahead?",
+    data: { target: "exercise" },
+    android: {
+      channelId: CH_WEEKLY,
+      smallIcon: "ic_notification",
+      pressAction: { id: "default", launchActivity: "default" },
+    },
+  });
+}

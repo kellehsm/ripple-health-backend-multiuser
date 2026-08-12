@@ -19,6 +19,7 @@ import {
   checkMindfulnessReminder,
   checkSleepReminder,
   checkWorkoutReminder,
+  maybeFireSundayWeekAheadPrompt,
   checkStepGoal,
   checkLowStreakDanger,
 } from "./smartNotifications";
@@ -130,6 +131,7 @@ async function syncAndUpdateNotification(notificationId: string) {
     await checkMindfulnessReminder(settings, now);
     await checkSleepReminder(settings, now);
     await checkWorkoutReminder(settings, now);
+    await maybeFireSundayWeekAheadPrompt();
     await checkStepGoal(settings, now);
     await checkLowStreakDanger(now);
   } catch (err) {

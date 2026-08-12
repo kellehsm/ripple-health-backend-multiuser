@@ -203,6 +203,7 @@ export default async function exerciseRoutes(app: FastifyInstance) {
       weekCount,
       completion,
       recentSessions,
+      lastNightSleep,
     ] = await Promise.all([
       query<any>(
         `SELECT muscle, EXTRACT(DAY FROM (now() - MAX(s.started_at)))::int AS days_since
@@ -257,6 +258,18 @@ export default async function exerciseRoutes(app: FastifyInstance) {
          ORDER BY started_at DESC LIMIT 4`,
         [user_id]
       ),
+      // Recovery-check: how long was last night's main sleep session? Uses
+      // the same window as the sleep dashboard — 8pm yesterday through now.
+      query<{ hours: number | null }>(
+        `SELECT ROUND(
+                  (EXTRACT(EPOCH FROM SUM(end_time - start_time))/3600.0)::numeric, 1
+                )::float AS hours
+         FROM sleep_sessions
+         WHERE user_id = $1
+           AND start_time >= (CURRENT_DATE - INTERVAL '1 day' + INTERVAL '20 hours')
+           AND end_time   <= NOW()`,
+        [user_id]
+      ),
     ]);
 
     const sessionsThisWeek: number = weekCount[0]?.count ?? 0;
@@ -285,6 +298,21 @@ export default async function exerciseRoutes(app: FastifyInstance) {
 
     if (overtraining) {
       return { type: "rest_day", title: "Time to recover", body: "You've trained 4 days in a row — rest is when adaptations happen.", cta: null, data: null };
+    }
+
+    // Sleep-based recovery day: <5h last night → suggest a lighter session
+    // (recovery walk, mobility, low-intensity). Ranks above neglected-muscle
+    // because pushing a heavy workout on 4h sleep is a bad idea regardless
+    // of split debt.
+    const sleepHrs = lastNightSleep[0]?.hours ?? null;
+    if (sleepHrs != null && sleepHrs < 5) {
+      return {
+        type: "poor_sleep",
+        title: "Rough night — take it easy",
+        body: `You slept ${sleepHrs}h — a walk, mobility flow, or light session will recover better than a heavy lift today.`,
+        cta: null,
+        data: { hours: sleepHrs },
+      };
     }
 
     if (neglected) {
