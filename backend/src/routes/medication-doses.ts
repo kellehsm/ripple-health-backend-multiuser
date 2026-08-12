@@ -5,15 +5,19 @@ export default async function medicationDosesRoutes(app: FastifyInstance) {
   app.post("/mark-slot", async (req) => {
     const user_id = req.user_id;
     const { time_of_day, date } = req.body as any;
-    const logDate = date ?? new Date().toISOString().slice(0, 10);
+    // NB: default to Postgres CURRENT_DATE (server-local) rather than JS
+    // toISOString() (UTC). The reader query below uses CURRENT_DATE, so if
+    // the writer used UTC we'd log a dose under a different date than the
+    // reader looks at — the button would appear to do nothing on any night
+    // when the server's local date and UTC date disagree.
     await query(
       `INSERT INTO medication_dose_logs (user_id, medication_id, slot_id, log_date, status)
-       SELECT $1, s.medication_id, s.id, $3::date, 'taken'
+       SELECT $1, s.medication_id, s.id, COALESCE($3::date, CURRENT_DATE), 'taken'
        FROM medication_schedule_slots s
        JOIN medications m ON m.id = s.medication_id
        WHERE m.user_id = $1 AND m.active = true AND s.time_of_day = $2
        ON CONFLICT (user_id, medication_id, slot_id, log_date) DO UPDATE SET status = 'taken', taken_at = now()`,
-      [user_id, time_of_day, logDate]
+      [user_id, time_of_day, date ?? null]
     );
     return { ok: true };
   });
@@ -21,15 +25,15 @@ export default async function medicationDosesRoutes(app: FastifyInstance) {
   app.post("/mark-selected", async (req) => {
     const user_id = req.user_id;
     const { slot_ids, date } = req.body as any;
-    const logDate = date ?? new Date().toISOString().slice(0, 10);
+    // See mark-slot comment — CURRENT_DATE is server-local, matches the reader.
     await query(
       `INSERT INTO medication_dose_logs (user_id, medication_id, slot_id, log_date, status)
-       SELECT $1, s.medication_id, s.id, $3::date, 'taken'
+       SELECT $1, s.medication_id, s.id, COALESCE($3::date, CURRENT_DATE), 'taken'
        FROM medication_schedule_slots s
        JOIN medications m ON m.id = s.medication_id
        WHERE m.user_id = $1 AND s.id = ANY($2::uuid[])
        ON CONFLICT (user_id, medication_id, slot_id, log_date) DO UPDATE SET status = 'taken', taken_at = now()`,
-      [user_id, slot_ids, logDate]
+      [user_id, slot_ids, date ?? null]
     );
     return { ok: true };
   });
