@@ -93,6 +93,8 @@ export default async function exerciseRoutes(app: FastifyInstance) {
         [id, user_id]
       ),
       query<any>(
+        // Join through exercise_sessions so we enforce user_id in the query
+        // itself — never rely on the parallel sessionRows guard to gate this.
         `SELECT
            e.id, e.sets, e.reps, e.duration_seconds, e.logged_at, e.sort_order,
            e.weight_used, e.target_rep_range_min, e.target_rep_range_max,
@@ -101,9 +103,10 @@ export default async function exerciseRoutes(app: FastifyInstance) {
            lib.primary_muscles, lib.images
          FROM exercise_log_entries e
          JOIN exercise_library lib ON lib.id = e.exercise_id
-         WHERE e.session_id = $1
+         JOIN exercise_sessions s ON s.id = e.session_id
+         WHERE e.session_id = $1 AND s.user_id = $2
          ORDER BY e.sort_order, e.logged_at`,
-        [id]
+        [id, user_id]
       ),
       query<any>(`SELECT settings FROM user_settings WHERE user_id = $1`, [user_id]),
     ]);

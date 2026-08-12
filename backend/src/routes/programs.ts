@@ -348,16 +348,13 @@ export default async function programRoutes(app: FastifyInstance) {
       client.release();
     }
 
-    // Mark setup complete in user_settings
-    const settingsRows = await query<any>(
-      "SELECT settings FROM user_settings WHERE user_id = $1", [user_id]
-    );
-    const existing = settingsRows[0]?.settings ?? {};
-    const merged = { ...existing, workout_setup_complete: true };
+    // Mark setup complete via jsonb_set — full-row overwrite races against
+    // any concurrent write to a sibling settings key (mute state, prefs, etc).
     await query(
-      `INSERT INTO user_settings (user_id, settings) VALUES ($1,$2::jsonb)
-       ON CONFLICT (user_id) DO UPDATE SET settings = $2::jsonb`,
-      [user_id, JSON.stringify(merged)]
+      `INSERT INTO user_settings (user_id, settings)
+       VALUES ($1, jsonb_set('{}'::jsonb, '{workout_setup_complete}', 'true'::jsonb))
+       ON CONFLICT (user_id) DO UPDATE SET settings = jsonb_set(user_settings.settings, '{workout_setup_complete}', 'true'::jsonb)`,
+      [user_id]
     );
 
     return { ok: true, program_id: programId };
@@ -367,15 +364,11 @@ export default async function programRoutes(app: FastifyInstance) {
   // Marks setup complete without creating a program (build-from-scratch path).
   app.post("/wizard/skip", async (req) => {
     const user_id = req.user_id;
-    const settingsRows = await query<any>(
-      "SELECT settings FROM user_settings WHERE user_id = $1", [user_id]
-    );
-    const existing = settingsRows[0]?.settings ?? {};
-    const merged = { ...existing, workout_setup_complete: true };
     await query(
-      `INSERT INTO user_settings (user_id, settings) VALUES ($1,$2::jsonb)
-       ON CONFLICT (user_id) DO UPDATE SET settings = $2::jsonb`,
-      [user_id, JSON.stringify(merged)]
+      `INSERT INTO user_settings (user_id, settings)
+       VALUES ($1, jsonb_set('{}'::jsonb, '{workout_setup_complete}', 'true'::jsonb))
+       ON CONFLICT (user_id) DO UPDATE SET settings = jsonb_set(user_settings.settings, '{workout_setup_complete}', 'true'::jsonb)`,
+      [user_id]
     );
     return { ok: true };
   });

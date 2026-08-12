@@ -49,7 +49,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
       query<any>(`
         WITH avg_carbs AS (
-          SELECT COALESCE(AVG(carbs_g), 60) AS val
+          SELECT COALESCE(AVG(carbs_g * servings), 60) AS val
           FROM meals WHERE user_id = $1 AND logged_at >= NOW() - INTERVAL '7 days' AND carbs_g IS NOT NULL
         )
         SELECT name, logged_at, meal_type,
@@ -353,7 +353,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
       ),
       query<any>(
         `SELECT logged_at AS time, 'meal' AS type, name AS label,
-                carbs_g::float AS carbs_g
+                (carbs_g * servings)::float AS carbs_g
          FROM meals WHERE user_id = $1 AND logged_at::date = $2`,
         [user_id, day]
       ),

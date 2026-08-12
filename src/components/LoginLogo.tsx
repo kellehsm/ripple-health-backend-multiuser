@@ -10,6 +10,7 @@ import ReanimatedLib, {
   cancelAnimation,
   Easing as REasing,
 } from "react-native-reanimated";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 
 const AnimatedPolyline = ReanimatedLib.createAnimatedComponent(
   require("react-native-svg").Polyline
@@ -45,6 +46,7 @@ const RING_COLORS = [TEAL, CORAL, PURPLE];
 export function LoginLogo() {
   const uid = useRef(Math.random().toString(36).slice(2, 6)).current;
   const clipId = `ll-${uid}`;
+  const reduceMotion = useReduceMotion();
 
   // Heartbeat
   const dashOffset = useSharedValue(HB_LENGTH);
@@ -58,6 +60,7 @@ export function LoginLogo() {
   const ring3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (reduceMotion) return;  // static heartbeat + rings when reduce motion is on
     dashOffset.value = withRepeat(
       withSequence(
         withTiming(0,         { duration: HB_DRAW,  easing: REasing.inOut(REasing.ease) }),

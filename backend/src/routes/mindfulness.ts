@@ -97,7 +97,14 @@ export default async function mindfulnessRoutes(app: FastifyInstance) {
     // an isolated miss doesn't wipe out weeks of practice.
     const daySet = new Set(days.map((d) => d.day));
     const msDay = 86400000;
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // Anchor on server-local today (same clock the metric_logs INSERTs use).
+    // JS's new Date().toISOString() is UTC — on evenings when UTC has already
+    // ticked to tomorrow, the streak walker starts one day past every log
+    // and reports zero. Ask the DB directly so we stay aligned with writers.
+    const [todayRow] = await query<{ today: string }>(
+      `SELECT CURRENT_DATE::text AS today`
+    );
+    const todayStr = todayRow?.today ?? new Date().toISOString().slice(0, 10);
     let cursor = daySet.has(todayStr)
       ? Date.parse(todayStr)
       : Date.parse(todayStr) - msDay;

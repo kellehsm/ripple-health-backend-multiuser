@@ -86,10 +86,14 @@
                 android:resource="@drawable/tile_preview" />
         </service>
 
-        <!-- Receives glucose/steps/water DataItems pushed from the phone -->
+        <!-- Receives glucose/steps/water DataItems pushed from the phone.
+             Permission-guarded so only Google Play Services' Wearable broker
+             can invoke it — a rogue app on the watch can no longer fake a
+             DATA_CHANGED broadcast to poison WearCache. -->
         <service
             android:name=".WearDataListenerService"
-            android:exported="true">
+            android:exported="true"
+            android:permission="com.google.android.gms.permission.BIND_WEARABLE_LISTENER">
             <intent-filter>
                 <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/ripple/metrics" />

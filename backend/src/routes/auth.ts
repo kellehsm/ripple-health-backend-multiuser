@@ -1,9 +1,20 @@
 import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
+import { timingSafeEqual } from "crypto";
 import { query, pool } from "../db.js";
 import { signToken, signWidgetToken } from "../middleware/auth.js";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
+
+/** Constant-time comparison — plain !== leaks the shared secret via a remote
+ *  timing oracle on the /api/auth/create-user endpoint. */
+function adminSecretMatches(supplied: string | undefined): boolean {
+  if (!ADMIN_SECRET || !supplied) return false;
+  const a = Buffer.from(supplied);
+  const b = Buffer.from(ADMIN_SECRET);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 // Brute-force protection: applies per-IP to credential endpoints only.
 const LOGIN_RATE_LIMIT = { rateLimit: { max: 10, timeWindow: "15 minutes" } };
@@ -134,7 +145,7 @@ export default async function authRoutes(app: FastifyInstance) {
     "/create-user",
     { config: LOGIN_RATE_LIMIT },
     async (req, reply) => {
-      if (!ADMIN_SECRET || req.headers["x-admin-secret"] !== ADMIN_SECRET) {
+      if (!adminSecretMatches(req.headers["x-admin-secret"] as string | undefined)) {
         return reply.status(403).send({ error: "Forbidden" });
       }
       const { email, password } = req.body;

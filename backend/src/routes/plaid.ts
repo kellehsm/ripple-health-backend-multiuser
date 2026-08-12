@@ -9,6 +9,7 @@ import {
   SandboxItemFireWebhookRequestWebhookCodeEnum,
 } from "plaid";
 import { query } from "../db.js";
+import { encryptCredential, decryptCredential } from "../lib/credCrypto.js";
 import crypto from "crypto";
 
 const env = process.env.PLAID_ENV ?? "production";
@@ -74,6 +75,10 @@ export default async function plaidRoutes(app: FastifyInstance) {
     const exchangeRes = await plaidClient.itemPublicTokenExchange({ public_token });
     const { access_token, item_id } = exchangeRes.data;
 
+    // Encrypt the Plaid access_token at rest — same AES-256-GCM helper used
+    // for Dexcom Share and Hardcover credentials. Every read below runs the
+    // token through decryptCredential(), which passes plaintext through
+    // unchanged so a rolling deploy is safe before the boot-time sweep runs.
     await query(
       `INSERT INTO plaid_items
          (user_id, access_token, item_id, institution_id, institution_name)
@@ -82,7 +87,7 @@ export default async function plaidRoutes(app: FastifyInstance) {
          access_token = EXCLUDED.access_token,
          institution_id = EXCLUDED.institution_id,
          institution_name = EXCLUDED.institution_name`,
-      [user_id, access_token, item_id, institution_id ?? null, institution_name ?? null]
+      [user_id, encryptCredential(access_token), item_id, institution_id ?? null, institution_name ?? null]
     );
 
     // Kick off initial transaction sync right away
@@ -101,7 +106,7 @@ export default async function plaidRoutes(app: FastifyInstance) {
 
     const results = await Promise.allSettled(
       items.map(async (item) => {
-        const balRes = await plaidClient.accountsBalanceGet({ access_token: item.access_token });
+        const balRes = await plaidClient.accountsBalanceGet({ access_token: decryptCredential(item.access_token) });
         return {
           item_id: item.item_id,
           institution_name: item.institution_name,
@@ -140,7 +145,7 @@ export default async function plaidRoutes(app: FastifyInstance) {
       const { added, removed } = await syncTransactionsForItem(
         user_id,
         item.item_id,
-        item.access_token,
+        decryptCredential(item.access_token),
         item.cursor
       );
       total_added += added;
@@ -162,7 +167,7 @@ export default async function plaidRoutes(app: FastifyInstance) {
     if (!rows[0]) return { ok: false, error: "Not found" };
 
     // Remove from Plaid
-    await plaidClient.itemRemove({ access_token: rows[0].access_token }).catch(() => {});
+    await plaidClient.itemRemove({ access_token: decryptCredential(rows[0].access_token) }).catch(() => {});
 
     // Delete local record and all Plaid-sourced transactions for this item
     await query(`DELETE FROM plaid_items WHERE item_id = $1 AND user_id = $2`, [itemId, user_id]);
@@ -251,7 +256,7 @@ export default async function plaidRoutes(app: FastifyInstance) {
     if (!rows[0]) return reply.send({ ok: true });
 
     const { user_id, access_token, cursor } = rows[0];
-    await syncTransactionsForItem(user_id, item_id, access_token, cursor).catch(() => {});
+    await syncTransactionsForItem(user_id, item_id, decryptCredential(access_token), cursor).catch(() => {});
 
     return reply.send({ ok: true });
   });
@@ -267,7 +272,7 @@ export default async function plaidRoutes(app: FastifyInstance) {
     if (!rows[0]) return { ok: false, error: "No linked item found" };
 
     await plaidClient.sandboxItemFireWebhook({
-      access_token: rows[0].access_token,
+      access_token: decryptCredential(rows[0].access_token),
       webhook_code: SandboxItemFireWebhookRequestWebhookCodeEnum.SyncUpdatesAvailable,
     });
 
@@ -288,14 +293,15 @@ export default async function plaidRoutes(app: FastifyInstance) {
 
     // Plaid sandbox creates transactions organically via user_transactions_dynamic.
     // We fire the webhook so the backend pulls whatever Plaid has generated.
+    const plainToken = decryptCredential(rows[0].access_token);
     await plaidClient.sandboxItemFireWebhook({
-      access_token: rows[0].access_token,
+      access_token: plainToken,
       webhook_code: SandboxItemFireWebhookRequestWebhookCodeEnum.SyncUpdatesAvailable,
     });
 
     // Sync immediately so the caller sees the result right away
     const { added } = await syncTransactionsForItem(
-      user_id, rows[0].item_id, rows[0].access_token, rows[0].cursor
+      user_id, rows[0].item_id, plainToken, rows[0].cursor
     );
 
     return { ok: true, synced: added };

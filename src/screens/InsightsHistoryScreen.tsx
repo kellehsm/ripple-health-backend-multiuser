@@ -26,6 +26,7 @@ export function InsightsHistoryScreen() {
   const { theme } = useTheme();
   const [items, setItems] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -33,6 +34,7 @@ export function InsightsHistoryScreen() {
     useCallback(() => {
       let cancelled = false;
       if (!refreshing) setLoading(true);
+      setLoadError(false);
       api.getInsightHistory()
         .then((rows: any) => {
           if (cancelled) return;
@@ -40,7 +42,7 @@ export function InsightsHistoryScreen() {
           list.sort((a, b) => new Date(b.last_confirmed).getTime() - new Date(a.last_confirmed).getTime());
           setItems(list);
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) setLoadError(true); })
         .finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
       return () => { cancelled = true; };
     }, [reloadKey])
@@ -50,6 +52,19 @@ export function InsightsHistoryScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: theme.page, justifyContent: "center" }}>
         <LoadingMessage kind="insights" />
+      </View>
+    );
+  }
+
+  if (loadError && items.length === 0) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.page, padding: 16 }}>
+        <EmptyState
+          icon="⚠️"
+          title="Couldn't load past insights"
+          subtitle="Check your connection and try again."
+          action={{ label: "Retry", onPress: () => setReloadKey((k) => k + 1) }}
+        />
       </View>
     );
   }

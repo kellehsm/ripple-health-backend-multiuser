@@ -235,6 +235,21 @@ async function main() {
         }
       }
       if (rows.length > 0) app.log.info({ users: rows.length }, "Encrypted legacy plaintext credentials");
+
+      // Plaid access_token — same treatment. Was previously stored plaintext
+      // in plaid_items; sweep once so every read (which goes through
+      // decryptCredential) sees the enc:v1: prefix.
+      const plaidRows = await query<{ id: string; access_token: string }>(
+        `SELECT id, access_token FROM plaid_items
+         WHERE access_token IS NOT NULL AND access_token NOT LIKE 'enc:v1:%'`
+      );
+      for (const { id, access_token } of plaidRows) {
+        await query(
+          `UPDATE plaid_items SET access_token = $2 WHERE id = $1`,
+          [id, encryptCredential(access_token)]
+        );
+      }
+      if (plaidRows.length > 0) app.log.info({ items: plaidRows.length }, "Encrypted legacy plaintext Plaid access tokens");
     } catch (err) {
       app.log.error({ err }, "Credential encryption sweep failed");
     }

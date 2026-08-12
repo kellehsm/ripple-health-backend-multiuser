@@ -18,7 +18,8 @@ export const CaffeineVsSleepRule: InsightRule = {
        FROM (
          SELECT logged_at::date AS day, SUM(caffeine_mg) AS total_caffeine
          FROM (
-           SELECT logged_at, caffeine_mg FROM meals
+           -- Multiply by servings — the meals row's caffeine_mg is per-serving.
+           SELECT logged_at, (caffeine_mg * servings) AS caffeine_mg FROM meals
            WHERE user_id = $1 AND caffeine_mg IS NOT NULL AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
            UNION ALL
            SELECT logged_at, caffeine_mg FROM substance_logs

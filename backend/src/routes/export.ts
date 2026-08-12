@@ -86,7 +86,9 @@ export default async function exportRoutes(app: FastifyInstance) {
         [user_id, startIso, endIso]
       ),
       query<any>(
-        `SELECT id, logged_at, name, carbs_g FROM meals
+        `SELECT id, logged_at, name, carbs_g, sugar_g, calories, caffeine_mg,
+                sodium_mg, servings, meal_type
+         FROM meals
          WHERE user_id = $1 AND logged_at BETWEEN $2 AND $3
          ORDER BY logged_at`,
         [user_id, startIso, endIso]

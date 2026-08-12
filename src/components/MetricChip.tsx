@@ -3,6 +3,7 @@ import { View, Text, Pressable, Animated, StyleSheet, Dimensions } from "react-n
 import { layeredShadow } from "../theme/styleUtils";
 import { useTheme } from "../theme/ThemeContext";
 import { usePressScale } from "../hooks/usePressScale";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CHIP_GAP = 8;
@@ -86,7 +87,9 @@ export const chipStyles = StyleSheet.create({
 
 export function MetricChipSkeleton({ borderColor, backgroundColor }: { borderColor: string; backgroundColor: string }) {
   const pulse = useRef(new Animated.Value(0.35)).current;
+  const reduceMotion = useReduceMotion();
   useEffect(() => {
+    if (reduceMotion) { pulse.setValue(0.55); return; } // static mid-value
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 0.75, duration: 700, useNativeDriver: true }),
@@ -95,7 +98,7 @@ export function MetricChipSkeleton({ borderColor, backgroundColor }: { borderCol
     );
     loop.start();
     return () => loop.stop();
-  }, [pulse]);
+  }, [pulse, reduceMotion]);
   return (
     <View style={[styles.chip, { borderColor, backgroundColor, opacity: 0.55 }]}>
       <Animated.View style={[styles.contentSlot, { opacity: pulse }]}>

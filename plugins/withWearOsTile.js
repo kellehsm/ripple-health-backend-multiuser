@@ -128,6 +128,11 @@ function withWearOsTile(config) {
         $: {
           'android:name': '.WearMessageListener',
           'android:exported': 'true',
+          // BIND_WEARABLE_LISTENER restricts the sender to Google Play
+          // Services' wearable broker — a third-party app on the device can
+          // no longer spoof a MESSAGE_RECEIVED intent that would trigger
+          // authenticated API calls with the phone's stored JWT.
+          'android:permission': 'com.google.android.gms.permission.BIND_WEARABLE_LISTENER',
         },
         'intent-filter': [
           {

@@ -11,6 +11,7 @@ import ReanimatedLib, {
   Easing as REasing,
 } from "react-native-reanimated";
 import { useTheme } from "../theme/ThemeContext";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 
 const AnimatedPolyline = ReanimatedLib.createAnimatedComponent(Polyline);
 
@@ -75,7 +76,11 @@ export function RippleLoader({ size = "large", style }: Props) {
     strokeDashoffset: dashOffset.value,
   }));
 
+  const reduceMotion = useReduceMotion();
   useEffect(() => {
+    // Respect the OS Reduce Motion setting — with it on, we show a static
+    // loader (the size + shape still communicate "loading" without motion).
+    if (reduceMotion) return;
     // Breathing scale: active for small and large; splash is static (line is the animation)
     if (!isSplash) {
       Animated.loop(

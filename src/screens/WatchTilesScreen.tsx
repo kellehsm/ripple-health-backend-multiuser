@@ -124,14 +124,23 @@ function BreatheOverlay({ onClose, refreshStats }: { onClose: () => void; refres
     if (!phases) return;
     const phase = phases[phaseIdx % phases.length];
     Haptics.selectionAsync().catch(() => {});
+    // Capture the running animation so cleanup can stop it — without this,
+    // unmounting mid-phase (or switching paces) fires the completion
+    // callback on an unmounted component and stacks scale changes.
+    let anim: Animated.CompositeAnimation | null = null;
     if (phase.grow === "in") {
-      Animated.timing(scaleAnim, { toValue: 1, duration: phase.secs * 1000, useNativeDriver: true }).start();
+      anim = Animated.timing(scaleAnim, { toValue: 1, duration: phase.secs * 1000, useNativeDriver: true });
+      anim.start();
     } else if (phase.grow === "out") {
-      Animated.timing(scaleAnim, { toValue: 0.6, duration: phase.secs * 1000, useNativeDriver: true }).start();
+      anim = Animated.timing(scaleAnim, { toValue: 0.6, duration: phase.secs * 1000, useNativeDriver: true });
+      anim.start();
     }
     const t = setTimeout(() => setPhaseIdx((i) => i + 1), phase.secs * 1000);
-    return () => clearTimeout(t);
-  }, [phases, phaseIdx]);
+    return () => {
+      clearTimeout(t);
+      anim?.stop();
+    };
+  }, [phases, phaseIdx, scaleAnim]);
 
   function start(p: BreathePhase[]) {
     startedAt.current = Date.now();

@@ -173,14 +173,16 @@ export function ExerciseDetailScreen() {
 
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showInstructions, setShowInstructions] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadError(false);
     api.getExerciseSession(sessionId)
       .then((data) => { if (!cancelled) setSession(data); })
-      .catch(() => {})
+      .catch(() => { if (!cancelled) setLoadError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [sessionId]));
@@ -199,7 +201,9 @@ export function ExerciseDetailScreen() {
   if (!session) {
     return (
       <View style={[styles.center, { backgroundColor: theme.page }]}>
-        <Text style={{ color: theme.textSoft }}>Session not found.</Text>
+        <Text style={{ color: theme.textSoft }}>
+          {loadError ? "Couldn't load that session. Check your connection." : "Session not found."}
+        </Text>
       </View>
     );
   }

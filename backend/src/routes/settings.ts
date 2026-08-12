@@ -20,9 +20,28 @@ export default async function settingsRoutes(app: FastifyInstance) {
     return settings;
   });
 
+  // Allowlist of top-level settings keys clients are permitted to write.
+  // Anything else in the PATCH body is silently dropped. Keeps clients from
+  // flipping internal flags like workout_setup_complete or injecting
+  // arbitrary future-sensitive keys.
+  const ALLOWED_KEYS = new Set([
+    "dexcom", "hardcover",
+    "smart_notifications", "health_notifications", "health_connect",
+    "week_start", "home_screen",
+    "sharing_prefs", "social_notification_prefs",
+    "customize_dashboard", "background_images",
+    "theme_palette", "app_appearance", "reduce_motion",
+    "biometric_lock",
+    "onboarding_complete",
+  ]);
+
   app.patch("/", async (req) => {
     const user_id = req.user_id;
-    const patch = req.body as any;
+    const rawPatch = (req.body ?? {}) as Record<string, any>;
+    const patch: Record<string, any> = {};
+    for (const k of Object.keys(rawPatch)) {
+      if (ALLOWED_KEYS.has(k)) patch[k] = rawPatch[k];
+    }
 
     // Read existing settings once — needed for the Dexcom password guard and one-level deep merge.
     const rows = await query<any>("SELECT settings FROM user_settings WHERE user_id = $1", [user_id]);

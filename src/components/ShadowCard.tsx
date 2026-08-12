@@ -6,6 +6,7 @@ import { useAppSettings } from "../theme/AppSettingsContext";
 import { hexWithAlpha } from "../theme/colorUtils";
 import { layeredShadow, hardOffset, ShadowSize } from "../theme/styleUtils";
 import { ThemedSurface, useCardBackground, useTileBackground } from "../theme/pageTemplates";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 import type { CardImageBg } from "../theme/AppSettingsContext";
 import { SPRING_STANDARD } from "../theme/motion";
 
@@ -149,9 +150,10 @@ export function ShadowCard({
 
   // Skeleton shimmer animation
   const shimmerAnim = useRef(new Animated.Value(-300)).current;
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
-    if (!skeleton) return;
+    if (!skeleton || reduceMotion) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmerAnim, {

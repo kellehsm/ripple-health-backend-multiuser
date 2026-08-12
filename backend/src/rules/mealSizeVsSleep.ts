@@ -13,7 +13,7 @@ export const MealSizeVsSleepRule: InsightRule = {
     const rows = await query<{ date: string; evening_cal: number; sleep_quality: number | null }>(
       `WITH nightly_cal AS (
         SELECT logged_at::date AS date,
-               SUM(calories)::float8 AS evening_cal
+               SUM(calories * servings)::float8 AS evening_cal
         FROM meals
         WHERE user_id = $1
           AND logged_at >= NOW() - INTERVAL '60 days'
