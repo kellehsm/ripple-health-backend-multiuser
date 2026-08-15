@@ -647,9 +647,9 @@ export function FinanceScreen() {
 
         {/* Spending-Mood suggestion banner */}
         {moodSuggestion && !hiddenSections.includes('mood_suggest') && (
-          <View style={[s.card, { borderColor: theme.berry?.solid ?? theme.cardBorder, backgroundColor: theme.berry?.tint ?? theme.card, borderWidth: 2 }]}>
+          <ShadowCard bg={theme.berry?.tint ?? theme.card} borderColor={theme.berry?.solid ?? theme.cardBorder}>
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
-              <Text style={{ fontSize: 20 }}>💭</Text>
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color={theme.berry?.solid ?? theme.textStrong} />
               <View style={{ flex: 1 }}>
                 <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "900", marginBottom: 4 }}>Heads up</Text>
                 <Text style={{ color: theme.textStrong, fontSize: 13, lineHeight: 18 }}>
@@ -679,7 +679,7 @@ export function FinanceScreen() {
                 </View>
               </View>
             </View>
-          </View>
+          </ShadowCard>
         )}
 
         {/* Transaction list grouped by day */}
@@ -689,7 +689,7 @@ export function FinanceScreen() {
           grouped.map(([day, dayEntries]) => (
             <View key={day}>
               <Text style={[s.dayHeader, { color: theme.textSoft }]}>{formatDayHeader(day)}</Text>
-              <View style={[s.card, { borderColor: theme.cardBorder }]}>
+              <ShadowCard padding={16}>
                 {dayEntries.map((e, i) => {
                   const cat = normalizeCategory(e.category);
                   const color = getCategoryColor(cat);
@@ -727,7 +727,7 @@ export function FinanceScreen() {
                     </Pressable>
                   );
                 })}
-              </View>
+              </ShadowCard>
             </View>
           ))
         )}

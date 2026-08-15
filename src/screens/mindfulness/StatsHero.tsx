@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { View, Text } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { ShadowCard } from "../../components/ShadowCard";
 import { api } from "../../api/client";
@@ -120,17 +121,17 @@ export function StatsHero({ theme, ink, refreshKey }: { theme: any; ink: string;
       <View style={{ flex: 1, gap: 12 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
           <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 22 }}>🔥</Text>
+            <Ionicons name="flame" size={22} color={accent} />
             <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>{stats.streak}</Text>
             <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>DAY STREAK</Text>
           </View>
           <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 22 }}>⏱</Text>
+            <Ionicons name="timer-outline" size={22} color={accent} />
             <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>{stats.week_minutes}</Text>
             <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>MIN THIS WEEK</Text>
           </View>
           <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 22 }}>🧘</Text>
+            <Ionicons name="flower-outline" size={22} color={accent} />
             <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>{stats.total_sessions}</Text>
             <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>SESSIONS</Text>
           </View>

@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { ScrollView, View, Text, Pressable, Switch, StyleSheet, Alert, Linking, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/core";
@@ -50,7 +51,7 @@ function ageLabel(iso: string | null): string {
 function StatusRow({ label, detail, tone, theme }: {
   label: string; detail: string; tone: "ok" | "warn" | "err"; theme: any;
 }) {
-  const dot = tone === "ok" ? "#27AE60" : tone === "warn" ? "#E67E22" : "#C0392B";
+  const dot = tone === "ok" ? theme.success : tone === "warn" ? theme.warning : theme.danger;
   return (
     <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 7 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dot, marginRight: 10 }} />
@@ -69,7 +70,7 @@ function MenuRow({ title, subtitle, onPress, theme, accent }: {
         <Text style={{ color: accent ?? theme.textStrong, fontSize: 15, fontWeight: "600" }}>{title}</Text>
         {subtitle ? <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>{subtitle}</Text> : null}
       </View>
-      <Text style={{ color: theme.textSoft, fontSize: 22, lineHeight: 26 }}>›</Text>
+      <Ionicons name="chevron-forward" size={18} color={theme.textSoft} />
     </Pressable>
   );
 }
@@ -170,7 +171,7 @@ export function SettingsScreen() {
 
       {/* Search bar */}
       <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: theme.card, borderRadius: RADIUS.md, borderWidth: 1, borderColor: theme.cardBorder, paddingHorizontal: SPACING.md, marginBottom: SPACING.md }}>
-        <Text style={{ marginRight: SPACING.sm, fontSize: 16 }}>🔍</Text>
+        <Ionicons name="search-outline" size={16} color={theme.textSoft} style={{ marginRight: SPACING.sm }} />
         <TextInput
           value={search}
           onChangeText={setSearch}
@@ -180,7 +181,7 @@ export function SettingsScreen() {
         />
         {search.length > 0 && (
           <Pressable onPress={() => setSearch("")}>
-            <Text style={{ color: theme.textSoft, fontSize: 16 }}>✕</Text>
+            <Ionicons name="close" size={16} color={theme.textSoft} />
           </Pressable>
         )}
       </View>
@@ -376,7 +377,7 @@ export function SettingsScreen() {
               <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700", flex: 1 }}>
                 Quiet mode active until {fmtMuteTime(muteUntil)} — Tap to cancel
               </Text>
-              <Text style={{ color: theme.teal.fg, fontSize: 16 }}>×</Text>
+              <Ionicons name="close" size={16} color={theme.teal.fg} />
             </Pressable>
           )}
           <View style={{ flexDirection: "row", gap: 8 }}>

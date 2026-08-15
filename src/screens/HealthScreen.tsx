@@ -1108,12 +1108,12 @@ export function HealthScreen() {
           overflow: "hidden",
           transform: [{ scale: mindfulnessScale }],
         }}>
-          <Text style={{ fontSize: 32 }}>🧘</Text>
+          <Ionicons name="flower-outline" size={32} color={onSolid(theme.purple.solid)} />
           <View style={{ flex: 1 }}>
             <Text style={{ color: onSolid(theme.purple.solid), fontSize: 18, fontWeight: "900", marginBottom: 2 }}>Mindfulness</Text>
             <Text style={{ color: onSolid(theme.purple.solid), fontSize: 12, opacity: 0.75 }}>Breathing · grounding · gratitude</Text>
           </View>
-          <Text style={{ color: onSolid(theme.purple.solid), fontSize: 20, fontWeight: "800", opacity: 0.85 }}>›</Text>
+          <Ionicons name="chevron-forward" size={20} color={onSolid(theme.purple.solid)} style={{ opacity: 0.85 }} />
         </Animated.View>
       </Pressable>
       </Animated.View>
@@ -1459,7 +1459,7 @@ export function HealthScreen() {
                     <Text style={{ fontSize: 18, fontWeight: "700", color: glucosePal2.fg }} allowFontScaling maxFontSizeMultiplier={1.3}>{status.arrow}</Text>
                   ) : null}
                   {status.delta != null ? (
-                    <Text style={{ fontSize: 12, fontWeight: "800", color: status.delta > 0 ? "#C0392B" : "#27AE60", marginLeft: 2 }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: status.delta > 0 ? theme.danger : theme.success, marginLeft: 2 }} allowFontScaling maxFontSizeMultiplier={1.3}>
                       {status.delta > 0 ? "+" : ""}{status.delta}
                     </Text>
                   ) : null}

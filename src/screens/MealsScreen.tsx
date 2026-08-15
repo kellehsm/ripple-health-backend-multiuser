@@ -1099,7 +1099,7 @@ export function MealsScreen() {
             ) : null}
             {totals.sugar !== null ? (
               <View style={[styles.totalBlock, { backgroundColor: theme.coral.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Sugar ${totals.sugar} grams`}>
-                <Ionicons name="cafe-outline" size={14} color={onSolid(theme.coral.solid)} />
+                <Ionicons name="ice-cream-outline" size={14} color={onSolid(theme.coral.solid)} />
                 <Text style={[styles.totalBlockLabel, { color: onSolid(theme.coral.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>SUGAR</Text>
                 <Text style={[styles.totalBlockValue, { color: onSolid(theme.coral.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.sugar}g</Text>
               </View>

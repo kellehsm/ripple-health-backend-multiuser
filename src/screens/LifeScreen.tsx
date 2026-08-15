@@ -721,7 +721,7 @@ export function LifeScreen() {
           const pct = prog?.percent_complete ?? null;
 
           return (
-            <View key={book.id} style={[styles.card, { backgroundColor: theme.coral.tint }]}>
+            <ShadowCard key={book.id} bg={theme.coral.tint}>
               <View style={styles.bookRow}>
                 {book.cover_url ? (
                   <Image source={{ uri: book.cover_url }} style={styles.coverThumb} />
@@ -795,7 +795,7 @@ export function LifeScreen() {
                   </View>
                 </View>
               </View>
-            </View>
+            </ShadowCard>
           );
         })
       )}
