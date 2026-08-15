@@ -24,6 +24,42 @@ const SUPPORT_EMAIL: string =
 
 type Journey = { total_meals: number; total_mood_checkins: number; total_active_days: number; member_since: string | null };
 
+type SyncStatus = {
+  dexcom_last_at: string | null;
+  hc_steps_last_at: string | null;
+  hc_sleep_last_at: string | null;
+  hc_hr_last_at: string | null;
+  dexcom_session_valid: boolean;
+  server: { db_ok: boolean; uptime_secs: number };
+};
+
+function ageMinutes(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+}
+
+function ageLabel(iso: string | null): string {
+  const m = ageMinutes(iso);
+  if (m == null) return "never";
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  if (m < 48 * 60) return `${Math.round(m / 60)}h ago`;
+  return `${Math.round(m / 1440)}d ago`;
+}
+
+function StatusRow({ label, detail, tone, theme }: {
+  label: string; detail: string; tone: "ok" | "warn" | "err"; theme: any;
+}) {
+  const dot = tone === "ok" ? "#27AE60" : tone === "warn" ? "#E67E22" : "#C0392B";
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 7 }}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dot, marginRight: 10 }} />
+      <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }}>{label}</Text>
+      <Text style={{ color: theme.textSoft, fontSize: 12 }}>{detail}</Text>
+    </View>
+  );
+}
+
 function MenuRow({ title, subtitle, onPress, theme, accent }: {
   title: string; subtitle?: string; onPress: () => void; theme: any; accent?: string;
 }) {
@@ -47,6 +83,8 @@ export function SettingsScreen() {
   const [fastingEnabled, setFastingEnabled] = useState(false);
   const [search, setSearch] = useState("");
   const [backupNudge, setBackupNudge] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [syncStatusFailed, setSyncStatusFailed] = useState(false);
 
   // Cancel legacy expo-notifications on every Settings open
   useFocusEffect(useCallback(() => {
@@ -58,6 +96,10 @@ export function SettingsScreen() {
       .catch(() => {})
       .finally(() => { if (!cancelled) setJourneyLoading(false); });
     getMuteUntil().then((v) => { if (!cancelled) setMuteUntil(v); }).catch(() => {});
+    setSyncStatusFailed(false);
+    api.syncStatus()
+      .then((s: any) => { if (!cancelled) setSyncStatus(s); })
+      .catch(() => { if (!cancelled) { setSyncStatus(null); setSyncStatusFailed(true); } });
     AsyncStorage.getItem("fasting_timer_enabled").then((v) => { if (!cancelled) setFastingEnabled(v === "1"); }).catch(() => {});
     AsyncStorage.getItem("last_json_backup").then(v => {
       if (cancelled) return;
@@ -192,6 +234,48 @@ export function SettingsScreen() {
             )}
             {matches("Watch", "Wear", "tiles") && (
               <MenuRow title="Watch Tiles" subtitle="Wear OS tile concepts — glance, log & breathe" onPress={() => nav("WatchTiles")} theme={theme} />
+            )}
+          </View>
+        </>
+      )}
+
+      {/* System status — one-glance health of backend + data pipelines */}
+      {matches("System status", "status", "sync", "backend", "server", "online", "Dexcom", "Health Connect") && (
+        <>
+          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>SYSTEM STATUS</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 4 }]}>
+            {syncStatusFailed ? (
+              <StatusRow label="Backend" detail="unreachable" tone="err" theme={theme} />
+            ) : !syncStatus ? (
+              <StatusRow label="Backend" detail="checking…" tone="warn" theme={theme} />
+            ) : (
+              <>
+                <StatusRow
+                  label="Backend"
+                  detail={`online · up ${Math.floor(syncStatus.server.uptime_secs / 3600)}h ${Math.floor((syncStatus.server.uptime_secs % 3600) / 60)}m`}
+                  tone={syncStatus.server.db_ok ? "ok" : "err"}
+                  theme={theme}
+                />
+                <StatusRow
+                  label="Dexcom"
+                  detail={
+                    (syncStatus.dexcom_session_valid ? "session ok · " : "no session · ") +
+                    "reading " + ageLabel(syncStatus.dexcom_last_at)
+                  }
+                  tone={
+                    (ageMinutes(syncStatus.dexcom_last_at) ?? Infinity) <= 30 ? "ok"
+                    : (ageMinutes(syncStatus.dexcom_last_at) ?? Infinity) <= 24 * 60 ? "warn"
+                    : "err"
+                  }
+                  theme={theme}
+                />
+                <StatusRow
+                  label="Health Connect"
+                  detail={`steps ${ageLabel(syncStatus.hc_steps_last_at)} · sleep ${ageLabel(syncStatus.hc_sleep_last_at)} · HR ${ageLabel(syncStatus.hc_hr_last_at)}`}
+                  tone={(ageMinutes(syncStatus.hc_steps_last_at) ?? Infinity) <= 12 * 60 ? "ok" : "warn"}
+                  theme={theme}
+                />
+              </>
             )}
           </View>
         </>

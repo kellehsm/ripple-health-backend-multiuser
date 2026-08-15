@@ -27,6 +27,7 @@ import { ShadowCard } from "../components/ShadowCard";
 import { api } from "../api/client";
 import { DailySummaryCard, type DailySummaryData } from "../components/DailySummaryCard";
 import { WhatChangedCard } from "../components/WhatChangedCard";
+import { WhyMightThatBeCard } from "../components/WhyMightThatBeCard";
 import { InsightCard, type Insight } from "../components/InsightCard";
 import { toast, Msg } from "../lib/toast";
 import { MoodCheckInModal, type MoodPeriod } from "../components/MoodCheckInModal";
@@ -639,7 +640,7 @@ export function OverviewScreen() {
     weeklyArr: WeeklyDay[];
     patternEvents: PatternEvent[];
     dig: WeeklyDigest | null;
-    mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number;
+    mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number; waterStreak: number; hobbyStreak: number;
     glucSt: GlucoseStatus | null;
     meals: any[];
     stepsVal: number | null;
@@ -665,6 +666,8 @@ export function OverviewScreen() {
       { label: "Steps",    icon: "👟",  count: data.stepsStreak,    color: (t: any) => t.teal.solid },
       { label: "Exercise", icon: "🏋️", count: data.exerciseStreak, color: (t: any) => t.coral.solid },
       { label: "Reading",  icon: "📚",  count: data.readingStreak,  color: (t: any) => t.amber.solid },
+      { label: "Water",    icon: "💧",  count: data.waterStreak,    color: (t: any) => (t as any).blue?.solid ?? t.teal.solid },
+      { label: "Hobbies",  icon: "🎨",  count: data.hobbyStreak,    color: (t: any) => t.coral.solid },
     ].filter(s => s.count >= 2));
     setGlucoseStatus(data.glucSt);
     setTodayMeals(data.meals);
@@ -689,7 +692,7 @@ export function OverviewScreen() {
       weeklyArr: WeeklyDay[];
       patternEvents: PatternEvent[];
       dig: WeeklyDigest | null;
-      mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number;
+      mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number; waterStreak: number; hobbyStreak: number;
       glucSt: GlucoseStatus | null;
       meals: any[];
       stepsVal: number | null;
@@ -734,6 +737,8 @@ export function OverviewScreen() {
       const stepsStreak    = Number(streakData?.steps_streak    ?? 0);
       const exerciseStreak = Number(streakData?.exercise_streak ?? 0);
       const readingStreak  = Number(streakData?.reading_streak  ?? 0);
+      const waterStreak    = Number(streakData?.water_streak    ?? 0);
+      const hobbyStreak    = Number(streakData?.hobby_streak    ?? 0);
       const stepsVal = steps?.steps ?? null;
       const weeklyArr: WeeklyDay[] = Array.isArray(weekly) ? weekly : [];
       const activeInsights: Insight[] = Array.isArray(insightsList) ? insightsList : [];
@@ -748,7 +753,7 @@ export function OverviewScreen() {
         weeklyArr,
         patternEvents: Array.isArray(pattern) ? pattern : [],
         dig: dig ?? null,
-        mealStreak, moodStreak, stepsStreak, exerciseStreak, readingStreak,
+        mealStreak, moodStreak, stepsStreak, exerciseStreak, readingStreak, waterStreak, hobbyStreak,
         glucSt,
         meals: Array.isArray(meals) ? meals : [],
         stepsVal,
@@ -1338,6 +1343,7 @@ export function OverviewScreen() {
                 the daily-summary tile also hides this. No-ops until the
                 user has ≥3 days logged in each of the two weeks compared. */}
             <WhatChangedCard />
+            <WhyMightThatBeCard />
           </View>
         );
 

@@ -159,6 +159,9 @@ export const api = {
   whatChanged: function () {
     return request("/summary/what-changed");
   },
+  whyMightThatBe: function (): Promise<{ notices: { text: string }[] }> {
+    return request("/summary/why-might-that-be");
+  },
   streaks: function () {
     return request("/summary/streaks");
   },
