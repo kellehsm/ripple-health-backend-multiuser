@@ -476,6 +476,65 @@ export default async function friendsRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // POST /cheer/:friendId — cheer a friend's streak (one per friend per calendar day in EST)
+  app.post("/cheer/:friendId", async (req, reply) => {
+    const me = req.user_id;
+    const { friendId } = req.params as any;
+
+    const friendship = await query<any>(
+      `SELECT id FROM friend_connections
+       WHERE ((user_id_a = $1 AND user_id_b = $2) OR (user_id_a = $2 AND user_id_b = $1))
+         AND status = 'accepted'`,
+      [me, friendId]
+    );
+    if (!friendship[0]) {
+      return reply.status(403).send({ error: "Not friends" });
+    }
+
+    // Rate-limit: one cheer per sender→recipient per EST calendar day
+    const recentDay = await query<any>(
+      `SELECT id FROM friend_cheers
+       WHERE sender_id = $1 AND recipient_id = $2
+         AND sent_at AT TIME ZONE 'America/New_York' >= (NOW() AT TIME ZONE 'America/New_York')::date`,
+      [me, friendId]
+    );
+    if (recentDay[0]) {
+      return reply.status(429).send({ error: "Already cheered today" });
+    }
+
+    await query(
+      `INSERT INTO friend_cheers (sender_id, recipient_id) VALUES ($1, $2)`,
+      [me, friendId]
+    );
+    return { ok: true };
+  });
+
+  // GET /cheers — cheers received in the last 7 days
+  app.get("/cheers", async (req) => {
+    const me = req.user_id;
+    const rows = await query<any>(
+      `SELECT fc.sender_id, u.username AS display_name, fc.sent_at
+       FROM friend_cheers fc
+       JOIN users u ON u.id = fc.sender_id
+       WHERE fc.recipient_id = $1 AND fc.sent_at > NOW() - INTERVAL '7 days'
+       ORDER BY fc.sent_at DESC`,
+      [me]
+    );
+    return rows;
+  });
+
+  // GET /my-cheers-sent — which friend IDs I have cheered today (for UI disabled state)
+  app.get("/my-cheers-sent", async (req) => {
+    const me = req.user_id;
+    const rows = await query<any>(
+      `SELECT recipient_id FROM friend_cheers
+       WHERE sender_id = $1
+         AND sent_at AT TIME ZONE 'America/New_York' >= (NOW() AT TIME ZONE 'America/New_York')::date`,
+      [me]
+    );
+    return rows.map((r: any) => r.recipient_id as string);
+  });
+
   // GET /nudges — nudges received in the last 7 days
   app.get("/nudges", async (req) => {
     const me = req.user_id;

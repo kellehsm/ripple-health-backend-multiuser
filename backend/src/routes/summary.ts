@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { getDailySummary, generateDailySummary } from "../services/dailySummaryService.js";
 import { estToday, estYesterday, estDayOfWeek, estDayOfWeekForDayStr } from "../lib/estDate.js";
+import { getUserTz } from "../lib/userTz.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -488,6 +489,114 @@ export default async function summaryRoutes(app: FastifyInstance) {
     }
 
     return { notices: notices.slice(0, 2) };
+  });
+
+  // GET /summary/monthly-review — previous calendar month summary for the
+  // "Monthly review" card shown on Overview during the first 7 days of a month.
+  app.get("/monthly-review", async (req) => {
+    const user_id = req.user_id;
+    const tz = await getUserTz(user_id);
+
+    // Compute previous month boundaries in user's timezone
+    const nowInTz = new Date(new Date().toLocaleString("en-US", { timeZone: tz }));
+    const year = nowInTz.getFullYear();
+    const month = nowInTz.getMonth(); // 0-indexed current month
+    // Previous month: month-1 (handles Jan → Dec prev year)
+    const prevMonthDate = new Date(year, month - 1, 1);
+    const prevYear = prevMonthDate.getFullYear();
+    const prevMonth = prevMonthDate.getMonth() + 1; // 1-indexed
+    const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, "0")}`;
+    const monthStart = `${prevYear}-${String(prevMonth).padStart(2, "0")}-01`;
+    // Last day of previous month = first day of current month minus 1
+    const lastDay = new Date(year, month, 0).getDate();
+    const monthEnd = `${prevYear}-${String(prevMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    // Two months ago for spending comparison
+    const twoMonthsAgoDate = new Date(year, month - 2, 1);
+    const twoYear = twoMonthsAgoDate.getFullYear();
+    const twoMonth = twoMonthsAgoDate.getMonth() + 1;
+    const twoMonthStart = `${twoYear}-${String(twoMonth).padStart(2, "0")}-01`;
+    const twoMonthLastDay = new Date(prevYear, prevMonth - 1, 0).getDate();
+    const twoMonthEnd = `${twoYear}-${String(twoMonth).padStart(2, "0")}-${String(twoMonthLastDay).padStart(2, "0")}`;
+
+    try {
+      const [stepsRows, spendRows, prevSpendRows, mealDaysRows] = await Promise.all([
+        // Steps by ISO week within the previous month
+        query<any>(
+          `SELECT
+             date_trunc('week', ml.logged_at::date) AS week_start,
+             SUM(ml.value)::float AS total_steps
+           FROM metric_logs ml
+           JOIN metrics m ON m.id = ml.metric_id
+           WHERE m.user_id = $1 AND m.name = 'steps'
+             AND ml.logged_at::date >= $2 AND ml.logged_at::date <= $3
+             AND ml.value > 0
+           GROUP BY week_start
+           ORDER BY total_steps DESC`,
+          [user_id, monthStart, monthEnd]
+        ),
+        query<any>(
+          `SELECT COALESCE(SUM(amount), 0)::float AS total
+           FROM spending_entries
+           WHERE user_id = $1 AND logged_at::date >= $2 AND logged_at::date <= $3`,
+          [user_id, monthStart, monthEnd]
+        ),
+        query<any>(
+          `SELECT COALESCE(SUM(amount), 0)::float AS total
+           FROM spending_entries
+           WHERE user_id = $1 AND logged_at::date >= $2 AND logged_at::date <= $3`,
+          [user_id, twoMonthStart, twoMonthEnd]
+        ),
+        // Count distinct days with meal logs for the observation
+        query<any>(
+          `SELECT COUNT(DISTINCT logged_at::date)::int AS days_logged
+           FROM meals
+           WHERE user_id = $1 AND logged_at::date >= $2 AND logged_at::date <= $3`,
+          [user_id, monthStart, monthEnd]
+        ),
+      ]);
+
+      // Best / worst weeks by steps
+      let best_week: { start: string; total: number } | null = null;
+      let worst_week: { start: string; total: number } | null = null;
+      if (stepsRows.length > 0) {
+        const toStr = (v: any) => v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
+        best_week = { start: toStr(stepsRows[0].week_start), total: Math.round(Number(stepsRows[0].total_steps)) };
+        const worst = stepsRows[stepsRows.length - 1];
+        worst_week = { start: toStr(worst.week_start), total: Math.round(Number(worst.total_steps)) };
+        // If only one week, don't return a worst (same as best)
+        if (stepsRows.length === 1) worst_week = null;
+      }
+
+      const spendTotal = Number(spendRows[0]?.total ?? 0);
+      const prevSpendTotal = Number(prevSpendRows[0]?.total ?? 0);
+
+      const mealDaysLogged = Number(mealDaysRows[0]?.days_logged ?? 0);
+      let observation: string | null = null;
+      if (mealDaysLogged > 0) {
+        observation = `You logged meals on ${mealDaysLogged} of ${lastDay} days in ${new Date(prevYear, prevMonth - 1).toLocaleString("en-US", { month: "long" })}.`;
+      }
+
+      return {
+        month: prevMonthStr,
+        steps: {
+          best_week,
+          worst_week,
+        },
+        spending: {
+          total: spendTotal,
+          prev_total: prevSpendTotal,
+        },
+        observation,
+      };
+    } catch {
+      return {
+        month: prevMonthStr,
+        steps: { best_week: null, worst_week: null },
+        spending: { total: null, prev_total: null },
+        observation: null,
+      };
+    }
   });
 
   // Combined day view: glucose readings + all events for the glucose overlay chart.
