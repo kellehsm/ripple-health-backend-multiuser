@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { encryptCredential } from "../lib/credCrypto.js";
+import { invalidateUserTz, isValidTz } from "../lib/userTz.js";
 
 export default async function settingsRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
@@ -27,11 +28,11 @@ export default async function settingsRoutes(app: FastifyInstance) {
   const ALLOWED_KEYS = new Set([
     "dexcom", "hardcover",
     "smart_notifications", "health_notifications", "health_connect",
-    "week_start", "home_screen",
+    "week_start", "home_screen", "timezone",
     "sharing_prefs", "social_notification_prefs",
     "customize_dashboard", "background_images",
     "theme_palette", "app_appearance", "reduce_motion",
-    "biometric_lock",
+    "biometric_lock", "sick_day_mode",
     "onboarding_complete",
   ]);
 
@@ -41,6 +42,13 @@ export default async function settingsRoutes(app: FastifyInstance) {
     const patch: Record<string, any> = {};
     for (const k of Object.keys(rawPatch)) {
       if (ALLOWED_KEYS.has(k)) patch[k] = rawPatch[k];
+    }
+    // Reject garbage timezone strings before they land in the DB — a bad
+    // IANA id would poison every date-boundary computation downstream.
+    if ("timezone" in patch && !isValidTz(patch.timezone)) {
+      delete patch.timezone;
+    } else if ("timezone" in patch) {
+      invalidateUserTz(user_id);
     }
 
     // Read existing settings once — needed for the Dexcom password guard and one-level deep merge.
@@ -92,7 +100,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
   app.get("/sync-status", async (req) => {
     const user_id = req.user_id;
 
-    const [dexcomRow, stepsRow, sleepRow, hrRow] = await Promise.all([
+    const [dexcomRow, stepsRow, sleepRow, hrRow, dexcomSession] = await Promise.all([
       // Dexcom / CGM: most recent glucose reading regardless of source
       query<any>(
         `SELECT recorded_at FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 1`,
@@ -116,6 +124,12 @@ export default async function settingsRoutes(app: FastifyInstance) {
         `SELECT recorded_at FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT 1`,
         [user_id]
       ),
+      // Dexcom Share session validity — lets the UI distinguish "backend can
+      // log in" from "readings just aren't arriving" (phone-side stall).
+      query<any>(
+        `SELECT expires_at FROM dexcom_share_sessions WHERE user_id = $1 AND expires_at > NOW()`,
+        [user_id]
+      ).catch(() => []),
     ]);
 
     return {
@@ -123,6 +137,9 @@ export default async function settingsRoutes(app: FastifyInstance) {
       hc_steps_last_at: stepsRow[0]?.logged_at    ?? null,
       hc_sleep_last_at: sleepRow[0]?.logged_at    ?? null,
       hc_hr_last_at:   hrRow[0]?.recorded_at      ?? null,
+      dexcom_session_valid: dexcomSession.length > 0,
+      // db_ok is implied: if the queries above failed this handler would throw.
+      server: { db_ok: true, uptime_secs: Math.round(process.uptime()) },
     };
   });
 }

@@ -332,7 +332,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
       return streak;
     }
 
-    const [mealDays, moodDays, stepsDays, exerciseDays, readingDays] = await Promise.all([
+    const [mealDays, moodDays, stepsDays, exerciseDays, readingDays, waterDays, hobbyDays] = await Promise.all([
       query<any>(
         `SELECT DISTINCT logged_at::date AS day FROM meals
          WHERE user_id = $1 AND logged_at >= current_date - 90
@@ -366,6 +366,28 @@ export default async function summaryRoutes(app: FastifyInstance) {
          ORDER BY day DESC`,
         [user_id]
       ),
+      // Water streak: days where the user hit at least 6 water log events.
+      // Threshold matches the target the app nudges toward on Home.
+      query<any>(
+        `SELECT day FROM (
+           SELECT ml.logged_at::date AS day, COUNT(*) AS n
+           FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
+           WHERE m.user_id = $1 AND m.name = 'water'
+             AND ml.logged_at >= current_date - 90
+           GROUP BY ml.logged_at::date
+         ) w
+         WHERE n >= 6
+         ORDER BY day DESC`,
+        [user_id]
+      ),
+      // Hobby streak: any hobby session on a given day counts.
+      query<any>(
+        `SELECT DISTINCT hl.logged_at::date AS day
+         FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id
+         WHERE h.user_id = $1 AND hl.logged_at >= current_date - 90
+         ORDER BY day DESC`,
+        [user_id]
+      ),
     ]);
 
     return {
@@ -374,7 +396,98 @@ export default async function summaryRoutes(app: FastifyInstance) {
       steps_streak:    calcStreak(stepsDays),
       exercise_streak: calcStreak(exerciseDays),
       reading_streak:  calcStreak(readingDays),
+      water_streak:    calcStreak(waterDays),
+      hobby_streak:    calcStreak(hobbyDays),
     };
+  });
+
+  // Descriptive-only pattern observations for the Home tab. Returns up to two
+  // "something to notice" lines built from N-of-last-M counts across last 14
+  // days. Never causal, never diagnostic — CLAUDE.md correlation rules.
+  // Requires at least 5 qualifying days to speak up, so single-day noise
+  // doesn't produce false patterns.
+  app.get("/why-might-that-be", async (req) => {
+    const user_id = req.user_id;
+
+    // 14 daily buckets: morning glucose avg, prev-evening-late-meal flag,
+    // sleep hours (night ending that morning), steps.
+    const [dailyRows] = await Promise.all([
+      query<any>(
+        `WITH days AS (
+           SELECT (current_date - g)::date AS d
+           FROM generate_series(0, 13) g
+         ),
+         morn_gluc AS (
+           SELECT (recorded_at AT TIME ZONE 'America/New_York')::date AS d,
+                  AVG(mg_dl)::float AS avg_mg
+           FROM glucose_readings
+           WHERE user_id = $1
+             AND recorded_at >= current_date - 14
+             AND EXTRACT(HOUR FROM (recorded_at AT TIME ZONE 'America/New_York')) BETWEEN 5 AND 10
+           GROUP BY 1
+         ),
+         late_meals AS (
+           SELECT ((logged_at AT TIME ZONE 'America/New_York')::date + INTERVAL '1 day')::date AS d
+           FROM meals
+           WHERE user_id = $1
+             AND logged_at >= current_date - 15
+             AND EXTRACT(HOUR FROM (logged_at AT TIME ZONE 'America/New_York')) >= 20
+           GROUP BY 1
+         ),
+         sleep_by_day AS (
+           SELECT (end_time AT TIME ZONE 'America/New_York')::date AS d,
+                  SUM(EXTRACT(EPOCH FROM (end_time - start_time)))/3600.0 AS hrs
+           FROM sleep_sessions
+           WHERE user_id = $1 AND end_time >= current_date - 14
+           GROUP BY 1
+         ),
+         steps_by_day AS (
+           SELECT (ml.logged_at AT TIME ZONE 'America/New_York')::date AS d,
+                  SUM(ml.value)::float AS steps
+           FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
+           WHERE m.user_id = $1 AND m.name = 'steps' AND ml.logged_at >= current_date - 14
+           GROUP BY 1
+         )
+         SELECT days.d,
+                mg.avg_mg,
+                (lm.d IS NOT NULL) AS late_meal_prev,
+                sb.hrs AS sleep_hrs,
+                st.steps
+         FROM days
+         LEFT JOIN morn_gluc  mg ON mg.d = days.d
+         LEFT JOIN late_meals lm ON lm.d = days.d
+         LEFT JOIN sleep_by_day sb ON sb.d = days.d
+         LEFT JOIN steps_by_day st ON st.d = days.d
+         ORDER BY days.d DESC`,
+        [user_id]
+      ),
+    ]);
+
+    const notices: { text: string }[] = [];
+
+    // Pattern A — high morning glucose × late dinner the night before.
+    const highGlucDays = dailyRows.filter((r: any) => r.avg_mg != null && r.avg_mg > 130);
+    const highWithLate = highGlucDays.filter((r: any) => r.late_meal_prev);
+    if (highGlucDays.length >= 5 && highWithLate.length >= 3) {
+      notices.push({
+        text: `Something to notice: ${highWithLate.length} of the last ${highGlucDays.length} higher-glucose mornings followed a dinner logged after 8pm.`,
+      });
+    }
+
+    // Pattern B — short sleep × lower-step days.
+    const stepsVals = dailyRows.map((r: any) => Number(r.steps)).filter((n: number) => n > 0);
+    if (stepsVals.length >= 5) {
+      const avgSteps = stepsVals.reduce((a: number, b: number) => a + b, 0) / stepsVals.length;
+      const shortSleepDays = dailyRows.filter((r: any) => r.sleep_hrs != null && r.sleep_hrs < 6);
+      const shortAndLow = shortSleepDays.filter((r: any) => r.steps != null && Number(r.steps) < avgSteps * 0.7);
+      if (shortSleepDays.length >= 5 && shortAndLow.length >= 3) {
+        notices.push({
+          text: `Something to notice: ${shortAndLow.length} of the last ${shortSleepDays.length} shorter-sleep nights (under 6h) were followed by lower-step days.`,
+        });
+      }
+    }
+
+    return { notices: notices.slice(0, 2) };
   });
 
   // Combined day view: glucose readings + all events for the glucose overlay chart.

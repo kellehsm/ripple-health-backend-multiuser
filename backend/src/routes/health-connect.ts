@@ -26,7 +26,10 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
     return rows[0] ?? null;
   });
 
-  app.post("/heart-rate", async (req) => {
+  // Watch backfills send tens of thousands of HR samples in one batch; the
+  // Fastify default 1 MiB body limit was rejecting them with 413s (silent HR
+  // data loss in prod). 10 MiB ≈ 170k readings of headroom.
+  app.post("/heart-rate", { bodyLimit: 10 * 1024 * 1024 }, async (req) => {
     const user_id = req.user_id;
     const { readings } = req.body as any;
     if (!Array.isArray(readings) || readings.length === 0) return { ok: true, inserted: 0 };
