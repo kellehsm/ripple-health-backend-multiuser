@@ -1916,7 +1916,7 @@ export function HealthScreen() {
 
 function makeStyles(ink: string, card: string) {
   return StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { padding: 16, gap: 12, paddingBottom: 40 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: CARD_GAP },
   halfCell: { width: HALF_CARD_WIDTH },
   tileLabel: { flexDirection: "row", alignItems: "center", gap: 4 },

@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from "react";
 import {
   ScrollView, View, Text, TextInput, Pressable,
-  StyleSheet, Alert, Linking,
+  StyleSheet, Alert, Linking, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/core";
 import { Ionicons } from "@expo/vector-icons";
@@ -102,7 +102,8 @@ export function HardcoverSettingsScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
       {/* About */}
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -184,6 +185,8 @@ export function HardcoverSettingsScreen() {
                 secureTextEntry={!showToken}
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleConnect}
                 style={[styles.input, { flex: 1, color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.page }]}
               />
               <Pressable onPress={() => setShowToken(v => !v)} hitSlop={8}>
@@ -232,6 +235,7 @@ export function HardcoverSettingsScreen() {
         </Text>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -1175,16 +1175,20 @@ export function MealsScreen() {
               </Pressable>
             </View>
             {(function () {
-              const highSpikeMeal = frequentMeals.reduce<{ name: string; spike: number } | null>(function (best, m) {
+              // Require >=3 logged samples before surfacing the nudge — a
+              // single-log spike isn't a pattern (correlation copy rule).
+              const highSpikeMeal = frequentMeals.reduce<{ name: string; spike: number; count: number } | null>(function (best, m) {
                 const s = impactScores[m.name];
                 if (s == null || s <= 40) return best;
-                if (!best || s > best.spike) return { name: m.name, spike: s };
+                const rep = foodReport.find(function (r) { return r.meal_name === m.name; });
+                if (!rep || rep.sample_count < 3) return best;
+                if (!best || s > best.spike) return { name: m.name, spike: s, count: rep.sample_count };
                 return best;
               }, null);
               return highSpikeMeal ? (
                 <View style={{ backgroundColor: theme.amber.tint, borderRadius: 12, borderWidth: 1.5, borderColor: theme.amber.solid, padding: 8, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <Text style={{ fontSize: 11, color: theme.amber.sub }}>
-                    {highSpikeMeal.name + " has averaged a +" + highSpikeMeal.spike + " mg/dL rise across recent logs"}
+                    {highSpikeMeal.name + " has averaged a +" + highSpikeMeal.spike + " mg/dL rise across " + highSpikeMeal.count + " recent logs"}
                   </Text>
                 </View>
               ) : null;
@@ -1873,7 +1877,7 @@ export function MealsScreen() {
 
 function makeStyles(ink: string, card: string, border: string) {
   return StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { padding: 16, gap: 12, paddingBottom: 40 },
 
   // Totals strip
   totalsRow: { flexDirection: "row", gap: 8 },

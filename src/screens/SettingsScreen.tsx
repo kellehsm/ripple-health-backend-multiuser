@@ -180,7 +180,7 @@ export function SettingsScreen() {
           style={{ flex: 1, paddingVertical: SPACING.sm, fontSize: FONT_SIZES.body, color: theme.textStrong }}
         />
         {search.length > 0 && (
-          <Pressable onPress={() => setSearch("")}>
+          <Pressable onPress={() => setSearch("")} hitSlop={14} accessibilityLabel="Clear search">
             <Ionicons name="close" size={16} color={theme.textSoft} />
           </Pressable>
         )}
@@ -366,7 +366,7 @@ export function SettingsScreen() {
       )}
 
       {/* Quiet Mode */}
-      {!searching && (
+      {(!searching || matches("Quiet mode", "quiet", "mute", "silence", "do not disturb")) && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>QUIET MODE</Text>
           {muteUntil !== null && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
+import { ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -62,7 +62,8 @@ export function DexcomSettingsScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>CREDENTIALS</Text>
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
@@ -74,6 +75,7 @@ export function DexcomSettingsScreen() {
           value={accountId} onChangeText={setAccountId}
           placeholder="Dexcom account ID (UUID)" placeholderTextColor={theme.textSoft}
           autoCapitalize="none" autoCorrect={false}
+          returnKeyType="next"
           style={[styles.input, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.page }]}
         />
 
@@ -86,6 +88,7 @@ export function DexcomSettingsScreen() {
             placeholder={passwordSet ? "Leave blank to keep existing" : "Password"}
             placeholderTextColor={theme.textSoft}
             secureTextEntry={!showPassword} autoCapitalize="none" autoCorrect={false}
+            returnKeyType="done" onSubmitEditing={handleSave}
             style={[styles.input, { flex: 1, color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.page }]}
           />
           <Pressable onPress={() => setShowPassword(v => !v)} hitSlop={8} style={{ padding: 4 }}>
@@ -126,11 +129,12 @@ export function DexcomSettingsScreen() {
         </Pressable>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { padding: 16, gap: 12, paddingBottom: 40 },
   groupLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginTop: 4, marginBottom: -4 },
   card: { borderRadius: 22, borderWidth: 2, padding: 16, gap: 8 },
   desc: { fontSize: 12, marginBottom: 4 },

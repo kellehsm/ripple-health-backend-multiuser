@@ -213,7 +213,7 @@ function computeInsights(params: {
       return h >= 11 && h < 15;
     });
     if (!hasMiddayMeal) {
-      insights.push("No midday meal logged yet — you usually log one around this time.");
+      insights.push("No midday meal logged yet today.");
     }
   }
 
@@ -2238,7 +2238,7 @@ export function OverviewScreen() {
 
 function makeStyles(ink: string, card: string, border: string) {
   return StyleSheet.create({
-    content: { padding: 16, gap: 12 },
+    content: { padding: 16, gap: 12, paddingBottom: 40 },
 
     headerBlock: { marginBottom: 4 },
     greeting: { fontSize: 26, fontWeight: "900", letterSpacing: -0.8, marginBottom: 2 },

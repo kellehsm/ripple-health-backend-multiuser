@@ -538,7 +538,7 @@ export function NotificationsSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12 },
+  content: { padding: 16, gap: 12, paddingBottom: 40 },
   groupLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginTop: 4, marginBottom: -4 },
   card: { borderRadius: 22, borderWidth: 2, padding: 16, gap: 8 },
   desc: { fontSize: 12, marginBottom: 4 },

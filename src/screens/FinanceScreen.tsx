@@ -116,7 +116,7 @@ function groupByDay(entries: SpendingEntry[]): [string, SpendingEntry[]][] {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FinanceEmptyState() {
+function FinanceEmptyState({ onAdd }: { onAdd: () => void }) {
   const { theme } = useTheme();
   const c = theme.purple.solid;
   return (
@@ -132,6 +132,13 @@ function FinanceEmptyState() {
       <Text style={{ fontSize: 13, color: theme.textSoft, marginTop: 6, textAlign: "center", maxWidth: 240 }}>
         Connect your bank or add a transaction to start tracking
       </Text>
+      <Pressable
+        onPress={() => { Haptics.selectionAsync(); onAdd(); }}
+        style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 22, borderWidth: 2, borderColor: theme.ink, backgroundColor: c }}
+        accessibilityRole="button"
+      >
+        <Text style={{ fontWeight: "700", color: "#fff" }}>Log an expense</Text>
+      </Pressable>
     </View>
   );
 }
@@ -483,7 +490,7 @@ export function FinanceScreen() {
         )}
         {/* Section editor pencil */}
         <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 4 }}>
-          <Pressable onPress={() => setShowSectionEditor(true)} hitSlop={10} accessibilityLabel="Customize Finance screen">
+          <Pressable onPress={() => setShowSectionEditor(true)} hitSlop={14} accessibilityLabel="Customize Finance screen">
             <Ionicons name="pencil-outline" size={17} color={theme.textSoft} />
           </Pressable>
         </View>
@@ -684,7 +691,7 @@ export function FinanceScreen() {
 
         {/* Transaction list grouped by day */}
         {!loading && grouped.length === 0 ? (
-          <FinanceEmptyState />
+          <FinanceEmptyState onAdd={() => setShowAdd(true)} />
         ) : (
           grouped.map(([day, dayEntries]) => (
             <View key={day}>
