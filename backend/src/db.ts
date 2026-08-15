@@ -2,17 +2,17 @@ import pg from "pg";
 import dotenv from "dotenv";
 dotenv.config();
 
+// Timezone is set via connection options (not a post-connect SET) so it's
+// applied by the server before the client is ever handed out — avoids a race
+// with the first user query and the "client.query() while already executing"
+// pg deprecation warning that the post-connect handler triggered.
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  options: "-c timezone=America/New_York",
   max: 20,
   idleTimeoutMillis: 10000,
   connectionTimeoutMillis: 5000,
   statement_timeout: 30000,
-});
-
-// All date/time functions (current_date, now(), CURRENT_TIMESTAMP) use EST.
-pool.on("connect", (client) => {
-  client.query("SET timezone = 'America/New_York'");
 });
 
 // Small helper so route files don't each import pg directly.
