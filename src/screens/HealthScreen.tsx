@@ -329,6 +329,8 @@ export function HealthScreen() {
   const [todayReadings, setTodayReadings] = useState<GlucoseReading[]>([]);
   const [yesterdayReadings, setYesterdayReadings] = useState<GlucoseReading[]>([]);
   const [status, setStatus] = useState<GlucoseStatus | null>(null);
+  const [dexcomSyncing, setDexcomSyncing] = useState(false);
+  const [dexcomSyncMsg, setDexcomSyncMsg] = useState<{ text: string; kind: "ok" | "warn" | "err" } | null>(null);
   const [loading, setLoading] = useState(true);
   const [waterMetricId, setWaterMetricId] = useState<string | null>(null);
   const [waterCount, setWaterCount] = useState<number | null>(null);
@@ -765,6 +767,42 @@ export function HealthScreen() {
         setLoading(false);
       });
   }, []);
+
+  // Force a Dexcom Share sync from the glucose card. Maps backend error strings
+  // to actionable copy: rejected credentials point at Settings, empty responses
+  // point at the phone (Share app not uploading). Auto-dismisses after 4.5s.
+  const handleDexcomForceSync = useCallback(async function () {
+    if (dexcomSyncing) return;
+    setDexcomSyncing(true);
+    setDexcomSyncMsg(null);
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      const res: any = await api.glucoseSyncShare();
+      const inserted = Number(res?.inserted ?? 0);
+      if (inserted > 0) {
+        setDexcomSyncMsg({ text: `Synced — ${inserted} new reading${inserted === 1 ? "" : "s"}`, kind: "ok" });
+      } else {
+        setDexcomSyncMsg({ text: "Synced — no new readings yet", kind: "warn" });
+      }
+      load(rangeHours);
+    } catch (e: any) {
+      const raw = String(e?.message ?? e ?? "");
+      let text = "Sync failed — tap to retry";
+      if (/credentials not configured/i.test(raw)) {
+        text = "Not configured — open Settings → Dexcom";
+      } else if (/rejected|verify.*(password|account|username)/i.test(raw)) {
+        text = "Password rejected — update in Settings → Dexcom";
+      } else if (/empty response|Share is enabled/i.test(raw)) {
+        text = "Dexcom app isn't sharing — check phone";
+      } else if (/session still invalid/i.test(raw)) {
+        text = "Credentials rejected — update in Settings → Dexcom";
+      }
+      setDexcomSyncMsg({ text, kind: "err" });
+    } finally {
+      setDexcomSyncing(false);
+      setTimeout(() => setDexcomSyncMsg(null), 4500);
+    }
+  }, [dexcomSyncing, load, rangeHours]);
 
   // Stable scrub callbacks — read fresh data from scrubCtx ref, never stale
   const onScrub = useCallback(function (x: number) {
@@ -1716,11 +1754,58 @@ export function HealthScreen() {
           </View>
         ) : null}
 
-        {status && status.isStale ? (
-          <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 8 }}>
-            Last reading {status.minutesSinceReading} min ago — sensor may be disconnected.
-          </Text>
-        ) : null}
+        {/* Dexcom sync status pill — tap to force a sync. Distinguishes fresh vs.
+            stale (>20 min since last reading) so a silent Share upload stall
+            surfaces immediately instead of only showing empty chart windows. */}
+        {status?.hasData ? (() => {
+          const mins = status.minutesSinceReading;
+          const stale = status.isStale;
+          const showMsg = dexcomSyncMsg !== null;
+          const msgKind = dexcomSyncMsg?.kind ?? (stale ? "warn" : "ok");
+          const palette =
+            msgKind === "err" ? { border: (theme as any).red?.sub ?? "#B84A2E", bg: (theme as any).red?.tint ?? "#FBEAE3", fg: (theme as any).red?.fg ?? "#7A1F0F" } :
+            msgKind === "warn" ? { border: (theme as any).amber?.sub ?? "#B8871E", bg: (theme as any).amber?.bg ?? "#FBEFD1", fg: (theme as any).amber?.fg ?? "#5A3E0A" } :
+            { border: (theme as any).teal?.sub ?? "#2E7A7F", bg: (theme as any).teal?.bg ?? "#E1F1F2", fg: (theme as any).teal?.fg ?? "#0F4A4D" };
+          const label = showMsg
+            ? dexcomSyncMsg!.text
+            : dexcomSyncing
+              ? "Syncing…"
+              : stale
+                ? `Stalled — last reading ${mins} min ago`
+                : mins != null
+                  ? (mins < 1 ? "Synced just now" : `Synced ${mins} min ago`)
+                  : "Tap to sync";
+          return (
+            <Pressable
+              onPress={handleDexcomForceSync}
+              disabled={dexcomSyncing}
+              accessibilityRole="button"
+              accessibilityLabel={`Dexcom sync status: ${label}. Tap to force a sync now.`}
+              hitSlop={6}
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 8,
+                paddingVertical: 5,
+                paddingHorizontal: 10,
+                borderRadius: 12,
+                borderWidth: 1.5,
+                borderColor: palette.border,
+                backgroundColor: palette.bg,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                opacity: dexcomSyncing ? 0.7 : 1,
+              }}
+            >
+              <Ionicons
+                name={dexcomSyncing ? "sync" : msgKind === "err" ? "alert-circle" : msgKind === "warn" ? "cloud-offline-outline" : "checkmark-circle"}
+                size={12}
+                color={palette.fg}
+              />
+              <Text style={{ fontSize: 11, fontWeight: "800", color: palette.fg }}>{label}</Text>
+            </Pressable>
+          );
+        })() : null}
         <CardLoadingOverlay loading={loading || refreshing} size="large" />
       </ShadowCard>
       </Animated.View>
