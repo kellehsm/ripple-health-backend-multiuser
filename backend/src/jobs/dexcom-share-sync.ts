@@ -24,6 +24,56 @@ interface SessionEntry {
 
 const sessionCache = new Map<string, SessionEntry>();
 
+// Hard kill-switch. Set DEXCOM_SHARE_DISABLED=1 in any environment (e.g. dev)
+// where we don't want the backend authenticating to Dexcom Share, even if a
+// user row has credentials configured. Prevents dev + prod from double-logging
+// against the same Share account and tripping Dexcom's lockout.
+function shareDisabled(): boolean {
+  const v = process.env.DEXCOM_SHARE_DISABLED;
+  return v === "1" || v === "true";
+}
+
+async function loadPersistedSession(userId: string): Promise<SessionEntry | null> {
+  try {
+    const rows = await query<{ session_id: string; base_url: string; expires_at: Date }>(
+      "SELECT session_id, base_url, expires_at FROM dexcom_share_sessions WHERE user_id = $1",
+      [userId]
+    );
+    const row = rows[0];
+    if (!row) return null;
+    const expiresAt = new Date(row.expires_at).getTime();
+    if (expiresAt <= Date.now()) return null;
+    return { sessionId: row.session_id, baseUrl: row.base_url, expiresAt };
+  } catch {
+    return null;
+  }
+}
+
+async function persistSession(userId: string, entry: SessionEntry): Promise<void> {
+  try {
+    await query(
+      `INSERT INTO dexcom_share_sessions (user_id, session_id, base_url, expires_at, updated_at)
+       VALUES ($1, $2, $3, to_timestamp($4 / 1000.0), NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET session_id = EXCLUDED.session_id,
+             base_url   = EXCLUDED.base_url,
+             expires_at = EXCLUDED.expires_at,
+             updated_at = NOW()`,
+      [userId, entry.sessionId, entry.baseUrl, entry.expiresAt]
+    );
+  } catch {
+    // Non-fatal: falling back to in-memory cache still works for this process.
+  }
+}
+
+async function clearPersistedSession(userId: string): Promise<void> {
+  try {
+    await query("DELETE FROM dexcom_share_sessions WHERE user_id = $1", [userId]);
+  } catch {
+    // ignore
+  }
+}
+
 interface Credentials {
   accountId?: string;
   accountName?: string;
@@ -102,9 +152,21 @@ async function loginWithName(baseUrl: string, accountName: string, password: str
 }
 
 async function authenticate(userId: string, prefetchedDexcom?: Record<string, any>): Promise<SessionEntry> {
+  if (shareDisabled()) {
+    throw new Error("Dexcom Share is disabled in this environment (DEXCOM_SHARE_DISABLED=1)");
+  }
+
   const cached = sessionCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) {
     return cached;
+  }
+
+  // Rehydrate from DB before hitting Dexcom — survives backend restarts so we
+  // don't burn a fresh login on every deploy and get rate-limited/locked out.
+  const persisted = await loadPersistedSession(userId);
+  if (persisted) {
+    sessionCache.set(userId, persisted);
+    return persisted;
   }
 
   const { accountId, accountName, password, baseUrl } = await resolveCredentials(userId, prefetchedDexcom);
@@ -115,6 +177,7 @@ async function authenticate(userId: string, prefetchedDexcom?: Record<string, an
 
   const entry: SessionEntry = { sessionId, baseUrl, expiresAt: Date.now() + SESSION_TTL_MS };
   sessionCache.set(userId, entry);
+  await persistSession(userId, entry);
   return entry;
 }
 
@@ -191,6 +254,7 @@ export async function syncDexcomShareGlucose(
     // Session was rejected mid-flight (HTTP 500 SessionNotValid/SessionIdNotFound).
     // Evict the cache, re-authenticate once, and retry.
     sessionCache.delete(userId);
+    await clearPersistedSession(userId);
     log?.warn("Dexcom Share session expired mid-flight — re-authenticating");
     session = await authenticate(userId, prefetchedDexcom);
     readings = await fetchReadings(session.sessionId, session.baseUrl);

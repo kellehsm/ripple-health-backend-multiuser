@@ -300,9 +300,13 @@ async function main() {
       app.log.error({ err }, "Dexcom Share sync: failed to query users");
     }
   };
-  cron.schedule("*/5 * * * *", () => void runDexcomShareSync());
-  void runDexcomShareSync(); // run once on startup to catch any missed readings
-  app.log.info("Dexcom Share sync scheduled (every 5 min + startup)");
+  if (process.env.DEXCOM_SHARE_DISABLED === "1" || process.env.DEXCOM_SHARE_DISABLED === "true") {
+    app.log.warn("Dexcom Share sync SKIPPED — DEXCOM_SHARE_DISABLED is set");
+  } else {
+    cron.schedule("*/5 * * * *", () => void runDexcomShareSync());
+    void runDexcomShareSync(); // run once on startup to catch any missed readings
+    app.log.info("Dexcom Share sync scheduled (every 5 min + startup)");
+  }
 
   // Nightly sync_log TTL cleanup — delete rows older than 30 days
   cron.schedule("0 4 * * *", async () => {
