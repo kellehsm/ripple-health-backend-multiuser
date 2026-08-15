@@ -612,28 +612,22 @@ export function MealsScreen() {
       await AsyncStorage.setItem(FREQ_SERVINGS_KEY, JSON.stringify(map));
     } catch {}
   }
+  // Alert.prompt is iOS-only, so this uses a small Modal instead.
+  const [servingsPromptName, setServingsPromptName] = useState<string | null>(null);
+  const [servingsInput, setServingsInput] = useState("1");
   function promptFrequentServings(name: string) {
-    Alert.prompt(
-      "Default servings for " + name,
-      "Every time you tap this chip, log this many servings by default (0.25 – 10).",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Save",
-          onPress: async (input?: string) => {
-            const v = parseFloat((input ?? "1").trim());
-            if (!isFinite(v) || v <= 0 || v > 10) {
-              toast("Enter a number between 0.25 and 10.", "error");
-              return;
-            }
-            await saveFrequentServings(name, v);
-            toast("Default set to " + v + " serving" + (v === 1 ? "" : "s"));
-          },
-        },
-      ],
-      "plain-text",
-      "1"
-    );
+    setServingsInput("1");
+    setServingsPromptName(name);
+  }
+  async function saveServingsPrompt() {
+    const v = parseFloat(servingsInput.trim());
+    if (!isFinite(v) || v <= 0 || v > 10) {
+      toast("Enter a number between 0.25 and 10.", "error");
+      return;
+    }
+    await saveFrequentServings(servingsPromptName!, v);
+    setServingsPromptName(null);
+    toast("Default set to " + v + " serving" + (v === 1 ? "" : "s"));
   }
 
   function openFrequentPending(meal: FrequentMeal) {
@@ -1757,6 +1751,34 @@ export function MealsScreen() {
             <Pressable onPress={function () { setMealTypePickerVisible(false); }} style={{ paddingVertical: 12, alignItems: "center" }}>
               <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: "700" }}>Cancel</Text>
             </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={servingsPromptName != null} transparent animationType="fade" onRequestClose={function () { setServingsPromptName(null); }}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 }} onPress={function () { setServingsPromptName(null); }}>
+          <Pressable onPress={function (e) { e.stopPropagation(); }} style={{ backgroundColor: card, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, padding: 16, gap: 10 }}>
+            <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "800" }}>Default servings for {servingsPromptName}</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 12 }}>
+              Every time you tap this chip, log this many servings by default (0.25 – 10).
+            </Text>
+            <TextInput
+              value={servingsInput}
+              onChangeText={setServingsInput}
+              keyboardType="decimal-pad"
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={saveServingsPrompt}
+              style={{ borderWidth: 2, borderColor: theme.cardBorder, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: theme.textStrong, fontSize: 16 }}
+            />
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
+              <Pressable onPress={function () { setServingsPromptName(null); }} style={{ paddingVertical: 10, paddingHorizontal: 14 }}>
+                <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: "700" }}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={saveServingsPrompt} style={{ paddingVertical: 10, paddingHorizontal: 18, backgroundColor: theme.teal.solid, borderRadius: 12 }}>
+                <Text style={{ color: "#fff", fontSize: 14, fontWeight: "800" }}>Save</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>

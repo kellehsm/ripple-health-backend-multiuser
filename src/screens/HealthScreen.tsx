@@ -1006,9 +1006,10 @@ export function HealthScreen() {
     }
     prevStepsRef.current = stepsCount;
   }, [stepsCount]);
-  useEffect(function () {
+  // On focus, not mount — the service can be killed from the notification shade.
+  useFocusEffect(useCallback(function () {
     isForegroundServiceRunning().then(setLiveTracking).catch(() => {});
-  }, []);
+  }, []));
   useEffect(function () { loadHeartRate(hrRangeHours); }, [loadHeartRate, hrRangeHours]);
   useEffect(function () {
     const ticker = setInterval(function () {

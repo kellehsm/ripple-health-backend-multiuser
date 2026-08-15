@@ -683,11 +683,11 @@ export function OverviewScreen() {
     setYesterdayGlucose(data.yesterdayGlucoseData);
   }, []);
 
-  const load = useCallback(async function () {
+  const load = useCallback(async function (force = false) {
     const today = todayStr();
     const cacheKey = `overview:main:${today}`;
 
-    const cached = getCached<{
+    const cached = force ? null : getCached<{
       entries: JournalEntry[];
       weeklyArr: WeeklyDay[];
       patternEvents: PatternEvent[];
@@ -804,7 +804,13 @@ export function OverviewScreen() {
     }
   }
 
-  useEffect(function () { load(); }, [load]);
+  // First focus uses the day cache for instant paint; later focuses force a
+  // silent refetch so logs made on other tabs show up without a tab-switch lag.
+  const hasFocusLoadedRef = useRef(false);
+  useFocusEffect(useCallback(() => {
+    load(hasFocusLoadedRef.current);
+    hasFocusLoadedRef.current = true;
+  }, [load]));
 
   // Content crossfade — animate opacity 0→1 when loading finishes (Feature 15)
   useEffect(function () {

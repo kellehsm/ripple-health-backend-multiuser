@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { ScrollView, View, Text, Switch, StyleSheet, Alert } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
 import { isBiometricLockEnabled, setBiometricLockEnabled, authenticateWithBiometrics } from "../../lib/biometricLock";
 
@@ -7,9 +8,11 @@ export function SecuritySettingsScreen() {
   const { theme } = useTheme();
   const [biometricEnabled, setBiometricEnabled] = useState(false);
 
-  useEffect(() => {
+  // Re-check on focus — system biometric enrollment can change while the
+  // user is off in Android settings.
+  useFocusEffect(useCallback(() => {
     isBiometricLockEnabled().then(setBiometricEnabled).catch(() => {});
-  }, []);
+  }, []));
 
   async function handleToggle(value: boolean) {
     if (value) {

@@ -168,7 +168,7 @@ export function TrackingSettingsScreen() {
                   {
                     backgroundColor: selected ? theme.teal.solid : theme.page,
                     borderColor: selected ? theme.teal.solid : theme.cardBorder,
-                    box_shadow: selected ? `3px 3px 0 ${theme.ink}` : undefined,
+                    boxShadow: selected ? `3px 3px 0 ${theme.ink}` : undefined,
                   },
                 ]}
               >
