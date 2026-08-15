@@ -96,10 +96,22 @@ export function StatsHero({ theme, ink, refreshKey }: { theme: any; ink: string;
     }, [refreshKey])
   );
 
-  if (!stats || stats.total_sessions === 0) return null;
-
   const teal = (theme.teal as any) ?? {};
   const accent = teal.solid ?? ink;
+
+  if (!stats || stats.total_sessions === 0) {
+    return (
+      <ShadowCard size="card" bg={theme.card} accent={accent} rotate={-0.3}>
+        <View style={{ alignItems: "center", paddingVertical: 8 }}>
+          <Text style={{ fontSize: 24, marginBottom: 4 }}>🧘</Text>
+          <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800" }}>Your stats will grow here</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
+            Complete your first session to start a streak.
+          </Text>
+        </View>
+      </ShadowCard>
+    );
+  }
   const earned = MILESTONES.filter((m) => stats.total_sessions >= m.at);
   const lift = stats.avg_mood_delta;
 

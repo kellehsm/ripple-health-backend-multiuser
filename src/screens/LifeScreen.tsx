@@ -707,6 +707,11 @@ export function LifeScreen() {
       ) : books.length === 0 ? (
         <View style={[styles.card, { borderColor: ink, borderWidth: 2 }]}>
           <Text style={{ color: theme.textSoft, fontSize: 13 }}>No books in progress — search above to add one.</Text>
+          <Pressable onPress={() => navigation.navigate("SettingsHardcover")} hitSlop={6} style={{ marginTop: 8 }}>
+            <Text style={{ color: theme.coral.solid, fontSize: 12, fontWeight: "800" }}>
+              Or connect Hardcover to auto-import your reading list →
+            </Text>
+          </Pressable>
         </View>
       ) : (
         books.map((book) => {

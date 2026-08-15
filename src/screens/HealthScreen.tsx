@@ -1876,9 +1876,16 @@ export function HealthScreen() {
             {hrLoading ? (
               <LoadingIndicator style={{ marginVertical: 30 }} />
             ) : hrReadings.length === 0 ? (
-              <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 10 }}>
-                No heart rate data in this window.
-              </Text>
+              <View style={{ marginTop: 10 }}>
+                <Text style={{ color: theme.textSoft, fontSize: 12 }}>
+                  No heart rate data in this window.
+                </Text>
+                <Pressable onPress={() => navigation.navigate("SettingsHealthConnect" as never)} hitSlop={6} style={{ marginTop: 6 }}>
+                  <Text style={{ color: theme.berry.solid, fontSize: 12, fontWeight: "800" }}>
+                    Sync from Health Connect →
+                  </Text>
+                </Pressable>
+              </View>
             ) : (
               <Svg width={CHART_WIDTH} height={CHART_HEIGHT} style={{ marginTop: 12 }}>
                 {/* Double-stroke HR line */}

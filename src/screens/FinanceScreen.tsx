@@ -561,6 +561,14 @@ export function FinanceScreen() {
         )}
 
         {/* Category breakdown chart */}
+        {categoryTotals.length === 0 && !hiddenSections.includes('breakdown') && (
+          <ShadowCard size="card" cardId="spending_breakdown_empty">
+            <Text style={[s.cardTitle, { color: theme.textStrong }]}>Where it went</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 6 }}>
+              Category breakdown will appear once you've logged transactions.
+            </Text>
+          </ShadowCard>
+        )}
         {categoryTotals.length > 0 && !hiddenSections.includes('breakdown') && (
           <View ref={tourBreakdownRef}>
           <ShadowCard size="card" cardId="spending_breakdown">

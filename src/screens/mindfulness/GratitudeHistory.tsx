@@ -65,9 +65,29 @@ export function GratitudeHistory({ theme, ink, refreshKey }: { theme: any; ink: 
     }, [refreshKey])
   );
 
-  if (!entries || entries.length === 0) return null;
-
   const berry = (theme.berry as any) ?? {};
+
+  if (!entries || entries.length === 0) {
+    return (
+      <View style={{
+        marginTop: 8,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: berry.sub ?? theme.cardBorder ?? ink,
+        backgroundColor: berry.tint ?? theme.card,
+        padding: 14,
+        alignItems: "center",
+      }}>
+        <Text style={{ fontSize: 22, marginBottom: 4 }}>💌</Text>
+        <Text style={{ color: berry.fg ?? theme.textStrong, fontSize: 13, fontWeight: "800" }}>
+          Nothing to look back on yet
+        </Text>
+        <Text style={{ color: berry.sub ?? theme.textSoft, fontSize: 11, marginTop: 4, textAlign: "center" }}>
+          Write your first entry above — flashbacks appear once you've been at it a month.
+        </Text>
+      </View>
+    );
+  }
   const streak = entryStreak(entries);
   const flashback = findFlashback(entries);
   const shown = expanded ? entries.slice(0, 30) : entries.slice(0, 3);

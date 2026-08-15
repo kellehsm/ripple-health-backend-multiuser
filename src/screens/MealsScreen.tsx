@@ -220,11 +220,19 @@ function MiniGlucoseChart({
 }) {
   const { theme } = useTheme();
   const ink = theme.ink;
+  const nav = useNavigation<any>();
   if (readings.length === 0) {
     return (
-      <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-        No glucose readings found for this meal window.
-      </Text>
+      <View>
+        <Text style={{ color: theme.textSoft, fontSize: 12 }}>
+          No glucose readings found for this meal window.
+        </Text>
+        <Pressable onPress={() => nav.navigate("SettingsDexcom")} hitSlop={6} style={{ marginTop: 4 }}>
+          <Text style={{ color: theme.berry.solid, fontSize: 12, fontWeight: "800" }}>
+            Connect Dexcom →
+          </Text>
+        </Pressable>
+      </View>
     );
   }
 
