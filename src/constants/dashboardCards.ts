@@ -7,7 +7,8 @@ export type CardId =
   | "insights"
   | "weekly_review"
   | "mood_pattern"
-  | "cross_metric";
+  | "cross_metric"
+  | "monthly_review";
 
 export type DashboardCard = {
   id: CardId;
@@ -25,6 +26,7 @@ export const DASHBOARD_CARDS: DashboardCard[] = [
   { id: "weekly_review",label: "7-day review",         description: "Steps, glucose avg, hobbies & flags this week" },
   { id: "mood_pattern",  label: "Mood pattern",          description: "7-day mood vs sleep/spending bar chart" },
   { id: "cross_metric", label: "Cross-metric insights", description: "How exercise and sleep relate to your glucose averages" },
+  { id: "monthly_review", label: "Monthly review", description: "Last month's step totals, spending, and a quick observation (shown first 7 days of the month)" },
 ];
 
 export const DEFAULT_CARD_ORDER: CardId[] = DASHBOARD_CARDS.map(c => c.id);

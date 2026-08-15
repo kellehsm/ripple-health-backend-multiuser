@@ -36,10 +36,14 @@ import {
   sendNudge,
   getNudges,
   getActivityFeed,
+  sendCheer,
+  getCheers,
+  getMyCheersToday,
   Friend,
   FriendRequest,
   Challenge,
   Nudge,
+  Cheer,
   FeedEntry,
   SocialCategory,
 } from "../api/friends";
@@ -115,6 +119,9 @@ export function FriendsScreen() {
   const [nudges, setNudges] = useState<Nudge[]>([]);
   const [nudgingSent, setNudgingSent] = useState<string | null>(null);
   const [activityFeed, setActivityFeed] = useState<FeedEntry[]>([]);
+  const [cheers, setCheers] = useState<Cheer[]>([]);
+  const [cheersSentToday, setCheersSentToday] = useState<Set<string>>(new Set());
+  const [cheeringSent, setCheeringSent] = useState<string | null>(null);
 
   // Feature tour refs
   const scrollRef = useRef<ScrollView>(null);
@@ -154,13 +161,15 @@ export function FriendsScreen() {
         const tracked = <T,>(p: Promise<T>, fallback: T): Promise<T> =>
           p.catch(() => { anyError = true; return fallback; });
         try {
-          const [me, reqs, friendList, cList, nudgeList, feed] = await Promise.all([
+          const [me, reqs, friendList, cList, nudgeList, feed, cheerList, cheersSent] = await Promise.all([
             tracked(api.me(), null as any),
             tracked(getFriendRequests(), [] as FriendRequest[]),
             tracked(getFriends(), [] as Friend[]),
             tracked(getChallenges(), [] as Challenge[]),
             tracked(getNudges(), [] as Nudge[]),
             tracked(getActivityFeed(), [] as FeedEntry[]),
+            tracked(getCheers(), [] as Cheer[]),
+            tracked(getMyCheersToday(), [] as string[]),
           ]);
           if (cancelled) return;
           setLoadError(anyError);
@@ -170,6 +179,8 @@ export function FriendsScreen() {
           setChallenges(Array.isArray(cList) ? cList : []);
           setNudges(Array.isArray(nudgeList) ? nudgeList : []);
           setActivityFeed(Array.isArray(feed) ? feed : []);
+          setCheers(Array.isArray(cheerList) ? cheerList : []);
+          setCheersSentToday(new Set(Array.isArray(cheersSent) ? cheersSent : []));
 
           // Show feature tour first time
           const seen = await hasSeenTooltip("friends-tour");
@@ -284,6 +295,26 @@ export function FriendsScreen() {
     }
   }
 
+  async function handleCheer(friend: Friend) {
+    setCheeringSent(friend.user_id);
+    try {
+      await sendCheer(friend.user_id);
+      setCheersSentToday((prev) => new Set([...prev, friend.user_id]));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      toast("Cheer sent to " + (friend.username ? "@" + friend.username : friend.email) + "!");
+    } catch (e: any) {
+      const msg = e?.message ?? "";
+      if (msg.includes("429") || msg.toLowerCase().includes("already cheered")) {
+        toast("Already cheered today.", "error");
+        setCheersSentToday((prev) => new Set([...prev, friend.user_id]));
+      } else {
+        toast(msg || "Could not send cheer.", "error");
+      }
+    } finally {
+      setCheeringSent(null);
+    }
+  }
+
   async function handleDecline(connectionId: string) {
     setActingOnRequest(connectionId);
     try {
@@ -344,6 +375,23 @@ export function FriendsScreen() {
           ))}
           {nudges.length > 3 && (
             <Text style={{ color: theme.teal.sub, fontSize: 12 }}>+{nudges.length - 3} more</Text>
+          )}
+        </View>
+      )}
+
+      {/* Cheer banner */}
+      {cheers.length > 0 && (
+        <View style={[styles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, paddingHorizontal: 14, paddingVertical: 12, gap: 4 }]}>
+          {cheers.slice(0, 3).map((c, i) => (
+            <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="flame" size={16} color={theme.teal.fg} />
+              <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700" }}>
+                {c.display_name} cheered your streak!
+              </Text>
+            </View>
+          ))}
+          {cheers.length > 3 && (
+            <Text style={{ color: theme.teal.sub, fontSize: 12 }}>+{cheers.length - 3} more</Text>
           )}
         </View>
       )}
@@ -549,6 +597,26 @@ export function FriendsScreen() {
                     <ActivityIndicator size="small" color={theme.teal.fg} />
                   ) : (
                     <Text style={{ fontSize: 16 }}>👋</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  onPress={() => handleCheer(friend)}
+                  disabled={cheeringSent === friend.user_id || cheersSentToday.has(friend.user_id)}
+                  style={[
+                    styles.smallBtn,
+                    cheersSentToday.has(friend.user_id)
+                      ? { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }
+                      : { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                  ]}
+                >
+                  {cheeringSent === friend.user_id ? (
+                    <ActivityIndicator size="small" color={theme.teal.fg} />
+                  ) : (
+                    <Ionicons
+                      name={cheersSentToday.has(friend.user_id) ? "flame" : "flame-outline"}
+                      size={16}
+                      color={cheersSentToday.has(friend.user_id) ? theme.teal.fg : theme.textSoft}
+                    />
                   )}
                 </Pressable>
               </View>

@@ -4,20 +4,23 @@ import { Platform, ToastAndroid } from "react-native";
 // Android: native ToastAndroid. iOS: falls back to a registered overlay (see ToastOverlay).
 
 type ToastType = "success" | "error" | "info";
+export type ToastAction = { label: string; onPress: () => void };
 
-let _overlay: ((msg: string, type: ToastType, duration?: number) => void) | null = null;
+let _overlay: ((msg: string, type: ToastType, duration?: number, action?: ToastAction) => void) | null = null;
 
 export function registerToastOverlay(fn: typeof _overlay) {
   _overlay = fn;
 }
 
-export function toast(message: string, type: ToastType = "success", durationMs = 3000) {
-  if (Platform.OS === "android") {
+export function toast(message: string, type: ToastType = "success", durationMs = 3000, action?: ToastAction) {
+  // Native Android toasts can't carry a button, so toasts with an action go
+  // through the in-app overlay on every platform.
+  if (Platform.OS === "android" && (!action || !_overlay)) {
     const dur = durationMs > 2500 ? ToastAndroid.LONG : ToastAndroid.SHORT;
     ToastAndroid.show(message, dur);
     return;
   }
-  _overlay?.(message, type, durationMs);
+  _overlay?.(message, type, action ? Math.max(durationMs, 5000) : durationMs, action);
 }
 
 // Friendly, categorized error messages for common failure scenarios

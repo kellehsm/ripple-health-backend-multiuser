@@ -224,6 +224,26 @@ export function getNudges(): Promise<Nudge[]> {
   return req("/friends/nudges");
 }
 
+// ── Cheers ────────────────────────────────────────────────────────────────────
+
+export interface Cheer {
+  sender_id: string;
+  display_name: string;
+  sent_at: string;
+}
+
+export function sendCheer(friendId: string): Promise<{ ok: boolean }> {
+  return req("/friends/cheer/" + friendId, { method: "POST", body: JSON.stringify({}) });
+}
+
+export function getCheers(): Promise<Cheer[]> {
+  return req("/friends/cheers");
+}
+
+export function getMyCheersToday(): Promise<string[]> {
+  return req("/friends/my-cheers-sent");
+}
+
 // ── Reactions ─────────────────────────────────────────────────────────────────
 
 export interface Reaction {

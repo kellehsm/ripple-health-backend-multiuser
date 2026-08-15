@@ -1053,6 +1053,22 @@ export function HealthScreen() {
     const t = new Date(r.recorded_at).getTime();
     return t >= windowStart && t <= now;
   });
+  // No-data gaps > 20 min inside the window — shaded on the chart so a
+  // flatline from missed readings isn't mistaken for stable glucose.
+  const GAP_MS = 20 * 60 * 1000;
+  const dataGaps: Array<{ x1: number; x2: number }> = (() => {
+    if (windowReadings.length === 0) return [];
+    const times = windowReadings
+      .map(function (r) { return new Date(r.recorded_at).getTime(); })
+      .sort(function (a, b) { return a - b; });
+    const usableWidth = CHART_WIDTH - PAD_LEFT;
+    const toX = function (t: number) { return PAD_LEFT + ((t - windowStart) / (now - windowStart)) * usableWidth; };
+    const gaps: Array<{ x1: number; x2: number }> = [];
+    for (let i = 1; i < times.length; i++) {
+      if (times[i] - times[i - 1] > GAP_MS) gaps.push({ x1: toX(times[i - 1]), x2: toX(times[i]) });
+    }
+    return gaps;
+  })();
   const tirPct = windowReadings.length >= 3
     ? Math.round((windowReadings.filter(function (r) {
         const v = Number(r.mg_dl);
@@ -1522,6 +1538,21 @@ export function HealthScreen() {
                   strokeDasharray="5,5"
                   strokeOpacity={0.4}
                 />
+
+                {/* No-data gaps — hatched gray so flatlines aren't misread as stable */}
+                {dataGaps.map(function (g, i) {
+                  return (
+                    <Rect
+                      key={"gap" + i}
+                      x={g.x1}
+                      y={PAD_TOP}
+                      width={Math.max(g.x2 - g.x1, 2)}
+                      height={chartInnerHeight}
+                      fill={theme.textSoft}
+                      opacity={0.1}
+                    />
+                  );
+                })}
 
                 {/* Yesterday — dotted reference line */}
                 {yesterdayPoints.length > 0 ? (

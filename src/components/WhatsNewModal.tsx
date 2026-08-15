@@ -4,17 +4,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { ChangelogEntry, pendingChangelog, markChangelogSeen } from "../lib/whatsNew";
 
-export function WhatsNewModal() {
+// With no props: self-driven, shows once per version. With `entry`/`onClose`:
+// controlled replay (Settings → What's new).
+export function WhatsNewModal({ entry: entryProp, onClose }: { entry?: ChangelogEntry | null; onClose?: () => void } = {}) {
   const { theme } = useTheme();
-  const [entry, setEntry] = useState<ChangelogEntry | null>(null);
+  const controlled = entryProp !== undefined;
+  const [autoEntry, setAutoEntry] = useState<ChangelogEntry | null>(null);
+  const entry = controlled ? entryProp : autoEntry;
 
   useEffect(() => {
-    pendingChangelog().then((e) => setEntry(e)).catch(() => {});
-  }, []);
+    if (!controlled) pendingChangelog().then((e) => setAutoEntry(e)).catch(() => {});
+  }, [controlled]);
 
   async function close() {
+    if (controlled) { onClose?.(); return; }
     await markChangelogSeen();
-    setEntry(null);
+    setAutoEntry(null);
   }
 
   if (!entry) return null;

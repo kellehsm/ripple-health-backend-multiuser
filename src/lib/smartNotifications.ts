@@ -277,6 +277,16 @@ export async function checkWaterReminder(settings: any, now: Date) {
       return;
     }
 
+    // Adaptive pace: only nudge when behind the prorated pace toward the
+    // daily goal (linear from start hour to 9pm). On-pace users get silence
+    // instead of fixed-interval pestering.
+    const endMins = 21 * 60;
+    const startMins = startH * 60;
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const dayFrac = Math.min(Math.max((nowMins - startMins) / (endMins - startMins), 0), 1);
+    const expected = goal * dayFrac;
+    if (todayCount >= Math.floor(expected)) return;
+
     lastWaterReminderMs = now.getTime();
 
     let body: string;
@@ -885,13 +895,45 @@ export async function checkMindfulnessReminder(settings: any, now: Date) {
 // ─── Sleep / bedtime reminder ─────────────────────────────────────────────────
 // Fires once at the user's configured bedtime hour.
 
+// Median-bedtime cache — one sleepStats fetch per day, at most.
+let _medianBedtimeMins: number | null = null;
+let _medianBedtimeDay = "";
+
+async function adaptiveBedtimeMins(now: Date): Promise<number | null> {
+  const day = now.toDateString();
+  if (_medianBedtimeDay !== day) {
+    _medianBedtimeDay = day;
+    _medianBedtimeMins = null;
+    try {
+      const s: any = await api.sleepStats();
+      const m = s?.schedule_30d?.median_bedtime_mins;
+      if (typeof m === "number" && isFinite(m)) _medianBedtimeMins = m;
+    } catch {}
+  }
+  return _medianBedtimeMins;
+}
+
 export async function checkSleepReminder(settings: any, now: Date) {
   if (await areMuted()) return;
   const cfg = settings?.smart_notifications?.sleep_reminder;
   if (!cfg?.enabled) return;
 
-  const targetH: number = cfg.hour ?? 22;
-  if (now.getHours() < targetH) return;
+  let targetH: number;
+  if (cfg.hour != null) {
+    targetH = cfg.hour;
+    if (now.getHours() < targetH) return;
+  } else {
+    // No configured hour — nudge 30 min before the user's 30-day median
+    // bedtime (falls back to 22:00 if there isn't enough sleep data).
+    const median = await adaptiveBedtimeMins(now);
+    const nudgeMins = median != null ? (median - 30 + 1440) % 1440 : 22 * 60;
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    // After-midnight bedtimes (nudge < 4am): only fire between the nudge time
+    // and 4am, otherwise a 00:30 median would make the check pass all day.
+    const due = nudgeMins >= 240 ? nowMins >= nudgeMins : nowMins >= nudgeMins && nowMins < 240;
+    if (!due) return;
+  }
+
   if (wasSent("sleep_reminder")) return;
   markSent("sleep_reminder");
 

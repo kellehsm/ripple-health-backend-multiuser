@@ -159,6 +159,14 @@ export const api = {
   whatChanged: function () {
     return request("/summary/what-changed");
   },
+  monthlyReview: function (): Promise<{
+    month: string;
+    steps: { best_week: { start: string; total: number } | null; worst_week: { start: string; total: number } | null };
+    spending: { total: number | null; prev_total: number | null };
+    observation: string | null;
+  }> {
+    return request("/summary/monthly-review");
+  },
   whyMightThatBe: function (): Promise<{ notices: { text: string }[] }> {
     return request("/summary/why-might-that-be");
   },

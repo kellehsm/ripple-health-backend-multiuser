@@ -414,7 +414,7 @@ export function LifeScreen() {
         toast("Reading progress saved.");
       }
     } catch {
-      toast(Msg.logPages, "error");
+      toast(Msg.logPages, "error", 5000, { label: "Retry", onPress: () => { handleLogPages(bookId, pages); } });
     }
   }
 
@@ -589,7 +589,7 @@ export function LifeScreen() {
       setHobbyStreaks((prev) => ({ ...prev, [hobbyId]: calcStreak(Array.isArray(logs) ? logs : []) }));
     } catch {
       if (prevStats) setHobbyStats((prev) => ({ ...prev, [hobbyId]: prevStats }));
-      toast(Msg.logHobby, "error");
+      toast(Msg.logHobby, "error", 5000, { label: "Retry", onPress: () => { handleLogHobby(hobbyId, amount); } });
     }
   }
 

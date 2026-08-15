@@ -1855,13 +1855,30 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
 
 function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onBack: () => void }) {
   const [promptIdx, setPromptIdx] = useState(() => Math.floor(Math.random() * GRATITUDE_PROMPTS.length));
+  const [dataPrompt, setDataPrompt] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
 
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const s: any = await api.sleepStats();
+        const secs = Number(s?.yesterday_seconds ?? 0);
+        if (alive && secs > 0 && secs < 6 * 3600) {
+          const h = Math.round((secs / 3600) * 10) / 10;
+          setDataPrompt(`Sleep was short last night (${h}h). What helped you get through today anyway?`);
+        }
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, []);
+
   function handleReroll() {
     Haptics.selectionAsync();
+    setDataPrompt(null);
     setPromptIdx((prev) => {
       let next = Math.floor(Math.random() * GRATITUDE_PROMPTS.length);
       // Ensure we get a different prompt
@@ -1925,7 +1942,7 @@ function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onB
               </Pressable>
             </View>
             <Text style={{ color: (theme.berry as any)?.fg, fontSize: 16, lineHeight: 24, fontWeight: "600" }}>
-              {GRATITUDE_PROMPTS[promptIdx]}
+              {dataPrompt ?? GRATITUDE_PROMPTS[promptIdx]}
             </Text>
           </ShadowCard>
 

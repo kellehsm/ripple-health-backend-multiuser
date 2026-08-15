@@ -18,6 +18,8 @@ import { toast } from "../lib/toast";
 import Constants from "expo-constants";
 import { FEATURE_INTROS, type FeatureIntro } from "../onboarding/featureIntros";
 import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
+import { WhatsNewModal } from "../components/WhatsNewModal";
+import { CHANGELOG, currentAppVersion } from "../lib/whatsNew";
 import { resetAllFeatureIntros } from "../onboarding/useFeatureIntro";
 
 const SUPPORT_EMAIL: string =
@@ -83,6 +85,7 @@ export function SettingsScreen() {
   const [muteUntil, setMuteUntil] = useState<number | null>(null);
   const [fastingEnabled, setFastingEnabled] = useState(false);
   const [search, setSearch] = useState("");
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [backupNudge, setBackupNudge] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [syncStatusFailed, setSyncStatusFailed] = useState(false);
@@ -519,6 +522,17 @@ export function SettingsScreen() {
                 theme={theme}
               />
             )}
+            {matches("What's new", "changelog", "release notes", "version") && (
+              <>
+                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+                <MenuRow
+                  title="What's new"
+                  subtitle={`v${currentAppVersion()}`}
+                  onPress={() => setShowWhatsNew(true)}
+                  theme={theme}
+                />
+              </>
+            )}
           </View>
         </>
       )}
@@ -548,6 +562,9 @@ export function SettingsScreen() {
           visible={true}
           onClose={() => setOpenIntro(null)}
         />
+      )}
+      {showWhatsNew && (
+        <WhatsNewModal entry={CHANGELOG[0] ?? null} onClose={() => setShowWhatsNew(false)} />
       )}
     </ScrollView>
     </View>

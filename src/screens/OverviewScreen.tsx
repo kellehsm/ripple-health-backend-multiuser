@@ -456,11 +456,22 @@ export function OverviewScreen() {
   const moodModalShownKeyRef = useRef<string | null>(null);
 
   const [milestoneMessage, setMilestoneMessage] = useState<string | null>(null);
-  const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>({ order: ["metric_chips","trends_nav","daily_summary","top_insight","timeline","insights","weekly_review","mood_pattern","cross_metric"], hidden: [] });
+  const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>({ order: ["monthly_review","metric_chips","trends_nav","daily_summary","top_insight","timeline","insights","weekly_review","mood_pattern","cross_metric"], hidden: [] });
   const [showTooltip, setShowTooltip] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const [tourPadding, setTourPadding] = useState(0);
+
+  // Monthly review card — only visible first 7 days of the month
+  type MonthlyReviewData = {
+    month: string;
+    steps: { best_week: { start: string; total: number } | null; worst_week: { start: string; total: number } | null };
+    spending: { total: number | null; prev_total: number | null };
+    observation: string | null;
+  };
+  const [monthlyReview, setMonthlyReview] = useState<MonthlyReviewData | null>(null);
+  const [monthlyReviewDismissed, setMonthlyReviewDismissed] = useState(false);
+  const isFirstWeekOfMonth = new Date().getDate() <= 7;
 
   // Tour refs
   const tourHeaderRef = useRef<View>(null);
@@ -781,7 +792,7 @@ export function OverviewScreen() {
 
       api.crossMetric().then((cm: any) => { if (cm) setCrossMetricData(cm); }).catch(() => {});
     } catch {
-      toast(Msg.loadData, "error");
+      toast(Msg.loadData, "error", 5000, { label: "Retry", onPress: () => { load(true); } });
     } finally {
       setLoading(false);
     }
@@ -838,6 +849,25 @@ export function OverviewScreen() {
       .then(function (s: any) { setDashboardLayout(resolveLayout(s?.dashboard_layout)); })
       .catch(function () {});
   }, []);
+
+  // Monthly review: lazy fetch + dismissal check — only runs during first 7 days of month
+  useEffect(function () {
+    if (!isFirstWeekOfMonth) return;
+    const reviewMonth = (function () {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = d.getMonth(); // current month 0-indexed
+      const prev = new Date(y, m - 1, 1);
+      return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+    })();
+    const dismissKey = `ripple.monthlyReview.dismissed`;
+    AsyncStorage.getItem(dismissKey).then(function (val) {
+      if (val === reviewMonth) { setMonthlyReviewDismissed(true); return; }
+      api.monthlyReview().then(setMonthlyReview).catch(function () {});
+    }).catch(function () {
+      api.monthlyReview().then(setMonthlyReview).catch(function () {});
+    });
+  }, [isFirstWeekOfMonth]);
 
   useFocusEffect(useCallback(() => {
     let cancelled = false;
@@ -1875,6 +1905,80 @@ export function OverviewScreen() {
                 </View>
               );
             })()}
+          </ShadowCard>
+        );
+      }
+
+      case "monthly_review": {
+        if (!isFirstWeekOfMonth || monthlyReviewDismissed || !monthlyReview) return null;
+        const { month, steps: mrSteps, spending, observation } = monthlyReview;
+        const monthLabel = (function () {
+          const [y, m] = month.split("-").map(Number);
+          return new Date(y, m - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+        })();
+        const spendDiff = (spending.total !== null && spending.prev_total !== null)
+          ? spending.total - spending.prev_total : null;
+        const spendUp = spendDiff !== null && spendDiff > 0;
+        return (
+          <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} rotate={-0.3} cardId="monthly_review">
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Ionicons name="calendar-outline" size={18} color={theme.teal.fg} />
+                <Text style={[styles.cardTitle, { color: theme.teal.fg, marginBottom: 0 }]}>{monthLabel} review</Text>
+              </View>
+              <Pressable
+                onPress={async () => {
+                  const key = `ripple.monthlyReview.dismissed`;
+                  await AsyncStorage.setItem(key, month).catch(() => {});
+                  setMonthlyReviewDismissed(true);
+                }}
+                accessibilityLabel="Dismiss monthly review"
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={16} color={theme.teal.fg} />
+              </Pressable>
+            </View>
+
+            {mrSteps.best_week ? (
+              <View style={{ marginBottom: 6 }}>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: theme.cardBorder }}>
+                    <Text style={{ fontSize: 10, fontWeight: "700", color: theme.textSoft, letterSpacing: 0.5, marginBottom: 2 }}>BEST WEEK</Text>
+                    <Text style={{ fontSize: 18, fontWeight: "900", color: theme.teal.solid }}>{mrSteps.best_week.total.toLocaleString()}</Text>
+                    <Text style={{ fontSize: 10, color: theme.textSoft }}>steps · wk of {mrSteps.best_week.start.slice(5)}</Text>
+                  </View>
+                  {mrSteps.worst_week ? (
+                    <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: theme.cardBorder }}>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: theme.textSoft, letterSpacing: 0.5, marginBottom: 2 }}>SLOWEST WEEK</Text>
+                      <Text style={{ fontSize: 18, fontWeight: "900", color: theme.textStrong }}>{mrSteps.worst_week.total.toLocaleString()}</Text>
+                      <Text style={{ fontSize: 10, color: theme.textSoft }}>steps · wk of {mrSteps.worst_week.start.slice(5)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+
+            {spending.total !== null ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Ionicons
+                  name={spendUp ? "arrow-up" : "arrow-down"}
+                  size={14}
+                  color={spendUp ? theme.danger : theme.success}
+                />
+                <Text style={{ fontSize: 13, color: theme.textStrong, fontWeight: "700" }}>
+                  ${spending.total.toLocaleString(undefined, { maximumFractionDigits: 0 })} spent
+                </Text>
+                {spendDiff !== null && spending.prev_total !== null && spending.prev_total > 0 ? (
+                  <Text style={{ fontSize: 12, color: spendUp ? theme.danger : theme.success, fontWeight: "600" }}>
+                    {spendUp ? "+" : ""}{spendDiff.toLocaleString(undefined, { maximumFractionDigits: 0 })} vs prior month
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+
+            {observation ? (
+              <Text style={{ fontSize: 12, color: theme.teal.fg, lineHeight: 17, marginTop: 2 }}>{observation}</Text>
+            ) : null}
           </ShadowCard>
         );
       }
