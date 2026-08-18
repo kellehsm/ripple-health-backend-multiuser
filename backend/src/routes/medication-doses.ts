@@ -1,23 +1,25 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { getUserTz } from "../lib/userTz.js";
 
 export default async function medicationDosesRoutes(app: FastifyInstance) {
   app.post("/mark-slot", async (req) => {
     const user_id = req.user_id;
     const { time_of_day, date } = req.body as any;
-    // NB: default to Postgres CURRENT_DATE (server-local) rather than JS
-    // toISOString() (UTC). The reader query below uses CURRENT_DATE, so if
-    // the writer used UTC we'd log a dose under a different date than the
-    // reader looks at — the button would appear to do nothing on any night
-    // when the server's local date and UTC date disagree.
+    // Log date is the user's local calendar day. Previously we used
+    // CURRENT_DATE (server-local, EST) which meant a west-coast user
+    // marking a dose at 10pm PT logged it under the *next* EST day and
+    // the reader (also CURRENT_DATE) couldn't find it. Now both writer
+    // and reader use (now() AT TIME ZONE $tz)::date.
+    const tz = await getUserTz(user_id);
     await query(
       `INSERT INTO medication_dose_logs (user_id, medication_id, slot_id, log_date, status)
-       SELECT $1, s.medication_id, s.id, COALESCE($3::date, CURRENT_DATE), 'taken'
+       SELECT $1, s.medication_id, s.id, COALESCE($3::date, (now() AT TIME ZONE $4)::date), 'taken'
        FROM medication_schedule_slots s
        JOIN medications m ON m.id = s.medication_id
        WHERE m.user_id = $1 AND m.active = true AND s.time_of_day = $2
        ON CONFLICT (user_id, medication_id, slot_id, log_date) DO UPDATE SET status = 'taken', taken_at = now()`,
-      [user_id, time_of_day, date ?? null]
+      [user_id, time_of_day, date ?? null, tz]
     );
     return { ok: true };
   });
@@ -25,15 +27,15 @@ export default async function medicationDosesRoutes(app: FastifyInstance) {
   app.post("/mark-selected", async (req) => {
     const user_id = req.user_id;
     const { slot_ids, date } = req.body as any;
-    // See mark-slot comment — CURRENT_DATE is server-local, matches the reader.
+    const tz = await getUserTz(user_id);
     await query(
       `INSERT INTO medication_dose_logs (user_id, medication_id, slot_id, log_date, status)
-       SELECT $1, s.medication_id, s.id, COALESCE($3::date, CURRENT_DATE), 'taken'
+       SELECT $1, s.medication_id, s.id, COALESCE($3::date, (now() AT TIME ZONE $4)::date), 'taken'
        FROM medication_schedule_slots s
        JOIN medications m ON m.id = s.medication_id
        WHERE m.user_id = $1 AND s.id = ANY($2::uuid[])
        ON CONFLICT (user_id, medication_id, slot_id, log_date) DO UPDATE SET status = 'taken', taken_at = now()`,
-      [user_id, slot_ids, date ?? null]
+      [user_id, slot_ids, date ?? null, tz]
     );
     return { ok: true };
   });

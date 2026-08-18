@@ -33,6 +33,7 @@ import { AppSettingsProvider } from "./src/theme/AppSettingsContext";
 import { StringsProvider } from "./src/strings/StringsContext";
 import { TabPreferencesProvider } from "./src/context/TabPreferencesContext";
 import { OfflineBanner } from "./src/components/OfflineBanner";
+import { ToastHost } from "./src/components/ToastHost";
 import { WhatsNewModal } from "./src/components/WhatsNewModal";
 import { RootTabs } from "./src/navigation/RootTabs";
 import { RippleLoader } from "./src/components/RippleLoader";
@@ -43,6 +44,7 @@ import { AppErrorBoundary } from "./src/components/AppErrorBoundary";
 import { navigationRef } from "./src/navigation/navigationRef";
 import { api, ApiError } from "./src/api/client";
 import { getToken, setToken, clearToken, registerLogoutHandler } from "./src/lib/auth";
+import { syncTimezoneIfChanged } from "./src/lib/timezone";
 import {
   isBiometricLockEnabled,
   isCurrentlyUnlocked,
@@ -256,6 +258,11 @@ export default function App() {
   // Register logout handler so Settings can sign the user out
   useEffect(() => {
     registerLogoutHandler(() => setAppState("login"));
+    // Sync the device's IANA timezone to the backend so server-side
+    // date-boundary math (streaks, today, aggregation) uses the user's
+    // local day. Fires once per install unless the TZ actually changes
+    // (e.g., travel).
+    syncTimezoneIfChanged();
   }, []);
 
   useEffect(() => {
@@ -450,6 +457,7 @@ export default function App() {
           <TabPreferencesProvider>
           <ThemedStatusBar />
           <RootTabs onNavigationStateChange={triggerNavRipple} />
+          <ToastHost />
           <OfflineBanner />
           <NavRippleOverlay />
           <WhatsNewModal />

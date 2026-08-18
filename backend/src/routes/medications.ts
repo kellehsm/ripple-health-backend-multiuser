@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { getUserTz } from "../lib/userTz.js";
 import { parse as csvParseSync } from "csv-parse/sync";
 import * as XLSX from "xlsx";
 import { fetchWithTimeout } from "../lib/http.js";
@@ -100,7 +101,11 @@ function normalizeSchedule(scheduleStr: string): Array<{ time_of_day: string; sp
 
 // ── Shared query helpers ───────────────────────────────────────────────────────
 
-const MED_SELECT = `
+// Every read that looks up "today's dose_log" for a med accepts a $tz bind
+// so it matches the writer (medication-doses.ts) which also uses the user's
+// local calendar day. Callers substitute (SELECT_TZ_PARAM_INDEX) below.
+function medSelect(tzParamIndex: number): string {
+  return `
   SELECT m.id, m.name, m.dosage, m.active, m.notes, m.purpose, m.refill_date, m.created_at,
     m.generic_name, m.brand_name, m.drug_class, m.rxcui, m.alternative_brand_names,
     m.frequency, m.day_of_week, m.is_prn,
@@ -112,7 +117,8 @@ const MED_SELECT = `
         'specific_time', s.specific_time::text, 'sort_order', s.sort_order,
         'dose_log', (SELECT row_to_json(dl) FROM (
           SELECT id, status, taken_at FROM medication_dose_logs
-          WHERE medication_id = m.id AND slot_id = s.id AND user_id = m.user_id AND log_date = CURRENT_DATE
+          WHERE medication_id = m.id AND slot_id = s.id AND user_id = m.user_id
+            AND log_date = (now() AT TIME ZONE $${tzParamIndex})::date
           LIMIT 1
         ) dl)
       ) ORDER BY s.sort_order
@@ -122,6 +128,10 @@ const MED_SELECT = `
   LEFT JOIN medication_color_categories c ON c.id = m.color_category_id
   LEFT JOIN medication_schedule_slots s ON s.medication_id = m.id
 `;
+}
+// Legacy alias kept so unrelated grep-and-replace won't miss anywhere else
+// that references MED_SELECT; new call sites should call medSelect(n).
+const MED_SELECT = medSelect(99);
 
 function shapeMed(r: any) {
   return {
@@ -181,12 +191,14 @@ export default async function medicationsRoutes(app: FastifyInstance) {
   // ── List medications ─────────────────────────────────────────────────────────
   app.get("/", async (req) => {
     const user_id = req.user_id;
+    const tz = await getUserTz(user_id);
+    // $2 = user tz — used inside medSelect(2) for dose_log's log_date match
     const rows = await query<any>(
-      `${MED_SELECT}
+      `${medSelect(2)}
        WHERE m.user_id = $1 AND m.active = true
        GROUP BY m.id, p.id, c.id
        ORDER BY MIN(CASE s.time_of_day WHEN 'morning' THEN 1 WHEN 'midday' THEN 2 WHEN 'evening' THEN 3 ELSE 4 END), m.name`,
-      [user_id]
+      [user_id, tz]
     );
     return rows.map(shapeMed);
   });
