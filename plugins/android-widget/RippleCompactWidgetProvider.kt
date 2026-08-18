@@ -11,7 +11,7 @@ class RippleCompactWidgetProvider : RippleWidgetProvider() {
 
     override fun siblingClass(): Class<*> = RippleWidgetProvider::class.java
 
-    override fun buildViews(context: Context, d: WidgetData): RemoteViews {
+    override fun buildViews(context: Context, d: WidgetData, appWidgetId: Int): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.ripple_widget_compact)
         views.setTextViewText(R.id.widget_glucose, d.glucose)
         views.setTextViewText(R.id.widget_steps, d.steps)

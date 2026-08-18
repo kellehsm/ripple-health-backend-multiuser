@@ -104,6 +104,15 @@
                 android:textColor="@color/widget_berry_sub"
                 android:layout_marginTop="1dp" />
 
+            <ImageView
+                android:id="@+id/widget_glucose_trend"
+                android:layout_width="120dp"
+                android:layout_height="36dp"
+                android:scaleType="fitXY"
+                android:layout_marginTop="2dp"
+                android:visibility="gone"
+                android:contentDescription="glucose trend" />
+
         </LinearLayout>
 
         <LinearLayout

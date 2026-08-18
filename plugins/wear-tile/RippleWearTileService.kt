@@ -91,7 +91,13 @@ class RippleWearTileService : TileService() {
         private const val STAMP_GRAY = 0xFF5E6772
         private const val WHITE = 0xFFF2F4F7
 
-        private const val STEPS_GOAL = 10000f
+        private const val STEPS_GOAL = 10000f  // No steps goal pushed over Data Layer; constant used here
+
+        // Wellness score colors
+        private const val SCORE_GREEN  = 0xFF2ECC71  // >= 75
+        private const val SCORE_AMBER  = 0xFFF5A623  // >= 50
+        private const val SCORE_RED    = 0xFFFF5252  // < 50
+        private const val SCORE_GRAY   = 0xFF8A93A0  // "--" / unknown
 
         internal fun buildRoot(context: Context, cache: WearCache.Snapshot): LayoutElementBuilders.LayoutElement {
             val openApp = ModifiersBuilders.Clickable.Builder()
@@ -212,6 +218,16 @@ class RippleWearTileService : TileService() {
 
             col.addContent(text("RIPPLE WELLNESS", 8, TEAL.toInt(), bold = true))
             col.addContent(Spacer.Builder().setHeight(dp(1f)).build())
+
+            // Wellness score — compact "SCORE 78" chip colored by value
+            col.addContent(
+                Row.Builder()
+                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                    .addContent(text("SCORE ", 8, LABEL_GRAY.toInt(), bold = false))
+                    .addContent(text(cache.wellnessScore, 10, wellnessScoreColor(cache.wellnessScore), bold = true))
+                    .build()
+            )
+            col.addContent(Spacer.Builder().setHeight(dp(2f)).build())
 
             // Glucose hero — big number with the trend arrow beside it, and
             // the state label ("IN RANGE" / "ELEVATED" / "RISING HIGH" /
@@ -367,6 +383,16 @@ class RippleWearTileService : TileService() {
                 mg < 80 && falling                  -> 0xFFFF5252.toInt() // dropping toward low
                 mg > 140                            -> 0xFFF5A623.toInt() // amber elevated
                 else                                -> 0xFF2ECC71.toInt() // green in range
+            }
+        }
+
+        /** Color the wellness score: green >=75, amber >=50, red <50, gray if unknown ("--"). */
+        private fun wellnessScoreColor(score: String): Int {
+            val n = score.trim().toIntOrNull() ?: return SCORE_GRAY.toInt()
+            return when {
+                n >= 75 -> SCORE_GREEN.toInt()
+                n >= 50 -> SCORE_AMBER.toInt()
+                else    -> SCORE_RED.toInt()
             }
         }
 

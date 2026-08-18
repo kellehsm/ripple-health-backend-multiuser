@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import * as FileSystem from "expo-file-system/legacy";
 import type { Theme } from "./theme";
 import {
   PALETTES,
@@ -49,6 +51,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const theme = PALETTES[paletteId] ?? PALETTES[DEFAULT_PALETTE_ID];
   const mode: "light" | "dark" = theme.isDark ? "dark" : "light";
   const family = familyForPalette(theme.id);
+
+  // Write widget_theme.json so the Android widget can pick up themed accent colors.
+  // Fire-and-forget; only on Android.
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    try {
+      const accents = JSON.stringify({
+        teal:   theme.teal.solid,
+        coral:  theme.coral.solid,
+        purple: theme.purple.solid,
+        berry:  theme.berry.solid,
+      });
+      FileSystem.writeAsStringAsync(
+        FileSystem.documentDirectory + "widget_theme.json",
+        accents
+      ).catch(() => {});
+    } catch (_) {}
+  }, [theme.teal.solid, theme.coral.solid, theme.purple.solid, theme.berry.solid]);
 
   const setFamily = useCallback((familyId: string) => {
     const fam = THEME_FAMILIES.find((f) => f.id === familyId);

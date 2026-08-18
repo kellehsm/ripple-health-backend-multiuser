@@ -6,8 +6,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.app.PendingIntent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import android.net.Uri
 import android.util.Log
+import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONArray
 import org.json.JSONObject
@@ -26,12 +31,53 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         private const val TAG = "RippleWidget"
         private const val API = "https://app.kels.gg/api"
         private const val AUTH_FILE = "widget_auth.json"
-        private const val PREFS = "RippleWidgetPrefs"
+        private const val THEME_FILE = "widget_theme.json"
+        const val PREFS = "RippleWidgetPrefs"
         const val ACTION_REFRESH = "com.kellehs.wellness.WIDGET_REFRESH"
         const val ACTION_LOG_WATER = "com.kellehs.wellness.WIDGET_LOG_WATER"
         const val ACTION_NEXT_INSIGHT = "com.kellehs.wellness.WIDGET_NEXT_INSIGHT"
         const val ACTION_LOG_MOOD = "com.kellehs.wellness.WIDGET_LOG_MOOD"
+
+        // Default brand colors (fallback when theme file absent)
+        const val DEFAULT_TEAL   = "#3FA0A6"
+        const val DEFAULT_CORAL  = "#E8654E"
+        const val DEFAULT_PURPLE = "#7B3FBF"
+        const val DEFAULT_BERRY  = "#A62A50"
     }
+
+    data class ThemeAccents(
+        val teal: Int,
+        val coral: Int,
+        val purple: Int,
+        val berry: Int
+    )
+
+    protected fun readThemeAccents(context: Context): ThemeAccents {
+        return try {
+            val f = File(context.filesDir, THEME_FILE)
+            if (f.exists()) {
+                val obj = JSONObject(f.readText())
+                ThemeAccents(
+                    teal   = android.graphics.Color.parseColor(obj.optString("teal",   DEFAULT_TEAL)),
+                    coral  = android.graphics.Color.parseColor(obj.optString("coral",  DEFAULT_CORAL)),
+                    purple = android.graphics.Color.parseColor(obj.optString("purple", DEFAULT_PURPLE)),
+                    berry  = android.graphics.Color.parseColor(obj.optString("berry",  DEFAULT_BERRY))
+                )
+            } else {
+                defaultAccents()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "readThemeAccents failed: ${e.message}")
+            defaultAccents()
+        }
+    }
+
+    private fun defaultAccents() = ThemeAccents(
+        teal   = android.graphics.Color.parseColor(DEFAULT_TEAL),
+        coral  = android.graphics.Color.parseColor(DEFAULT_CORAL),
+        purple = android.graphics.Color.parseColor(DEFAULT_PURPLE),
+        berry  = android.graphics.Color.parseColor(DEFAULT_BERRY)
+    )
 
     data class WInsight(
         val emoji: String,
@@ -47,7 +93,9 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         val sleep: String,
         val insights: List<WInsight>,
         val status: String,
-        val wellnessScore: String = "--"
+        val wellnessScore: String = "--",
+        /** Comma-joined mg_dl values (oldest→newest) for the mini trend sparkline; empty = no data */
+        val glucoseTrendRaw: String = ""
     )
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -84,12 +132,12 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         // gets valid RemoteViews immediately and never shows "Can't load widget".
         for (id in appWidgetIds) {
             try {
-                updateWidget(context, appWidgetManager, id, getCached(context))
+                updateWidget(context, appWidgetManager, id, getCached(context), id)
             } catch (e: Exception) {
                 Log.e(TAG, "onUpdate initial render failed", e)
                 try {
                     updateWidget(context, appWidgetManager, id,
-                        WidgetData("--", "--", "--", "--", "--", emptyList(), "Tap ↻ to refresh", "--"))
+                        WidgetData("--", "--", "--", "--", "--", emptyList(), "Tap ↻ to refresh", "--"), id)
                 } catch (e2: Exception) { Log.e(TAG, "fallback render failed", e2) }
             }
         }
@@ -116,12 +164,13 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         fetchSleep(token),
                         fetchInsights(token) + listOfNotNull(fetchMindfulnessInsight(token)),
                         "Updated $time",
-                        fetchWellnessScore(token)
+                        fetchWellnessScore(token),
+                        fetchGlucoseTrend(token)
                     )
                 }
                 saveCache(context, data)
                 for (id in appWidgetIds) {
-                    updateWidget(context, appWidgetManager, id, data)
+                    updateWidget(context, appWidgetManager, id, data, id)
                 }
                 // Mirror the freshest values to any paired Wear OS device.
                 // Silently no-ops if Google Play Services / wear isn't around.
@@ -140,14 +189,15 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         glucoseTrend = gluInfo.trend,
                         glucoseDelta = gluInfo.delta,
                         glucoseStale = gluInfo.isStale,
-                        mindStreak = mindStreak
+                        mindStreak = mindStreak,
+                        wellnessScore = data.wellnessScore
                     )
                 } catch (_: Throwable) {}
             } catch (e: Exception) {
                 Log.e(TAG, "fetch error", e)
                 val cached = getCached(context).copy(status = "Tap ↻ to retry")
                 for (id in appWidgetIds) {
-                    updateWidget(context, appWidgetManager, id, cached)
+                    updateWidget(context, appWidgetManager, id, cached, id)
                 }
             } finally {
                 try { pending?.finish() } catch (_: Exception) {}
@@ -165,7 +215,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 val token = readToken(context)
                 if (token == null) {
                     val d = getCached(context).copy(status = "Sign in to app")
-                    for (id in ids) updateWidget(context, mgr, id, d)
+                    for (id in ids) updateWidget(context, mgr, id, d, id)
                 } else {
                     val ok = postWaterLog(token)
                     val water = fetchWater(token)
@@ -173,7 +223,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                     val status = if (ok) "Water logged ✓ $time" else "Log failed — retry"
                     val d = getCached(context).copy(water = water, status = status)
                     saveCache(context, d)
-                    for (id in ids) updateWidget(context, mgr, id, d)
+                    for (id in ids) updateWidget(context, mgr, id, d, id)
                     // Nudge the other widget style so its water count stays in sync
                     try {
                         context.sendBroadcast(Intent(context, siblingClass()).setAction(ACTION_REFRESH))
@@ -216,7 +266,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 val token = readToken(context)
                 if (token == null) {
                     val d = getCached(context).copy(status = "Sign in to app")
-                    for (id in ids) updateWidget(context, mgr, id, d)
+                    for (id in ids) updateWidget(context, mgr, id, d, id)
                 } else {
                     val label = when (moodScore) {
                         1 -> "Rough"
@@ -232,7 +282,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                     val status = if (code in 200..299) "Mood logged ✓ $time" else "Log failed — retry"
                     val d = getCached(context).copy(status = status)
                     saveCache(context, d)
-                    for (id in ids) updateWidget(context, mgr, id, d)
+                    for (id in ids) updateWidget(context, mgr, id, d, id)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "logMood error", e)
@@ -278,7 +328,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             p.getString("sleep", "--") ?: "--",
             insights,
             status,
-            p.getString("wellness", "--") ?: "--"
+            p.getString("wellness", "--") ?: "--",
+            p.getString("glucose_trend_raw", "") ?: ""
         )
     }
 
@@ -294,13 +345,14 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             }).toString())
             .putString("status", d.status)
             .putString("wellness", d.wellnessScore)
+            .putString("glucose_trend_raw", d.glucoseTrendRaw)
             .putLong("cache_time", System.currentTimeMillis())
             .apply()
     }
 
-    private fun updateWidget(context: Context, manager: AppWidgetManager, id: Int, d: WidgetData) {
+    private fun updateWidget(context: Context, manager: AppWidgetManager, id: Int, d: WidgetData, appWidgetId: Int) {
         try {
-            manager.updateAppWidget(id, buildViews(context, d))
+            manager.updateAppWidget(id, buildViews(context, d, appWidgetId))
         } catch (e: Exception) {
             Log.e(TAG, "updateWidget failed", e)
         }
@@ -342,8 +394,24 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
-    protected open fun buildViews(context: Context, d: WidgetData): RemoteViews {
+    protected open fun buildViews(context: Context, d: WidgetData, appWidgetId: Int): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.ripple_widget)
+
+        // Per-widget block visibility from config activity
+        val enabledKeys = readWidgetConfig(context, appWidgetId)
+        val blockMap = mapOf(
+            "glucose" to R.id.block_glucose,
+            "steps"   to R.id.block_steps,
+            "heart"   to R.id.block_heart,
+            "water"   to R.id.block_water,
+            "sleep"   to R.id.block_sleep,
+            "insight" to R.id.block_insight
+        )
+        for ((key, viewId) in blockMap) {
+            views.setViewVisibility(viewId,
+                if (key in enabledKeys) View.VISIBLE else View.GONE)
+        }
+
         views.setTextViewText(R.id.widget_glucose, d.glucose)
         views.setTextViewText(R.id.widget_steps, d.steps)
         views.setTextViewText(R.id.widget_heart, d.heart)
@@ -395,6 +463,15 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         // Dynamic glucose color: green in-range, amber slightly elevated, red out of range
         if (d.glucose != "--") {
             views.setTextColor(R.id.widget_glucose, glucoseColor(context, d.glucose))
+        }
+
+        // Glucose mini-trend sparkline
+        val trendBitmap = buildGlucoseTrendBitmap(context, d.glucoseTrendRaw)
+        if (trendBitmap != null) {
+            views.setImageViewBitmap(R.id.widget_glucose_trend, trendBitmap)
+            views.setViewVisibility(R.id.widget_glucose_trend, View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_glucose_trend, View.GONE)
         }
 
         // Block taps → respective pages
@@ -456,6 +533,52 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         return views
     }
 
+    // ─── Widget config ────────────────────────────────────────────────────────
+
+    /** Returns the set of enabled block keys for this widget id, defaulting to all. */
+    protected fun readWidgetConfig(context: Context, appWidgetId: Int): Set<String> {
+        val all = setOf("glucose", "steps", "heart", "water", "sleep", "insight")
+        if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return all
+        val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val raw = p.getString("cfg_$appWidgetId", null) ?: return all
+        return raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
+    // ─── Glucose trend sparkline ──────────────────────────────────────────────
+
+    /**
+     * Builds a 360×108 px (3× density-independent 120×36) Bitmap sparkline from
+     * a comma-joined string of mg_dl values (oldest→newest).
+     * Returns null when fewer than 2 values are present.
+     */
+    private fun buildGlucoseTrendBitmap(context: Context, raw: String): Bitmap? {
+        val values = raw.split(",").mapNotNull { it.trim().toFloatOrNull() }
+        if (values.size < 2) return null
+        val w = 360; val h = 108
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val night = isNight(context)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 9f   // 3dp @ 3× density
+            color = android.graphics.Color.parseColor(if (night) "#F0A6BB" else "#A62A50")
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+        val minV = values.min()
+        val maxV = values.max()
+        val range = if (maxV - minV < 1f) 1f else maxV - minV
+        val pad = 9f
+        val path = Path()
+        values.forEachIndexed { i, v ->
+            val x = pad + (i.toFloat() / (values.size - 1)) * (w - 2 * pad)
+            val y = (h - pad) - ((v - minV) / range) * (h - 2 * pad)
+            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        canvas.drawPath(path, paint)
+        return bmp
+    }
+
     // ─── Network ──────────────────────────────────────────────────────────────
 
     private fun get(token: String, path: String): Pair<Int, String> {
@@ -496,6 +619,24 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         // Fallback: SharedPreferences (set by future native module)
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString("auth_token", null)?.takeIf { it.isNotEmpty() }
+    }
+
+    /** Last ~6 glucose readings for sparkline: comma-joined mg_dl oldest→newest, or "" on error. */
+    private fun fetchGlucoseTrend(token: String): String {
+        return try {
+            val (code, body) = get(token, "/glucose")
+            if (code != 200) return ""
+            val arr = JSONArray(body)
+            // API returns DESC; take first 6 then reverse to oldest→newest
+            val count = minOf(arr.length(), 6)
+            val values = (0 until count).map { arr.getJSONObject(it).optInt("mg_dl", 0) }
+                .filter { it > 0 }
+                .reversed()
+            if (values.size < 2) "" else values.joinToString(",")
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchGlucoseTrend: ${e.message}")
+            ""
+        }
     }
 
     /** Structured glucose payload used to enrich the Wear tile (arrow, label, trend, stale). */

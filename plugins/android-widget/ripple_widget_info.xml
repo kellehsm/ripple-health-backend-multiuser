@@ -10,4 +10,5 @@
     android:previewImage="@mipmap/ic_launcher"
     android:widgetCategory="home_screen|keyguard"
     android:resizeMode="horizontal|vertical"
+    android:configure="RIPPLE_PKG_PLACEHOLDER.RippleWidgetConfigActivity"
     android:description="@string/widget_description"/>

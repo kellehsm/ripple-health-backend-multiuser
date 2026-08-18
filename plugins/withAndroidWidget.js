@@ -46,6 +46,10 @@ function withAndroidWidget(config) {
       scoreContent = scoreContent.replace(/^package .+$/m, `package ${pkgName}`);
       fs.writeFileSync(path.join(ktDir, 'RippleScoreWidgetProvider.kt'), scoreContent);
 
+      let configContent = fs.readFileSync(path.join(SRC, 'RippleWidgetConfigActivity.kt'), 'utf8');
+      configContent = configContent.replace(/^package .+$/m, `package ${pkgName}`);
+      fs.writeFileSync(path.join(ktDir, 'RippleWidgetConfigActivity.kt'), configContent);
+
       const layoutDir = path.join(root, 'app/src/main/res/layout');
       fs.mkdirSync(layoutDir, { recursive: true });
       fs.copyFileSync(path.join(SRC, 'ripple_widget.xml'), path.join(layoutDir, 'ripple_widget.xml'));
@@ -73,7 +77,13 @@ function withAndroidWidget(config) {
 
       const xmlDir = path.join(root, 'app/src/main/res/xml');
       fs.mkdirSync(xmlDir, { recursive: true });
-      fs.copyFileSync(path.join(SRC, 'ripple_widget_info.xml'), path.join(xmlDir, 'ripple_widget_info.xml'));
+      // Copy and rewrite the configure attribute placeholder with the real package name
+      let widgetInfoContent = fs.readFileSync(path.join(SRC, 'ripple_widget_info.xml'), 'utf8');
+      widgetInfoContent = widgetInfoContent.replace(
+        /RIPPLE_PKG_PLACEHOLDER/g,
+        pkgName
+      );
+      fs.writeFileSync(path.join(xmlDir, 'ripple_widget_info.xml'), widgetInfoContent);
       fs.copyFileSync(path.join(SRC, 'ripple_widget_compact_info.xml'), path.join(xmlDir, 'ripple_widget_compact_info.xml'));
       fs.copyFileSync(path.join(SRC, 'ripple_widget_score_info.xml'), path.join(xmlDir, 'ripple_widget_score_info.xml'));
 
@@ -95,8 +105,29 @@ function withAndroidWidget(config) {
   config = withAndroidManifest(config, (mod) => {
     const app = mod.modResults.manifest.application[0];
     if (!app.receiver) app.receiver = [];
+    if (!app.activity) app.activity = [];
 
     const pkgName = mod.android?.package || 'com.kellehs.wellness';
+
+    // Register the config activity (only once)
+    const configCls = `${pkgName}.RippleWidgetConfigActivity`;
+    const activityAlreadyAdded = app.activity.some((a) => a.$['android:name'] === configCls);
+    if (!activityAlreadyAdded) {
+      app.activity.push({
+        $: {
+          'android:name': configCls,
+          'android:exported': 'true',
+          'android:label': 'Widget Setup',
+        },
+        'intent-filter': [
+          {
+            action: [
+              { $: { 'android:name': 'android.appwidget.action.APPWIDGET_CONFIGURE' } },
+            ],
+          },
+        ],
+      });
+    }
     const receivers = [
       { cls: `${pkgName}.RippleWidgetProvider`, label: '@string/widget_label', info: '@xml/ripple_widget_info' },
       { cls: `${pkgName}.RippleCompactWidgetProvider`, label: '@string/widget_compact_label', info: '@xml/ripple_widget_compact_info' },

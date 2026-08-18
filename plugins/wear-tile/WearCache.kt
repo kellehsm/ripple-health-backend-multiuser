@@ -23,8 +23,9 @@ object WearCache {
         val lastLogStatus: String,   // "ok" | "fail" | "" — set by the phone after a
                                      // watch-initiated log; the Log tile renders a
                                      // green ✓ / red ✗ flash for a short window
-        val lastLogStatusAt: Long    // epoch ms — used so the tile can auto-clear
+        val lastLogStatusAt: Long,   // epoch ms — used so the tile can auto-clear
                                      // the flash once it's older than ~10s
+        val wellnessScore: String    // overall wellness score, e.g. "78" or "--"
     )
 
     fun read(context: Context): Snapshot {
@@ -44,7 +45,8 @@ object WearCache {
             updatedAt     = p.getString("updatedAt", "") ?: "",
             mindStreak    = p.getInt("mindStreak", 0),
             lastLogStatus = p.getString("lastLogStatus", "") ?: "",
-            lastLogStatusAt = p.getLong("lastLogStatusAt", 0L)
+            lastLogStatusAt = p.getLong("lastLogStatusAt", 0L),
+            wellnessScore = p.getString("wellnessScore", "--") ?: "--"
         )
     }
 
@@ -64,7 +66,8 @@ object WearCache {
         updatedAt: String?,
         mindStreak: Int?,
         lastLogStatus: String?,
-        lastLogStatusAt: Long?
+        lastLogStatusAt: Long?,
+        wellnessScore: String? = null
     ) {
         val edit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
         if (glucose != null)      edit.putString("glucose", glucose)
@@ -82,6 +85,7 @@ object WearCache {
         if (mindStreak != null)   edit.putInt("mindStreak", mindStreak)
         if (lastLogStatus != null)   edit.putString("lastLogStatus", lastLogStatus)
         if (lastLogStatusAt != null) edit.putLong("lastLogStatusAt", lastLogStatusAt)
+        if (wellnessScore != null)   edit.putString("wellnessScore", wellnessScore)
         edit.apply()
     }
 }
