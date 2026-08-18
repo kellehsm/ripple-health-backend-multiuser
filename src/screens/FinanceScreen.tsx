@@ -122,13 +122,14 @@ function FinanceEmptyState({ onAdd }: { onAdd: () => void }) {
   const c = theme.purple.solid;
   return (
     <View style={{ alignItems: "center", paddingVertical: 48 }}>
-      <Svg width={120} height={100} viewBox="0 0 120 100">
-        <Rect x="15" y="28" width="90" height="52" rx="10" fill={c} opacity={0.18} />
-        <Rect x="15" y="28" width="90" height="52" rx="10" stroke={c} strokeWidth="4" fill="none" opacity={0.7} />
-        <Rect x="15" y="42" width="90" height="14" fill={c} opacity={0.25} />
-        <Line x1="29" y1="64" x2="54" y2="64" stroke={c} strokeWidth="4" strokeLinecap="round" opacity={0.7} />
-        <Line x1="29" y1="72" x2="46" y2="72" stroke={c} strokeWidth="3" strokeLinecap="round" opacity={0.45} />
-      </Svg>
+      <View style={{
+        width: 72, height: 72, borderRadius: 36,
+        backgroundColor: theme.purple.tint,
+        borderWidth: 1.5, borderColor: theme.purple.solid + "40",
+        alignItems: "center", justifyContent: "center",
+      }}>
+        <Ionicons name="wallet-outline" size={34} color={theme.purple.solid} />
+      </View>
       <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>No spending logged this month</Text>
       <Text style={{ fontSize: 13, color: theme.textSoft, marginTop: 6, textAlign: "center", maxWidth: 240 }}>
         Add your first transaction to start tracking where it goes
@@ -704,7 +705,8 @@ export function FinanceScreen() {
           // Pad to multiple of 7
           while (cells.length % 7 !== 0) cells.push(null);
           const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-          const PURPLE = "#7B3FBF";
+          const PURPLE = theme.purple.solid;
+          const PURPLE_SUB = theme.purple.sub ?? theme.purple.solid;
           const selectedDayTotal = heatmapSelectedDay ? (dayTotals[heatmapSelectedDay] ?? 0) : null;
           return (
             <ShadowCard size="card" cardId="spending_heatmap">
@@ -751,7 +753,7 @@ export function FinanceScreen() {
                         accessibilityLabel={`${dateKey} ${spend > 0 ? formatAmount(spend) : "no spend"}`}
                         accessibilityRole="button"
                       >
-                        <Text style={{ fontSize: 10, fontWeight: isSelected ? "900" : "600", color: spend > 0 ? PURPLE : theme.textSoft }}>
+                        <Text style={{ fontSize: 10, fontWeight: isSelected ? "900" : "600", color: spend > 0 ? PURPLE_SUB : theme.textSoft }}>
                           {day}
                         </Text>
                       </Pressable>
@@ -762,7 +764,7 @@ export function FinanceScreen() {
               {/* Selected day total tooltip */}
               {heatmapSelectedDay && (
                 <View style={{ marginTop: 6, alignItems: "center" }}>
-                  <Text style={{ fontSize: 13, fontWeight: "800", color: PURPLE }}>
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: PURPLE_SUB }}>
                     {new Date(heatmapSelectedDay + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                     {" — "}
                     {selectedDayTotal! > 0 ? formatAmount(selectedDayTotal!) : "no transactions"}
@@ -1062,7 +1064,7 @@ export function FinanceScreen() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function makeStyles(ink: string, card: string, border: string, isDark: boolean = false) {
-  const shadowCard = coloredShadow("#7B3FBF");
+  const shadowCard = coloredShadow("#7B3FBF"); // intentional brand purple for shadow — accent not text
   return StyleSheet.create({
     content:     { padding: 16, gap: 12, paddingBottom: 40 },
     toggle:      { flexDirection: "row", borderRadius: 22, borderWidth: 2, overflow: "hidden", ...shadowCard },

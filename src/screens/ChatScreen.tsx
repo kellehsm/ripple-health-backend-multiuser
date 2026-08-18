@@ -9,7 +9,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { ScreenBackground } from "../components/ScreenBackground";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; ts?: number };
 
 const SUGGESTIONS = [
   "How has my sleep been this week?",
@@ -24,6 +24,7 @@ export function ChatScreen() {
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<Msg>>(null);
   const route = useRoute<any>();
+  const [shownTs, setShownTs] = useState<number | null>(null);
   const askedInitial = useRef(false);
 
   useEffect(() => {
@@ -37,13 +38,13 @@ export function ChatScreen() {
   async function send(text?: string) {
     const content = (text ?? input).trim();
     if (!content || sending) return;
-    const next: Msg[] = [...messages, { role: "user", content }];
+    const next: Msg[] = [...messages, { role: "user", content, ts: Date.now() }];
     setMessages(next);
     setInput("");
     setSending(true);
     try {
       const res = await api.chat(next);
-      setMessages([...next, { role: "assistant", content: res.reply }]);
+      setMessages([...next, { role: "assistant", content: res.reply, ts: Date.now() }]);
     } catch (e: any) {
       const msg = e?.status === 503
         ? "Chat isn't set up on this server yet."
@@ -88,18 +89,32 @@ export function ChatScreen() {
               </View>
             </View>
           }
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.bubble,
-                item.role === "user"
-                  ? { alignSelf: "flex-end", backgroundColor: theme.teal.solid }
-                  : { alignSelf: "flex-start", backgroundColor: theme.card, borderWidth: 1, borderColor: theme.cardBorder },
-              ]}
-            >
-              <Text style={{ color: item.role === "user" ? "#fff" : theme.textStrong, fontSize: 14, lineHeight: 20 }}>
-                {item.content}
-              </Text>
+          renderItem={({ item, index }) => (
+            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6, alignSelf: item.role === "user" ? "flex-end" : "flex-start" }}>
+              {item.role === "assistant" && (
+                <View style={[styles.avatarDot, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid + "50" }]}>
+                  <Ionicons name="sparkles" size={11} color={theme.teal.solid} />
+                </View>
+              )}
+              <Pressable
+                onLongPress={() => setShownTs(shownTs === index ? null : index)}
+                delayLongPress={300}
+                style={[
+                  styles.bubble,
+                  item.role === "user"
+                    ? { backgroundColor: theme.teal.solid }
+                    : { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.cardBorder },
+                ]}
+              >
+                <Text style={{ color: item.role === "user" ? "#fff" : theme.textStrong, fontSize: 14, lineHeight: 20 }}>
+                  {item.content}
+                </Text>
+                {shownTs === index && item.ts ? (
+                  <Text style={{ color: item.role === "user" ? "rgba(255,255,255,0.75)" : theme.textSoft, fontSize: 10, marginTop: 4 }}>
+                    {new Date(item.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </Text>
+                ) : null}
+              </Pressable>
             </View>
           )}
           ListFooterComponent={
@@ -139,6 +154,7 @@ export function ChatScreen() {
 
 const styles = StyleSheet.create({
   bubble: { maxWidth: "82%", borderRadius: 16, paddingVertical: 9, paddingHorizontal: 13 },
+  avatarDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center", marginBottom: 2 },
   suggestion: { borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 14 },
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, borderTopWidth: 1 },
   input: { flex: 1, borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, maxHeight: 110 },

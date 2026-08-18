@@ -70,7 +70,7 @@ export function DailySummaryCard({ data }: { data: DailySummaryData }) {
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.textStrong }]}>
-          {isEvening ? "TODAY'S RECAP 🌙" : "TODAY'S OVERVIEW"}
+          {isEvening ? "Today's recap 🌙" : "Today's overview"}
         </Text>
         {data.generatedAt && (
           <Text style={[styles.updated, { color: theme.textSoft }]}>
@@ -152,10 +152,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 9,
+    fontSize: 19,
     fontWeight: "900",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
+    letterSpacing: -0.5,
   },
   updated: {
     fontSize: 11,

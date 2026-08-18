@@ -8,7 +8,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { ThemedIcon } from '../theme/iconRegistry';
 import { FONT_SIZES } from '../theme/tokens';
 import type { Theme } from '../theme/theme';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { api } from '../api/client';
 import { scoreColor } from './DailySummaryCard';
 
@@ -156,9 +156,15 @@ export function BottomNav({ preferences, activeRoute, onNavigate, medicationDue 
         {homeScore !== null && (
           <View pointerEvents="none" style={{ position: 'absolute', bottom: 1, left: -1, width: 66, height: 66 }}>
             <Svg width={66} height={66} style={{ transform: [{ rotate: '-90deg' }] }}>
+              <Defs>
+                <SvgGradient id="homeRing" x1="0" y1="0" x2="1" y2="1">
+                  <Stop offset="0" stopColor={scoreColor(homeScore, theme)} stopOpacity={1} />
+                  <Stop offset="1" stopColor={theme.teal.solid} stopOpacity={0.65} />
+                </SvgGradient>
+              </Defs>
               <Circle
                 cx={33} cy={33} r={31}
-                stroke={scoreColor(homeScore, theme)}
+                stroke="url(#homeRing)"
                 strokeWidth={2.5}
                 fill="none"
                 strokeLinecap="round"

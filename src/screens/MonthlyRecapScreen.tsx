@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { ScreenBackground } from "../components/ScreenBackground";
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import { ShadowCard } from "../components/ShadowCard";
 import { scoreColor, scoreLabel } from "../components/DailySummaryCard";
 
@@ -127,7 +128,16 @@ export function MonthlyRecapScreen() {
           <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} rotate={-0.3} cardId="recap_score">
             <Text style={[styles.sectionTitle, { color: theme.teal.fg }]}>AVERAGE WELLNESS SCORE</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 6 }}>
-              <View style={[styles.scoreBadge, { borderColor: scoreColor(review.scores?.overall ?? null, theme) }]}>
+              <View style={styles.scoreBadge}>
+                <Svg width={62} height={62} style={{ position: "absolute" }}>
+                  <Defs>
+                    <SvgGradient id="recapRing" x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor={scoreColor(review.scores?.overall ?? null, theme)} stopOpacity={1} />
+                      <Stop offset="1" stopColor={theme.teal.solid} stopOpacity={0.6} />
+                    </SvgGradient>
+                  </Defs>
+                  <Circle cx={31} cy={31} r={28.5} stroke="url(#recapRing)" strokeWidth={4} fill="none" />
+                </Svg>
                 <Text style={{ fontSize: 24, fontWeight: "900", color: scoreColor(review.scores?.overall ?? null, theme) }}>
                   {review.scores?.overall ?? "—"}
                 </Text>
@@ -228,7 +238,7 @@ export function MonthlyRecapScreen() {
 const styles = StyleSheet.create({
   sectionTitle: { fontSize: 10, fontWeight: "800", letterSpacing: 0.6 },
   shareBtn: { flexDirection: "row", alignItems: "center", gap: 6, borderRadius: 18, paddingVertical: 8, paddingHorizontal: 14 },
-  scoreBadge: { width: 62, height: 62, borderRadius: 31, borderWidth: 4, alignItems: "center", justifyContent: "center" },
+  scoreBadge: { width: 62, height: 62, alignItems: "center", justifyContent: "center" },
   dayCell: { flex: 1, borderRadius: 10, padding: 10, borderWidth: 1 },
   cellLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5, marginBottom: 2 },
 });

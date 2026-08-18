@@ -1425,7 +1425,7 @@ export function OverviewScreen() {
                     <Text style={{ fontSize: 22, fontWeight: "800", color: wsColor }}>{wsOverall !== null ? wsOverall : "--"}</Text>
                   </View>
                   <View>
-                    <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 2 }]}>WELLNESS SCORE</Text>
+                    <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 2 }]}>Wellness score</Text>
                     <Text style={{ fontSize: 12, color: theme.textSoft }}>
                       {wsOverall !== null ? scoreLabel(wsOverall) + " · tap for breakdown" : "No data yet today"}
                     </Text>
@@ -2212,7 +2212,16 @@ export function OverviewScreen() {
                         else if (s.label === "Exercise") navigation.getParent()?.navigate("Exercise");
                         else if (s.label === "Reading") navigation.getParent()?.navigate("Life");
                       }}
-                      style={[styles.streakPill, { backgroundColor: isFreeze ? theme.blue.tint : s.color(theme) }]}
+                      style={[
+                        styles.streakPill,
+                        { backgroundColor: isFreeze ? theme.blue.tint : s.color(theme) },
+                        // Milestone styling: gold ring at 7+, brighter at 30+
+                        s.count >= 30
+                          ? { borderWidth: 2, borderColor: "#F1C40F" }
+                          : s.count >= 7
+                          ? { borderWidth: 1.5, borderColor: "#D4A017" }
+                          : null,
+                      ]}
                       accessibilityRole="button"
                       accessibilityLabel={`${s.count} day ${s.label} streak`}
                     >
@@ -2381,6 +2390,7 @@ export function OverviewScreen() {
           <>
             <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textSoft, marginBottom: 2 }}>{dashboardGreeting}</Text>
             <Text style={{ fontSize: 28, fontWeight: "900", letterSpacing: 0.4, color: theme.textStrong }}>Today's Snapshot</Text>
+            <View style={{ height: 1, backgroundColor: theme.cardBorder, marginTop: 10, marginBottom: 2 }} />
           </>
         )}
 

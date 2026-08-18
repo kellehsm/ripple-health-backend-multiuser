@@ -283,13 +283,14 @@ function MealsEmptyState({ onPress }: { onPress: () => void }) {
   const c = theme.coral.solid;
   return (
     <View style={{ alignItems: "center", paddingVertical: 48 }}>
-      <Svg width={120} height={100} viewBox="0 0 120 100">
-        <Ellipse cx="60" cy="62" rx="40" ry="12" fill={c} opacity={0.18} />
-        <Path d="M30 55 Q30 30 60 30 Q90 30 90 55" stroke={c} strokeWidth="5" fill="none" opacity={0.7} strokeLinecap="round" />
-        <Line x1="24" y1="55" x2="96" y2="55" stroke={c} strokeWidth="5" strokeLinecap="round" opacity={0.7} />
-        <Line x1="60" y1="55" x2="60" y2="20" stroke={c} strokeWidth="3" strokeLinecap="round" opacity={0.45} />
-        <Line x1="48" y1="20" x2="72" y2="20" stroke={c} strokeWidth="3" strokeLinecap="round" opacity={0.45} />
-      </Svg>
+      <View style={{
+        width: 72, height: 72, borderRadius: 36,
+        backgroundColor: theme.coral.tint,
+        borderWidth: 1.5, borderColor: theme.coral.solid + "40",
+        alignItems: "center", justifyContent: "center",
+      }}>
+        <Ionicons name="restaurant-outline" size={34} color={theme.coral.solid} />
+      </View>
       <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>Nothing logged yet today</Text>
       <Text style={{ fontSize: 13, color: theme.textSoft, marginTop: 6, textAlign: "center", maxWidth: 240 }}>
         Add your first meal to start tracking how food affects your day

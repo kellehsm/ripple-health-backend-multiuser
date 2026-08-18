@@ -183,6 +183,7 @@ function MiniDroplet({ count, goal, color }: { count: number; goal: number; colo
 }
 
 function WaterDropletButton({ count, goal, color, onPress }: { count: number; goal: number; color: string; onPress: () => void }) {
+  const { theme } = useTheme();
   const W = 72, H = 88;
   const DROP = "M36,5 C28,18 8,42 8,63 C8,78.5 21,88 36,88 C51,88 64,78.5 64,63 C64,42 44,18 36,5Z";
   const fillPct = goal > 0 ? Math.min(1, count / goal) : 0;
@@ -202,7 +203,7 @@ function WaterDropletButton({ count, goal, color, onPress }: { count: number; go
         {fillH > 0 && (
           <Rect x={0} y={fillY} width={W} height={fillH + 1} fill={color} opacity={0.88} clipPath="url(#wdropBtn)" />
         )}
-        <Path d={DROP} fill="none" stroke="#111" strokeWidth="1.5" opacity={0.3} />
+        <Path d={DROP} fill="none" stroke={theme.ink} strokeWidth="1.5" opacity={0.3} />
       </Svg>
       <View style={{ position: "absolute", bottom: 14, left: 0, right: 0, alignItems: "center" }}>
         {/* Small rotating water glyph above the +1 — a tiny sense of "the
