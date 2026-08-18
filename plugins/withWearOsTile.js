@@ -23,10 +23,18 @@ function withWearOsTile(config) {
       const wearRoot = path.join(root, 'wear');
       fs.mkdirSync(wearRoot, { recursive: true });
 
-      // build.gradle — rewrite namespace + applicationId to match the phone package
+      // build.gradle — rewrite namespace + applicationId to match the phone package,
+      // and inherit the phone's version so the two never drift. The checked-in
+      // wear build.gradle hardcodes 1 / '1.0'; left alone every watch build would
+      // report versionCode 1 forever, making "did my new build install?"
+      // unanswerable from `dumpsys package`.
+      const appVersionName = mod.version ?? '1.0';
+      const appVersionCode = mod.android?.versionCode ?? 1;
       let gradle = fs.readFileSync(path.join(SRC, 'build.gradle'), 'utf8');
       gradle = gradle.replace(/namespace '[^']+'/g, `namespace '${wearPkg}'`);
       gradle = gradle.replace(/applicationId '[^']+'/g, `applicationId '${pkgName}'`);
+      gradle = gradle.replace(/versionCode \d+/g, `versionCode ${appVersionCode}`);
+      gradle = gradle.replace(/versionName '[^']+'/g, `versionName '${appVersionName}'`);
       fs.writeFileSync(path.join(wearRoot, 'build.gradle'), gradle);
 
       const wearMainRoot = path.join(wearRoot, 'src/main');
