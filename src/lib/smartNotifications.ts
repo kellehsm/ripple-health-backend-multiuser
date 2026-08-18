@@ -1173,12 +1173,13 @@ function isoWeek(d: Date): string {
   return `${d.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
 }
 
-export async function maybeFireWeeklyDigest(digest: {
+export async function maybeFireWeeklyDigest(enabled: boolean, digest: {
   steps: { this_week: number };
   exercise?: { sessions_this_week: number; total_minutes_this_week: number };
   books?: { finished_this_month: number };
   hobbies?: { this_week_sessions: number };
 }) {
+  if (!enabled) return;
   const dow = new Date().getDay(); // 0=Sun, 1=Mon
   if (dow !== 0 && dow !== 1) return;
 

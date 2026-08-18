@@ -161,7 +161,11 @@ export const api = {
   },
   monthlyReview: function (): Promise<{
     month: string;
-    steps: { best_week: { start: string; total: number } | null; worst_week: { start: string; total: number } | null };
+    scores: Record<string, number | null> | null;
+    prev_scores: Record<string, number | null> | null;
+    best_day: { date: string; score: number } | null;
+    worst_day: { date: string; score: number } | null;
+    steps: { best_week: { start: string; total: number } | null; worst_week: { start: string; total: number } | null; total: number | null };
     spending: { total: number | null; prev_total: number | null };
     observation: string | null;
   }> {
@@ -172,6 +176,12 @@ export const api = {
   },
   streaks: function () {
     return request("/summary/streaks");
+  },
+  chat: function (messages: { role: "user" | "assistant"; content: string }[]): Promise<{ reply: string }> {
+    return request("/chat", { method: "POST", body: JSON.stringify({ messages }) });
+  },
+  wellnessHistory: function (days = 7): Promise<{ history: { date: string; overall_score: number | null }[] }> {
+    return request("/summary/wellness-history?days=" + days);
   },
   dailySummary: function (date?: string) {
     const d = date ?? todayStr();

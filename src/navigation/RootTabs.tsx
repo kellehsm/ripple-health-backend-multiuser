@@ -50,6 +50,8 @@ import { NewChallengeScreen } from "../screens/NewChallengeScreen";
 import { SocialSettingsScreen } from "../screens/settings/SocialSettingsScreen";
 import { CardImageSplitterScreen } from "../screens/CardImageSplitterScreen";
 import { WatchTilesScreen } from "../screens/WatchTilesScreen";
+import { ChatScreen } from "../screens/ChatScreen";
+import { MonthlyRecapScreen } from "../screens/MonthlyRecapScreen";
 import { InsightsHistoryScreen } from "../screens/InsightsHistoryScreen";
 import { CustomPlanBuilderScreen } from "../screens/CustomPlanBuilderScreen";
 import { MedicationRemindersScreen } from "../screens/settings/MedicationRemindersScreen";
@@ -233,6 +235,8 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="SettingsAppearance" component={AppearanceSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Theme Studio" /> }} />
         <Stack.Screen name="CardImageSplitter" component={CardImageSplitterScreen} options={{ headerTitle: () => <SettingsTitle title="Dashboard Image Split" /> }} />
         <Stack.Screen name="WatchTiles" component={WatchTilesScreen} options={{ title: "Watch Tiles" }} />
+        <Stack.Screen name="Chat" component={ChatScreen} options={{ title: "Ask My Data" }} />
+        <Stack.Screen name="MonthlyRecap" component={MonthlyRecapScreen} options={{ title: "Monthly Recap" }} />
         <Stack.Screen name="SettingsHealthConnect" component={HealthConnectSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Health Connect" /> }} />
         <Stack.Screen name="SettingsDexcom" component={DexcomSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Dexcom" /> }} />
         <Stack.Screen name="SettingsNotifications" component={NotificationsSettingsScreen} options={{ headerTitle: () => <SettingsTitle title="Notifications" /> }} />

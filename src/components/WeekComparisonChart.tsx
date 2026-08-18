@@ -1,5 +1,5 @@
-import React from "react";
-import { Dimensions } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Dimensions } from "react-native";
 import Svg, { G, Rect, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 
 export type ChartDayData = {
@@ -31,6 +31,56 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
 
   const maxVal = Math.max(...days.map((d) => d.this_total), ...days.map((d) => d.last_total), 1);
 
+  // One Animated.Value per bar (index 0..6), representing a 0→1 progress multiplier.
+  const progRefs = useRef<Animated.Value[]>([]);
+  if (progRefs.current.length !== days.length) {
+    progRefs.current = days.map(() => new Animated.Value(0));
+  }
+
+  // Track the data identity so we only re-animate when data actually changes.
+  const dataKeyRef = useRef<string>("");
+  const dataKey = days.map((d) => `${d.this_total}:${d.last_total}`).join(",");
+
+  useEffect(() => {
+    if (dataKey === dataKeyRef.current) return;
+    dataKeyRef.current = dataKey;
+
+    // Reset all to 0 first.
+    progRefs.current.forEach((av) => av.setValue(0));
+
+    // Staggered spring to 1.
+    const animations = progRefs.current.map((av, i) =>
+      Animated.sequence([
+        Animated.delay(i * 35),
+        Animated.timing(av, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    Animated.parallel(animations).start();
+  }, [dataKey]);
+
+  // We use a stateful re-render approach: listen to each animated value and
+  // store the current progress array in state so SVG re-renders with new heights.
+  const [progValues, setProgValues] = React.useState<number[]>(() => days.map(() => 0));
+
+  useEffect(() => {
+    const listeners = progRefs.current.map((av, i) =>
+      av.addListener(({ value }) => {
+        setProgValues((prev) => {
+          const next = [...prev];
+          next[i] = value;
+          return next;
+        });
+      })
+    );
+    return () => {
+      progRefs.current.forEach((av, i) => av.removeListener(listeners[i]));
+    };
+  }, [days.length]);
+
   return (
     <Svg width={chartW} height={CHART_H}>
       <Defs>
@@ -51,15 +101,20 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
         const thisX = startX + barW + gap;
         const centerX = slotX + slotW / 2;
 
-        const lastH = day.last_total > 0 ? Math.max((day.last_total / maxVal) * PLOT_H, 3) : 0;
-        const thisH =
+        const prog = progValues[i] ?? 0;
+
+        const lastHFull = day.last_total > 0 ? Math.max((day.last_total / maxVal) * PLOT_H, 3) : 0;
+        const thisHFull =
           !day.is_future && day.this_total > 0
             ? Math.max((day.this_total / maxVal) * PLOT_H, 3)
             : 0;
 
+        const lastH = lastHFull * prog;
+        const thisH = thisHFull * prog;
+
         return (
           <G key={i}>
-            {lastH > 0 && (
+            {lastHFull > 0 && lastH > 0 && (
               <Rect
                 x={lastX}
                 y={PLOT_H - lastH}
@@ -70,7 +125,7 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
               />
             )}
 
-            {!day.is_future && thisH > 0 && (
+            {!day.is_future && thisHFull > 0 && thisH > 0 && (
               <Rect
                 x={thisX}
                 y={PLOT_H - thisH}

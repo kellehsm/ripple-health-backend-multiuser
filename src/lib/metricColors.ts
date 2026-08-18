@@ -17,9 +17,9 @@ const GLUCOSE_ALERT:     Palette = { fg: "#C0392B", bg: "#FDEDEC", border: "#C03
 
 function glucosePalette(mgDl: number | null, theme: ThemeLike): Palette {
   if (mgDl === null) return { fg: theme.berry.solid, bg: theme.berry.bg, border: theme.berry.solid };
-  if (mgDl >= 70 && mgDl <= 140) return GLUCOSE_IN_RANGE;
-  if (mgDl <= 180) return GLUCOSE_WARN;
-  return GLUCOSE_ALERT;
+  if (mgDl < 70 || mgDl > 180) return GLUCOSE_ALERT;
+  if (mgDl <= 140) return GLUCOSE_IN_RANGE;
+  return GLUCOSE_WARN;
 }
 
 // Heart rate coloring: neutral berry by default; if bpm > 180 or < 40 flag as alert.

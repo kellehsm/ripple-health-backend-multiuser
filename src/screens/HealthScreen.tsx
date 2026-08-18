@@ -1323,6 +1323,24 @@ export function HealthScreen() {
               accessibilityLabel={hrLast !== null ? `Heart rate ${hrLast} beats per minute` : "Heart rate, no data"}
               onPress={() => navigation.getParent()?.navigate("HeartRateDetail")}
             >
+              {(function () {
+                const recent = hrReadings.slice(-8);
+                if (recent.length < 2) return null;
+                const W = 74, H = 22;
+                const bpms = recent.map(r => r.bpm);
+                const min = Math.min(...bpms), max = Math.max(...bpms);
+                const span = max - min || 1;
+                const pts = bpms.map((b, i) =>
+                  `${((i / (bpms.length - 1)) * W).toFixed(1)},${(H - ((b - min) / span) * H).toFixed(1)}`
+                ).join(" ");
+                return (
+                  <View pointerEvents="none" style={{ position: "absolute", bottom: 6, left: 0, right: 0, alignItems: "center", opacity: 0.35 }}>
+                    <Svg width={W} height={H}>
+                      <Polyline points={pts} fill="none" stroke={berrySub} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+                    </Svg>
+                  </View>
+                );
+              })()}
               <ThemedIcon slot="metric.heart" size={28} color={berrySub} />
               <PopText value={hrLast !== null ? String(hrLast) : "--"} style={[chipStyles.val, { color: berryFg }]} />
               <Text style={[chipStyles.sub, { color: berrySub }]} allowFontScaling maxFontSizeMultiplier={1.3}>bpm</Text>

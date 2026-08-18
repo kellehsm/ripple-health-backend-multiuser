@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Animated, PanResponder, View, Text, Pressable, StyleSheet } from "react-native";
+import { Animated, PanResponder, View, Text, Pressable, StyleSheet, Easing } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
@@ -310,6 +310,34 @@ export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = fa
   const isNew = (Date.now() - new Date(insight.first_detected).getTime()) < 7 * 86400000;
   const tip = TYPE_TIP[insight.type];
 
+  // Double-tap to pin state
+  const lastTapRef = useRef<number>(0);
+  const burstScale = useRef(new Animated.Value(0)).current;
+  const burstOpacity = useRef(new Animated.Value(0)).current;
+  const [burstPos, setBurstPos] = useState<{ x: number; y: number } | null>(null);
+
+  function fireBurst(x: number, y: number) {
+    setBurstPos({ x, y });
+    burstScale.setValue(0);
+    burstOpacity.setValue(1);
+    Animated.parallel([
+      Animated.timing(burstScale, {
+        toValue: 1,
+        duration: 450,
+        easing: Easing.out(Easing.back(1.5)),
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.delay(200),
+        Animated.timing(burstOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(() => setBurstPos(null));
+  }
+
   const translateX = useRef(new Animated.Value(0)).current;
   const panResponder = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_, { dx, dy }) => Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.5,
@@ -336,7 +364,20 @@ export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = fa
     <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
     <ShadowCard size="tile">
     <Pressable
-      onPress={() => setExpanded(e => !e)}
+      onPress={(e) => {
+        const now = Date.now();
+        const tapX = e.nativeEvent.locationX;
+        const tapY = e.nativeEvent.locationY;
+        if (now - lastTapRef.current < 300 && onPin) {
+          // Double-tap
+          Haptics.selectionAsync();
+          onPin(insight.id, !isPinned);
+          fireBurst(tapX, tapY);
+        } else {
+          setExpanded(ex => !ex);
+        }
+        lastTapRef.current = now;
+      }}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
       style={{ flex: 1 }}
@@ -442,6 +483,21 @@ export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = fa
         </View>
       )}
     </Pressable>
+    {burstPos && (
+      <Animated.Text
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: burstPos.x - 16,
+          top: burstPos.y - 20,
+          fontSize: 28,
+          opacity: burstOpacity,
+          transform: [{ scale: burstScale }],
+        }}
+      >
+        ❤️
+      </Animated.Text>
+    )}
     </ShadowCard>
     </Animated.View>
   );

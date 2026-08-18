@@ -195,6 +195,7 @@ export function FinanceScreen() {
   const [editEntry, setEditEntry] = useState<SpendingEntry | null>(null);
   const [editCategory, setEditCategory] = useState("");
   const [moodSuggestion, setMoodSuggestion] = useState<{ spending_id: string; amount: number; merchant_name: string | null; mood_label: string } | null>(null);
+  const [heatmapSelectedDay, setHeatmapSelectedDay] = useState<string | null>(null);
   const [dailyBudget, setDailyBudget] = useState(100);
   const [editNotes, setEditNotes] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -319,9 +320,29 @@ export function FinanceScreen() {
     return { monthTotal, projected, budget, daysInMonth, dayOfMonth };
   }, [entries, dailyBudget]);
 
-  // Stagger animation for category bars
+  // Heatmap: per-day totals for the current calendar month
+  const heatmapData = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthStart = new Date(year, month, 1);
+    const monthEntries = entries.filter(e => new Date(e.logged_at) >= monthStart);
+    const dayTotals: Record<string, number> = {};
+    for (const e of monthEntries) {
+      const key = localDateStr(e.logged_at);
+      dayTotals[key] = (dayTotals[key] ?? 0) + Number(e.amount);
+    }
+    const maxDay = Math.max(1, ...Object.values(dayTotals));
+    // weekday of the 1st (0=Sun)
+    const firstWeekday = new Date(year, month, 1).getDay();
+    return { year, month, daysInMonth, dayTotals, maxDay, firstWeekday };
+  }, [entries]);
+
+  // Stagger animation for category bars — reset to 0, then animate when filter changes
   useEffect(() => {
     const count = categoryTotals.length;
+    // Create fresh Animated.Values (starts at 0)
     barAnims.current = Array.from({ length: count }, () => new Animated.Value(0));
     const animations = barAnims.current.map((anim, i) =>
       Animated.timing(anim, {
@@ -332,7 +353,9 @@ export function FinanceScreen() {
       })
     );
     Animated.parallel(animations).start();
-  }, [categoryTotals.length]);
+  // Re-run whenever the filtered set changes (view toggle or data refresh)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered]);
 
   // Animated progress bar for the Month Forecast card
   const forecastBarAnim = useRef(new Animated.Value(0)).current;
@@ -648,6 +671,87 @@ export function FinanceScreen() {
               <Text style={{ color: theme.textSoft, fontSize: 10, marginTop: 4 }}>
                 Based on {monthForecast.dayOfMonth} days of spending · day {monthForecast.dayOfMonth} of {monthForecast.daysInMonth}
               </Text>
+            </ShadowCard>
+          );
+        })()}
+
+        {/* Spending heatmap — current month calendar grid */}
+        {entries.length > 0 && (function () {
+          const { year, month, daysInMonth, dayTotals, maxDay, firstWeekday } = heatmapData;
+          const monthLabel = new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+          // Build flat array: leading empty slots + day numbers
+          const cells: (number | null)[] = [
+            ...Array(firstWeekday).fill(null),
+            ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+          ];
+          // Pad to multiple of 7
+          while (cells.length % 7 !== 0) cells.push(null);
+          const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+          const PURPLE = "#7B3FBF";
+          const selectedDayTotal = heatmapSelectedDay ? (dayTotals[heatmapSelectedDay] ?? 0) : null;
+          return (
+            <ShadowCard size="card" cardId="spending_heatmap">
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <Ionicons name="calendar-outline" size={17} color={PURPLE} />
+                <Text style={[s.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>{monthLabel}</Text>
+              </View>
+              {/* Day-of-week header */}
+              <View style={{ flexDirection: "row", marginBottom: 4 }}>
+                {DAY_LABELS.map(d => (
+                  <View key={d} style={{ flex: 1, alignItems: "center" }}>
+                    <Text style={{ fontSize: 9, fontWeight: "800", color: theme.textSoft }}>{d}</Text>
+                  </View>
+                ))}
+              </View>
+              {/* Calendar grid */}
+              {Array.from({ length: cells.length / 7 }, (_, rowIdx) => (
+                <View key={rowIdx} style={{ flexDirection: "row", marginBottom: 4 }}>
+                  {cells.slice(rowIdx * 7, rowIdx * 7 + 7).map((day, colIdx) => {
+                    if (!day) return <View key={colIdx} style={{ flex: 1, margin: 2 }} />;
+                    const pad = (n: number) => String(n).padStart(2, "0");
+                    const dateKey = `${year}-${pad(month + 1)}-${pad(day)}`;
+                    const spend = dayTotals[dateKey] ?? 0;
+                    const alpha = spend > 0
+                      ? Math.round(20 + (spend / maxDay) * 215)
+                      : 0x14; // min visible tint for zero-spend days
+                    const alphaHex = alpha.toString(16).padStart(2, "0");
+                    const isSelected = heatmapSelectedDay === dateKey;
+                    return (
+                      <Pressable
+                        key={colIdx}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setHeatmapSelectedDay(prev => prev === dateKey ? null : dateKey);
+                        }}
+                        style={{
+                          flex: 1, margin: 2, aspectRatio: 1,
+                          borderRadius: 6,
+                          backgroundColor: PURPLE + alphaHex,
+                          borderWidth: isSelected ? 1.5 : 0,
+                          borderColor: isSelected ? PURPLE : "transparent",
+                          alignItems: "center", justifyContent: "center",
+                        }}
+                        accessibilityLabel={`${dateKey} ${spend > 0 ? formatAmount(spend) : "no spend"}`}
+                        accessibilityRole="button"
+                      >
+                        <Text style={{ fontSize: 10, fontWeight: isSelected ? "900" : "600", color: spend > 0 ? PURPLE : theme.textSoft }}>
+                          {day}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+              {/* Selected day total tooltip */}
+              {heatmapSelectedDay && (
+                <View style={{ marginTop: 6, alignItems: "center" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: PURPLE }}>
+                    {new Date(heatmapSelectedDay + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                    {" — "}
+                    {selectedDayTotal! > 0 ? formatAmount(selectedDayTotal!) : "no transactions"}
+                  </Text>
+                </View>
+              )}
             </ShadowCard>
           );
         })()}

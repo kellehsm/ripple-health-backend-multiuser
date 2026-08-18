@@ -25,7 +25,8 @@ import { onSolid } from "../theme/colorUtils";
 import { coloredShadow } from "../theme/styleUtils";
 import { ShadowCard } from "../components/ShadowCard";
 import { api } from "../api/client";
-import { DailySummaryCard, type DailySummaryData } from "../components/DailySummaryCard";
+import { DailySummaryCard, scoreColor, scoreLabel, type DailySummaryData } from "../components/DailySummaryCard";
+import { WellnessScoreModal } from "../components/WellnessScoreModal";
 import { WhatChangedCard } from "../components/WhatChangedCard";
 import { WhyMightThatBeCard } from "../components/WhyMightThatBeCard";
 import { InsightCard, type Insight } from "../components/InsightCard";
@@ -44,6 +45,9 @@ import { useFocusEffect } from "@react-navigation/native";
 import { fmtTime, fmtDayLabel, fmtSleep, todayStr } from "../utils/dateUtils";
 import { computeTIR, weekGlucoseAvg, interpolateGlucose, glucoseY as glucoseYBase, eventX as eventXBase } from "../utils/glucoseMetrics";
 import { maybeFireWeeklyDigest } from "../lib/smartNotifications";
+import { getMetricPalette } from "../lib/metricColors";
+import { QuickLogSheet, type QuickLogKind } from "../components/QuickLogSheet";
+import { ConfettiBurst } from "../components/ConfettiBurst";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getFastStatus, startFast, stopFast, formatElapsed, FastStatus } from "../lib/fastingTimer";
 import { ScreenBackground } from "../components/ScreenBackground";
@@ -330,6 +334,7 @@ function AnimatedChip({
   entranceAnim,
   children,
   onPress,
+  onLongPress,
   onPressIn,
   onPressOut,
   chipWidth,
@@ -341,6 +346,7 @@ function AnimatedChip({
   entranceAnim: Animated.Value;
   children: React.ReactNode;
   onPress?: () => void;
+  onLongPress?: () => void;
   onPressIn?: () => void;
   onPressOut?: () => void;
   chipWidth?: number;
@@ -371,6 +377,8 @@ function AnimatedChip({
         <Animated.View style={{ opacity: dimmed ? 0.55 : 1, transform: [{ scale: scaleAnim }] }}>
           <Pressable
             onPress={onPress}
+            onLongPress={onLongPress}
+            delayLongPress={400}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
             style={[style, { width: chipWidth }]}
@@ -428,6 +436,8 @@ export function OverviewScreen() {
   const [weekMoods, setWeekMoods] = useState<Array<{ date: string; score: number | null }>>([]);
 
   const [dailySummary, setDailySummary] = useState<DailySummaryData | null>(null);
+  const [wellnessHistory, setWellnessHistory] = useState<{ date: string; overall_score: number | null }[]>([]);
+  const [scoreModalVisible, setScoreModalVisible] = useState(false);
   const [topInsight, setTopInsight] = useState<Insight | null>(null);
   const [allInsights, setAllInsights] = useState<Insight[]>([]);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
@@ -504,6 +514,24 @@ export function OverviewScreen() {
   const streakScaleAnims = useRef<Animated.Value[]>([]);
   // Track previous streak counts to detect increments
   const prevStreaksRef = useRef<typeof allStreaks>([]);
+  const [confettiKeys, setConfettiKeys] = useState<Record<string, number>>({});
+  const [quickLogKind, setQuickLogKind] = useState<QuickLogKind | null>(null);
+
+  async function quickLogWater() {
+    try {
+      const metric = await api.getOrCreateWaterMetric();
+      await api.logWater(metric.id);
+      setWaterCount(c => c + 1);
+      toast("Water logged 💧");
+    } catch { toast(Msg.logWater, "error"); }
+  }
+
+  async function quickLogMood(score: number, label: string) {
+    try {
+      await api.logMoodMoment(score, label);
+      toast("Mood logged");
+    } catch { toast(Msg.logMood, "error"); }
+  }
 
   // Number counter animations (0→1, interpolate to real value)
   const stepsCounterAnim = useRef(new Animated.Value(0)).current;
@@ -669,7 +697,12 @@ export function OverviewScreen() {
     setWeekMoods(data.weeklyArr.map(d => ({ date: d.date, score: d.avg_mood })));
     setPatternEvents(data.patternEvents);
     setDigest(data.dig);
-    if (data.dig) maybeFireWeeklyDigest(data.dig).catch(() => {});
+    if (data.dig) {
+      const dig = data.dig;
+      api.getSettings()
+        .then((s: any) => maybeFireWeeklyDigest(s?.smart_notifications?.weekly_digest_push?.enabled === true, dig))
+        .catch(() => {});
+    }
     setStreak(data.mealStreak);
     setAllStreaks([
       { label: "Meals",    icon: "🍽",  count: data.mealStreak,     color: (t: any) => t.teal.solid },
@@ -848,6 +881,9 @@ export function OverviewScreen() {
     api.getSettings()
       .then(function (s: any) { setDashboardLayout(resolveLayout(s?.dashboard_layout)); })
       .catch(function () {});
+    api.wellnessHistory(7)
+      .then(function (r) { setWellnessHistory(r.history ?? []); })
+      .catch(function () {});
   }, []);
 
   // Monthly review: lazy fetch + dismissal check — only runs during first 7 days of month
@@ -975,8 +1011,9 @@ export function OverviewScreen() {
     allStreaks.forEach((s, i) => {
       const prevEntry = prev.find(p => p.label === s.label);
       if (prevEntry && s.count > prevEntry.count) {
-        // Increment detected — spring bounce + haptic
+        // Increment detected — spring bounce + haptic + confetti
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setConfettiKeys(k => ({ ...k, [s.label]: (k[s.label] ?? 0) + 1 }));
         const scaleAnim = streakScaleAnims.current[i];
         if (scaleAnim) {
           scaleAnim.setValue(1);
@@ -1206,6 +1243,7 @@ export function OverviewScreen() {
     empty?: boolean;
     onPress?: () => void;
     tileId?: string;
+    quickLog?: QuickLogKind;
   };
 
   const currentMoodEntry = entryPerPeriod[currentBucket];
@@ -1216,11 +1254,12 @@ export function OverviewScreen() {
         ? String(glucoseStatus.mg_dl) + (glucoseStatus.arrow ? " " + glucoseStatus.arrow : "")
         : "--",
       sub: tir !== null ? tir + "% in range" : "mg/dL",
-      color: theme.berry.solid,
+      color: getMetricPalette("glucose", glucoseStatus?.hasData ? glucoseStatus.mg_dl ?? null : null, theme as any).border,
       icon: "pulse",
       slot: "metric.glucose",
       empty: !glucoseStatus?.hasData,
       tileId: "overview_glucose",
+      quickLog: "glucose",
     },
     {
       label: "STEPS",
@@ -1231,6 +1270,7 @@ export function OverviewScreen() {
       slot: "metric.steps",
       empty: stepsCount === null,
       tileId: "overview_steps",
+      quickLog: "steps",
     },
     {
       label: "SLEEP",
@@ -1243,6 +1283,7 @@ export function OverviewScreen() {
       slot: "metric.sleep",
       empty: !sleepStats || sleepStats.yesterday_seconds === 0,
       tileId: "overview_sleep",
+      quickLog: "sleep",
     },
     {
       label: "WATER",
@@ -1253,6 +1294,7 @@ export function OverviewScreen() {
       slot: "metric.water",
       empty: waterCount === 0,
       tileId: "overview_water",
+      quickLog: "water",
     },
     {
       label: "MEALS",
@@ -1261,6 +1303,7 @@ export function OverviewScreen() {
       color: theme.coral.solid,
       icon: "restaurant",
       empty: todayMeals.length === 0,
+      quickLog: "meals",
     },
     {
       label: "MOOD",
@@ -1271,6 +1314,7 @@ export function OverviewScreen() {
       empty: !currentMoodEntry,
       onPress: () => setShowMoodSheet(true),
       tileId: "overview_mood",
+      quickLog: "mood",
     },
   ];
 
@@ -1300,6 +1344,7 @@ export function OverviewScreen() {
                   key={chip.label}
                   entranceAnim={entranceAnim}
                   onPress={chip.onPress}
+                  onLongPress={chip.quickLog ? () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setQuickLogKind(chip.quickLog!); } : undefined}
                   chipWidth={CHIP_W}
                   dimmed={chip.empty}
                   style={[styles.metricChip, { borderColor: chip.color, overflow: "hidden" }]}
@@ -1348,6 +1393,54 @@ export function OverviewScreen() {
           </View>
           </View>
         );
+
+      case "wellness_score": {
+        const wsScores = dailySummary?.scores ?? null;
+        const wsOverall = wsScores?.overall ?? null;
+        // Merge history with today's live score so the sparkline includes today
+        const todayD = todayStr();
+        const histPts = wellnessHistory
+          .filter(h => h.overall_score !== null && h.date !== todayD)
+          .map(h => h.overall_score as number);
+        if (wsOverall !== null) histPts.push(wsOverall);
+        const wsColor = scoreColor(wsOverall, theme);
+        const SPARK_W = 120, SPARK_H = 36;
+        const sparkPoints = histPts.length >= 2
+          ? histPts.map((v, i) => {
+              const x = (i / (histPts.length - 1)) * SPARK_W;
+              const y = SPARK_H - (Math.min(Math.max(v, 0), 100) / 100) * SPARK_H;
+              return `${x.toFixed(1)},${y.toFixed(1)}`;
+            }).join(" ")
+          : null;
+        return (
+          <Pressable onPress={() => setScoreModalVisible(true)} accessibilityRole="button" accessibilityLabel="Wellness score details">
+            <ShadowCard size="card" cardId="wellness_score">
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={{
+                    width: 58, height: 58, borderRadius: 29, borderWidth: 2,
+                    borderColor: wsColor, backgroundColor: wsColor + "18",
+                    alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Text style={{ fontSize: 22, fontWeight: "800", color: wsColor }}>{wsOverall !== null ? wsOverall : "--"}</Text>
+                  </View>
+                  <View>
+                    <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 2 }]}>WELLNESS SCORE</Text>
+                    <Text style={{ fontSize: 12, color: theme.textSoft }}>
+                      {wsOverall !== null ? scoreLabel(wsOverall) + " · tap for breakdown" : "No data yet today"}
+                    </Text>
+                  </View>
+                </View>
+                {sparkPoints ? (
+                  <Svg width={SPARK_W} height={SPARK_H}>
+                    <Polyline points={sparkPoints} fill="none" stroke={wsColor} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+                  </Svg>
+                ) : null}
+              </View>
+            </ShadowCard>
+          </Pressable>
+        );
+      }
 
       case "trends_nav":
         return (
@@ -1979,6 +2072,23 @@ export function OverviewScreen() {
             {observation ? (
               <Text style={{ fontSize: 12, color: theme.teal.fg, lineHeight: 17, marginTop: 2 }}>{observation}</Text>
             ) : null}
+
+            <Pressable
+              onPress={() => navigation.navigate("MonthlyRecap")}
+              style={({ pressed }) => ({
+                marginTop: 8,
+                paddingVertical: 8,
+                borderRadius: 10,
+                borderWidth: 1.5,
+                borderColor: theme.teal.solid,
+                alignItems: "center",
+                opacity: pressed ? 0.7 : 1,
+              })}
+              accessibilityRole="button"
+              accessibilityLabel="View full monthly recap"
+            >
+              <Text style={{ fontSize: 12, fontWeight: "800", color: theme.teal.solid }}>View Full Recap ›</Text>
+            </Pressable>
           </ShadowCard>
         );
       }
@@ -2110,6 +2220,7 @@ export function OverviewScreen() {
                         <Text style={{ fontSize: 10, position: "absolute", top: -4, right: -4 }}>❄️</Text>
                       )}
                     </Pressable>
+                    <ConfettiBurst burstKey={confettiKeys[s.label] ?? 0} />
                   </Animated.View>
                 );
               })}
@@ -2318,6 +2429,25 @@ export function OverviewScreen() {
       layout={dashboardLayout}
       onSave={handleSaveLayout}
       onCancel={() => setShowEditor(false)}
+    />
+    <QuickLogSheet
+      visible={quickLogKind !== null}
+      kind={quickLogKind}
+      onClose={() => setQuickLogKind(null)}
+      onLogWater={quickLogWater}
+      onLogMood={quickLogMood}
+      onOpenDetail={(k) => {
+        if (k === "steps") navigation.getParent()?.navigate("StepsDetail");
+        else if (k === "sleep") navigation.getParent()?.navigate("SleepDetail");
+        else if (k === "glucose") navigation.getParent()?.navigate("Health");
+        else if (k === "meals") navigation.getParent()?.navigate("Meals");
+      }}
+    />
+    <WellnessScoreModal
+      visible={scoreModalVisible}
+      onClose={() => setScoreModalVisible(false)}
+      scores={dailySummary?.scores ?? null}
+      date={dailySummary?.date ?? todayStr()}
     />
     <WeeklyDigestModal
       visible={showDigest}

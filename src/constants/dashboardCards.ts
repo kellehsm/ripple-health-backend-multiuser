@@ -1,5 +1,6 @@
 export type CardId =
   | "metric_chips"
+  | "wellness_score"
   | "trends_nav"
   | "daily_summary"
   | "top_insight"
@@ -18,6 +19,7 @@ export type DashboardCard = {
 
 export const DASHBOARD_CARDS: DashboardCard[] = [
   { id: "metric_chips",  label: "Key metrics",         description: "Glucose, steps, sleep, water, meals & mood chips" },
+  { id: "wellness_score", label: "Wellness score",     description: "Today's 0-100 score with 7-day trend" },
   { id: "trends_nav",   label: "Trends & Insights",    description: "Quick-nav card to the Trends tab" },
   { id: "daily_summary",label: "Daily summary",         description: "AI-generated daily health summary" },
   { id: "top_insight",  label: "Top insight",          description: "Latest AI insight preview" },

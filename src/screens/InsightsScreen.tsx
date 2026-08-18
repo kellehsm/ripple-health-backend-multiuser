@@ -447,6 +447,32 @@ export function InsightsScreen() {
         <Text style={{ color: theme.textSoft, fontSize: 16 }}>›</Text>
       </Pressable>
 
+      <Pressable
+        onPress={() => navigation.navigate("Chat")}
+        style={({ pressed }) => [
+          {
+            marginTop: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderWidth: 1.5,
+            borderRadius: 14,
+            borderColor: theme.cardBorder,
+            backgroundColor: theme.card,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Ask about your data"
+      >
+        <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: 13 }}>
+          Ask about your data
+        </Text>
+        <Text style={{ color: theme.textSoft, fontSize: 16 }}>›</Text>
+      </Pressable>
+
       <Text style={[styles.footer, { color: theme.textSoft }]}>
         Insights are based on statistical patterns in your personal data only. They describe observations, never diagnoses. Always consult a healthcare professional for medical decisions.
       </Text>

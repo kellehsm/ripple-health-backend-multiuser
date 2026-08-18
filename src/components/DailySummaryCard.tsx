@@ -26,7 +26,7 @@ export type DailySummaryData = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function scoreColor(score: number | null, theme: any): string {
+export function scoreColor(score: number | null, theme: any): string {
   if (score === null) return theme.cardBorder;
   if (score >= 80) return theme.teal.solid;
   if (score >= 65) return theme.amber.solid;
@@ -34,7 +34,7 @@ function scoreColor(score: number | null, theme: any): string {
   return theme.red.solid;
 }
 
-function scoreLabel(score: number | null): string {
+export function scoreLabel(score: number | null): string {
   if (score === null) return "--";
   if (score >= 80) return "Great";
   if (score >= 65) return "Good";
@@ -42,7 +42,7 @@ function scoreLabel(score: number | null): string {
   return "Low";
 }
 
-const DOMAINS: Array<{ key: keyof DailySummaryScores; label: string }> = [
+export const DOMAINS: Array<{ key: keyof DailySummaryScores; label: string }> = [
   { key: "glucose",      label: "Glucose"  },
   { key: "sleep",        label: "Sleep"    },
   { key: "activity",     label: "Activity" },

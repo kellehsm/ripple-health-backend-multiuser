@@ -10,6 +10,8 @@ const WIDGET_STRINGS_XML = `<?xml version="1.0" encoding="utf-8"?>
   <string name="widget_description">Glucose, steps, heart, water, sleep, meals &amp; a daily insight</string>
   <string name="widget_compact_label">Ripple Wellness Mini</string>
   <string name="widget_compact_description">Glucose, steps &amp; water at a glance</string>
+  <string name="widget_score_label">Ripple Score</string>
+  <string name="widget_score_description">Today\'s wellness score at a glance</string>
 </resources>`;
 
 function withAndroidWidget(config) {
@@ -29,15 +31,20 @@ function withAndroidWidget(config) {
       // Inject the correct API base URL for this build profile (dev vs prod)
       const apiBaseUrl = (mod.extra?.apiBaseUrl ?? 'https://app.kels.gg/api').replace(/\/$/, '');
       ktContent = ktContent.replace(/private const val API = "[^"]*"/, `private const val API = "${apiBaseUrl}"`);
-      // Rewrite the ACTION_REFRESH action string so it matches the manifest registration
+      // Rewrite the ACTION_* action strings so they match the manifest registration
       ktContent = ktContent.replace(/const val ACTION_REFRESH = "[^"]*"/, `const val ACTION_REFRESH = "${pkgName}.WIDGET_REFRESH"`);
       ktContent = ktContent.replace(/const val ACTION_LOG_WATER = "[^"]*"/, `const val ACTION_LOG_WATER = "${pkgName}.WIDGET_LOG_WATER"`);
       ktContent = ktContent.replace(/const val ACTION_NEXT_INSIGHT = "[^"]*"/, `const val ACTION_NEXT_INSIGHT = "${pkgName}.WIDGET_NEXT_INSIGHT"`);
+      ktContent = ktContent.replace(/const val ACTION_LOG_MOOD = "[^"]*"/, `const val ACTION_LOG_MOOD = "${pkgName}.WIDGET_LOG_MOOD"`);
       fs.writeFileSync(path.join(ktDir, 'RippleWidgetProvider.kt'), ktContent);
 
       let compactContent = fs.readFileSync(path.join(SRC, 'RippleCompactWidgetProvider.kt'), 'utf8');
       compactContent = compactContent.replace(/^package .+$/m, `package ${pkgName}`);
       fs.writeFileSync(path.join(ktDir, 'RippleCompactWidgetProvider.kt'), compactContent);
+
+      let scoreContent = fs.readFileSync(path.join(SRC, 'RippleScoreWidgetProvider.kt'), 'utf8');
+      scoreContent = scoreContent.replace(/^package .+$/m, `package ${pkgName}`);
+      fs.writeFileSync(path.join(ktDir, 'RippleScoreWidgetProvider.kt'), scoreContent);
 
       const layoutDir = path.join(root, 'app/src/main/res/layout');
       fs.mkdirSync(layoutDir, { recursive: true });
@@ -46,6 +53,7 @@ function withAndroidWidget(config) {
       fs.copyFileSync(path.join(SRC, 'ripple_widget_preview.xml'), path.join(layoutDir, 'ripple_widget_preview.xml'));
       fs.copyFileSync(path.join(SRC, 'ripple_widget_compact.xml'), path.join(layoutDir, 'ripple_widget_compact.xml'));
       fs.copyFileSync(path.join(SRC, 'ripple_widget_compact_preview.xml'), path.join(layoutDir, 'ripple_widget_compact_preview.xml'));
+      fs.copyFileSync(path.join(SRC, 'ripple_widget_score.xml'), path.join(layoutDir, 'ripple_widget_score.xml'));
 
       const drawableDir = path.join(root, 'app/src/main/res/drawable');
       fs.mkdirSync(drawableDir, { recursive: true });
@@ -67,6 +75,7 @@ function withAndroidWidget(config) {
       fs.mkdirSync(xmlDir, { recursive: true });
       fs.copyFileSync(path.join(SRC, 'ripple_widget_info.xml'), path.join(xmlDir, 'ripple_widget_info.xml'));
       fs.copyFileSync(path.join(SRC, 'ripple_widget_compact_info.xml'), path.join(xmlDir, 'ripple_widget_compact_info.xml'));
+      fs.copyFileSync(path.join(SRC, 'ripple_widget_score_info.xml'), path.join(xmlDir, 'ripple_widget_score_info.xml'));
 
       const valuesDir = path.join(root, 'app/src/main/res/values');
       fs.mkdirSync(valuesDir, { recursive: true });
@@ -91,6 +100,7 @@ function withAndroidWidget(config) {
     const receivers = [
       { cls: `${pkgName}.RippleWidgetProvider`, label: '@string/widget_label', info: '@xml/ripple_widget_info' },
       { cls: `${pkgName}.RippleCompactWidgetProvider`, label: '@string/widget_compact_label', info: '@xml/ripple_widget_compact_info' },
+      { cls: `${pkgName}.RippleScoreWidgetProvider`, label: '@string/widget_score_label', info: '@xml/ripple_widget_score_info' },
     ];
 
     for (const { cls, label, info } of receivers) {
@@ -109,6 +119,7 @@ function withAndroidWidget(config) {
               { $: { 'android:name': `${pkgName}.WIDGET_REFRESH` } },
               { $: { 'android:name': `${pkgName}.WIDGET_LOG_WATER` } },
               { $: { 'android:name': `${pkgName}.WIDGET_NEXT_INSIGHT` } },
+              { $: { 'android:name': `${pkgName}.WIDGET_LOG_MOOD` } },
             ],
           },
         ],

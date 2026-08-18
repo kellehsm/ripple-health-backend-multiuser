@@ -30,6 +30,19 @@ function formatSummaryResponse(row: any) {
 }
 
 export default async function summaryRoutes(app: FastifyInstance) {
+  app.get("/wellness-history", async (req) => {
+    const user_id = req.user_id;
+    const days = Math.min(Math.max(Number((req.query as any).days ?? 7), 1), 90);
+    const rows = await query<{ date: string; overall_score: number | null }>(
+      `SELECT to_char(date, 'YYYY-MM-DD') AS date, overall_score
+       FROM daily_summaries
+       WHERE user_id = $1 AND date >= CURRENT_DATE - ($2 - 1) * INTERVAL '1 day'
+       ORDER BY date ASC`,
+      [user_id, days]
+    );
+    return { history: rows };
+  });
+
   app.get("/weekly-digest", async (req) => {
     const user_id = req.user_id;
 
@@ -520,7 +533,20 @@ export default async function summaryRoutes(app: FastifyInstance) {
     const twoMonthEnd = `${twoYear}-${String(twoMonth).padStart(2, "0")}-${String(twoMonthLastDay).padStart(2, "0")}`;
 
     try {
-      const [stepsRows, spendRows, prevSpendRows, mealDaysRows] = await Promise.all([
+      const scoreAvgSql = `SELECT
+           ROUND(AVG(overall_score))::int AS overall,
+           ROUND(AVG(sleep_score))::int AS sleep,
+           ROUND(AVG(glucose_score))::int AS glucose,
+           ROUND(AVG(activity_score))::int AS activity,
+           ROUND(AVG(hydration_score))::int AS hydration,
+           ROUND(AVG(nutrition_score))::int AS nutrition,
+           ROUND(AVG(mood_score))::int AS mood,
+           ROUND(AVG(productivity_score))::int AS productivity,
+           ROUND(AVG(stress_score))::int AS stress
+         FROM daily_summaries
+         WHERE user_id = $1 AND date >= $2 AND date <= $3`;
+
+      const [stepsRows, spendRows, prevSpendRows, mealDaysRows, scoreRows, prevScoreRows, bestDayRows, totalStepsRows] = await Promise.all([
         // Steps by ISO week within the previous month
         query<any>(
           `SELECT
@@ -554,7 +580,42 @@ export default async function summaryRoutes(app: FastifyInstance) {
            WHERE user_id = $1 AND logged_at::date >= $2 AND logged_at::date <= $3`,
           [user_id, monthStart, monthEnd]
         ),
+        query<any>(scoreAvgSql, [user_id, monthStart, monthEnd]),
+        query<any>(scoreAvgSql, [user_id, twoMonthStart, twoMonthEnd]),
+        query<any>(
+          `SELECT to_char(date, 'YYYY-MM-DD') AS date, overall_score::int AS score
+           FROM daily_summaries
+           WHERE user_id = $1 AND date >= $2 AND date <= $3 AND overall_score IS NOT NULL
+           ORDER BY overall_score DESC`,
+          [user_id, monthStart, monthEnd]
+        ),
+        query<any>(
+          `SELECT COALESCE(SUM(ml.value), 0)::float AS total
+           FROM metric_logs ml
+           JOIN metrics m ON m.id = ml.metric_id
+           WHERE m.user_id = $1 AND m.name = 'steps'
+             AND ml.logged_at::date >= $2 AND ml.logged_at::date <= $3
+             AND ml.value > 0`,
+          [user_id, monthStart, monthEnd]
+        ),
       ]);
+
+      const toNum = (v: any) => (v === null || v === undefined ? null : Number(v));
+      const mapScores = (row: any) =>
+        row
+          ? {
+              overall: toNum(row.overall), sleep: toNum(row.sleep), glucose: toNum(row.glucose),
+              activity: toNum(row.activity), hydration: toNum(row.hydration), nutrition: toNum(row.nutrition),
+              mood: toNum(row.mood), productivity: toNum(row.productivity), stress: toNum(row.stress),
+            }
+          : null;
+      const scores = mapScores(scoreRows[0]);
+      const prev_scores = mapScores(prevScoreRows[0]);
+      const best_day = bestDayRows.length > 0 ? { date: bestDayRows[0].date, score: Number(bestDayRows[0].score) } : null;
+      const worst_day =
+        bestDayRows.length > 1
+          ? { date: bestDayRows[bestDayRows.length - 1].date, score: Number(bestDayRows[bestDayRows.length - 1].score) }
+          : null;
 
       // Best / worst weeks by steps
       let best_week: { start: string; total: number } | null = null;
@@ -579,9 +640,14 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
       return {
         month: prevMonthStr,
+        scores,
+        prev_scores,
+        best_day,
+        worst_day,
         steps: {
           best_week,
           worst_week,
+          total: Math.round(Number(totalStepsRows[0]?.total ?? 0)),
         },
         spending: {
           total: spendTotal,
@@ -592,7 +658,11 @@ export default async function summaryRoutes(app: FastifyInstance) {
     } catch {
       return {
         month: prevMonthStr,
-        steps: { best_week: null, worst_week: null },
+        scores: null,
+        prev_scores: null,
+        best_day: null,
+        worst_day: null,
+        steps: { best_week: null, worst_week: null, total: null },
         spending: { total: null, prev_total: null },
         observation: null,
       };

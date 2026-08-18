@@ -1,0 +1,135 @@
+import React, { useRef, useState } from "react";
+import {
+  View, Text, TextInput, Pressable, FlatList, KeyboardAvoidingView,
+  Platform, ActivityIndicator, StyleSheet,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../theme/ThemeContext";
+import { api } from "../api/client";
+import { ScreenBackground } from "../components/ScreenBackground";
+
+type Msg = { role: "user" | "assistant"; content: string };
+
+const SUGGESTIONS = [
+  "How has my sleep been this week?",
+  "Which day was my best this week?",
+  "How do my mood and activity compare lately?",
+];
+
+export function ChatScreen() {
+  const { theme } = useTheme();
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const listRef = useRef<FlatList<Msg>>(null);
+
+  async function send(text?: string) {
+    const content = (text ?? input).trim();
+    if (!content || sending) return;
+    const next: Msg[] = [...messages, { role: "user", content }];
+    setMessages(next);
+    setInput("");
+    setSending(true);
+    try {
+      const res = await api.chat(next);
+      setMessages([...next, { role: "assistant", content: res.reply }]);
+    } catch (e: any) {
+      const msg = e?.status === 503
+        ? "Chat isn't set up on this server yet."
+        : "Couldn't get a response. Try again.";
+      setMessages([...next, { role: "assistant", content: msg }]);
+    } finally {
+      setSending(false);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+    }
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(_, i) => String(i)}
+          contentContainerStyle={{ padding: 16, paddingBottom: 24, gap: 10, flexGrow: 1 }}
+          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          ListEmptyComponent={
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 14 }}>
+              <Ionicons name="sparkles-outline" size={34} color={theme.textSoft} />
+              <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 16 }}>Ask about your data</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", paddingHorizontal: 30 }}>
+                Questions are answered from your last two weeks of daily summaries. Observations only — never medical advice.
+              </Text>
+              <View style={{ gap: 8, marginTop: 6, alignSelf: "stretch", paddingHorizontal: 16 }}>
+                {SUGGESTIONS.map(s => (
+                  <Pressable
+                    key={s}
+                    onPress={() => send(s)}
+                    style={[styles.suggestion, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  >
+                    <Text style={{ color: theme.textStrong, fontSize: 13 }}>{s}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View
+              style={[
+                styles.bubble,
+                item.role === "user"
+                  ? { alignSelf: "flex-end", backgroundColor: theme.teal.solid }
+                  : { alignSelf: "flex-start", backgroundColor: theme.card, borderWidth: 1, borderColor: theme.cardBorder },
+              ]}
+            >
+              <Text style={{ color: item.role === "user" ? "#fff" : theme.textStrong, fontSize: 14, lineHeight: 20 }}>
+                {item.content}
+              </Text>
+            </View>
+          )}
+          ListFooterComponent={
+            sending ? (
+              <View style={[styles.bubble, { alignSelf: "flex-start", backgroundColor: theme.card, borderWidth: 1, borderColor: theme.cardBorder, flexDirection: "row", gap: 8, alignItems: "center" }]}>
+                <ActivityIndicator size="small" color={theme.teal.solid} />
+                <Text style={{ color: theme.textSoft, fontSize: 12 }}>Thinking…</Text>
+              </View>
+            ) : null
+          }
+        />
+        <View style={[styles.inputRow, { backgroundColor: theme.card, borderTopColor: theme.cardBorder }]}>
+          <TextInput
+            style={[styles.input, { color: theme.textStrong, backgroundColor: theme.page, borderColor: theme.cardBorder }]}
+            placeholder="Ask about your data…"
+            placeholderTextColor={theme.textSoft}
+            value={input}
+            onChangeText={setInput}
+            onSubmitEditing={() => send()}
+            returnKeyType="send"
+            multiline
+          />
+          <Pressable
+            onPress={() => send()}
+            disabled={sending || !input.trim()}
+            style={[styles.sendBtn, { backgroundColor: theme.teal.solid, opacity: sending || !input.trim() ? 0.4 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Send"
+          >
+            <Ionicons name="arrow-up" size={20} color="#fff" />
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  bubble: { maxWidth: "82%", borderRadius: 16, paddingVertical: 9, paddingHorizontal: 13 },
+  suggestion: { borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 14 },
+  inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, borderTopWidth: 1 },
+  input: { flex: 1, borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, maxHeight: 110 },
+  sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+});

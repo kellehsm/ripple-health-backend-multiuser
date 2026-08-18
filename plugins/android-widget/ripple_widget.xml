@@ -7,7 +7,7 @@
     android:background="@drawable/ripple_widget_bg"
     android:padding="12dp">
 
-    <!-- Header: logo + branding + timestamp + refresh -->
+    <!-- Header: logo + branding + score + timestamp + refresh -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -30,6 +30,17 @@
             android:textSize="13sp"
             android:textColor="@color/widget_text_primary"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_score"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="● --"
+            android:textSize="13sp"
+            android:textColor="@color/widget_text_muted"
+            android:textStyle="bold"
+            android:layout_marginRight="6dp"
+            android:padding="2dp" />
 
         <TextView
             android:id="@+id/widget_status"
@@ -317,43 +328,72 @@
 
     </LinearLayout>
 
-    <!-- Row 3: Insight carousel — auto-flips through top insights -->
+    <!-- Row 3: Mood quick-log + Insight carousel -->
     <LinearLayout
-        android:id="@+id/block_insight"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="@drawable/ripple_chip_violet"
-        android:paddingLeft="10dp"
-        android:paddingRight="10dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="8dp"
         android:layout_marginTop="6dp">
 
-        <ViewFlipper
-            android:id="@+id/insight_flipper"
+        <!-- Mood quick-log: two emoji tap targets -->
+        <TextView
+            android:id="@+id/btn_mood_good"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:text="🙂"
+            android:textSize="18sp"
+            android:gravity="center"
+            android:layout_marginRight="2dp" />
+
+        <TextView
+            android:id="@+id/btn_mood_low"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:text="😕"
+            android:textSize="18sp"
+            android:gravity="center"
+            android:layout_marginRight="4dp" />
+
+        <!-- Insight carousel -->
+        <LinearLayout
+            android:id="@+id/block_insight"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:autoStart="true"
-            android:flipInterval="7000"
-            android:inAnimation="@android:anim/fade_in"
-            android:outAnimation="@android:anim/fade_out"
-            android:measureAllChildren="true" />
-
-        <TextView
-            android:id="@+id/btn_insight_next"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="›"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@color/widget_violet_accent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/ripple_chip_violet"
             android:paddingLeft="10dp"
-            android:paddingRight="4dp"
-            android:paddingTop="2dp"
-            android:paddingBottom="2dp" />
+            android:paddingRight="10dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
+
+            <ViewFlipper
+                android:id="@+id/insight_flipper"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:autoStart="true"
+                android:flipInterval="7000"
+                android:inAnimation="@android:anim/fade_in"
+                android:outAnimation="@android:anim/fade_out"
+                android:measureAllChildren="true" />
+
+            <TextView
+                android:id="@+id/btn_insight_next"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="›"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@color/widget_violet_accent"
+                android:paddingLeft="10dp"
+                android:paddingRight="4dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

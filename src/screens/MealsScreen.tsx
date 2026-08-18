@@ -25,7 +25,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import * as Haptics from "expo-haptics";
 import notifee from "@notifee/react-native";
-import Svg, { Polyline, Text as SvgText, Path, Ellipse, Line } from "react-native-svg";
+import Svg, { Polyline, Text as SvgText, Path, Ellipse, Line, Circle } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
@@ -300,6 +300,100 @@ function MealsEmptyState({ onPress }: { onPress: () => void }) {
       >
         <Text style={{ fontWeight: "700", color: onSolid(theme.coral.solid) }}>Log a meal</Text>
       </Pressable>
+    </View>
+  );
+}
+
+// ─── Macro Donut ─────────────────────────────────────────────────────────────
+
+type MacroDonutProps = {
+  carbs: number | null;
+  sugar: number | null;
+  caffeine: number | null;
+  carbColor: string;
+  sugarColor: string;
+  caffeineColor: string;
+};
+
+function MacroDonut({ carbs, sugar, caffeine, carbColor, sugarColor, caffeineColor }: MacroDonutProps) {
+  const [showLegend, setShowLegend] = useState(false);
+  const { theme } = useTheme();
+
+  const SIZE = 120;
+  const STROKE = 14;
+  const R = (SIZE - STROKE) / 2;
+  const CIRC = 2 * Math.PI * R;
+  const cx = SIZE / 2;
+  const cy = SIZE / 2;
+
+  const c = carbs ?? 0;
+  const s = sugar ?? 0;
+  const f = caffeine ?? 0;
+  const total = c + s + f;
+
+  // Proportional arc lengths
+  const carbArc  = total > 0 ? (c / total) * CIRC : 0;
+  const sugarArc = total > 0 ? (s / total) * CIRC : 0;
+  const cafArc   = total > 0 ? (f / total) * CIRC : 0;
+
+  // Offsets: each arc starts where the previous left off
+  const carbOffset  = 0;
+  const sugarOffset = -(carbArc);
+  const cafOffset   = -(carbArc + sugarArc);
+
+  const hasData = total > 0;
+
+  const macros = [
+    { label: "Carbs",    value: c,  unit: "g",  color: carbColor,     dasharray: `${carbArc} ${CIRC}`,  offset: CIRC * 0.25 + carbOffset },
+    { label: "Sugar",    value: s,  unit: "g",  color: sugarColor,    dasharray: `${sugarArc} ${CIRC}`, offset: CIRC * 0.25 + sugarOffset },
+    { label: "Caffeine", value: f,  unit: "mg", color: caffeineColor, dasharray: `${cafArc} ${CIRC}`,   offset: CIRC * 0.25 + cafOffset },
+  ];
+
+  return (
+    <View style={{ alignItems: "center" }}>
+      <Pressable
+        onPress={() => { Haptics.selectionAsync(); setShowLegend(v => !v); }}
+        accessibilityRole="button"
+        accessibilityLabel="Macro breakdown donut — tap to toggle legend"
+      >
+        <Svg width={SIZE} height={SIZE}>
+          {/* Background track */}
+          <Circle
+            cx={cx} cy={cy} r={R}
+            stroke={theme.cardBorder}
+            strokeWidth={STROKE}
+            fill="none"
+          />
+          {hasData ? macros.map((m, i) => (
+            <Circle
+              key={i}
+              cx={cx} cy={cy} r={R}
+              stroke={m.color}
+              strokeWidth={STROKE}
+              fill="none"
+              strokeDasharray={m.dasharray}
+              strokeDashoffset={m.offset}
+              strokeLinecap="butt"
+              rotation={-90}
+              origin={`${cx},${cy}`}
+            />
+          )) : null}
+        </Svg>
+        <View style={{ position: "absolute", top: 0, left: 0, width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontSize: 10, fontWeight: "800", color: theme.textSoft }}>TAP</Text>
+        </View>
+      </Pressable>
+      {showLegend && (
+        <View style={{ marginTop: 8, gap: 3, alignItems: "flex-start" }}>
+          {macros.map(m => (
+            <View key={m.label} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: m.color }} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: theme.textStrong }}>{m.label}</Text>
+              <Text style={{ fontSize: 12, color: theme.textSoft }}>{m.value}{m.unit}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -1131,6 +1225,47 @@ export function MealsScreen() {
             </Pressable>
           ) : null}
         </View>
+      )}
+
+      {/* Macro donut card — shown when at least one gram-tracked macro exists */}
+      {totals !== null && (totals.carbs !== null || totals.sugar !== null || totals.caffeine !== null) && (
+        <ShadowCard size="card" cardId="macro_donut">
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <MacroDonut
+              carbs={totals.carbs}
+              sugar={totals.sugar}
+              caffeine={totals.caffeine}
+              carbColor={theme.teal.solid}
+              sugarColor={theme.coral.solid}
+              caffeineColor={theme.violet.solid}
+            />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 2 }]}>Today's macros</Text>
+              {totals.carbs !== null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: theme.teal.solid }} />
+                  <Text style={{ fontSize: 12, color: theme.textSoft }}>Carbs</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: theme.textStrong, marginLeft: "auto" }}>{totals.carbs}g</Text>
+                </View>
+              )}
+              {totals.sugar !== null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: theme.coral.solid }} />
+                  <Text style={{ fontSize: 12, color: theme.textSoft }}>Sugar</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: theme.textStrong, marginLeft: "auto" }}>{totals.sugar}g</Text>
+                </View>
+              )}
+              {totals.caffeine !== null && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: theme.violet.solid }} />
+                  <Text style={{ fontSize: 12, color: theme.textSoft }}>Caffeine</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: theme.textStrong, marginLeft: "auto" }}>{totals.caffeine}mg</Text>
+                </View>
+              )}
+              <Text style={{ fontSize: 10, color: theme.textSoft, marginTop: 4 }}>Tap ring for legend</Text>
+            </View>
+          </View>
+        </ShadowCard>
       )}
 
       {/* Log a meal card */}

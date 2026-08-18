@@ -27,6 +27,7 @@ type SmartNotifs = {
   sleep_reminder?: { enabled?: boolean; hour?: number };
   workout_reminder?: { enabled?: boolean; days_threshold?: number };
   step_goal?: { enabled?: boolean; goal?: number };
+  weekly_digest_push?: { enabled?: boolean };
 };
 
 type HealthNotifs = {
@@ -418,6 +419,14 @@ export function NotificationsSettingsScreen() {
                 onSelect={(h) => save({ evening_checkin: { ...sn.evening_checkin, hour: h } })}
                 accentColor={theme.teal.bar} theme={theme} />
             )}
+          </View>
+
+          {/* Weekly digest */}
+          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>WEEKLY DIGEST</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <Text style={[styles.desc, { color: theme.textSoft }]}>A weekly recap notification on Sunday or Monday with your steps, workouts, and hobby sessions.</Text>
+            <ToggleRow label="Weekly digest push" value={sn.weekly_digest_push?.enabled === true}
+              onChange={(v) => save({ weekly_digest_push: { enabled: v } })} theme={theme} />
           </View>
         </>
       )}

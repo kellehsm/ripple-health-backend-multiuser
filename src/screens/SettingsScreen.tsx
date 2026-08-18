@@ -239,6 +239,12 @@ export function SettingsScreen() {
             {matches("Watch", "Wear", "tiles") && (
               <MenuRow title="Watch Tiles" subtitle="Wear OS tile concepts — glance, log & breathe" onPress={() => nav("WatchTiles")} theme={theme} />
             )}
+            {matches("Watch", "Wear", "tiles") && matches("Ask", "chat", "data", "AI", "assistant") && (
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+            )}
+            {matches("Ask", "chat", "data", "AI", "assistant") && (
+              <MenuRow title="Ask My Data" subtitle="Chat with an assistant about your tracked metrics" onPress={() => nav("Chat")} theme={theme} />
+            )}
           </View>
         </>
       )}
