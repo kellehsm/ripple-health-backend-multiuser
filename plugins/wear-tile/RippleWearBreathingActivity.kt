@@ -142,7 +142,9 @@ class RippleWearBreathingActivity : Activity() {
     /** Scrollable pace menu. Five options each with title + subtitle. */
     private fun showPacePicker() {
         val density = resources.displayMetrics.density
-        fun px(v: Int) = (v * density).toInt()
+        // A val, not a local fun — rowLp/paceRow take px as a (Int) -> Int parameter,
+        // and a bare local function name can't be passed as a value.
+        val px: (Int) -> Int = { v -> (v * density).toInt() }
 
         root.removeAllViews()
 
