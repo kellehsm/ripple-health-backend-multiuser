@@ -11,7 +11,9 @@ const WIDGET_STRINGS_XML = `<?xml version="1.0" encoding="utf-8"?>
   <string name="widget_compact_label">Ripple Wellness Mini</string>
   <string name="widget_compact_description">Glucose, steps &amp; water at a glance</string>
   <string name="widget_score_label">Ripple Score</string>
-  <string name="widget_score_description">Today\'s wellness score at a glance</string>
+  <!-- \\' not \' — this is a JS template literal, so \' would collapse to a bare
+       apostrophe and aapt2 rejects unescaped apostrophes in string resources. -->
+  <string name="widget_score_description">Today\\'s wellness score at a glance</string>
 </resources>`;
 
 function withAndroidWidget(config) {
