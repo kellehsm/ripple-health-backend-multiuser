@@ -1,4 +1,5 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useRoute } from "@react-navigation/native";
 import {
   View, Text, TextInput, Pressable, FlatList, KeyboardAvoidingView,
   Platform, ActivityIndicator, StyleSheet,
@@ -22,6 +23,16 @@ export function ChatScreen() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList<Msg>>(null);
+  const route = useRoute<any>();
+  const askedInitial = useRef(false);
+
+  useEffect(() => {
+    const q = route.params?.initialQuestion;
+    if (typeof q === "string" && q.trim() && !askedInitial.current) {
+      askedInitial.current = true;
+      send(q);
+    }
+  }, [route.params?.initialQuestion]);
 
   async function send(text?: string) {
     const content = (text ?? input).trim();

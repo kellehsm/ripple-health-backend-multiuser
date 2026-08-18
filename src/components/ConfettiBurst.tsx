@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { View, Animated, Easing } from "react-native";
+import { isReducedMotion } from "../lib/motion";
 
 const COLORS = ["#3FA0A6", "#E8654E", "#7B3FBF", "#A62A50", "#E6B31E", "#4A90D9"];
 const COUNT = 14;
@@ -28,6 +29,7 @@ export function ConfettiBurst({ burstKey }: { burstKey: number }) {
 
   useEffect(() => {
     if (burstKey <= 0) return;
+    if (isReducedMotion()) return;
     const anims = particles.map((p, i) => {
       const angle = (i / COUNT) * Math.PI * 2 + Math.random() * 0.5;
       const dist = 40 + Math.random() * 50;
@@ -45,7 +47,7 @@ export function ConfettiBurst({ burstKey }: { burstKey: number }) {
     Animated.parallel(anims).start();
   }, [burstKey]);
 
-  if (burstKey <= 0) return null;
+  if (burstKey <= 0 || isReducedMotion()) return null;
 
   return (
     <View pointerEvents="none" style={{ position: "absolute", top: "50%", left: "50%", width: 1, height: 1 }}>

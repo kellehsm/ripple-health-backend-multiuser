@@ -45,6 +45,7 @@ import { navigationRef } from "./src/navigation/navigationRef";
 import { api, ApiError } from "./src/api/client";
 import { getToken, setToken, clearToken, registerLogoutHandler } from "./src/lib/auth";
 import { syncTimezoneIfChanged } from "./src/lib/timezone";
+import { loadReducedMotion } from "./src/lib/motion";
 import {
   isBiometricLockEnabled,
   isCurrentlyUnlocked,
@@ -263,6 +264,9 @@ export default function App() {
     // local day. Fires once per install unless the TZ actually changes
     // (e.g., travel).
     syncTimezoneIfChanged();
+    // Load persisted reduce-motion preference so animated components can
+    // respect it before they first render.
+    loadReducedMotion().catch(() => {});
   }, []);
 
   useEffect(() => {

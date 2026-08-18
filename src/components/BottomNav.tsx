@@ -8,6 +8,9 @@ import { useTheme } from '../theme/ThemeContext';
 import { ThemedIcon } from '../theme/iconRegistry';
 import { FONT_SIZES } from '../theme/tokens';
 import type { Theme } from '../theme/theme';
+import Svg, { Circle } from 'react-native-svg';
+import { api } from '../api/client';
+import { scoreColor } from './DailySummaryCard';
 
 function healthTabLabel(h: HealthSubPreferences): string {
   if (h.medication && h.cycle) return 'Med/Cycle';
@@ -79,6 +82,20 @@ export function BottomNav({ preferences, activeRoute, onNavigate, medicationDue 
     }
   }, [activeRoute, tabW]);
 
+  // Daily wellness score rendered as a thin progress ring around the Home button
+  const [homeScore, setHomeScore] = useState<number | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.wellnessHistory(1)
+      .then((res: any) => {
+        if (!live) return;
+        const last = res?.history?.[res.history.length - 1];
+        setHomeScore(typeof last?.overall_score === 'number' ? last.overall_score : null);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [activeRoute === 'home']);
+
   useEffect(() => {
     AsyncStorage.getItem('ripple_home_pulsed').then((value) => {
       if (value === null) {
@@ -136,6 +153,20 @@ export function BottomNav({ preferences, activeRoute, onNavigate, medicationDue 
 
       {/* Fixed-width center slot for the raised Home button */}
       <View style={styles.homeSlot}>
+        {homeScore !== null && (
+          <View pointerEvents="none" style={{ position: 'absolute', bottom: 1, left: -1, width: 66, height: 66 }}>
+            <Svg width={66} height={66} style={{ transform: [{ rotate: '-90deg' }] }}>
+              <Circle
+                cx={33} cy={33} r={31}
+                stroke={scoreColor(homeScore, theme)}
+                strokeWidth={2.5}
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={`${(homeScore / 100) * 2 * Math.PI * 31} ${2 * Math.PI * 31}`}
+              />
+            </Svg>
+          </View>
+        )}
         <Pressable
           onPress={() => { Haptics.selectionAsync(); onNavigate('home'); }}
           onPressIn={() => Animated.spring(pulseAnim, { toValue: 0.88, useNativeDriver: true, damping: 12, stiffness: 500 }).start()}

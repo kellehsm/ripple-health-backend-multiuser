@@ -2160,6 +2160,19 @@ export function OverviewScreen() {
               })()}
             </Animated.View>
             <Text style={[styles.dateText, { color: theme.textSoft }]}>{dateStr}</Text>
+            {(function () {
+              const overall = dailySummary?.scores?.overall ?? null;
+              const topStreak = allStreaks.reduce((m, s) => Math.max(m, s.count), 0);
+              if (overall === null && topStreak < 2) return null;
+              const parts: string[] = [];
+              if (overall !== null) parts.push(`Score ${overall}`);
+              if (topStreak >= 2) parts.push(`${topStreak}-day streak 🔥`);
+              return (
+                <Text style={{ fontSize: 12, fontWeight: "700", color: scoreColor(overall, theme), marginTop: 2 }}>
+                  {parts.join(" · ")}
+                </Text>
+              );
+            })()}
           </View>
           <Pressable
             onPress={() => setShowEditor(true)}

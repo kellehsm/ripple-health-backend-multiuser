@@ -3,8 +3,10 @@ import { ScrollView, View, Text, Pressable, StyleSheet, TextInput } from "react-
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Switch } from "react-native";
 import { useTheme } from "../../theme/ThemeContext";
 import { api } from "../../api/client";
+import { isReducedMotion, setReducedMotion, persistReducedMotion } from "../../lib/motion";
 
 const WEEK_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -15,6 +17,7 @@ export function PreferencesSettingsScreen() {
   const [birthdate, setBirthdate] = useState('');
   const [birthdateSaving, setBirthdateSaving] = useState(false);
   const [birthdateSaved, setBirthdateSaved] = useState(false);
+  const [reduceMotion, setReduceMotionState] = useState(() => isReducedMotion());
 
   useEffect(() => {
     api.getSettings().then((s) => {
@@ -73,6 +76,27 @@ export function PreferencesSettingsScreen() {
               {birthdateSaved ? 'Saved ✓' : birthdateSaving ? '…' : 'Save'}
             </Text>
           </Pressable>
+        </View>
+      </View>
+
+      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>ACCESSIBILITY</Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "700" }}>Reduce animations</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>Minimize confetti and chart animations</Text>
+          </View>
+          <Switch
+            value={reduceMotion}
+            onValueChange={(v) => {
+              Haptics.selectionAsync();
+              setReduceMotionState(v);
+              setReducedMotion(v);
+              persistReducedMotion(v).catch(() => {});
+            }}
+            trackColor={{ false: theme.cardBorder, true: theme.teal.solid }}
+            thumbColor="#fff"
+          />
         </View>
       </View>
 

@@ -3,6 +3,7 @@ import { Modal, View, Text, Pressable, Animated, StyleSheet } from "react-native
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { DOMAINS, scoreColor, scoreLabel, type DailySummaryScores } from "./DailySummaryCard";
+import { isReducedMotion } from "../lib/motion";
 
 function DomainBar({ label, value, color, anim, theme }: {
   label: string; value: number | null; color: string; anim: Animated.Value; theme: any;
@@ -36,6 +37,7 @@ export function WellnessScoreModal({ visible, onClose, scores, date }: {
 
   useEffect(() => {
     if (!visible) { anims.forEach(a => a.setValue(0)); return; }
+    if (isReducedMotion()) { anims.forEach(a => a.setValue(1)); return; }
     Animated.stagger(50, anims.map(a =>
       Animated.timing(a, { toValue: 1, duration: 450, useNativeDriver: false })
     )).start();

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Dimensions } from "react-native";
+import { isReducedMotion } from "../lib/motion";
 import Svg, { G, Rect, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 
 export type ChartDayData = {
@@ -44,6 +45,12 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
   useEffect(() => {
     if (dataKey === dataKeyRef.current) return;
     dataKeyRef.current = dataKey;
+
+    if (isReducedMotion()) {
+      // Jump all bars to full height immediately
+      progRefs.current.forEach((av) => av.setValue(1));
+      return;
+    }
 
     // Reset all to 0 first.
     progRefs.current.forEach((av) => av.setValue(0));

@@ -61,12 +61,17 @@ export function DailySummaryCard({ data }: { data: DailySummaryData }) {
   const scores = data.scores;
   const overall = scores?.overall ?? null;
   const overallColor = scoreColor(overall, theme);
+  // After 8pm the card shifts to a reflective "day recap" tone
+  const isEvening = new Date().getHours() >= 20;
+  const trackedCount = scores ? DOMAINS.filter(d => scores[d.key] !== null).length : 0;
 
   return (
     <ShadowCard size="card" style={{ marginBottom: 16 }} cardId="wellness_snapshot">
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.textStrong }]}>TODAY'S OVERVIEW</Text>
+        <Text style={[styles.title, { color: theme.textStrong }]}>
+          {isEvening ? "TODAY'S RECAP 🌙" : "TODAY'S OVERVIEW"}
+        </Text>
         {data.generatedAt && (
           <Text style={[styles.updated, { color: theme.textSoft }]}>
             {new Date(data.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -92,7 +97,9 @@ export function DailySummaryCard({ data }: { data: DailySummaryData }) {
               </Text>
             ) : (
               <Text style={[styles.domainsActive, { color: theme.textSoft }]}>
-                {DOMAINS.filter(d => scores[d.key] !== null).length} of {DOMAINS.length} areas tracked
+                {isEvening
+                  ? `A ${scoreLabel(overall).toLowerCase()} day — ${trackedCount} of ${DOMAINS.length} areas tracked. Rest well.`
+                  : `${trackedCount} of ${DOMAINS.length} areas tracked`}
               </Text>
             )}
           </View>

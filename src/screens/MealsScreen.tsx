@@ -290,15 +290,16 @@ function MealsEmptyState({ onPress }: { onPress: () => void }) {
         <Line x1="60" y1="55" x2="60" y2="20" stroke={c} strokeWidth="3" strokeLinecap="round" opacity={0.45} />
         <Line x1="48" y1="20" x2="72" y2="20" stroke={c} strokeWidth="3" strokeLinecap="round" opacity={0.45} />
       </Svg>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>Nothing logged yet</Text>
+      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>Nothing logged yet today</Text>
       <Text style={{ fontSize: 13, color: theme.textSoft, marginTop: 6, textAlign: "center", maxWidth: 240 }}>
         Add your first meal to start tracking how food affects your day
       </Text>
       <Pressable
         onPress={() => { Haptics.selectionAsync(); onPress(); }}
         style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 22, borderWidth: 2, borderColor: theme.ink, backgroundColor: theme.coral.solid }}
+        accessibilityRole="button"
       >
-        <Text style={{ fontWeight: "700", color: onSolid(theme.coral.solid) }}>Log a meal</Text>
+        <Text style={{ fontWeight: "700", color: onSolid(theme.coral.solid) }}>Log first meal</Text>
       </Pressable>
     </View>
   );

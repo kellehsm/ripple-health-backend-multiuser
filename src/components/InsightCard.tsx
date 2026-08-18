@@ -2,12 +2,14 @@ import React, { useRef, useState } from "react";
 import { Animated, PanResponder, View, Text, Pressable, StyleSheet, Easing } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
 import { ShadowCard } from "./ShadowCard";
 import { adaptiveInsight, softenInsight } from "../lib/softenInsight";
 import { api } from "../api/client";
 import { Alert } from "react-native";
+import { isReducedMotion } from "../lib/motion";
 
 // Rules that ship with an actionable experiment template (kept in sync with
 // backend/src/services/insightExperimentTemplates.ts). If the user's card is
@@ -296,6 +298,7 @@ interface InsightCardProps {
 
 export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = false, compact = false, onPressIn, onPressOut }: InsightCardProps) {
   const { theme } = useTheme();
+  const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState(false);
 
   const icon = TYPE_ICON[insight.type] ?? "bulb-outline";
@@ -317,6 +320,7 @@ export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = fa
   const [burstPos, setBurstPos] = useState<{ x: number; y: number } | null>(null);
 
   function fireBurst(x: number, y: number) {
+    if (isReducedMotion()) return;
     setBurstPos({ x, y });
     burstScale.setValue(0);
     burstOpacity.setValue(1);
@@ -455,6 +459,16 @@ export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = fa
             <Text style={[styles.tipText, { color: theme.textSoft }]}>{tip}</Text>
           )}
           <FeedbackRow insightId={insight.id} theme={theme} />
+          <Pressable
+            onPress={() => {
+              navigation.navigate("Chat", { initialQuestion: `Why might this be: ${insight.title}?` });
+            }}
+            accessibilityRole="link"
+            accessibilityLabel="Ask why in Chat"
+            style={{ marginTop: 8, alignSelf: "flex-start" }}
+          >
+            <Text style={{ color: theme.teal.solid, fontSize: 11, fontWeight: "700" }}>Ask why →</Text>
+          </Pressable>
           {RULES_WITH_TEMPLATES.has(insight.rule_id) && (
             <TryThisButton insightId={insight.id} theme={theme} />
           )}

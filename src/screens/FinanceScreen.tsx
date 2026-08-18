@@ -29,6 +29,7 @@ import { CH_SPENDING } from "../lib/smartNotifications";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { formatDayHeader, formatTime, todayStr } from "../utils/dateUtils";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
+import { isReducedMotion } from "../lib/motion";
 
 const FINANCE_SECTIONS: SectionDef[] = [
   { id: 'totals',       label: 'Total spent',              description: 'Spending total card with add button' },
@@ -128,9 +129,9 @@ function FinanceEmptyState({ onAdd }: { onAdd: () => void }) {
         <Line x1="29" y1="64" x2="54" y2="64" stroke={c} strokeWidth="4" strokeLinecap="round" opacity={0.7} />
         <Line x1="29" y1="72" x2="46" y2="72" stroke={c} strokeWidth="3" strokeLinecap="round" opacity={0.45} />
       </Svg>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>No spending logged</Text>
+      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>No spending logged this month</Text>
       <Text style={{ fontSize: 13, color: theme.textSoft, marginTop: 6, textAlign: "center", maxWidth: 240 }}>
-        Connect your bank or add a transaction to start tracking
+        Add your first transaction to start tracking where it goes
       </Text>
       <Pressable
         onPress={() => { Haptics.selectionAsync(); onAdd(); }}
@@ -308,6 +309,12 @@ export function FinanceScreen() {
   const maxCat = categoryTotals[0]?.[1] ?? 1;
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
 
+  const monthHasEntries = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    return entries.some(e => new Date(e.logged_at) >= monthStart);
+  }, [entries]);
+
   const monthForecast = useMemo(function () {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -342,6 +349,11 @@ export function FinanceScreen() {
   // Stagger animation for category bars — reset to 0, then animate when filter changes
   useEffect(() => {
     const count = categoryTotals.length;
+    if (isReducedMotion()) {
+      // Jump to full width immediately
+      barAnims.current = Array.from({ length: count }, () => new Animated.Value(1));
+      return;
+    }
     // Create fresh Animated.Values (starts at 0)
     barAnims.current = Array.from({ length: count }, () => new Animated.Value(0));
     const animations = barAnims.current.map((anim, i) =>
@@ -361,8 +373,13 @@ export function FinanceScreen() {
   const forecastBarAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    const target = Math.min(100, Math.round((monthForecast.projected / (monthForecast.budget || 1)) * 100));
+    if (isReducedMotion()) {
+      forecastBarAnim.setValue(target);
+      return;
+    }
     Animated.spring(forecastBarAnim, {
-      toValue: Math.min(100, Math.round((monthForecast.projected / (monthForecast.budget || 1)) * 100)),
+      toValue: target,
       useNativeDriver: false,
       tension: 60,
       friction: 10,
@@ -794,7 +811,7 @@ export function FinanceScreen() {
         )}
 
         {/* Transaction list grouped by day */}
-        {!loading && grouped.length === 0 ? (
+        {!loading && !monthHasEntries ? (
           <FinanceEmptyState onAdd={() => setShowAdd(true)} />
         ) : (
           grouped.map(([day, dayEntries]) => (
