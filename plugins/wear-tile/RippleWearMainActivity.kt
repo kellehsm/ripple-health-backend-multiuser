@@ -74,7 +74,9 @@ class RippleWearMainActivity : Activity() {
     private fun buildUI(s: WearCache.Snapshot) {
         col.removeAllViews()
         val density = resources.displayMetrics.density
-        fun px(dp: Int) = (dp * density).toInt()
+        // A val, not a local fun — the row builders below take px as a (Int) -> Int
+        // parameter, and a bare local function name can't be passed as a value.
+        val px: (Int) -> Int = { dp -> (dp * density).toInt() }
 
         // 1. Header row: "Ripple" + wellness score badge
         col.addView(headerRow(px, s.wellnessScore))
