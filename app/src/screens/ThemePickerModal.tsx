@@ -11,7 +11,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
-import { useCardBg } from "../theme/AppSettingsContext";
 import { PALETTES, PALETTE_GROUPS } from "../theme/palettes";
 import type { Theme } from "../theme/theme";
 
@@ -26,6 +25,7 @@ const BEST_FOR: Record<string, string> = {
   "volcanic":  "Warm coal black, ember orange & lava — raw intensity",
   "abyssal":   "Deep ocean floor, bioluminescent cyan & seafloor coral",
   "nebula":    "Deep space, cosmic magenta & supernova gold — dramatic",
+  "cozy-cat":  "Warm cream & marmalade — with adorable cat companions",
 };
 
 type Props = {
@@ -35,7 +35,6 @@ type Props = {
 
 export function ThemePickerModal({ visible, onClose }: Props) {
   const { theme, paletteId, setPalette } = useTheme();
-  const cardBg = useCardBg();
   const previousIdRef = useRef(paletteId);
 
   // Keep previousIdRef stable for the lifetime of this modal open; reset when
@@ -115,20 +114,6 @@ export function ThemePickerModal({ visible, onClose }: Props) {
               })}
             </View>
           ))}
-
-          {/* ── Premium section ─────────────────────────────────────────────── */}
-          <View style={styles.group}>
-            <Text style={[styles.groupLabel, { color: theme.textSoft }]}>
-              ✦ PREMIUM
-            </Text>
-            <View style={[styles.premiumPlaceholder, { backgroundColor: cardBg, borderColor: theme.cardBorder }]}>
-              <Ionicons name="lock-closed-outline" size={22} color={theme.textSoft} style={{ marginBottom: 8 }} />
-              <Text style={[styles.premiumTitle, { color: theme.textStrong }]}>Premium Themes</Text>
-              <Text style={[styles.premiumSub, { color: theme.textSoft }]}>
-                Exclusive palettes — coming soon
-              </Text>
-            </View>
-          </View>
 
           <View style={{ height: 32 }} />
         </ScrollView>
@@ -271,13 +256,4 @@ const styles = StyleSheet.create({
   themeName: { fontSize: 15, fontWeight: "800", flex: 1, marginRight: 6 },
   checkPlaceholder: { width: 20, height: 20 },
   description: { fontSize: 11, paddingHorizontal: 14, paddingBottom: 12, lineHeight: 15 },
-  premiumPlaceholder: {
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    paddingVertical: 28,
-    alignItems: "center",
-  },
-  premiumTitle: { fontSize: 15, fontWeight: "800", marginBottom: 4 },
-  premiumSub: { fontSize: 12, opacity: 0.7 },
 });

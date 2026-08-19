@@ -24,7 +24,7 @@ import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
 import { SectionEditorModal, SectionDef } from "../components/SectionEditorModal";
 import { FeatureTour, TourStep } from "../components/FeatureTour";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import notifee from "@notifee/react-native";
+import notifee from "../lib/notifeeSafe";
 import { CH_SPENDING } from "../lib/smartNotifications";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { formatDayHeader, formatTime, todayStr } from "../utils/dateUtils";

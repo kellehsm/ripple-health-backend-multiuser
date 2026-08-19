@@ -3,7 +3,7 @@ import { ScrollView, View, Text, Switch, Pressable, StyleSheet, Alert, Platform 
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/core";
 import * as IntentLauncher from "expo-intent-launcher";
-import notifee, { AuthorizationStatus } from "@notifee/react-native";
+import notifee, { AuthorizationStatus } from "../../lib/notifeeSafe";
 import * as Notifications from "expo-notifications";
 import { getGrantedPermissions } from "react-native-health-connect";
 import AsyncStorage from "@react-native-async-storage/async-storage";

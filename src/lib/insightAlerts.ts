@@ -1,4 +1,4 @@
-import notifee, { AndroidImportance } from "@notifee/react-native";
+import notifee, { AndroidImportance } from "./notifeeSafe";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "../api/client";
 

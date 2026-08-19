@@ -1,5 +1,5 @@
 import { registerRootComponent } from 'expo';
-import notifee, { EventType } from '@notifee/react-native';
+import notifee, { EventType } from './src/lib/notifeeSafe';
 import App from './App';
 import { registerForegroundServiceHandler } from './src/lib/foregroundService';
 import { api } from './src/api/client';

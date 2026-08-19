@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import notifee, { TriggerType, RepeatFrequency } from "@notifee/react-native";
+import notifee, { TriggerType, RepeatFrequency } from "./notifeeSafe";
 import { CH_STREAK } from "./smartNotifications";
 
 const KEY = "fasting_start_ms";

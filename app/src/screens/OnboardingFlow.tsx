@@ -10,7 +10,9 @@ import {
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import * as WebBrowser from "expo-web-browser";
-import notifee from "@notifee/react-native";
+// Lazy-load notifee: native module is absent in Expo Go and throws at import time.
+let notifee: any = null;
+try { notifee = require("@notifee/react-native").default; } catch {}
 import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../theme/ThemeContext";
 import { useCardBg } from "../theme/AppSettingsContext";

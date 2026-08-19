@@ -380,6 +380,32 @@ function NebulaBg({ width, height }: { width: number; height: number }) {
   );
 }
 
+function CozyCatBg({ width, height }: { width: number; height: number }) {
+  // Scattered paw prints: one large pad ellipse + three toe circles each
+  const paws = [
+    { x: width * 0.18, y: height * 0.14, s: 1.0, rot: -20 },
+    { x: width * 0.78, y: height * 0.22, s: 0.8, rot: 15 },
+    { x: width * 0.30, y: height * 0.42, s: 0.7, rot: 30 },
+    { x: width * 0.85, y: height * 0.52, s: 1.0, rot: -10 },
+    { x: width * 0.15, y: height * 0.68, s: 0.9, rot: 10 },
+    { x: width * 0.60, y: height * 0.80, s: 0.75, rot: -25 },
+    { x: width * 0.88, y: height * 0.90, s: 0.85, rot: 20 },
+    { x: width * 0.40, y: height * 0.94, s: 0.6, rot: 5 },
+  ];
+  return (
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      {paws.map((p, i) => (
+        <G key={i} transform={`translate(${p.x} ${p.y}) rotate(${p.rot}) scale(${p.s})`}>
+          <Ellipse cx={0} cy={10} rx={16} ry={13} fill="#D97A2B" opacity={0.07} />
+          <Circle cx={-14} cy={-8} r={6} fill="#D97A2B" opacity={0.07} />
+          <Circle cx={0} cy={-13} r={6.5} fill="#D97A2B" opacity={0.07} />
+          <Circle cx={14} cy={-8} r={6} fill="#D97A2B" opacity={0.07} />
+        </G>
+      ))}
+    </Svg>
+  );
+}
+
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 type BgComponent = React.ComponentType<{ width: number; height: number }>;
@@ -395,6 +421,7 @@ const BACKGROUND_REGISTRY: Record<string, BgComponent> = {
   "volcanic":     VolcanicBg,
   "abyssal":      AbyssalBg,
   "nebula":       NebulaBg,
+  "cozy-cat":     CozyCatBg,
 };
 
 // ─── ThemedBackground component ───────────────────────────────────────────────

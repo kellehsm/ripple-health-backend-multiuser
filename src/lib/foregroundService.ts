@@ -1,4 +1,4 @@
-import notifee, { AndroidImportance } from "@notifee/react-native";
+import notifee, { AndroidImportance } from "./notifeeSafe";
 import { initialize, aggregateRecord } from "react-native-health-connect";
 import { api } from "../api/client";
 import {
@@ -144,7 +144,7 @@ async function syncAndUpdateNotification(notificationId: string) {
 
 // Called from index.js — registers the headless handler before the React tree mounts.
 export function registerForegroundServiceHandler() {
-  notifee.registerForegroundService((notification) => {
+  notifee.registerForegroundService((notification: any) => {
     const sleep = (ms: number) =>
       new Promise<void>((r) => setTimeout(r, ms));
     const INTERVAL = 5 * 60 * 1000;
@@ -189,5 +189,5 @@ export async function stopForegroundService() {
 
 export async function isForegroundServiceRunning(): Promise<boolean> {
   const displayed = await notifee.getDisplayedNotifications();
-  return displayed.some((n) => n.id === NOTIF_ID);
+  return displayed.some((n: any) => n.id === NOTIF_ID);
 }

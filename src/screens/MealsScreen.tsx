@@ -24,7 +24,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import * as Haptics from "expo-haptics";
-import notifee from "@notifee/react-native";
+import notifee from "../lib/notifeeSafe";
 import Svg, { Polyline, Text as SvgText, Path, Ellipse, Line, Circle } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";

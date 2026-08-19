@@ -267,6 +267,42 @@ export function familyForPalette(paletteId: string): ThemeFamily {
   );
 }
 
+// ─── PREMIUM THEMES ───────────────────────────────────────────────────────────
+
+// 11. Cozy Cat — warm cream & marmalade orange with cat illustration icons
+const cozyCat: Theme = {
+  id: "cozy-cat", name: "Cozy Cat", group: "Premium", isDark: false,
+  ink: "#2B2118", cream: "#FDF6EC", page: "#FAF0E0", gradientEnd: "#F3E5CE", card: "#FFFDF8", cardBorder: "#D8C2A4",
+  textStrong: "#2B2118", textSoft: "#7A6A55",
+  primary: "#D97A2B", success: "#3F9A6E", warning: "#C08A20", danger: "#C24238",
+  glucoseHigh: "#C24238", glucoseLow: "#3878B8",
+  teal:   cf("#3F9A6E", "#28744F", "#DCF2E6", "#2B2118", "#DCF2E6", "#3F9A6E"),
+  coral:  cfn("#D97A2B", "#B25C14", "#FBE8D2", "#2B2118", "#FBE8D2"),
+  blue:   cfn("#3878B8", "#245C98", "#DDEAF8", "#2B2118", "#DDEAF8"),
+  amber:  cfn("#C08A20", "#986808", "#F8ECC8", "#2B2118", "#F8ECC8"),
+  purple: cfn("#8A55B8", "#6B3A98", "#EEDFF8", "#2B2118", "#EEDFF8"),
+  berry:  cf("#B84860", "#943048", "#F8DEE4", "#2B2118", "#F8DEE4", "#B84860"),
+  violet: cfn("#9560C0", "#7545A0", "#EEDFF8", "#2B2118", "#EEDFF8"),
+  red:    cfn("#C24238", "#9E2C24", "#F8DEDA", "#2B2118", "#F8DEDA"),
+  pink:   cfn("#B84860", "#943048", "#F8DEE4", "#2B2118", "#F8DEE4"),
+  green:  cfn("#3F9A6E", "#28744F", "#DCF2E6", "#2B2118", "#DCF2E6"),
+  brown:  { solid: "#8B5E3C", sub: "#6A4018", tint: "#F5EADC" },
+  cycle:   { period: "#C24238", predicted: "#F8C4BE", mood: "#9560C0", symptom: "#3F9A6E", fertile: "#3878B8", ovulation: "#C08A20" },
+  finance: { food: "#D97A2B", transport: "#3878B8", shopping: "#8A55B8", health: "#3F9A6E", entertainment: "#B84860", utilities: "#C08A20", other: "#7A6A55" },
+  iconOverrides: {
+    "greeting.morning":   { type: "image", source: require("../../assets/themes/cat/greeting_morning.png") },
+    "greeting.afternoon": { type: "image", source: require("../../assets/themes/cat/greeting_afternoon.png") },
+    "greeting.evening":   { type: "image", source: require("../../assets/themes/cat/greeting_evening.png") },
+    "mood.1": { type: "image", source: require("../../assets/themes/cat/mood_1.png") },
+    "mood.2": { type: "image", source: require("../../assets/themes/cat/mood_2.png") },
+    "mood.3": { type: "image", source: require("../../assets/themes/cat/mood_3.png") },
+    "mood.4": { type: "image", source: require("../../assets/themes/cat/mood_4.png") },
+    "mood.5": { type: "image", source: require("../../assets/themes/cat/mood_5.png") },
+    "mealType.snack": { type: "image", source: require("../../assets/themes/cat/snack.png") },
+    "tab.hobbies":    { type: "image", source: require("../../assets/themes/cat/hobbies.png") },
+  },
+};
+
 // Stamp family ids onto the palettes
 morningMist.family = "mist";  obsidian.family = "mist";
 paleSage.family    = "sage";  abyssal.family  = "sage";
@@ -287,11 +323,13 @@ export const PALETTES: Record<string, Theme> = {
   "volcanic":     volcanic,
   "abyssal":      abyssal,
   "nebula":       nebula,
+  "cozy-cat":     cozyCat,
 };
 
 export const PALETTE_GROUPS: Record<string, string[]> = {
   "Light Themes": ["morning-mist", "pale-sage", "blush-hour", "jewel-light", "clean-slate"],
   "Dark Themes":  ["obsidian", "arctic", "volcanic", "abyssal", "nebula"],
+  "Premium":      ["cozy-cat"],
 };
 
 export const DEFAULT_PALETTE_ID = "morning-mist";

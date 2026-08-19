@@ -5,7 +5,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
 import { useAppSettings, CARD_OPACITY_MIN, CARD_OPACITY_MAX } from "../../theme/AppSettingsContext";
-import { PALETTES, THEME_FAMILIES } from "../../theme/palettes";
+import { PALETTES, PALETTE_GROUPS, THEME_FAMILIES } from "../../theme/palettes";
 import { useStrings } from "../../strings/StringsContext";
 import { pickAndStoreImage, deleteStoredImage } from "../../lib/pickBackgroundImage";
 import {
@@ -536,6 +536,48 @@ function FamilyCard({ familyId }: { familyId: string }) {
   );
 }
 
+const PREMIUM_TAGLINES: Record<string, string> = {
+  "cozy-cat": "Warm cream & marmalade — with adorable cat companions",
+};
+
+function PremiumThemeCard({ id }: { id: string }) {
+  const { theme, paletteId, setPalette } = useTheme();
+  const p = PALETTES[id];
+  const isActive = paletteId === id;
+  const swatches = [p.page, p.card, p.teal.solid, p.coral.solid, p.amber.solid, p.violet.solid, p.berry.solid];
+
+  return (
+    <Pressable
+      onPress={() => { Haptics.selectionAsync(); setPalette(id); }}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: isActive }}
+      style={[
+        famStyles.card,
+        {
+          backgroundColor: p.card,
+          borderColor: isActive ? theme.primary : p.cardBorder,
+          borderWidth: isActive ? 3 : 1.5,
+        },
+      ]}
+    >
+      <View style={famStyles.swatchStrip}>
+        {swatches.map((c, i) => (
+          <View key={i} style={[famStyles.swatchSegment, { backgroundColor: c }]} />
+        ))}
+      </View>
+      <View style={famStyles.nameRow}>
+        <Text style={[famStyles.name, { color: p.textStrong }]}>{p.name}</Text>
+        {isActive
+          ? <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+          : <View style={{ width: 20, height: 20 }} />}
+      </View>
+      <Text style={[famStyles.tagline, { color: p.textSoft }]} numberOfLines={1}>
+        {PREMIUM_TAGLINES[id] ?? ""}
+      </Text>
+    </Pressable>
+  );
+}
+
 const famStyles = StyleSheet.create({
   card: { borderRadius: 22, overflow: "hidden", marginBottom: 10 },
   swatchStrip: { flexDirection: "row", height: 48 },
@@ -606,11 +648,12 @@ export function AppearanceSettingsScreen() {
         ))}
       </View>
 
-      {/* ── Premium teaser ─────────────────────────────────────────── */}
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderStyle: "dashed", paddingVertical: 20, alignItems: "center" }]}>
-        <Ionicons name="lock-closed-outline" size={20} color={theme.textSoft} style={{ marginBottom: 6 }} />
-        <Text style={{ fontSize: 14, fontWeight: "800", color: theme.textStrong }}>Premium themes</Text>
-        <Text style={{ fontSize: 11, color: theme.textSoft, marginTop: 2 }}>Exclusive palettes — coming soon</Text>
+      {/* ── Premium themes ─────────────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 8 }]}>✦ PREMIUM</Text>
+      <View>
+        {(PALETTE_GROUPS["Premium"] ?? []).map((id) => (
+          <PremiumThemeCard key={id} id={id} />
+        ))}
       </View>
 
       {/* ── Page backgrounds ───────────────────────────────────────── */}

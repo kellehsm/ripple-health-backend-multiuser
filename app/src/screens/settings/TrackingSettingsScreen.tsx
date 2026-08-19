@@ -3,7 +3,14 @@ import { ScrollView, View, Text, Switch, Pressable, StyleSheet, Alert, Platform 
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/core";
 import * as IntentLauncher from "expo-intent-launcher";
-import notifee, { AuthorizationStatus } from "@notifee/react-native";
+// Lazy-load notifee: native module is absent in Expo Go and throws at import time.
+let notifee: any = null;
+let AuthorizationStatus: any = {};
+try {
+  const n = require("@notifee/react-native");
+  notifee = n.default;
+  AuthorizationStatus = n.AuthorizationStatus;
+} catch {}
 import * as Notifications from "expo-notifications";
 import { getGrantedPermissions } from "react-native-health-connect";
 import AsyncStorage from "@react-native-async-storage/async-storage";

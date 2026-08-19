@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import * as WebBrowser from "expo-web-browser";
-import notifee from "@notifee/react-native";
+import notifee from "../lib/notifeeSafe";
 import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../theme/ThemeContext";
 import { GOOGLE_CLIENT_ID, api } from "../api/client";

@@ -1,4 +1,4 @@
-import notifee, { AndroidImportance, TriggerType, RepeatFrequency } from "@notifee/react-native";
+import notifee, { AndroidImportance, TriggerType, RepeatFrequency } from "./notifeeSafe";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "../api/client";
 import { isMuted } from "./muteNotifications";
