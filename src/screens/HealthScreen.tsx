@@ -359,6 +359,7 @@ export function HealthScreen() {
   const [sleepStages, setSleepStages] = useState<SleepStages | null>(null);
   const [stepGoal, setStepGoal] = useState(10000);
   const [showGoalNudge, setShowGoalNudge] = useState(false);
+  const [mindStats, setMindStats] = useState<{ streak: number; week_minutes: number; total_sessions: number } | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
 
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
@@ -874,6 +875,7 @@ export function HealthScreen() {
 
   useFocusEffect(useCallback(function () {
     let cancelled = false;
+    api.mindfulnessStats().then((s: any) => { if (!cancelled && s) setMindStats(s); }).catch(() => {});
     hasSeenTooltip("health").then(seen => {
       if (!cancelled && !seen) {
         setShowTooltip(true);
@@ -1118,17 +1120,22 @@ export function HealthScreen() {
           borderWidth: 2,
           borderColor: ink,
           backgroundColor: theme.purple.solid,
-          padding: 16,
+          paddingVertical: 11,
+          paddingHorizontal: 14,
           flexDirection: "row",
           alignItems: "center",
-          gap: 14,
+          gap: 12,
           overflow: "hidden",
           transform: [{ scale: mindfulnessScale }],
         }}>
-          <Ionicons name="flower-outline" size={32} color={onSolid(theme.purple.solid)} />
+          <Ionicons name="flower-outline" size={26} color={onSolid(theme.purple.solid)} />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: onSolid(theme.purple.solid), fontSize: 18, fontWeight: "900", marginBottom: 2 }}>Mindfulness</Text>
-            <Text style={{ color: onSolid(theme.purple.solid), fontSize: 12, opacity: 0.75 }}>Breathing · grounding · gratitude</Text>
+            <Text style={{ color: onSolid(theme.purple.solid), fontSize: 16, fontWeight: "900", marginBottom: 1 }}>Mindfulness</Text>
+            <Text style={{ color: onSolid(theme.purple.solid), fontSize: 12, opacity: 0.75 }}>
+              {mindStats && (mindStats.streak > 0 || mindStats.week_minutes > 0)
+                ? `${mindStats.streak} day streak · ${mindStats.week_minutes}m this week`
+                : "Breathing · grounding · gratitude"}
+            </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={onSolid(theme.purple.solid)} style={{ opacity: 0.85 }} />
         </Animated.View>
@@ -1277,6 +1284,25 @@ export function HealthScreen() {
                   </Svg>
                 );
               })()}
+              {/* 7-day sleep debt vs 8h goal (folded in from the old standalone card) */}
+              {sleepAvgSecs !== null && (() => {
+                const debtSecs = (8 * 3600 - sleepAvgSecs) * 7;
+                const isDebt = debtSecs > 0;
+                const absSecs = Math.abs(debtSecs);
+                const h = Math.floor(absSecs / 3600);
+                const m = Math.floor((absSecs % 3600) / 60);
+                const label = h > 0 ? h + "h" + (m > 0 ? " " + m + "m" : "") : m + "m";
+                return (
+                  <Text
+                    style={{ fontSize: 10, fontWeight: "800", color: isDebt ? (theme.red?.solid ?? "#ef4444") : theme.teal.solid }}
+                    allowFontScaling
+                    maxFontSizeMultiplier={1.3}
+                    accessibilityLabel={`Sleep ${isDebt ? "debt" : "surplus"} ${label} over the past 7 days versus an 8 hour goal`}
+                  >
+                    {isDebt ? "–" : "+"}{label} · 7d
+                  </Text>
+                );
+              })()}
             </MetricChip>
 
             {/* WATER chip — filling droplet shows progress, tap to log */}
@@ -1390,37 +1416,7 @@ export function HealthScreen() {
         </View>
       )}
 
-      {/* Sleep debt counter */}
       <View onLayout={(e) => { sectionYRef.current.sleep = e.nativeEvent.layout.y; }} />
-      {sleepAvgSecs !== null && (function () {
-        const GOAL_SECS = 8 * 3600;
-        const debtSecs = (GOAL_SECS - sleepAvgSecs) * 7;
-        const isDebt = debtSecs > 0;
-        const absSecs = Math.abs(debtSecs);
-        const h = Math.floor(absSecs / 3600);
-        const m = Math.floor((absSecs % 3600) / 60);
-        const label = h > 0 ? h + "h " + (m > 0 ? m + "m" : "") : m + "m";
-        const pct = Math.min(100, Math.round((sleepAvgSecs / GOAL_SECS) * 100));
-        const barColor = pct >= 90 ? theme.teal.solid : pct >= 75 ? theme.amber?.solid ?? "#f59e0b" : theme.red?.solid ?? "#ef4444";
-        return (
-          <ShadowCard size="card" accent={theme.amber?.solid ?? "#f59e0b"} rotate={0.3} cardId="sleep_card">
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
-              <Ionicons name="moon-outline" size={17} color={theme.amber?.solid ?? "#f59e0b"} />
-              <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Sleep debt</Text>
-            </View>
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
-              <Text style={{ fontSize: 28, fontWeight: "900", color: isDebt ? (theme.red?.solid ?? "#ef4444") : theme.teal.solid, letterSpacing: -0.5 }}>
-                {isDebt ? "–" : "+"}{label}
-              </Text>
-              <Text style={{ color: theme.textSoft, fontSize: 12 }}>vs 8h/night goal · past 7 days</Text>
-            </View>
-            <View style={{ height: 7, backgroundColor: theme.cardBorder, borderRadius: 4, overflow: "hidden" }}>
-              <View style={{ height: 7, width: (pct + "%") as any, backgroundColor: barColor, borderRadius: 4 }} />
-            </View>
-            <CardLoadingOverlay loading={refreshing} size="small" />
-          </ShadowCard>
-        );
-      })()}
 
       {/* Glucose alert banner */}
       {status && status.alerts && status.alerts.length > 0 ? (

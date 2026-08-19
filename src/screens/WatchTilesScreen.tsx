@@ -9,13 +9,14 @@ import {
   Dimensions,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import Svg, { Circle, Path, Rect, Defs, ClipPath } from "react-native-svg";
+import Svg, { Circle, Path, Rect, Defs, ClipPath, Line as SvgLine } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
 import { trackMindfulnessCompletion } from "../lib/mindfulnessTracker";
 import { todayStr } from "../utils/dateUtils";
+import { invalidateCachePrefix } from "../utils/staleCache";
 
 // Watch-face palette (fixed dark face, independent of app theme)
 const W = {
@@ -117,8 +118,24 @@ const RELAX_PHASES: BreathePhase[] = [
 function BreatheOverlay({ onClose, refreshStats }: { onClose: () => void; refreshStats: () => void }) {
   const [phases, setPhases] = useState<BreathePhase[] | null>(null);
   const [phaseIdx, setPhaseIdx] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const scaleAnim = useRef(new Animated.Value(0.6)).current;
   const startedAt = useRef<number | null>(null);
+  const pendingPhases = useRef<BreathePhase[]>(BOX_PHASES);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) {
+      setCountdown(null);
+      startedAt.current = Date.now();
+      setPhaseIdx(0);
+      setPhases(pendingPhases.current);
+      return;
+    }
+    Haptics.selectionAsync().catch(() => {});
+    const t = setTimeout(() => setCountdown(countdown - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
 
   useEffect(() => {
     if (!phases) return;
@@ -143,9 +160,8 @@ function BreatheOverlay({ onClose, refreshStats }: { onClose: () => void; refres
   }, [phases, phaseIdx, scaleAnim]);
 
   function start(p: BreathePhase[]) {
-    startedAt.current = Date.now();
-    setPhaseIdx(0);
-    setPhases(p);
+    pendingPhases.current = p;
+    setCountdown(3);
   }
 
   function end() {
@@ -166,7 +182,15 @@ function BreatheOverlay({ onClose, refreshStats }: { onClose: () => void; refres
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: W.bg, borderRadius: 999, justifyContent: "center", paddingHorizontal: 56, gap: 10, zIndex: 5 }]}>
-      {!phases ? (
+      {countdown !== null ? (
+        <View style={{ alignItems: "center", gap: 14 }}>
+          <Text style={styles.overlayLabel}>GET READY</Text>
+          <Text style={{ color: W.teal, fontSize: 54, fontWeight: "900" }}>{countdown}</Text>
+          <Pressable onPress={() => { setCountdown(null); onClose(); }} accessibilityRole="button" accessibilityLabel="Cancel breathing">
+            <Text style={{ color: W.dim, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, paddingVertical: 4 }}>CANCEL</Text>
+          </Pressable>
+        </View>
+      ) : !phases ? (
         <>
           <Text style={styles.overlayLabel}>BREATHE — PICK A PACE</Text>
           <Pressable onPress={() => start(BOX_PHASES)} style={styles.pillSolid} accessibilityRole="button" accessibilityLabel="Start box breathing, 4-4-4-4">
@@ -223,20 +247,39 @@ function WatchFace({ size, children }: { size: number; children: React.ReactNode
   );
 }
 
+// Minute-style tick marks around the rim so the face reads as a round dial.
+function FaceTicks({ size }: { size: number }) {
+  const c = size / 2;
+  const ticks = Array.from({ length: 12 }, (_, i) => {
+    const a = (i / 12) * 2 * Math.PI - Math.PI / 2;
+    const r1 = c - 4;
+    const r2 = c - (i % 3 === 0 ? 12 : 9);
+    return { x1: c + r1 * Math.cos(a), y1: c + r1 * Math.sin(a), x2: c + r2 * Math.cos(a), y2: c + r2 * Math.sin(a), major: i % 3 === 0 };
+  });
+  return (
+    <Svg width={size} height={size} style={StyleSheet.absoluteFill} pointerEvents="none">
+      {ticks.map((t, i) => (
+        <SvgLine key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke={t.major ? W.dim : W.rule} strokeWidth={t.major ? 2.5 : 2} strokeLinecap="round" />
+      ))}
+    </Svg>
+  );
+}
+
+// Centered top-of-dial header: time above a tiny brand mark.
 function FaceHeader({ time }: { time: string }) {
   return (
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-      <Text style={{ color: W.teal, fontSize: 11, fontWeight: "900", letterSpacing: 2.2 }}>RIPPLE</Text>
-      <Text style={{ color: W.dim, fontSize: 11, fontWeight: "700" }}>{time}</Text>
+    <View style={{ alignItems: "center" }}>
+      <Text style={{ color: W.fg, fontSize: 15, fontWeight: "900", letterSpacing: 0.5 }}>{time}</Text>
+      <Text style={{ color: W.teal, fontSize: 8, fontWeight: "900", letterSpacing: 2.6 }}>RIPPLE</Text>
     </View>
   );
 }
 
 function StatCell({ label, value, unit, color }: { label: string; value: string; unit?: string; color: string }) {
   return (
-    <View style={{ width: "47%", borderTopWidth: 2, borderTopColor: W.rule, paddingTop: 5 }}>
+    <View style={{ alignItems: "center", minWidth: 56 }}>
       <Text style={{ color: W.dim, fontSize: 8, fontWeight: "800", letterSpacing: 1.4 }}>{label}</Text>
-      <Text style={{ color, fontSize: 16, fontWeight: "900" }}>
+      <Text style={{ color, fontSize: 15, fontWeight: "900" }}>
         {value}
         {unit ? <Text style={{ color: W.dim, fontSize: 9, fontWeight: "700" }}> {unit}</Text> : null}
       </Text>
@@ -298,6 +341,11 @@ export function WatchTilesScreen() {
         if (!cancelled && typeof goal === "number" && goal > 0) setWaterGoal(goal);
       }).catch(() => {});
       api.mindfulnessStats().then((s: any) => { if (!cancelled && s) setMind(s); }).catch(() => {});
+      api.journalToday().then((rows: any) => {
+        if (cancelled || !Array.isArray(rows)) return;
+        const lastMoment = [...rows].reverse().find((r: any) => r.entry_type === "moment" && r.mood_label);
+        setMood(lastMoment ? String(lastMoment.mood_label).toUpperCase() : null);
+      }).catch(() => {});
       return () => { cancelled = true; };
     }, [statsKey])
   );
@@ -309,6 +357,8 @@ export function WatchTilesScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     try {
       await api.logWater(waterMetricId);
+      invalidateCachePrefix("health:");
+      invalidateCachePrefix("overview:");
       if (prev + 1 === waterGoal) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         toast("Water goal hit! 💧", "success");
@@ -324,6 +374,7 @@ export function WatchTilesScreen() {
     Haptics.selectionAsync().catch(() => {});
     try {
       await api.logMoodMoment(score, label);
+      invalidateCachePrefix("overview:");
       toast("Mood logged", "success");
     } catch {
       setMood(null);
@@ -365,34 +416,39 @@ export function WatchTilesScreen() {
         <View style={[styles.page, { width: screenW }]}>
           <Text style={[styles.faceTitle, { color: theme.textStrong }]}>GLANCE — full dashboard</Text>
           <WatchFace size={FACE}>
-            <ProgressRing size={FACE - Math.round(FACE * 0.098)} stroke={5} r={(FACE - Math.round(FACE * 0.098)) / 2 - 6} color={W.teal} frac={stepsFrac} />
-            <ProgressRing size={FACE - Math.round(FACE * 0.098)} stroke={5} r={(FACE - Math.round(FACE * 0.098)) / 2 - 14} color={W.blue} frac={waterFrac} />
-            <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: FACE * 0.17, gap: 7 }}>
+            <FaceTicks size={FACE - Math.round(FACE * 0.098)} />
+            <ProgressRing size={FACE - Math.round(FACE * 0.098)} stroke={5} r={(FACE - Math.round(FACE * 0.098)) / 2 - 18} color={W.teal} frac={stepsFrac} />
+            <ProgressRing size={FACE - Math.round(FACE * 0.098)} stroke={5} r={(FACE - Math.round(FACE * 0.098)) / 2 - 26} color={W.blue} frac={waterFrac} />
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8 }}>
               <FaceHeader time={time} />
-              <View>
-                <Text style={{ color: W.dim, fontSize: 9, fontWeight: "800", letterSpacing: 1.6 }}>GLUCOSE — MG/DL</Text>
+              <View style={{ alignItems: "center" }}>
+                <Text style={{ color: W.dim, fontSize: 9, fontWeight: "800", letterSpacing: 1.6 }}>GLUCOSE · MG/DL</Text>
                 {glu ? (
-                  <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                    <Text style={{ color: gluText, fontSize: 40, fontWeight: "900", letterSpacing: -1.5, lineHeight: 44 }}>
-                      {glucose!.mg_dl}
-                    </Text>
-                    <Text style={{ color: gluText, fontSize: 24, fontWeight: "900" }}>{glucose!.arrow ?? ""}</Text>
+                  <>
+                    <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>
+                      <Text style={{ color: gluText, fontSize: 44, fontWeight: "900", letterSpacing: -1.5, lineHeight: 48 }}>
+                        {glucose!.mg_dl}
+                      </Text>
+                      <Text style={{ color: gluText, fontSize: 24, fontWeight: "900" }}>{glucose!.arrow ?? ""}</Text>
+                    </View>
                     <Text style={{ color: glucose!.isStale ? W.dim : glu.color, fontSize: 10, fontWeight: "800", letterSpacing: 1.2 }}>
                       {glu.label}
                     </Text>
-                  </View>
+                  </>
                 ) : (
                   <Text style={{ color: W.dim, fontSize: 18, fontWeight: "900" }}>NO DATA</Text>
                 )}
               </View>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 7 }}>
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 10 }}>
                 <StatCell label="STEPS" value={steps != null ? steps.toLocaleString() : "--"} color={W.teal} />
                 <StatCell label="HEART" value={bpm != null ? String(bpm) : "--"} unit={bpm != null ? "BPM" : undefined} color={W.coral} />
+              </View>
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 10 }}>
                 <StatCell label="WATER" value={String(water)} unit={"/ " + waterGoal} color={W.blue} />
                 <StatCell label="SLEEP" value={sleepLabel} color={W.lavender} />
               </View>
               <Pressable onPress={() => setBreatheOn("1a")} style={styles.pillSolid} accessibilityRole="button" accessibilityLabel="Open breathing exercise">
-                <Text style={styles.pillSolidText}>WELLNESS — BREATHE →</Text>
+                <Text style={styles.pillSolidText}>BREATHE →</Text>
               </Pressable>
             </View>
             {breatheOn === "1a" && (
@@ -408,11 +464,12 @@ export function WatchTilesScreen() {
         <View style={[styles.page, { width: screenW }]}>
           <Text style={[styles.faceTitle, { color: theme.textStrong }]}>LOG — water + mood</Text>
           <WatchFace size={FACE}>
-            <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: FACE * 0.15, gap: 9 }}>
+            <FaceTicks size={FACE - Math.round(FACE * 0.098)} />
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 9 }}>
               <FaceHeader time={time} />
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                <View style={{ width: 84, height: 105 }}>
-                  <Svg width={84} height={105} viewBox="0 0 100 125">
+              <View style={{ alignItems: "center", gap: 6 }}>
+                <View style={{ width: 76, height: 95 }}>
+                  <Svg width={76} height={95} viewBox="0 0 100 125">
                     <Defs>
                       <ClipPath id="dropClip">
                         <Path d="M50 4 C50 4 12 55 12 82 A38 38 0 0 0 88 82 C88 55 50 4 50 4 Z" />
@@ -422,32 +479,30 @@ export function WatchTilesScreen() {
                     <Rect x={0} y={dropY} width={100} height={125} fill={W.blue} clipPath="url(#dropClip)" />
                     <Path d="M50 4 C50 4 12 55 12 82 A38 38 0 0 0 88 82 C88 55 50 4 50 4 Z" fill="none" stroke={W.blue} strokeWidth={3} />
                   </Svg>
-                  <View style={{ position: "absolute", left: 0, right: 0, top: 40, alignItems: "center" }}>
-                    <Text style={{ color: W.fg, fontSize: 26, fontWeight: "900", lineHeight: 28 }}>{water}</Text>
+                  <View style={{ position: "absolute", left: 0, right: 0, top: 36, alignItems: "center" }}>
+                    <Text style={{ color: W.fg, fontSize: 24, fontWeight: "900", lineHeight: 26 }}>{water}</Text>
                     <Text style={{ color: W.fg, fontSize: 10, fontWeight: "800", opacity: 0.75 }}>/ {waterGoal}</Text>
                   </View>
                 </View>
-                <View style={{ flex: 1, gap: 8 }}>
-                  <Text style={{ color: W.dim, fontSize: 9, fontWeight: "800", letterSpacing: 1.6 }}>WATER — GLASSES</Text>
-                  <Text style={{ color: W.blue, fontSize: 19, fontWeight: "900" }}>
-                    {Math.round(waterFrac * 100)}%
-                    <Text style={{ color: W.dim, fontSize: 10, fontWeight: "700" }}> OF GOAL</Text>
-                  </Text>
-                  <Pressable onPress={logGlass} style={[styles.pillSolid, { backgroundColor: W.blue }]} accessibilityRole="button" accessibilityLabel="Log one glass of water">
-                    <Text style={styles.pillSolidText}>+ LOG GLASS</Text>
-                  </Pressable>
-                </View>
+                <Text style={{ color: W.blue, fontSize: 15, fontWeight: "900" }}>
+                  {Math.round(waterFrac * 100)}%
+                  <Text style={{ color: W.dim, fontSize: 9, fontWeight: "700" }}> OF GOAL</Text>
+                </Text>
+                <Pressable onPress={logGlass} style={[styles.pillSolid, { backgroundColor: W.blue }]} accessibilityRole="button" accessibilityLabel="Log one glass of water">
+                  <Text style={styles.pillSolidText}>+ LOG GLASS</Text>
+                </Pressable>
               </View>
-              <View style={{ borderTopWidth: 2, borderTopColor: W.rule, paddingTop: 7 }}>
+              <View style={{ alignItems: "center" }}>
                 <Text style={{ color: W.dim, fontSize: 9, fontWeight: "800", letterSpacing: 1.6, marginBottom: 6 }}>MOOD CHECK-IN</Text>
-                <View style={{ flexDirection: "row", gap: 7 }}>
+                <View style={{ flexDirection: "row", justifyContent: "center", gap: 7 }}>
                   {MOODS.map((m) => {
                     const selected = mood === m.label;
                     return (
                       <Pressable
                         key={m.label}
                         onPress={() => pickMood(m.label, m.score)}
-                        style={[styles.moodPill, selected && { borderColor: W.lavender }]}
+                        hitSlop={6}
+                        style={[styles.moodPill, selected && { borderColor: W.lavender, backgroundColor: "rgba(183,156,255,0.16)" }]}
                         accessibilityRole="button"
                         accessibilityLabel={"Log mood " + m.label.toLowerCase()}
                       >
@@ -468,18 +523,17 @@ export function WatchTilesScreen() {
         <View style={[styles.page, { width: screenW }]}>
           <Text style={[styles.faceTitle, { color: theme.textStrong }]}>BREATHE — session starter</Text>
           <WatchFace size={FACE}>
-            <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: FACE * 0.16, gap: 9 }}>
+            <FaceTicks size={FACE - Math.round(FACE * 0.098)} />
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 9 }}>
               <FaceHeader time={time} />
-              <View>
+              <View style={{ alignItems: "center" }}>
                 <Text style={{ color: W.dim, fontSize: 9, fontWeight: "800", letterSpacing: 1.6 }}>MINDFULNESS</Text>
-                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-                  <Text style={{ color: W.fg, fontSize: 44, fontWeight: "900", letterSpacing: -1.5, lineHeight: 48 }}>
-                    {mind?.streak ?? 0}
-                  </Text>
-                  <Text style={{ color: W.dim, fontSize: 13, fontWeight: "800" }}>DAY STREAK</Text>
-                </View>
+                <Text style={{ color: W.fg, fontSize: 44, fontWeight: "900", letterSpacing: -1.5, lineHeight: 48 }}>
+                  {mind?.streak ?? 0}
+                </Text>
+                <Text style={{ color: W.dim, fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>DAY STREAK</Text>
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 14 }}>
                 <StatCell label="THIS WEEK" value={String(mind?.week_minutes ?? 0)} unit="MIN" color={W.fg} />
                 <StatCell label="SESSIONS" value={String(mind?.total_sessions ?? 0)} color={W.fg} />
               </View>
@@ -529,7 +583,8 @@ const styles = StyleSheet.create({
   },
   pillOutlineText: { color: W.teal, fontSize: 12, fontWeight: "900", letterSpacing: 1.2 },
   moodPill: {
-    flex: 1,
+    minWidth: 62,
+    paddingHorizontal: 12,
     borderWidth: 2,
     borderColor: W.rule,
     borderRadius: 999,

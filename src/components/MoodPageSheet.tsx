@@ -337,7 +337,7 @@ export function MoodPageSheet({ visible, todayEntries, currentBucket, onDismiss,
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   sheetWrapper: {

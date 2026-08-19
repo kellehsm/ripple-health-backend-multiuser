@@ -204,7 +204,7 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
   return (
     <View style={{ flex: 1, backgroundColor: theme.page ?? "#F5F1E8" }}>
       {/* Background blobs */}
-      <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {[
           { anim: blob1X, animY: blob1Y, size: 140, top: -30, left: -40, color: "#7B3FBF" },
           { anim: blob2X, animY: blob2Y, size: 110, top: 160, right: -30, color: "#3FA0A6" },
