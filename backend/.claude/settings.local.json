@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(screen *)",
+      "Bash(timeout 30 bash -c 'until grep -q \"Server listening at\" /tmp/wellness-backend.log 2>/dev/null; do sleep 1; done')",
+      "Read(//tmp/**)",
+      "Bash(npm install *)",
+      "Bash(timeout 30 bash -c 'until grep -qE \"Server listening|listening at\" /tmp/wellness-backend.log 2>/dev/null; do sleep 1; done')",
+      "Bash(rm /root/wellness-app/backend/node_modules/.bin/tsx)",
+      "Bash(ln -s ../tsx/dist/cli.mjs /root/wellness-app/backend/node_modules/.bin/tsx)",
+      "Bash(chmod +x /root/wellness-app/backend/node_modules/.bin/tsx)",
+      "Bash(timeout 30 bash -c 'until grep -qE \"listening at|listening on|Server running\" /tmp/wellness-backend.log 2>/dev/null; do sleep 1; done')",
+      "Bash(curl -s http://localhost:4000/health)",
+      "Bash(curl *)",
+      "Bash(psql -U postgres -c \"\\\\du wellness_user\")",
+      "Bash(psql -U postgres -c \"\\\\l wellness\")",
+      "Bash(sudo -u postgres psql -c \"\\\\du wellness_user\")",
+      "Bash(sudo -u postgres psql -c \"SELECT pg_reload_conf\\(\\);\")",
+      "Bash(sudo *)",
+      "Bash(git -C /root/wellness-app/backend status)",
+      "Bash(git -C /root/wellness-app status)",
+      "Bash(git -C /root/wellness-app init)",
+      "Bash(git -C /root/wellness-app add .gitignore README.md app/ backend/)",
+      "Bash(git *)",
+      "Read(//root/wellness-fresh/**)",
+      "Bash(EXPO_NO_DEVTOOLS=1 EXPO_ROUTER_DISABLE_RN_NAVIGATION_CHECK=1 npx expo start --port 8081 --clear)",
+      "Bash(tee /tmp/expo-metro.log)",
+      "Bash(jobs -l)",
+      "Bash(kill %1)",
+      "Bash(awk '{print $1}')"
+    ]
+  }
+}
