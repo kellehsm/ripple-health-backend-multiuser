@@ -409,7 +409,7 @@ export function OverviewScreen() {
   const [introVisible, dismissIntro] = useFeatureIntro(homeIntro.key);
   const ink = theme.ink;
   const card = theme.card;
-  const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder), [ink, card, theme.cardBorder]);
+  const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder, theme.teal.solid), [ink, card, theme.cardBorder, theme.teal.solid]);
 
   // Existing state
   const [todayEntries, setTodayEntries] = useState<JournalEntry[]>([]);
@@ -1526,7 +1526,7 @@ export function OverviewScreen() {
                       const ly = glucoseY(lastGlucoseVal, minVal, maxVal);
                       const isHigh = lastGlucoseVal > 180;
                       const isLow = lastGlucoseVal < 70;
-                      const dotFill = isHigh || isLow ? theme.red.solid : theme.berry.bar;
+                      const dotFill = isHigh ? theme.glucoseHigh : isLow ? theme.glucoseLow : theme.berry.bar;
                       const labelX = lx + 6 + 26 > CHART_W ? lx - 32 : lx + 6;
                       return (
                         <>
@@ -2493,7 +2493,7 @@ export function OverviewScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-function makeStyles(ink: string, card: string, border: string) {
+function makeStyles(ink: string, card: string, border: string, teal: string = "#3FA0A6") {
   return StyleSheet.create({
     content: { padding: 16, gap: 12, paddingBottom: 40 },
 
@@ -2522,7 +2522,7 @@ function makeStyles(ink: string, card: string, border: string) {
       borderWidth: 2,
       padding: 10,
       backgroundColor: card,
-      ...coloredShadow("#3FA0A6", 0.8),
+      ...coloredShadow(teal, 0.8),
     },
     chipIcon: {
       width: 32,
@@ -2541,7 +2541,7 @@ function makeStyles(ink: string, card: string, border: string) {
       borderWidth: 2,
       borderColor: border,
       padding: 14,
-      ...coloredShadow("#3FA0A6"),
+      ...coloredShadow(teal),
     },
     cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
     cardTitle: { fontSize: 19, fontWeight: "900", letterSpacing: -0.5 },

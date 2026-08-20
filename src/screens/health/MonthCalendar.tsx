@@ -100,6 +100,15 @@ export function MonthCalendar({
           const flowBg = isPeriodDay ? (FLOW_COLORS[log!.flow_intensity!] ?? theme.cycle.period) : undefined;
           const hasSymptomLog = (log?.symptoms ?? []).length > 0;
           const hasMoodLog = log?.mood_label != null && log.mood_label !== '';
+          // Map mood label to opacity for the subtle cell tint (higher mood = more visible)
+          const moodLabelLower = (log?.mood_label ?? '').toLowerCase();
+          const moodTintOpacity = hasMoodLog
+            ? moodLabelLower.includes('great') || moodLabelLower.includes('excellent') || moodLabelLower.includes('amazing') ? 0.28
+              : moodLabelLower.includes('good') || moodLabelLower.includes('happy') ? 0.22
+              : moodLabelLower.includes('okay') || moodLabelLower.includes('ok') || moodLabelLower.includes('neutral') ? 0.14
+              : moodLabelLower.includes('low') || moodLabelLower.includes('sad') || moodLabelLower.includes('bad') ? 0.08
+              : 0.16
+            : 0;
 
           const isPredictedStart = dateStr === predictedStartDay;
           const isOtherPredicted = isPredicted && !isPredictedStart;
@@ -138,6 +147,10 @@ export function MonthCalendar({
               )}
               {!isPeriodDay && isOvulation && (
                 <View style={[calStyles.cellInner, { borderColor: theme.cycle.ovulation, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 8 }]} />
+              )}
+              {/* Mood tint — subtle background wash when mood was logged that day */}
+              {hasMoodLog && moodTintOpacity > 0 && (
+                <View style={[calStyles.cellInner, { backgroundColor: theme.cycle.mood, opacity: moodTintOpacity, borderRadius: 8 }]} />
               )}
               {/* Period fill — flow intensity gradient color */}
               {isPeriodDay && (

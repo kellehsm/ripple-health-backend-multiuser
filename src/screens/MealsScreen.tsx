@@ -408,7 +408,7 @@ export function MealsScreen() {
   const [introVisible, dismissIntro] = useFeatureIntro(mealsIntro.key);
   const ink = theme.ink;
   const card = theme.card;
-  const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder), [ink, card, theme.cardBorder]);
+  const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder, theme.coral.solid), [ink, card, theme.cardBorder, theme.coral.solid]);
 
   const [showTooltip, setShowTooltip] = useState(false);
   const [hiddenSections, setHiddenSections] = useState<string[]>([]);
@@ -2012,7 +2012,7 @@ export function MealsScreen() {
   );
 }
 
-function makeStyles(ink: string, card: string, border: string) {
+function makeStyles(ink: string, card: string, border: string, coral: string = "#E8654E") {
   return StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
 
@@ -2039,7 +2039,7 @@ function makeStyles(ink: string, card: string, border: string) {
     borderWidth: 2,
     borderColor: border,
     padding: 14,
-    ...coloredShadow("#E8654E"),
+    ...coloredShadow(coral),
   },
   cardTitle: { fontSize: 19, fontWeight: "900", letterSpacing: -0.5, marginBottom: 8 },
 

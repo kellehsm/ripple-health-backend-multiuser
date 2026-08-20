@@ -46,6 +46,7 @@ export const SymptomLagTriggerRule: InsightRule = {
 
     const rows = ctx.frame.rows;
     let best: { field: string; label: string; lag: number; delta: number; p: number } | null = null;
+    let testsPerformed = 0;
     for (const c of CANDIDATE_FIELDS) {
       for (const lag of [1, 2, 3]) {
         const symptomPrior: number[] = [], normalPrior: number[] = [];
@@ -59,6 +60,7 @@ export const SymptomLagTriggerRule: InsightRule = {
         }
         if (symptomPrior.length < 4 || normalPrior.length < 10) continue;
         const t = welchTTest(symptomPrior, normalPrior);
+        testsPerformed++;
         if (t.pValue > 0.1) continue;
         const delta = t.meanA - t.meanB;
         if (!best || t.pValue < best.p) {
@@ -67,13 +69,18 @@ export const SymptomLagTriggerRule: InsightRule = {
       }
     }
     if (!best) return null;
+    // Bonferroni: multiply winning p by number of tests performed (cap at 1).
+    best = { ...best, p: Math.min(1, best.p * Math.max(1, testsPerformed)) };
+    // Re-check threshold after correction.
+    if (best.p > 0.1) return null;
 
     const dir = best.delta > 0 ? "higher" : "lower";
     return {
       title: `Symptom days often follow ${dir} ${best.label} ${best.lag} day(s) prior`,
       description:
-        `On the ${best.lag}-day lag, days you logged a symptom had ${dir} ${best.label} beforehand ` +
-        `(delta ${best.delta > 0 ? "+" : ""}${best.delta.toFixed(1)}, p=${best.p.toFixed(3)}). Correlation only.`,
+        `Over ${symptomDates.size} symptom days tracked, days you logged a symptom tended to follow ` +
+        `${dir} ${best.label} by ${best.delta > 0 ? "+" : ""}${best.delta.toFixed(1)} on average, ${best.lag} day(s) prior. ` +
+        `This is a descriptive pattern — not a cause-and-effect claim.`,
       confidence: best.p < 0.02 ? "high" : "moderate",
       confidenceScore: Math.min(80, 40 + Math.round((1 - best.p) * 40)),
       timesObserved: symptomDates.size,

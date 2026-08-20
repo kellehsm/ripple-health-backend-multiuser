@@ -19,16 +19,13 @@ export const SeasonalYoYRule: InsightRule = {
   async run(): Promise<InsightResult | null> { return null; },
 
   async runWithContext(ctx): Promise<InsightResult | null> {
-    // Pull mood from daily_summaries for two matching windows: last 30 days,
-    // and same 30-day window one year ago.
-    const nowRows = await query<{ v: number }>(
-      `SELECT (summary_data->'mood'->>'averageScore')::numeric AS v
-       FROM daily_summaries
-       WHERE user_id = $1
-         AND date >= CURRENT_DATE - 30
-         AND summary_data->'mood'->>'averageScore' IS NOT NULL`,
-      [ctx.userId]
-    );
+    // Current-30-day window comes from the in-memory frame (no extra DB query).
+    const recentRows = ctx.frame.rows.slice(-30);
+    const nowVals = recentRows
+      .map(r => r.mood_score)
+      .filter((v): v is number => v != null && Number.isFinite(v));
+
+    // Prior-year window still requires a DB query.
     const priorRows = await query<{ v: number }>(
       `SELECT (summary_data->'mood'->>'averageScore')::numeric AS v
        FROM daily_summaries
@@ -38,10 +35,10 @@ export const SeasonalYoYRule: InsightRule = {
          AND summary_data->'mood'->>'averageScore' IS NOT NULL`,
       [ctx.userId]
     );
-    if (nowRows.length < 10 || priorRows.length < 10) return null;
+    const yr = priorRows.map(r => Number(r.v));
+    if (nowVals.length < 10 || yr.length < 10) return null;
 
-    const now = nowRows.map(r => Number(r.v));
-    const yr  = priorRows.map(r => Number(r.v));
+    const now = nowVals;
     const t = welchTTest(now, yr);
     if (t.pValue > 0.1) return null;
     if (Math.abs(t.meanA - t.meanB) < 0.3) return null;

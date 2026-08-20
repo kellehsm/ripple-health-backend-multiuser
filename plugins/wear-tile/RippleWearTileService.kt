@@ -91,7 +91,14 @@ class RippleWearTileService : TileService() {
         private const val STAMP_GRAY = 0xFF5E6772
         private const val WHITE = 0xFFF2F4F7
 
-        private const val STEPS_GOAL = 10000f  // No steps goal pushed over Data Layer; constant used here
+        private const val STEPS_GOAL_DEFAULT = 10000f  // fallback when phone hasn't pushed a user goal
+
+        // HR zone ring colors (thin inner arc, 14 dp inset from the water ring)
+        private const val HR_GRAY   = 0xFF8A93A0  // rest / no data
+        private const val HR_TEAL   = 0xFF4ECDC4  // fat-burn
+        private const val HR_AMBER  = 0xFFF5A623  // cardio
+        private const val HR_RED    = 0xFFFF5252  // peak
+        private const val HR_DIM    = 0x228A93A0  // track ring background
 
         // Wellness score colors
         private const val SCORE_GREEN  = 0xFF2ECC71  // >= 75
@@ -127,12 +134,15 @@ class RippleWearTileService : TileService() {
                         .setClickable(openApp)
                         .build()
                 )
-                // Outer ring: steps progress vs 10k goal
+                // Outer ring: steps progress vs user goal (fallback 10k)
                 .addContent(ring(TEAL_DIM.toInt(), 360f))
-                .addContent(ring(TEAL.toInt(), stepsSweep(cache.steps)))
-                // Inner ring: water glasses vs goal, inset from the rim
+                .addContent(ring(TEAL.toInt(), stepsSweep(cache.steps, cache.stepsGoal.toFloat())))
+                // Middle ring: water glasses vs goal, inset from the rim
                 .addContent(inset(ring(BLUE_DIM.toInt(), 360f), 7f))
                 .addContent(inset(ring(BLUE.toInt(), waterSweep(cache.water)), 7f))
+                // Inner ring: current HR zone (thin, 14 dp inset)
+                .addContent(inset(ring(HR_DIM.toInt(), 360f), 14f))
+                .addContent(inset(ring(hrZoneColor(cache.heart), hrZoneSweep(cache.heart)), 14f))
                 .addContent(centerContent(context, cache))
                 .build()
         }
@@ -332,10 +342,34 @@ class RippleWearTileService : TileService() {
             return Text.Builder().setText(value).setFontStyle(style.build()).build()
         }
 
-        /** "8,412" → fraction of the 10k goal, in degrees. */
-        private fun stepsSweep(steps: String): Float {
+        /** "8,412" → fraction of the user's step goal, in degrees. */
+        private fun stepsSweep(steps: String, goal: Float): Float {
             val n = steps.filter { it.isDigit() }.toIntOrNull() ?: return 0f
-            return min(1f, n / STEPS_GOAL) * 360f
+            val g = if (goal > 0f) goal else STEPS_GOAL_DEFAULT
+            return min(1f, n / g) * 360f
+        }
+
+        /** Current bpm → HR zone color for the arc. */
+        private fun hrZoneColor(heart: String): Int {
+            val bpm = heart.trim().split(" ")[0].toIntOrNull() ?: return HR_GRAY.toInt()
+            return when {
+                bpm >= 160 -> HR_RED.toInt()   // peak
+                bpm >= 130 -> HR_AMBER.toInt() // cardio
+                bpm >= 100 -> HR_TEAL.toInt()  // fat-burn
+                else       -> HR_GRAY.toInt()  // rest / recovery
+            }
+        }
+
+        /** HR zone → arc sweep (full ring for peak, partial for lower zones). */
+        private fun hrZoneSweep(heart: String): Float {
+            val bpm = heart.trim().split(" ")[0].toIntOrNull() ?: return 0f
+            return when {
+                bpm >= 160 -> 360f  // peak: full ring
+                bpm >= 130 -> 270f  // cardio
+                bpm >= 100 -> 180f  // fat-burn
+                bpm > 0    ->  90f  // rest
+                else       ->   0f
+            }
         }
 
         /** "4/8" → fraction of the daily goal, in degrees. */

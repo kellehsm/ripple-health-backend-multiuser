@@ -6,6 +6,8 @@ import { ScreenBackground } from "../components/ScreenBackground";
 import {
   Animated, Easing, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
 } from "react-native";
+import { ShadowCard } from "../components/ShadowCard";
+import { todayStr } from "../utils/dateUtils";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
@@ -75,6 +77,48 @@ function AnimatedCard({
   );
 }
 
+type WeeklyDayCorr = { date: string; avg_mood: number | null; sleep_hours: number; total_spent: number };
+
+/** Compute sleep×mood correlation sentence from 7–14 days of data. Returns null when not enough data. */
+function computeSleepMoodInsight(data: WeeklyDayCorr[]): string | null {
+  const valid = data.filter(d => d.avg_mood !== null && d.sleep_hours > 0);
+  if (valid.length < 5) return null;
+  const goodSleep = valid.filter(d => d.sleep_hours >= 7);
+  const poorSleep = valid.filter(d => d.sleep_hours < 7);
+  if (goodSleep.length < 2 || poorSleep.length < 2) return null;
+  const goodAvg = goodSleep.reduce((s, d) => s + d.avg_mood!, 0) / goodSleep.length;
+  const poorAvg = poorSleep.reduce((s, d) => s + d.avg_mood!, 0) / poorSleep.length;
+  const diff = goodAvg - poorAvg;
+  if (Math.abs(diff) < 0.3) return null;
+  const days = data.length;
+  if (diff > 0) {
+    return `On nights with 7h+ sleep, next-day mood averaged ${goodAvg.toFixed(1)} vs ${poorAvg.toFixed(1)} on shorter-sleep nights (${goodSleep.length} of ${days} days). Descriptive only.`;
+  } else {
+    return `On nights with under 7h sleep, next-day mood averaged ${poorAvg.toFixed(1)} vs ${goodAvg.toFixed(1)} on longer-sleep nights (${poorSleep.length} of ${days} days). Descriptive only.`;
+  }
+}
+
+/** Compute finance×meals cross-insight. Returns null when not enough data. */
+function computeFinanceMoodInsight(data: WeeklyDayCorr[]): string | null {
+  const valid = data.filter(d => d.avg_mood !== null && d.total_spent > 0);
+  if (valid.length < 5) return null;
+  const median = [...valid].sort((a, b) => a.total_spent - b.total_spent)[Math.floor(valid.length / 2)].total_spent;
+  const highSpend = valid.filter(d => d.total_spent > median);
+  const lowSpend  = valid.filter(d => d.total_spent <= median);
+  if (highSpend.length < 2 || lowSpend.length < 2) return null;
+  const highMood = highSpend.reduce((s, d) => s + d.avg_mood!, 0) / highSpend.length;
+  const lowMood  = lowSpend.reduce((s, d) => s + d.avg_mood!, 0) / lowSpend.length;
+  const diff = Math.abs(highMood - lowMood);
+  if (diff < 0.3) return null;
+  const highLabel = `$${Math.round(median + 1)}+`;
+  const days = data.length;
+  if (highMood > lowMood) {
+    return `On higher-spend days (${highLabel}), mood averaged ${highMood.toFixed(1)} vs ${lowMood.toFixed(1)} on lower-spend days (${highSpend.length} of ${days} days). Observation only.`;
+  } else {
+    return `On lower-spend days, mood averaged ${lowMood.toFixed(1)} vs ${highMood.toFixed(1)} on higher-spend days (${highSpend.length} of ${days} days). Observation only.`;
+  }
+}
+
 const TYPE_GROUPS: { label: string; types: string[]; emoji: string }[] = [
   { label: "All",          types: [],                                              emoji: "✨" },
   { label: "Wellness",     types: ["glucose", "sleep", "activity", "water", "steps"], emoji: "❤️" },
@@ -109,6 +153,9 @@ export function InsightsScreen() {
   const [animationKey, setAnimationKey] = useState(0);
   const isFirstLoad = useRef(true);
   const loadCancelledRef = useRef(false);
+
+  type WeeklyDay = { date: string; avg_mood: number | null; sleep_hours: number; total_spent: number };
+  const [weeklyData, setWeeklyData] = useState<WeeklyDay[]>([]);
   // Per-card animation values for stagger entrance
   const cardAnims = useRef<Animated.Value[]>([]);
   const staggerRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -129,7 +176,11 @@ export function InsightsScreen() {
     else setLoading(true);
     setError(null);
     try {
-      const [active, history] = await Promise.all([api.getInsights(), api.getInsightHistory()]);
+      const [active, history, dash] = await Promise.all([
+        api.getInsights(),
+        api.getInsightHistory(),
+        api.dashboard(todayStr()).catch(() => null),
+      ]);
       if (loadCancelledRef.current) return;
       const activeList: Insight[] = Array.isArray(active) ? active : [];
       const activeIds = new Set(activeList.map((i: Insight) => i.id));
@@ -141,6 +192,9 @@ export function InsightsScreen() {
       setDismissed(dismissedList);
       setAnimationKey(k => k + 1);
       isFirstLoad.current = false;
+      if (dash?.weekly_mood && Array.isArray(dash.weekly_mood)) {
+        setWeeklyData(dash.weekly_mood);
+      }
     } catch (e: any) {
       if (!loadCancelledRef.current) setError("Couldn't load insights — pull to retry.");
     } finally {
@@ -420,6 +474,36 @@ export function InsightsScreen() {
           )}
         </View>
       )}
+
+      {/* ── Local correlation cards (computed client-side) ── */}
+      {!loading && weeklyData.length >= 5 && (activeGroup === 0 || activeGroup === 1 || activeGroup === 2) && (() => {
+        const sleepMood = computeSleepMoodInsight(weeklyData);
+        const financeMood = computeFinanceMoodInsight(weeklyData);
+        if (!sleepMood && !financeMood) return null;
+        return (
+          <View style={{ gap: 10, marginTop: 8 }}>
+            <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>CORRELATIONS</Text>
+            {sleepMood ? (
+              <ShadowCard size="card" accent={theme.violet?.solid ?? theme.purple.solid}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 20 }}>🌙</Text>
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: theme.textStrong }}>Sleep & mood</Text>
+                </View>
+                <Text style={{ fontSize: 13, color: theme.textSoft, lineHeight: 19 }}>{sleepMood}</Text>
+              </ShadowCard>
+            ) : null}
+            {financeMood ? (
+              <ShadowCard size="card" accent={theme.purple.solid}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 20 }}>💰</Text>
+                  <Text style={{ fontSize: 13, fontWeight: "800", color: theme.textStrong }}>Spending & mood</Text>
+                </View>
+                <Text style={{ fontSize: 13, color: theme.textSoft, lineHeight: 19 }}>{financeMood}</Text>
+              </ShadowCard>
+            ) : null}
+          </View>
+        );
+      })()}
 
       <Pressable
         onPress={() => navigation.navigate("InsightsHistory")}

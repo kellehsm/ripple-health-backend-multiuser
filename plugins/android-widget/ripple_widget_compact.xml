@@ -84,6 +84,64 @@
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/block_sleep_compact"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:background="@drawable/ripple_chip_sleep"
+        android:padding="8dp"
+        android:layout_marginRight="5dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SLEEP"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:textColor="#7A6FBE" />
+
+        <TextView
+            android:id="@+id/widget_compact_sleep"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="--"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#4A3F8A" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/block_mood_compact"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:background="@drawable/ripple_chip_violet"
+        android:padding="8dp"
+        android:layout_marginRight="5dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="MOOD"
+            android:textSize="8sp"
+            android:textStyle="bold"
+            android:textColor="#7B5EA7" />
+
+        <TextView
+            android:id="@+id/widget_compact_mood"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="--"
+            android:textSize="18sp" />
+
+    </LinearLayout>
+
+    <LinearLayout
         android:id="@+id/block_water"
         android:layout_width="0dp"
         android:layout_height="match_parent"

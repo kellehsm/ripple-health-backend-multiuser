@@ -10,7 +10,6 @@
 
 import type { InsightRule, InsightResult } from "./types.js";
 import { getBaselines } from "../services/baselines.js";
-import { formatCI } from "./stats.js";
 
 const METRIC_LABELS: Record<string, { label: string; unit: string; primary: string }> = {
   glucose_avg: { label: "average glucose",       unit: " mg/dL", primary: "glucose_mg_dl" },

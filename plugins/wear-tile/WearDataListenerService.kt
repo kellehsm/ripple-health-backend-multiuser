@@ -38,7 +38,9 @@ class WearDataListenerService : WearableListenerService() {
                 mindStreak   = if (map.containsKey("mindStreak")) map.getInt("mindStreak") else null,
                 lastLogStatus   = map.getString("lastLogStatus"),
                 lastLogStatusAt = if (map.containsKey("lastLogStatusAt")) map.getLong("lastLogStatusAt") else null,
-                wellnessScore   = map.getString("wellnessScore")
+                wellnessScore   = map.getString("wellnessScore"),
+                stepsGoal       = if (map.containsKey("stepsGoal")) map.getInt("stepsGoal") else null,
+                defaultBreathPace = map.getString("defaultBreathPace")
             )
             updated = true
         }

@@ -25,7 +25,7 @@ import org.json.JSONObject
  *
  * Paths:
  *   /ripple/log-water   payload: (ignored)                 → POST /metrics/{water}/logs value=1
- *   /ripple/log-mood    payload: single byte (mood score)  → POST /mood-log/moment
+ *   /ripple/log-mood    payload: "score,label" UTF-8 (legacy: single score byte)  → POST /mood-log/moment
  */
 class WearMessageListener : WearableListenerService() {
 
@@ -52,14 +52,34 @@ class WearMessageListener : WearableListenerService() {
                 val ok = when (path) {
                     "/ripple/log-water" -> logWater(token)
                     "/ripple/log-mood"  -> {
-                        val score = if (data.isNotEmpty()) data[0].toInt() else 3
-                        logMood(token, score)
+                        // New payload: "score,label" UTF-8. Legacy payload was a
+                        // single raw score byte — keep parsing it for old watches.
+                        val text = String(data, Charsets.UTF_8)
+                        val comma = text.indexOf(',')
+                        if (comma > 0) {
+                            val score = text.substring(0, comma).toIntOrNull() ?: 3
+                            logMood(token, score, text.substring(comma + 1))
+                        } else {
+                            val score = if (data.isNotEmpty()) data[0].toInt() else 3
+                            logMood(token, score, null)
+                        }
+                    }
+                    "/ripple/breath-session" -> {
+                        // payload: "paceId,cycles,durationSeconds"
+                        val parts = String(data, Charsets.UTF_8).split(",")
+                        if (parts.size == 3) {
+                            val durationSecs = parts[2].toIntOrNull() ?: 0
+                            logBreathSession(token, parts[0], durationSecs)
+                        } else false
                     }
                     else -> false
                 }
                 // Broadcast the outcome back to the watch so the Log tile can
-                // flash ✓ or ✗ for a moment before returning to normal state.
-                WearDataBridge.pushLogResult(this, ok)
+                // flash ✓ or ✗ — but breath-session is a silent background log,
+                // no tile feedback needed.
+                if (path != "/ripple/breath-session") {
+                    WearDataBridge.pushLogResult(this, ok)
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "handling $path: ${e.message}")
                 WearDataBridge.pushLogResult(this, false)
@@ -82,11 +102,27 @@ class WearMessageListener : WearableListenerService() {
         return postJson("$API_BASE/metrics/$metricId/logs", token, body) != null
     }
 
-    private fun logMood(token: String, score: Int): Boolean {
+    /**
+     * Logs a watch-completed breathing session as a mindfulness event on the
+     * phone. Duration is clamped to at least 30 s so the backend counts it.
+     */
+    private fun logBreathSession(token: String, paceId: String, durationSecs: Int): Boolean {
+        val effectiveSecs = durationSecs.coerceAtLeast(30)
+        // Backend expects POST /mindfulness/log with { type, duration_seconds };
+        // pace id doubles as the session type (box/relax/coherent/energize/sigh).
+        val body = JSONObject()
+            .put("type", paceId)
+            .put("duration_seconds", effectiveSecs)
+            .toString()
+        return postJson("$API_BASE/mindfulness/log", token, body) != null
+    }
+
+    private fun logMood(token: String, score: Int, label: String?): Boolean {
         val body = JSONObject()
             .put("mood_score", score.coerceIn(1, 5))
             .put("entry_type", "moment")
-            .put("mood_label", when (score) { 2 -> "Low"; 3 -> "OK"; 4 -> "Good"; else -> "Neutral" })
+            .put("mood_label", label?.takeIf { it.isNotBlank() }
+                ?: when (score) { 2 -> "Low"; 3 -> "OK"; 4 -> "Good"; else -> "Neutral" })
             .toString()
         return postJson("$API_BASE/mood-log", token, body) != null
     }

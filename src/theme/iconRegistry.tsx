@@ -88,6 +88,12 @@ export const DEFAULT_ICONS: Record<string, IconAsset> = {
   "screen.fasting":     emoji("⏱️"),
   "screen.friends":     emoji("👥"),
   "screen.insights":    emoji("💡"),
+  "screen.sleep":       emoji("🌙"),
+  "screen.water":       emoji("💧"),
+  "screen.heart":       emoji("❤️"),
+  "screen.glucose":     ionicon("pulse"),
+  "screen.mood":        emoji("💜"),
+  "screen.health":      emoji("🩺"),
 
   // ── Insights filter categories ────────────────────────────────────────────────
   "insight.all":         emoji("✨"),

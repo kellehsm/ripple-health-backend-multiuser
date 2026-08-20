@@ -16,12 +16,16 @@ class RippleCompactWidgetProvider : RippleWidgetProvider() {
         views.setTextViewText(R.id.widget_glucose, d.glucose)
         views.setTextViewText(R.id.widget_steps, d.steps)
         views.setTextViewText(R.id.widget_water, if (d.water != "--") d.water else "0")
+        views.setTextViewText(R.id.widget_compact_sleep, d.sleep)
+        views.setTextViewText(R.id.widget_compact_mood, d.mood)
         if (d.glucose != "--") {
             views.setTextColor(R.id.widget_glucose, glucoseColor(context, d.glucose))
         }
 
         try { views.setOnClickPendingIntent(R.id.block_glucose, deeplink(context, 24, "glucose")) } catch (e: Exception) { Log.w("RippleCompact", "glucose link failed", e) }
         try { views.setOnClickPendingIntent(R.id.block_steps, deeplink(context, 25, "steps")) } catch (e: Exception) { Log.w("RippleCompact", "steps link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_sleep_compact, deeplink(context, 26, "sleep")) } catch (e: Exception) { Log.w("RippleCompact", "sleep link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_mood_compact, deeplink(context, 27, "wellness")) } catch (e: Exception) { Log.w("RippleCompact", "mood link failed", e) }
         try { views.setOnClickPendingIntent(R.id.block_water, deeplink(context, 23, "wellness")) } catch (e: Exception) { Log.w("RippleCompact", "water link failed", e) }
 
         val waterIntent = Intent(context, RippleCompactWidgetProvider::class.java).apply {

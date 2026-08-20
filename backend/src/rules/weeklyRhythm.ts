@@ -25,7 +25,7 @@ async function run(ctx: any, field: "mood_score" | "spend_total", niceLabel: str
   const stats: { p: number; diff: number; mean: number } = { p: 1, diff: 0, mean: 0 };
   for (let d = 0; d < 7; d++) {
     const group = byDow[d];
-    const others = overall.filter((_, i) => Math.floor(i / (overall.length / 7)) !== d);
+    const others = byDow.filter((_, k) => k !== d).flat();
     if (others.length < 10 || group.length < 4) continue;
     const t = welchTTest(group, others);
     const diff = Math.abs(t.meanA - t.meanB);

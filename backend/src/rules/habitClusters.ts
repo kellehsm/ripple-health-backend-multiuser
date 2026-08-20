@@ -73,7 +73,7 @@ export const HabitClustersRule: InsightRule = {
     for (const size of [2, 3]) {
       for (const combo of combos(FLAGS, size)) {
         const matches = rows.filter(r => combo.every(f => f.get(r)));
-        if (matches.length < 6) continue;
+        if (matches.length < 10) continue;
         const topMatches = matches.filter(r => r.mood_score! >= cut);
         const rate = topMatches.length / matches.length;
         const lift = rate / Math.max(0.01, base);
@@ -92,9 +92,10 @@ export const HabitClustersRule: InsightRule = {
     return {
       title: `Your best-mood days share: ${best.combo.join(" + ")}`,
       description:
-        `When you do all of ${best.combo.join(", ")} on the same day, ${(best.lift * best.baseRate * 100).toFixed(0)}% of ` +
-        `those days land in your top-mood tier vs a ${(best.baseRate * 100).toFixed(0)}% base rate — ` +
-        `a lift of ${best.lift.toFixed(1)}×.`,
+        `On the ${best.support} days you combined ${best.combo.join(", ")}, ` +
+        `${(best.lift * best.baseRate * 100).toFixed(0)}% landed in your top-mood tier — ` +
+        `compared to ${(best.baseRate * 100).toFixed(0)}% on typical days. ` +
+        `That's roughly ${best.lift.toFixed(1)} times more likely to be a great mood day (based on ${best.support} days).`,
       confidence: best.lift > 2.5 ? "very_high" : best.lift > 2 ? "high" : "moderate",
       confidenceScore: Math.min(85, 40 + Math.round(best.lift * 20)),
       timesObserved: best.support,

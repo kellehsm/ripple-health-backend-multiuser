@@ -11,7 +11,7 @@
 export interface TestResult {
   pValue: number;          // two-sided
   effectSize: number;      // Cohen's d for t-test; rank-biserial for MWU
-  ci95: [number, number];  // 95% CI on the mean difference (a - b)
+  ci95?: [number, number]; // 95% CI on the mean difference (a - b); undefined for rank tests
   meanA: number;
   meanB: number;
   nA: number;
@@ -132,7 +132,7 @@ export function mannWhitneyU(a: number[], b: number[]): TestResult {
   return {
     pValue: p,
     effectSize: r,
-    ci95: [meanA - meanB, meanA - meanB], // rank test doesn't yield mean CI cleanly
+    ci95: undefined, // rank test doesn't yield a mean-difference CI
     meanA, meanB, nA, nB,
     effectiveN: Math.min(nA, nB),
   };

@@ -291,6 +291,56 @@ async function markStale(userId: string, activeRuleIds: string[]): Promise<void>
   );
 }
 
+// Domain → InsightRule.type values that belong to it.
+const DOMAIN_TYPES: Record<string, string[]> = {
+  sleep:    ["sleep"],
+  mood:     ["mood", "journaling"],
+  glucose:  ["glucose"],
+  spending: ["spending"],
+};
+
+async function emitCategorySummaries(
+  userId: string,
+  surviving: Array<{ rule: InsightRule; result: InsightResult }>,
+): Promise<void> {
+  for (const [domain, types] of Object.entries(DOMAIN_TYPES)) {
+    const group = surviving.filter(c => types.includes(c.rule.type));
+    if (group.length < 2) continue;
+
+    // Build a 1-2 sentence synthesis from the top-2 insights in this domain.
+    const top = group.slice(0, 2);
+    const sentences = top.map(c => c.result.description.split(".")[0]).join(". ");
+    const title = `Your ${domain} patterns at a glance`;
+    const description = `${sentences}. (Synthesized from ${group.length} active ${domain} insights.)`;
+
+    // Merge supporting_data from the group.
+    const mergedData: Record<string, unknown> = {};
+    for (const c of group) {
+      for (const [k, v] of Object.entries(c.result.supportingData ?? {})) {
+        mergedData[`${c.rule.id}__${k}`] = v;
+      }
+    }
+    mergedData.domain = domain;
+    mergedData.source_rule_ids = group.map(c => c.rule.id);
+
+    await query(
+      `INSERT INTO user_insights
+         (user_id, rule_id, type, title, description, confidence, confidence_score,
+          supporting_data, last_confirmed, times_observed, status, dismissed)
+       VALUES ($1, $2, 'category_summary', $3, $4, 'moderate', 50, $5::jsonb, NOW(), $6, 'active', FALSE)
+       ON CONFLICT (user_id, rule_id) DO UPDATE SET
+         title            = EXCLUDED.title,
+         description      = EXCLUDED.description,
+         supporting_data  = EXCLUDED.supporting_data,
+         last_confirmed   = NOW(),
+         times_observed   = EXCLUDED.times_observed,
+         status           = 'active',
+         updated_at       = NOW()`,
+      [userId, `category_summary_${domain}`, title, description, JSON.stringify(mergedData), group.length]
+    );
+  }
+}
+
 // Run all rules for one user and upsert results.
 // Options:
 //   force = true bypasses tier scheduling (e.g. manual /regenerate)
@@ -310,10 +360,28 @@ export async function runInsightsForUser(
 
   const now = new Date();
   const archived = await archivedRuleIds().catch(() => new Set<string>());
+
+  // Incremental recomputation: check the per-user watermark.
+  // When no new data has arrived in the last 3 days, skip semiweekly/weekly rules.
+  let skipHeavyTiers = false;
+  if (!opts.force) {
+    try {
+      const [watermark] = await query<{ latest_frame_date: string }>(
+        `SELECT latest_frame_date::text FROM insight_engine_state WHERE user_id = $1`,
+        [userId]
+      );
+      if (watermark) {
+        const daysSinceNew = (now.getTime() - new Date(watermark.latest_frame_date + "T00:00:00Z").getTime()) / 86400000;
+        if (daysSinceNew >= 3) skipHeavyTiers = true;
+      }
+    } catch { /* table may not exist yet — proceed normally */ }
+  }
+
   const eligibleRules = ALL_RULES.filter(rule => {
     if (archived.has(rule.id)) return false;
     if (rule.minDays && accountAgeDays < rule.minDays) return false;
     const tier: RuleTier = rule.tier ?? "semiweekly";
+    if (skipHeavyTiers && (tier === "semiweekly" || tier === "weekly")) return false;
     return tierRunsToday(tier, now, !!opts.force);
   });
   skipped = ALL_RULES.length - eligibleRules.length;
@@ -398,7 +466,7 @@ export async function runInsightsForUser(
         // table is in native units, not correlation coefficients.)
         const metric = rule.primaryMetric ?? result.primaryMetric;
         if (metric && MDE[metric] != null && result.supportingData) {
-          const diffKey = Object.keys(result.supportingData).find(k => /_difference$|^difference/.test(k));
+          const diffKey = Object.keys(result.supportingData).find(k => /difference/i.test(k));
           if (diffKey) {
             const rawDiff = Number((result.supportingData as any)[diffKey]);
             if (Number.isFinite(rawDiff) && !passesMDE(metric, Math.abs(rawDiff))) return;
@@ -452,12 +520,34 @@ export async function runInsightsForUser(
     }))
   ).catch(() => {});
 
+  // Category meta-summaries: when 2+ active insights exist per domain, emit
+  // a lightweight synthesis card (type = "category_summary").
+  try {
+    await emitCategorySummaries(userId, surviving);
+  } catch (err: any) {
+    errors.push(`category_summary: ${err?.message ?? "unknown"}`);
+  }
+
   // Post-run: dedup near-duplicates then rank + persist rank_score.
   try {
     await dedupInsights(userId);
     await rankAndPersist(userId);
   } catch (err: any) {
     errors.push(`rank/dedup: ${err?.message ?? "unknown"}`);
+  }
+
+  // Persist watermark: latest frame date for incremental recomputation.
+  if (frame.rows.length > 0) {
+    const latestDate = frame.rows[frame.rows.length - 1].date;
+    query(
+      `INSERT INTO insight_engine_state (user_id, latest_frame_date, last_run_at, updated_at)
+       VALUES ($1, $2::date, NOW(), NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         latest_frame_date = GREATEST(insight_engine_state.latest_frame_date, EXCLUDED.latest_frame_date),
+         last_run_at       = NOW(),
+         updated_at        = NOW()`,
+      [userId, latestDate]
+    ).catch(() => {}); // non-blocking
   }
 
   return {

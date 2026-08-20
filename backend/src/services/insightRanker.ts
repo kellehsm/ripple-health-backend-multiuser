@@ -42,16 +42,26 @@ export async function rankAndPersist(userId: string): Promise<{ ranked: number }
   );
   const wMap = new Map(weights.map(w => [w.rule_id, Number(w.weight)]));
 
+  // Load global priors — used to seed affinity for rules with no per-user weight yet.
+  const globalPriors = await query<{ rule_id: string; helpful_rate: number }>(
+    `SELECT rule_id, helpful_rate FROM insight_global_priors`
+  ).catch(() => [] as { rule_id: string; helpful_rate: number }[]);
+  // helpful_rate is 0..1; map it into the affinity range [0.1, 1.5].
+  // helpful_rate=0.5 (neutral) → 1.0; helpful_rate=1.0 → 1.5; helpful_rate=0.0 → 0.1.
+  const gMap = new Map(globalPriors.map(g => [
+    g.rule_id,
+    Math.max(0.1, Math.min(1.5, 0.1 + Number(g.helpful_rate) * 1.4)),
+  ]));
+
   const now = Date.now();
   for (const row of rows) {
     const conf = Number(row.confidence_score) / 100;                    // 0..1
     const ageDays = (now - new Date(row.first_detected).getTime()) / 86400000;
     const novelty = ageDays < 3 ? 1 : ageDays < 14 ? Math.max(0, 1 - (ageDays - 3) / 20) : 0.1;
     const actionable = ACTIONABLE_RULE_IDS.has(row.rule_id) ? 1 : 0;
-    // Default 1.5 (the ceiling) for unrated rules so they aren't silently
-    // penalized ~13% vs a rule the user has "helpful"-rated. Only feedback
-    // should move a rule off the neutral top.
-    const affinity = Math.max(0.1, Math.min(1.5, wMap.get(row.rule_id) ?? 1.5));
+    // Per-user weight takes precedence; fall back to global prior; then neutral ceiling.
+    const affinityDefault = gMap.get(row.rule_id) ?? 1.5;
+    const affinity = Math.max(0.1, Math.min(1.5, wMap.get(row.rule_id) ?? affinityDefault));
     const untouchedDays = (now - new Date(row.last_confirmed).getTime()) / 86400000;
     const decay = untouchedDays > 21 ? 0.3 : 1;
 

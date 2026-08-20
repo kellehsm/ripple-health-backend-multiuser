@@ -11,6 +11,7 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -21,6 +22,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.google.android.gms.wearable.Wearable
 
 /**
  * Haptic-guided breathing for the wrist. Five paces, each with its own
@@ -123,6 +125,9 @@ class RippleWearBreathingActivity : Activity() {
         private const val WHITE = 0xFFF2F4F7.toInt()
         private const val SCALE_MIN = 0.55f
         private const val SCALE_MAX = 1.0f
+        private const val TAG = "RippleWearBreathe"
+        /** MessageClient path the phone's WearMessageListener handles. */
+        private const val PATH_BREATH_SESSION = "/ripple/breath-session"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -138,7 +143,20 @@ class RippleWearBreathingActivity : Activity() {
 
         root = FrameLayout(this).apply { setBackgroundColor(BG) }
         setContentView(root)
-        showPacePicker()
+
+        // Feature 4: if the phone pushed a default pace, skip the picker
+        val cache = WearCache.read(this)
+        val defaultId = cache.defaultBreathPace
+        val defaultPace = if (defaultId.isNotEmpty()) {
+            Pace.values().firstOrNull { it.id == defaultId }
+        } else null
+
+        if (defaultPace != null) {
+            pace = defaultPace
+            startSession()
+        } else {
+            showPacePicker()
+        }
     }
 
     /** Scrollable pace menu. Five options each with title + subtitle. */
@@ -490,7 +508,36 @@ class RippleWearBreathingActivity : Activity() {
         handler.removeCallbacksAndMessages(null)
         animator?.cancel()
         idleAnimator?.cancel()
+
+        // Feature 3: send session back to phone if at least 1 full cycle completed
+        val p = pace
+        if (p != null && cyclesDone >= 1) {
+            val durationSecs = p.phaseSeconds.sum() * cyclesDone
+            sendSessionToPhone(p.id, cyclesDone, durationSecs)
+        }
+
         finish()
+    }
+
+    /**
+     * Sends a completed breathing session to the phone via MessageClient so
+     * the phone can log mindfulness minutes (handled by WearMessageListener
+     * on the /ripple/breath-session path).
+     * Payload format: "paceId,cycles,durationSeconds" as UTF-8 bytes.
+     */
+    private fun sendSessionToPhone(paceId: String, cycles: Int, durationSecs: Int) {
+        val payload = "$paceId,$cycles,$durationSecs".toByteArray(Charsets.UTF_8)
+        Wearable.getNodeClient(this).connectedNodes
+            .addOnSuccessListener { nodes ->
+                for (node in nodes) {
+                    Wearable.getMessageClient(this)
+                        .sendMessage(node.id, PATH_BREATH_SESSION, payload)
+                        .addOnFailureListener { e ->
+                            Log.w(TAG, "sendSessionToPhone to ${node.id} failed", e)
+                        }
+                }
+            }
+            .addOnFailureListener { e -> Log.w(TAG, "getConnectedNodes failed", e) }
     }
 
     override fun onPause() {

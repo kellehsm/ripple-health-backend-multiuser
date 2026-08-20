@@ -118,7 +118,7 @@ export function BanksSettingsScreen() {
       </Pressable>
 
       {linkState === "error" && (
-        <Text style={[s.errorText, { color: "#E8654E" }]}>Couldn't connect — try again.</Text>
+        <Text style={[s.errorText, { color: theme.coral.solid }]}>Couldn't connect — try again.</Text>
       )}
 
       {/* Connected institutions */}
@@ -158,7 +158,7 @@ export function BanksSettingsScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Disconnect bank"
                 >
-                  <Text style={[s.disconnectText, { color: "#E8654E" }]}>Remove</Text>
+                  <Text style={[s.disconnectText, { color: theme.coral.solid }]}>Remove</Text>
                 </Pressable>
               </View>
             ))}
