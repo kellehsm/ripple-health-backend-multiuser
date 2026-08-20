@@ -4,11 +4,11 @@ import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   Pressable,
   Modal,
   RefreshControl,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
@@ -175,8 +175,12 @@ export function LeaderboardScreen() {
 
       {/* Leaderboard */}
       {loading ? (
-        <View style={{ alignItems: "center", paddingVertical: 40 }}>
-          <ActivityIndicator color={theme.teal.bar} size="large" />
+        <View style={{ gap: 10 }}>
+          <ShadowCard skeleton skeletonHeight={68} />
+          <ShadowCard skeleton skeletonHeight={68} />
+          <ShadowCard skeleton skeletonHeight={68} />
+          <ShadowCard skeleton skeletonHeight={68} />
+          <ShadowCard skeleton skeletonHeight={68} />
         </View>
       ) : loadError ? (
         <ShadowCard padding={20}>
@@ -222,7 +226,7 @@ export function LeaderboardScreen() {
               <View key={entry.user_id + String(i)}>
                 {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
                 <Pressable
-                  onPress={() => { if (!entry.is_me) setPickerTarget(entry); }}
+                  onPress={() => { if (!entry.is_me) { Haptics.selectionAsync(); setPickerTarget(entry); } }}
                   style={[
                     styles.entryRow,
                     entry.is_me && { backgroundColor: theme.teal.tint },
@@ -294,7 +298,7 @@ export function LeaderboardScreen() {
             </Text>
             <View style={{ flexDirection: "row", gap: 12 }}>
               {REACTION_EMOJIS.map((emoji) => (
-                <Pressable key={emoji} onPress={() => pickerTarget && handleAddReaction(pickerTarget, emoji)}>
+                <Pressable key={emoji} onPress={() => { if (pickerTarget) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleAddReaction(pickerTarget, emoji); } }}>
                   <Text style={{ fontSize: 30 }}>{emoji}</Text>
                 </Pressable>
               ))}

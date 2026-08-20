@@ -306,6 +306,9 @@ export function WatchTilesScreen() {
   const [mood, setMood] = useState<string | null>(null);
   const [breatheOn, setBreatheOn] = useState<null | "1a" | "1c">(null);
   const [statsKey, setStatsKey] = useState(0);
+  const [stepGoal, setStepGoal] = useState<number>(10000);
+  // "" = ask each time; pace id = skip picker on watch
+  const [defaultBreathPace, setDefaultBreathPace] = useState<string>("");
 
   useEffect(() => {
     const t = setInterval(() => setTime(fmtClock(new Date())), 30000);
@@ -339,6 +342,10 @@ export function WatchTilesScreen() {
       api.getSettings().then((s: any) => {
         const goal = s?.smart_notifications?.water_reminder?.goal;
         if (!cancelled && typeof goal === "number" && goal > 0) setWaterGoal(goal);
+        const sg = s?.step_goal;
+        if (!cancelled && typeof sg === "number" && sg > 0) setStepGoal(sg);
+        const dbp = s?.watch_default_breath_pace;
+        if (!cancelled && typeof dbp === "string") setDefaultBreathPace(dbp);
       }).catch(() => {});
       api.mindfulnessStats().then((s: any) => { if (!cancelled && s) setMind(s); }).catch(() => {});
       api.journalToday().then((rows: any) => {
@@ -385,7 +392,7 @@ export function WatchTilesScreen() {
   const glu = glucose?.hasData && glucose.mg_dl != null ? glucoseState(glucose) : null;
   const gluText = glu && glucose?.isStale ? W.dim : glu?.color ?? W.dim;
   const waterFrac = waterGoal > 0 ? Math.min(1, water / waterGoal) : 0;
-  const stepsFrac = steps != null ? Math.min(1, steps / STEP_GOAL) : 0;
+  const stepsFrac = steps != null ? Math.min(1, steps / stepGoal) : 0;
   const sleepLabel = sleepSecs != null
     ? Math.floor(sleepSecs / 3600) + ":" + String(Math.round((sleepSecs % 3600) / 60)).padStart(2, "0")
     : "--";
@@ -558,6 +565,69 @@ export function WatchTilesScreen() {
             <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800" }}>{p}</Text>
           </View>
         ))}
+      </View>
+
+      {/* ── Watch tile settings ── */}
+      <View style={{ marginTop: 28, marginHorizontal: 20, gap: 14 }}>
+        <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", letterSpacing: 0.4 }}>
+          Watch tile settings
+        </Text>
+
+        {/* Default breathing pace */}
+        <View style={{ backgroundColor: theme.card, borderRadius: 14, borderWidth: 1.5, borderColor: theme.cardBorder, padding: 16, gap: 10 }}>
+          <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700" }}>Default breathing pace</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: "500" }}>
+            When set, tapping BREATHE on your watch skips the picker and goes straight to this pace's ready screen.
+          </Text>
+          <View style={{ gap: 8 }}>
+            {(["", "box", "relax", "coherent", "energize", "sigh"] as const).map((id) => {
+              const label = id === ""
+                ? "Ask each time"
+                : { box: "BOX · 4-4-4-4", relax: "RELAX · 4-7-8", coherent: "COHERENT · 5-5", energize: "ENERGIZE · 2-2", sigh: "SIGH · 3-1-8" }[id]!;
+              const selected = defaultBreathPace === id;
+              return (
+                <Pressable
+                  key={id}
+                  onPress={async () => {
+                    const prev = defaultBreathPace;
+                    setDefaultBreathPace(id);
+                    Haptics.selectionAsync().catch(() => {});
+                    try {
+                      await api.patchSettings({ watch_default_breath_pace: id });
+                      toast("Watch setting saved", "success");
+                    } catch {
+                      setDefaultBreathPace(prev);
+                      toast("Couldn't save setting. Try again.", "error");
+                    }
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 10,
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    borderWidth: 1.5,
+                    borderColor: selected ? W.teal : theme.cardBorder,
+                    backgroundColor: selected ? "rgba(78,205,196,0.08)" : "transparent",
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={`Set default breathing pace to ${label}`}
+                >
+                  <View style={{
+                    width: 16, height: 16, borderRadius: 8, borderWidth: 2,
+                    borderColor: selected ? W.teal : theme.textSoft,
+                    backgroundColor: selected ? W.teal : "transparent",
+                  }} />
+                  <Text style={{ color: selected ? W.teal : theme.textStrong, fontSize: 13, fontWeight: selected ? "800" : "600" }}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
       </View>
     </ScrollView>
   );

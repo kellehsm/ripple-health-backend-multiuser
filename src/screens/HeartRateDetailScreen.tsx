@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { ScreenBackground } from "../components/ScreenBackground";
+import { EmptyState } from "../components/EmptyState";
 import Svg, { Line, Polyline, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
@@ -168,13 +169,7 @@ export function HeartRateDetailScreen() {
         {loadingChart ? (
           <LoadingIndicator style={{ marginVertical: 30 }} color={theme.red.sub} />
         ) : readings.length === 0 ? (
-          <View style={s.emptyBox}>
-            <Text style={{ fontSize: 28 }}>💓</Text>
-            <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No readings in this window</Text>
-            <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
-              Sync from Health Connect on the Health tab.
-            </Text>
-          </View>
+          <EmptyState icon="💓" title="No readings in this window" subtitle="Sync from Health Connect on the Health tab to see your heart rate here." />
         ) : (
           <Svg width={CHART_W} height={CHART_H} style={{ marginTop: 10 }}>
             {gridVals.map((v) => {
@@ -217,13 +212,7 @@ export function HeartRateDetailScreen() {
         {loadingDaily ? (
           <LoadingIndicator color={theme.red.sub} style={{ marginVertical: 16 }} />
         ) : dailyRows.length === 0 ? (
-          <View style={s.emptyBox}>
-            <Text style={{ fontSize: 28 }}>📈</Text>
-            <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No history yet</Text>
-            <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
-              Daily rest and average rates will build up here as you sync.
-            </Text>
-          </View>
+          <EmptyState icon="📈" title="No history yet" subtitle="Daily resting and average rates will appear here as you sync." />
         ) : (
           <>
             {/* Column headers */}

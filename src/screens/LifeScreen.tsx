@@ -164,7 +164,7 @@ export function LifeScreen() {
   const [introVisible, dismissIntro] = useFeatureIntro(lifeIntro.key);
   const ink = theme.ink;
   const card = theme.card;
-  const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder), [ink, card, theme.cardBorder]);
+  const styles = useMemo(() => makeStyles(ink, card, theme.cardBorder, theme.blue.solid), [ink, card, theme.cardBorder, theme.blue.solid]);
   const navigation = useNavigation<any>();
   const { preferences, loading: prefsLoading } = useTabPreferences();
 
@@ -1048,7 +1048,7 @@ export function LifeScreen() {
   );
 }
 
-function makeStyles(ink: string, card: string, border: string) {
+function makeStyles(ink: string, card: string, border: string, blue: string = "#3B82F6") {
   return StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 32 },
 
@@ -1072,7 +1072,7 @@ function makeStyles(ink: string, card: string, border: string) {
     borderWidth: 2,
     borderColor: border,
     padding: 14,
-    ...coloredShadow("#3B82F6"),
+    ...coloredShadow(blue),
   },
   cardTitle: { fontSize: 19, fontWeight: "900", letterSpacing: -0.5, marginBottom: 8 },
 

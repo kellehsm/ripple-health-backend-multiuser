@@ -476,7 +476,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
   }
 
   function FinancePreview() {
-    const purple = theme.purple?.solid ?? "#7B3FBF";
+    const purple = theme.purple.solid;
     return (
       <View style={styles.preview}>
         {/* Budget card with progress bar */}

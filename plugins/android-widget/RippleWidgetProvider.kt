@@ -95,7 +95,9 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         val status: String,
         val wellnessScore: String = "--",
         /** Comma-joined mg_dl values (oldest→newest) for the mini trend sparkline; empty = no data */
-        val glucoseTrendRaw: String = ""
+        val glucoseTrendRaw: String = "",
+        /** Latest mood score as emoji (e.g. "😊") or "--" */
+        val mood: String = "--"
     )
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -137,7 +139,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 Log.e(TAG, "onUpdate initial render failed", e)
                 try {
                     updateWidget(context, appWidgetManager, id,
-                        WidgetData("--", "--", "--", "--", "--", emptyList(), "Tap ↻ to refresh", "--"), id)
+                        WidgetData("--", "--", "--", "--", "--", emptyList(), "Tap ↻ to refresh"), id)
                 } catch (e2: Exception) { Log.e(TAG, "fallback render failed", e2) }
             }
         }
@@ -153,7 +155,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 // stale flags to the watch tile in the same call.
                 val gluInfo: GlucoseInfo = if (token == null) GlucoseInfo(null, "--", "", "", 0, false, 0) else fetchGlucoseInfo(token)
                 val data = if (token == null) {
-                    WidgetData("--", "--", "--", "--", "--", emptyList(), "Sign in to app", "--")
+                    WidgetData("--", "--", "--", "--", "--", emptyList(), "Sign in to app")
                 } else {
                     val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
                     WidgetData(
@@ -165,7 +167,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         fetchInsights(token) + listOfNotNull(fetchMindfulnessInsight(token)),
                         "Updated $time",
                         fetchWellnessScore(token),
-                        fetchGlucoseTrend(token)
+                        fetchGlucoseTrend(token),
+                        fetchMood(token)
                     )
                 }
                 saveCache(context, data)
@@ -329,7 +332,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             insights,
             status,
             p.getString("wellness", "--") ?: "--",
-            p.getString("glucose_trend_raw", "") ?: ""
+            p.getString("glucose_trend_raw", "") ?: "",
+            p.getString("mood", "--") ?: "--"
         )
     }
 
@@ -346,6 +350,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             .putString("status", d.status)
             .putString("wellness", d.wellnessScore)
             .putString("glucose_trend_raw", d.glucoseTrendRaw)
+            .putString("mood", d.mood)
             .putLong("cache_time", System.currentTimeMillis())
             .apply()
     }
@@ -734,6 +739,33 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             } else "--"
         } catch (e: Exception) {
             Log.w(TAG, "fetchSleep: ${e.message}")
+            "--"
+        }
+    }
+
+    private fun fetchMood(token: String): String {
+        // Fetches today's latest mood entry and returns an emoji for the score.
+        return try {
+            val (code, body) = get(token, "/journal/today")
+            if (code == 200) {
+                val arr = JSONArray(body)
+                var latestScore = -1
+                for (i in 0 until arr.length()) {
+                    val obj = arr.optJSONObject(i) ?: continue
+                    val score = obj.optInt("mood_score", -1)
+                    if (score in 1..5) latestScore = score
+                }
+                when (latestScore) {
+                    5 -> "😃"
+                    4 -> "🙂"
+                    3 -> "😐"
+                    2 -> "😕"
+                    1 -> "😣"
+                    else -> "--"
+                }
+            } else "--"
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchMood: ${e.message}")
             "--"
         }
     }

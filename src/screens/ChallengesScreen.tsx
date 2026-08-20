@@ -8,9 +8,9 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
@@ -71,7 +71,7 @@ export function ChallengesScreen() {
     return (
       <Pressable
         key={challenge.id}
-        onPress={() => navigation.navigate("ChallengeDetail", { challengeId: challenge.id })}
+        onPress={() => { Haptics.selectionAsync(); navigation.navigate("ChallengeDetail", { challengeId: challenge.id }); }}
         style={[styles.challengeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
       >
         <View style={styles.cardHeader}>
@@ -125,8 +125,10 @@ export function ChallengesScreen() {
         }
       >
         {loading ? (
-          <View style={{ alignItems: "center", paddingVertical: 40 }}>
-            <ActivityIndicator color={theme.purple.solid} size="large" />
+          <View style={{ gap: 12 }}>
+            <ShadowCard skeleton skeletonHeight={88} />
+            <ShadowCard skeleton skeletonHeight={88} />
+            <ShadowCard skeleton skeletonHeight={88} />
           </View>
         ) : loadError ? (
           <View style={{ alignItems: "center", paddingVertical: 40, gap: 12 }}>
@@ -192,7 +194,7 @@ export function ChallengesScreen() {
 
       {/* FAB */}
       <Pressable
-        onPress={() => navigation.navigate("NewChallenge")}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); navigation.navigate("NewChallenge"); }}
         style={[styles.fab, { backgroundColor: theme.purple.solid, borderColor: theme.ink }]}
         accessibilityRole="button"
         accessibilityLabel="Create a new challenge"

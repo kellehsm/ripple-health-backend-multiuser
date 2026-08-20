@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated, Share, StyleSheet } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated, Share, StyleSheet, Alert } from "react-native";
+import ViewShot, { type ViewShotRef } from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
@@ -69,6 +71,7 @@ export function MonthlyRecapScreen() {
   const { theme } = useTheme();
   const [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
+  const viewShotRef = useRef<ViewShotRef>(null);
 
   useEffect(() => {
     api.monthlyReview()
@@ -76,6 +79,21 @@ export function MonthlyRecapScreen() {
       .catch(() => setReview(null))
       .finally(() => setLoading(false));
   }, []);
+
+  async function shareAsImage() {
+    try {
+      const uri = await viewShotRef.current?.capture?.();
+      if (!uri) { shareRecap(); return; }
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: "image/png", dialogTitle: "Share your monthly recap" });
+      } else {
+        await Share.share({ url: uri });
+      }
+    } catch {
+      shareRecap();
+    }
+  }
 
   async function shareRecap() {
     if (!review) return;
@@ -108,6 +126,7 @@ export function MonthlyRecapScreen() {
           <Text style={{ color: theme.textSoft, fontSize: 13 }}>Couldn't load your monthly recap.</Text>
         </View>
       ) : (
+        <ViewShot ref={viewShotRef} options={{ format: "png", quality: 0.95, result: "tmpfile" }}>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <View>
@@ -115,10 +134,10 @@ export function MonthlyRecapScreen() {
               <Text style={{ fontSize: 12, color: theme.textSoft }}>Your month in review</Text>
             </View>
             <Pressable
-              onPress={shareRecap}
+              onPress={shareAsImage}
               style={[styles.shareBtn, { backgroundColor: theme.teal.solid }]}
               accessibilityRole="button"
-              accessibilityLabel="Share recap"
+              accessibilityLabel="Share recap as image"
             >
               <Ionicons name="share-outline" size={16} color="#fff" />
               <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>Share</Text>
@@ -230,6 +249,7 @@ export function MonthlyRecapScreen() {
             Scores summarize your own tracked data. Observations only — never medical advice.
           </Text>
         </ScrollView>
+        </ViewShot>
       )}
     </View>
   );

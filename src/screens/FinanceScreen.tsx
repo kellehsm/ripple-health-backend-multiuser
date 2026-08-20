@@ -506,7 +506,7 @@ export function FinanceScreen() {
     ]);
   }
 
-  const s = useMemo(() => makeStyles(ink, theme.card, theme.cardBorder, theme.isDark), [ink, theme.card, theme.cardBorder, theme.isDark]);
+  const s = useMemo(() => makeStyles(ink, theme.card, theme.cardBorder, theme.isDark, theme.purple.solid), [ink, theme.card, theme.cardBorder, theme.isDark, theme.purple.solid]);
 
   return (
     <>
@@ -1063,8 +1063,8 @@ export function FinanceScreen() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeStyles(ink: string, card: string, border: string, isDark: boolean = false) {
-  const shadowCard = coloredShadow("#7B3FBF"); // intentional brand purple for shadow — accent not text
+function makeStyles(ink: string, card: string, border: string, isDark: boolean = false, purple: string = "#7B3FBF") {
+  const shadowCard = coloredShadow(purple);
   return StyleSheet.create({
     content:     { padding: 16, gap: 12, paddingBottom: 40 },
     toggle:      { flexDirection: "row", borderRadius: 22, borderWidth: 2, overflow: "hidden", ...shadowCard },

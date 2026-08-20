@@ -319,7 +319,7 @@ export function HealthScreen() {
   const mode = themeCtx.mode;
   const ink = theme.ink;
   const card = theme.card;
-  const styles = useMemo(() => makeStyles(ink, card), [ink, card]);
+  const styles = useMemo(() => makeStyles(ink, card, theme.teal.solid), [ink, card, theme.teal.solid]);
   const cardShadow = useCardShadow('card');
   const { cardOpacity } = useAppSettings();
   const navigation = useNavigation<any>();
@@ -1960,7 +1960,7 @@ export function HealthScreen() {
   );
 }
 
-function makeStyles(ink: string, card: string) {
+function makeStyles(ink: string, card: string, teal: string = "#3FA0A6") {
   return StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: CARD_GAP },
@@ -1972,7 +1972,7 @@ function makeStyles(ink: string, card: string) {
     borderRadius: 22,
     borderWidth: 2,
     padding: 14,
-    ...coloredShadow("#3FA0A6"),
+    ...coloredShadow(teal),
   },
   cardHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   cardTitle: { fontSize: 19, fontWeight: "900", letterSpacing: -0.5 },

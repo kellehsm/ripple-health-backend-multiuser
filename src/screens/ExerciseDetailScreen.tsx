@@ -26,13 +26,20 @@ function CyclingImage({ images, style }: { images: string[]; style: any }) {
   return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={style} resizeMode="cover" />;
 }
 
-const ZONES = [
+const ZONES_BASE = [
   { name: 'very_light', label: 'Very light', color: '#8ED4D8' }, // teal
   { name: 'light',      label: 'Light',      color: '#B092D9' }, // purple
   { name: 'moderate',   label: 'Moderate',   color: '#F2A28C' }, // coral
   { name: 'hard',       label: 'Hard',       color: '#CE7A92' }, // berry
-  { name: 'maximum',    label: 'Maximum',    color: '#A62A50' }, // deep berry
-] as const;
+  { name: 'maximum',    label: 'Maximum',    color: null },       // deep berry — use theme.berry.solid
+];
+
+function getZones(theme: any) {
+  return ZONES_BASE.map(z => ({
+    ...z,
+    color: z.color ?? theme.berry.solid,
+  }));
+}
 
 interface HRSummary {
   avg_bpm: number | null;
@@ -67,6 +74,7 @@ interface SessionDetail {
 // formatDuration / entryLabel now shared via utils/exerciseFormatters
 
 function ZoneBar({ summary, theme }: { summary: HRSummary; theme: any }) {
+  const ZONES = getZones(theme);
   const total = ZONES.reduce((sum, z) => sum + (summary.time_in_zone_seconds[z.name] ?? 0), 0);
   if (total === 0) return null;
 
