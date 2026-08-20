@@ -35,8 +35,8 @@ export default async function authRoutes(app: FastifyInstance) {
       password = "Ripple2026";
     }
 
-    const rows = await query<{ id: string; password_hash: string | null }>(
-      "SELECT id, password_hash FROM users WHERE email = $1",
+    const rows = await query<{ id: string; password_hash: string | null; token_version: number }>(
+      "SELECT id, password_hash, token_version FROM users WHERE email = $1",
       [email.toLowerCase().trim()]
     );
     const user = rows[0];
@@ -52,7 +52,7 @@ export default async function authRoutes(app: FastifyInstance) {
       return reply.status(401).send({ error: "Invalid email or password" });
     }
 
-    const token = signToken(user.id);
+    const token = signToken(user.id, user.token_version);
     return { token, user_id: user.id };
   });
 
@@ -124,7 +124,8 @@ export default async function authRoutes(app: FastifyInstance) {
           [user.id]
         );
         await client.query("COMMIT");
-        const token = signToken(user.id);
+        // New users start with token_version = 0 (DB default)
+        const token = signToken(user.id, 0);
         return { token, user_id: user.id };
       } catch (err: any) {
         await client.query("ROLLBACK");
@@ -193,6 +194,19 @@ export default async function authRoutes(app: FastifyInstance) {
         [req.user_id]
       );
       return rows[0] ?? null;
+    }
+  );
+
+  // POST /api/auth/logout — invalidate the current token by bumping token_version
+  app.post(
+    "/logout",
+    { preHandler: [(req, reply) => import("../middleware/auth.js").then(m => m.requireAuth(req, reply))] },
+    async (req) => {
+      await query(
+        "UPDATE users SET token_version = token_version + 1 WHERE id = $1",
+        [req.user_id]
+      );
+      return { ok: true };
     }
   );
 

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
@@ -40,10 +40,10 @@ export function HealthTabScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
 
-  const HEALTH_TOUR_STEPS: TourStep[] = [
+  const healthTourSteps: TourStep[] = useMemo(() => [
     { ref: tourOverviewRef, title: "Health Hub", body: "Switch between Medications, Cycle tracking, and Symptoms using the tiles at the top." },
     { ref: tourContentRef,  title: "Medication Schedule", body: "See today's scheduled doses and your full medication list. Tap any med for details, dosage, and history." },
-  ];
+  ], []);
 
   useFocusEffect(useCallback(() => {
     let cancelled = false;
@@ -56,17 +56,29 @@ export function HealthTabScreen() {
     return () => { cancelled = true; };
   }, []));
 
-  async function handleSaveSections(newHidden: string[]) {
+  const handleSaveSections = useCallback(async (newHidden: string[]) => {
     setHiddenSections(newHidden);
     setShowSectionEditor(false);
     try { await api.patchSettings({ health_hidden_sections: newHidden }); } catch (_) {}
-  }
+  }, []);
+
+  const openSectionEditor = useCallback(() => setShowSectionEditor(true), []);
+  const closeSectionEditor = useCallback(() => setShowSectionEditor(false), []);
+  const closeTour = useCallback(() => setShowTour(false), []);
+  const handleScroll = useCallback((e: any) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }, []);
+
+  // Theme-dependent style objects memoized to avoid inline object allocation each render
+  const rootBg = useMemo(() => ({ flex: 1, backgroundColor: theme.page }), [theme.page]);
+  const emptyBg = useMemo(() => [rootStyles.center, { backgroundColor: theme.page }], [theme.page]);
+  const emptyText = useMemo(() => [rootStyles.placeholder, { color: theme.textSoft }], [theme.textSoft]);
+  const stickyHeader = useMemo(() => ({ backgroundColor: theme.page, padding: 12, paddingBottom: 4 }), [theme.page]);
+  const contentContainer = useMemo(() => ({ flexGrow: 1, paddingBottom: tourPadding }), [tourPadding]);
 
   if (!medication && !cycle) {
     return (
-      <View style={[rootStyles.center, { backgroundColor: theme.page }]}>
+      <View style={emptyBg}>
         <ScreenBackground pageId="health_tab" />
-        <Text style={[rootStyles.placeholder, { color: theme.textSoft }]}>
+        <Text style={emptyText}>
           No health modules enabled. Go to Settings → Customize Tabs to turn them on.
         </Text>
       </View>
@@ -76,22 +88,22 @@ export function HealthTabScreen() {
   const effectiveTab: SubTab = bothEnabled ? activeSubTab : medication ? 'medication' : 'cycle';
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.page }}>
+    <View style={rootBg}>
       <ScreenBackground pageId="health_tab" />
       {bothEnabled && (
         <ScrollView
           ref={scrollViewRef}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: tourPadding }}
+          style={rootStyles.flex}
+          contentContainerStyle={contentContainer}
           keyboardShouldPersistTaps="handled"
           stickyHeaderIndices={[0]}
           scrollEventThrottle={16}
-          onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
+          onScroll={handleScroll}
         >
           {/* Sticky overview blocks */}
-          <View style={{ backgroundColor: theme.page, padding: 12, paddingBottom: 4 }}>
-            <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 4 }}>
-              <Pressable onPress={() => setShowSectionEditor(true)} hitSlop={10} accessibilityLabel="Customize Health screen">
+          <View style={stickyHeader}>
+            <View style={rootStyles.editRow}>
+              <Pressable onPress={openSectionEditor} hitSlop={10} accessibilityLabel="Customize Health screen">
                 <Ionicons name="pencil-outline" size={17} color={theme.textSoft} />
               </Pressable>
             </View>
@@ -122,9 +134,9 @@ export function HealthTabScreen() {
         sections={HEALTH_SECTIONS}
         hidden={hiddenSections}
         onSave={handleSaveSections}
-        onCancel={() => setShowSectionEditor(false)}
+        onCancel={closeSectionEditor}
       />
-      <FeatureTour steps={HEALTH_TOUR_STEPS} visible={showTour} onDone={() => setShowTour(false)} scrollRef={scrollViewRef} scrollY={scrollOffsetRef.current} onExtraPadding={setTourPadding} />
+      <FeatureTour steps={healthTourSteps} visible={showTour} onDone={closeTour} scrollRef={scrollViewRef} scrollY={scrollOffsetRef.current} onExtraPadding={setTourPadding} />
       <FeatureIntroSheet intro={healthIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
   );
@@ -133,4 +145,6 @@ export function HealthTabScreen() {
 const rootStyles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   placeholder: { fontSize: 14, textAlign: 'center', lineHeight: 22 },
+  flex: { flex: 1 },
+  editRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 },
 });

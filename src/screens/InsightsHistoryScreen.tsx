@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import { ScrollView, View, Text, StyleSheet, RefreshControl } from "react-native";
+import { FlatList, View, Text, StyleSheet, RefreshControl } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
@@ -81,8 +81,44 @@ export function InsightsHistoryScreen() {
     );
   }
 
+  const renderItem = useCallback(({ item: i }: { item: Insight }) => {
+    const isActive = i.status === "active" && !i.dismissed;
+    const softened = adaptiveInsight(i.description, (i.confidence as Confidence) ?? "moderate");
+    return (
+      <ShadowCard size="card" bg={theme.card} accent={isActive ? theme.teal.solid : theme.cardBorder}>
+        <View style={{ flex: 1, gap: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            {!isActive && (
+              <View style={[styles.tag, { borderColor: theme.cardBorder }]}>
+                <Text style={{ color: theme.textSoft, fontSize: 9, fontWeight: "800", letterSpacing: 0.8 }}>
+                  {i.dismissed ? "DISMISSED" : "PAST"}
+                </Text>
+              </View>
+            )}
+            <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "800", flex: 1 }}>{i.title}</Text>
+          </View>
+          <Text style={{ color: theme.textStrong, fontSize: 13, lineHeight: 19 }}>{softened}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+              <Ionicons name="calendar-outline" size={11} color={theme.textSoft} />
+              <Text style={{ color: theme.textSoft, fontSize: 11 }}>
+                {fmtDate(i.last_confirmed.slice(0, 10))}
+              </Text>
+            </View>
+            {i.times_observed > 1 && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                <Ionicons name="repeat" size={11} color={theme.textSoft} />
+                <Text style={{ color: theme.textSoft, fontSize: 11 }}>seen {i.times_observed}×</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </ShadowCard>
+    );
+  }, [theme]);
+
   return (
-    <ScrollView
+    <FlatList
       style={{ flex: 1, backgroundColor: theme.page }}
       contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 80 }}
       refreshControl={
@@ -93,46 +129,15 @@ export function InsightsHistoryScreen() {
           colors={[theme.teal.solid]}
         />
       }
-    >
-      <Text style={[styles.intro, { color: theme.textSoft }]}>
-        Everything Ripple has noticed about your patterns — active and past, most recent first.
-      </Text>
-      {items.map((i) => {
-        const isActive = i.status === "active" && !i.dismissed;
-        const softened = adaptiveInsight(i.description, (i.confidence as Confidence) ?? "moderate");
-        return (
-          <ShadowCard key={i.id} size="card" bg={theme.card} accent={isActive ? theme.teal.solid : theme.cardBorder}>
-            <View style={{ flex: 1, gap: 6 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                {!isActive && (
-                  <View style={[styles.tag, { borderColor: theme.cardBorder }]}>
-                    <Text style={{ color: theme.textSoft, fontSize: 9, fontWeight: "800", letterSpacing: 0.8 }}>
-                      {i.dismissed ? "DISMISSED" : "PAST"}
-                    </Text>
-                  </View>
-                )}
-                <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "800", flex: 1 }}>{i.title}</Text>
-              </View>
-              <Text style={{ color: theme.textStrong, fontSize: 13, lineHeight: 19 }}>{softened}</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                  <Ionicons name="calendar-outline" size={11} color={theme.textSoft} />
-                  <Text style={{ color: theme.textSoft, fontSize: 11 }}>
-                    {fmtDate(i.last_confirmed.slice(0, 10))}
-                  </Text>
-                </View>
-                {i.times_observed > 1 && (
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                    <Ionicons name="repeat" size={11} color={theme.textSoft} />
-                    <Text style={{ color: theme.textSoft, fontSize: 11 }}>seen {i.times_observed}×</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </ShadowCard>
-        );
-      })}
-    </ScrollView>
+      data={items}
+      keyExtractor={(i) => i.id}
+      renderItem={renderItem}
+      ListHeaderComponent={
+        <Text style={[styles.intro, { color: theme.textSoft }]}>
+          Everything Ripple has noticed about your patterns — active and past, most recent first.
+        </Text>
+      }
+    />
   );
 }
 

@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
-  ScrollView,
+  FlatList,
   View,
   Text,
   StyleSheet,
@@ -135,14 +135,8 @@ export function LeaderboardScreen() {
 
   const myEntry = entries.find((e) => e.is_me);
 
-  return (
-    <ScrollView
-      style={{ backgroundColor: theme.page }}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />
-      }
-    >
+  const listHeader = (
+    <>
       {/* Header card */}
       <ShadowCard padding={16} bg={theme.teal.tint} accent={theme.teal.solid}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -173,7 +167,7 @@ export function LeaderboardScreen() {
         </Text>
       </View>
 
-      {/* Leaderboard */}
+      {/* Leaderboard non-list states */}
       {loading ? (
         <View style={{ gap: 10 }}>
           <ShadowCard skeleton skeletonHeight={68} />
@@ -216,71 +210,19 @@ export function LeaderboardScreen() {
           </View>
         </ShadowCard>
       ) : (
-        <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          {entries.map((entry, i) => {
-            const isTop3 = entry.rank <= 3;
-            const medalColor = RANK_COLORS[entry.rank] ?? theme.textSoft;
-            const entryReactions = reactions.filter((r) => r.to_user_id === entry.user_id);
-            const myReaction = reactions.find((r) => r.to_user_id === entry.user_id && r.from_user_id === myUserId);
-            return (
-              <View key={entry.user_id + String(i)}>
-                {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
-                <Pressable
-                  onPress={() => { if (!entry.is_me) { Haptics.selectionAsync(); setPickerTarget(entry); } }}
-                  style={[
-                    styles.entryRow,
-                    entry.is_me && { backgroundColor: theme.teal.tint },
-                  ]}
-                >
-                  {/* Rank */}
-                  <View style={[styles.rankBadge, isTop3 && { backgroundColor: medalColor + "22", borderColor: medalColor }]}>
-                    <Text style={{ color: isTop3 ? medalColor : theme.textSoft, fontWeight: "900", fontSize: 15 }}>
-                      {entry.rank}
-                    </Text>
-                  </View>
+        <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} />
+      )}
+    </>
+  );
 
-                  {/* Name + reaction pills */}
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text
-                      style={{
-                        color: theme.textStrong,
-                        fontSize: 15,
-                        fontWeight: entry.is_me ? "900" : "600",
-                        lineHeight: 20,
-                      }}
-                    >
-                      {entry.display_name}
-                      {entry.is_me ? " (you)" : ""}
-                    </Text>
-                    {entryReactions.length > 0 && (
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-                        {entryReactions.map((r, j) => (
-                          <View key={j} style={[styles.reactionPill, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                            <Text style={{ fontSize: 13 }}>{r.emoji}</Text>
-                          </View>
-                        ))}
-                        {myReaction && (
-                          <Text style={{ color: theme.textSoft, fontSize: 10, alignSelf: "center" }}>you reacted</Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Value */}
-                  <Text
-                    style={{
-                      color: entry.is_me ? theme.teal.fg : theme.textStrong,
-                      fontWeight: "800",
-                      fontSize: 14,
-                      lineHeight: 20,
-                    }}
-                  >
-                    {formatValue(entry.value, category)}
-                  </Text>
-                </Pressable>
-              </View>
-            );
-          })}
+  const listFooter = (
+    <>
+      {/* Encouraging note */}
+      {entries.length >= 2 && (
+        <View style={[styles.encourageNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", lineHeight: 18 }}>
+            Keep it up — every bit of progress counts. The goal is to stay active together, not to race.
+          </Text>
         </View>
       )}
 
@@ -306,16 +248,88 @@ export function LeaderboardScreen() {
           </View>
         </Pressable>
       </Modal>
+    </>
+  );
 
-      {/* Encouraging note */}
-      {entries.length >= 2 && (
-        <View style={[styles.encourageNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", lineHeight: 18 }}>
-            Keep it up — every bit of progress counts. The goal is to stay active together, not to race.
+  const renderEntry = useCallback(({ item: entry, index: i }: { item: LeaderboardEntry; index: number }) => {
+    const isTop3 = entry.rank <= 3;
+    const medalColor = RANK_COLORS[entry.rank] ?? theme.textSoft;
+    const entryReactions = reactions.filter((r) => r.to_user_id === entry.user_id);
+    const myReaction = reactions.find((r) => r.to_user_id === entry.user_id && r.from_user_id === myUserId);
+    return (
+      <View style={[styles.board, { backgroundColor: theme.card, borderColor: theme.cardBorder, borderRadius: 0, borderWidth: 0 }]}>
+        {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+        <Pressable
+          onPress={() => { if (!entry.is_me) { Haptics.selectionAsync(); setPickerTarget(entry); } }}
+          style={[
+            styles.entryRow,
+            entry.is_me && { backgroundColor: theme.teal.tint },
+          ]}
+        >
+          {/* Rank */}
+          <View style={[styles.rankBadge, isTop3 && { backgroundColor: medalColor + "22", borderColor: medalColor }]}>
+            <Text style={{ color: isTop3 ? medalColor : theme.textSoft, fontWeight: "900", fontSize: 15 }}>
+              {entry.rank}
+            </Text>
+          </View>
+
+          {/* Name + reaction pills */}
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <Text
+              style={{
+                color: theme.textStrong,
+                fontSize: 15,
+                fontWeight: entry.is_me ? "900" : "600",
+                lineHeight: 20,
+              }}
+            >
+              {entry.display_name}
+              {entry.is_me ? " (you)" : ""}
+            </Text>
+            {entryReactions.length > 0 && (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+                {entryReactions.map((r, j) => (
+                  <View key={j} style={[styles.reactionPill, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+                    <Text style={{ fontSize: 13 }}>{r.emoji}</Text>
+                  </View>
+                ))}
+                {myReaction && (
+                  <Text style={{ color: theme.textSoft, fontSize: 10, alignSelf: "center" }}>you reacted</Text>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Value */}
+          <Text
+            style={{
+              color: entry.is_me ? theme.teal.fg : theme.textStrong,
+              fontWeight: "800",
+              fontSize: 14,
+              lineHeight: 20,
+            }}
+          >
+            {formatValue(entry.value, category)}
           </Text>
-        </View>
-      )}
-    </ScrollView>
+        </Pressable>
+      </View>
+    );
+  }, [reactions, myUserId, theme, category]);
+
+  return (
+    <FlatList
+      style={{ backgroundColor: theme.page }}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />
+      }
+      data={!loading && !loadError && entries.length >= 2 ? entries : []}
+      keyExtractor={(entry, i) => entry.user_id + String(i)}
+      renderItem={renderEntry}
+      ListHeaderComponent={listHeader}
+      ListFooterComponent={listFooter}
+      ListHeaderComponentStyle={{ gap: 12 }}
+    />
   );
 }
 

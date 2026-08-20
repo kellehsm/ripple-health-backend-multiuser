@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
@@ -46,18 +46,21 @@ export function ChallengesScreen() {
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const lastFetchRef = useRef(0);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      if (!refreshing && Date.now() - lastFetchRef.current < 30_000) return () => { cancelled = true; };
       setLoading(true);
       setLoadError(false);
+      lastFetchRef.current = Date.now();
       getChallenges()
         .then((data) => { if (!cancelled) setChallenges(Array.isArray(data) ? data : []); })
         .catch(() => { if (!cancelled) setLoadError(true); })
         .finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
       return () => { cancelled = true; };
-    }, [reloadKey])
+    }, [reloadKey, refreshing])
   );
 
   const today = todayStr();

@@ -56,7 +56,7 @@ function useCountUp(value: string, duration = 600): string {
   return display;
 }
 
-export function MetricCard({ label, value, icon, colorKey, sublabel, onAction, variant = "tint", tileId }: Props) {
+export const MetricCard = React.memo(function MetricCard({ label, value, icon, colorKey, sublabel, onAction, variant = "tint", tileId }: Props) {
   const { theme } = useTheme();
   const ink = theme.ink;
   const c = (theme as any)[colorKey];
@@ -101,7 +101,7 @@ export function MetricCard({ label, value, icon, colorKey, sublabel, onAction, v
       ) : null}
     </ShadowCard>
   );
-}
+});
 
 const styles = StyleSheet.create({
   labelRow: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 6 },
