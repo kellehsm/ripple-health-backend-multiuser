@@ -88,9 +88,14 @@ export default async function challengesRoutes(app: FastifyInstance) {
          c.id, c.title, c.category, c.goal_description, c.goal_value,
          c.start_date, c.end_date, c.status,
          (c.created_by = $1) AS created_by_me,
-         (SELECT COUNT(*) FROM challenge_participants cp2 WHERE cp2.challenge_id = c.id)::int AS participant_count
+         COALESCE(pc.participant_count, 0)::int AS participant_count
        FROM challenges c
        LEFT JOIN challenge_participants cp ON cp.challenge_id = c.id AND cp.user_id = $1
+       LEFT JOIN (
+         SELECT challenge_id, COUNT(*) AS participant_count
+         FROM challenge_participants
+         GROUP BY challenge_id
+       ) pc ON pc.challenge_id = c.id
        WHERE c.created_by = $1 OR cp.user_id = $1
        ORDER BY c.id, c.created_at DESC`,
       [me]
@@ -215,7 +220,8 @@ export default async function challengesRoutes(app: FastifyInstance) {
 
     // Must be participant or creator
     const chalRows = await query<any>(
-      `SELECT c.*
+      `SELECT c.id, c.title, c.category, c.goal_description, c.goal_value,
+              c.start_date, c.end_date, c.status, c.created_by, c.created_at
        FROM challenges c
        LEFT JOIN challenge_participants cp ON cp.challenge_id = c.id AND cp.user_id = $1
        WHERE c.id = $2

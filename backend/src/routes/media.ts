@@ -24,6 +24,24 @@ const ALLOWED_MIME: Record<string, string> = {
   "video/webm": "video",
 };
 
+// Canonical file extension for each validated MIME type.
+// Derived from the MIME type itself — never from client-supplied filenames.
+const MIME_EXT: Record<string, string> = {
+  "audio/mpeg":   ".mp3",
+  "audio/mp4":    ".m4a",
+  "audio/x-m4a":  ".m4a",
+  "audio/aac":    ".aac",
+  "audio/wav":    ".wav",
+  "audio/x-wav":  ".wav",
+  "audio/ogg":    ".ogg",
+  "image/png":    ".png",
+  "image/jpeg":   ".jpg",
+  "image/webp":   ".webp",
+  "image/gif":    ".gif",
+  "video/mp4":    ".mp4",
+  "video/webm":   ".webm",
+};
+
 type Asset = {
   id: string;
   kind: string;
@@ -130,8 +148,8 @@ export default async function mediaRoutes(app: FastifyInstance) {
           part.file.resume();
           return reply.code(400).send({ error: `Unsupported type: ${part.mimetype}` });
         }
-        const ext = path.extname(part.filename || "") || "." + part.mimetype.split("/")[1];
-        const filename = randomUUID() + ext.toLowerCase();
+        const ext = MIME_EXT[part.mimetype] ?? "." + part.mimetype.split("/")[1];
+        const filename = randomUUID() + ext;
         const dest = path.join(UPLOAD_DIR, filename);
         await pipeline(part.file, fs.createWriteStream(dest));
         if (part.file.truncated) {

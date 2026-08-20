@@ -1,14 +1,15 @@
 import { FastifyRequest, FastifyReply } from "fastify";
 import jwt from "jsonwebtoken";
 import { redeemDownloadToken } from "../lib/downloadTokens.js";
+import { query } from "../db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) throw new Error("JWT_SECRET env var is required");
 
 export const JWT_EXPIRY = "30d";
 
-export function signToken(user_id: string): string {
-  return jwt.sign({ user_id }, JWT_SECRET!, { expiresIn: JWT_EXPIRY });
+export function signToken(user_id: string, token_version: number = 0): string {
+  return jwt.sign({ user_id, tv: token_version }, JWT_SECRET!, { expiresIn: JWT_EXPIRY });
 }
 
 // Widget tokens live in a plain file readable by the Android home-screen widget
@@ -58,9 +59,18 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Pro
   }
   const token = auth.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET!) as { user_id: string; scope?: string };
+    const payload = jwt.verify(token, JWT_SECRET!) as { user_id: string; scope?: string; tv?: number };
     if (payload.scope === "widget" && !isWidgetAllowed(req.method, req.url)) {
       return reply.status(403).send({ error: "Widget token not permitted for this endpoint" });
+    }
+    // Token revocation check: compare payload tv against DB token_version.
+    // Missing tv is treated as 0 so old tokens survive until the column is non-zero.
+    const tvRows = await query<{ token_version: number }>(
+      "SELECT token_version FROM users WHERE id = $1",
+      [payload.user_id]
+    );
+    if (!tvRows[0] || (payload.tv ?? 0) !== tvRows[0].token_version) {
+      return reply.status(401).send({ error: "Token has been revoked" });
     }
     req.user_id = payload.user_id;
   } catch {

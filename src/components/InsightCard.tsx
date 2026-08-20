@@ -298,7 +298,7 @@ interface InsightCardProps {
   onPressOut?: () => void;
 }
 
-export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = false, compact = false, onPressIn, onPressOut }: InsightCardProps) {
+export const InsightCard = React.memo(function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = false, compact = false, onPressIn, onPressOut }: InsightCardProps) {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
   const [expanded, setExpanded] = useState(false);
@@ -517,7 +517,7 @@ export function InsightCard({ insight, onDismiss, onSnooze, onPin, isPinned = fa
     </ShadowCard>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   headerRow: {

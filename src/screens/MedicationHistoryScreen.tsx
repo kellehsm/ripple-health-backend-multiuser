@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
@@ -57,10 +57,13 @@ export function MedicationHistoryScreen() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [stats, setStats] = useState<DoseStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastFetchRef = useRef(0);
 
   useFocusEffect(useCallback(() => {
     let cancelled = false;
+    if (Date.now() - lastFetchRef.current < 30_000) return () => { cancelled = true; };
     setLoading(true);
+    lastFetchRef.current = Date.now();
     api.getMedicationHistory(medicationId)
       .then((rows) => { if (!cancelled) setHistory(rows ?? []); })
       .catch(() => { if (!cancelled) setHistory([]); })

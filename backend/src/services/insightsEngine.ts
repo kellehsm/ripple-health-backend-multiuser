@@ -496,15 +496,13 @@ export async function runInsightsForUser(
 
   // Now do the atomic swap: mark stale + upsert survivors + log stats.
   await markStale(userId, surviving.map(c => c.rule.id));
-  for (const c of surviving) {
-    await upsertInsight(userId, c.rule.id, c.rule.type, c.result, {
-      ruleVersion:    c.rule.version,
-      actionable:     c.rule.actionable ?? c.result.actionable,
-      clinicalRisk:   c.rule.clinicalRisk ?? c.result.clinicalRisk,
-      primaryMetric:  c.rule.primaryMetric ?? c.result.primaryMetric,
-    });
-    foundRuleIds.push(c.rule.id);
-  }
+  await Promise.all(surviving.map(c => upsertInsight(userId, c.rule.id, c.rule.type, c.result, {
+    ruleVersion:    c.rule.version,
+    actionable:     c.rule.actionable ?? c.result.actionable,
+    clinicalRisk:   c.rule.clinicalRisk ?? c.result.clinicalRisk,
+    primaryMetric:  c.rule.primaryMetric ?? c.result.primaryMetric,
+  })));
+  foundRuleIds.push(...surviving.map(c => c.rule.id));
 
   // Observability — one row per rule per run, non-blocking. Table uses a
   // BIGSERIAL PK (see migration 034), so every insert is a new row — no
@@ -561,7 +559,10 @@ export async function runInsightsForUser(
 
 export async function getActiveInsights(userId: string): Promise<StoredInsight[]> {
   return query<StoredInsight>(
-    `SELECT * FROM user_insights
+    `SELECT id, user_id, rule_id, type, title, description, confidence, confidence_score,
+            supporting_data, first_detected, last_confirmed, times_observed, status,
+            dismissed, created_at, updated_at
+     FROM user_insights
      WHERE user_id = $1
        AND dismissed = FALSE
        AND (snoozed_until IS NULL OR snoozed_until <= NOW())
@@ -569,7 +570,8 @@ export async function getActiveInsights(userId: string): Promise<StoredInsight[]
        AND NOT (supporting_data ? 'duplicate_of')
      ORDER BY pinned DESC NULLS LAST,
               COALESCE(rank_score, confidence_score / 100.0) DESC,
-              last_confirmed DESC`,
+              last_confirmed DESC
+     LIMIT 50`,
     [userId]
   );
 }

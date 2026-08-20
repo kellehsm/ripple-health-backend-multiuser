@@ -14,9 +14,11 @@ export class AppErrorBoundary extends React.Component<{ children: React.ReactNod
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[AppErrorBoundary] Caught render error:", error.message);
-    console.error("[AppErrorBoundary] Stack:", error.stack);
-    console.error("[AppErrorBoundary] Component tree:", info.componentStack);
+    if (__DEV__) {
+      console.error("[AppErrorBoundary] Caught render error:", error.message);
+      console.error("[AppErrorBoundary] Stack:", error.stack);
+      console.error("[AppErrorBoundary] Component tree:", info.componentStack);
+    }
     this.setState({ info: info.componentStack ?? "" });
   }
 

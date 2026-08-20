@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   ScrollView,
   View,
@@ -62,9 +62,13 @@ export function NewChallengeScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
 
+  const lastFetchRef = useRef(0);
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      if (Date.now() - lastFetchRef.current < 30_000) return () => { cancelled = true; };
+      lastFetchRef.current = Date.now();
       getFriends()
         .then((data) => { if (!cancelled) setFriends(Array.isArray(data) ? data : []); })
         .catch(() => {});
