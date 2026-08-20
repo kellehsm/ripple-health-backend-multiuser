@@ -98,7 +98,7 @@ class RippleWearBreatheTileService : TileService() {
         col.addContent(
             Row.Builder()
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM)
-                .addContent(text(streak, 44, WHITE.toInt(), bold = true))
+                .addContent(streakRipple(streak))
                 .addContent(Spacer.Builder().setWidth(dp(6f)).build())
                 .addContent(text("DAY STREAK", 10, LABEL_GRAY.toInt(), bold = true))
                 .build()
@@ -127,6 +127,35 @@ class RippleWearBreatheTileService : TileService() {
             )
             .addContent(col.build())
             .build()
+    }
+
+    /**
+     * Streak number wrapped in two faint concentric teal rings — a static
+     * echo of the ripple branding since tiles can't animate.
+     */
+    private fun streakRipple(streak: String): LayoutElementBuilders.LayoutElement {
+        fun ring(size: Float, color: Long, content: LayoutElementBuilders.LayoutElement) =
+            Box.Builder()
+                .setWidth(dp(size))
+                .setHeight(dp(size))
+                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                .setHorizontalAlignment(HORIZONTAL_ALIGN_CENTER)
+                .setModifiers(
+                    ModifiersBuilders.Modifiers.Builder()
+                        .setBackground(
+                            ModifiersBuilders.Background.Builder()
+                                .setColor(argb(color.toInt()))
+                                .setCorner(ModifiersBuilders.Corner.Builder().setRadius(dp(size / 2f)).build())
+                                .build()
+                        )
+                        .build()
+                )
+                .addContent(content)
+                .build()
+
+        val number = text(streak, 40, WHITE.toInt(), bold = true)
+        // Nested circles: outer faintest, inner slightly stronger, core BG.
+        return ring(72f, 0x144ECDC4, ring(62f, 0x244ECDC4, ring(52f, BG, number)))
     }
 
     private fun breathePill(context: Context): LayoutElementBuilders.LayoutElement {

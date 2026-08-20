@@ -40,8 +40,10 @@ class RippleWearBreathingActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private var vibrator: Vibrator? = null
     private var animator: ValueAnimator? = null
+    private var idleAnimator: ValueAnimator? = null
 
     private var pace: Pace? = null
+    private var started = false
     private var running = false
     private var phaseIndex = 0
     private var cyclesDone = 0
@@ -176,8 +178,18 @@ class RippleWearBreathingActivity : Activity() {
             setPadding(0, px(4), 0, px(10))
         })
 
-        Pace.values().forEach { p ->
-            col.addView(paceRow(px, p), rowLp(px))
+        Pace.values().forEachIndexed { i, p ->
+            val row = paceRow(px, p)
+            row.alpha = 0f
+            row.translationY = px(16).toFloat()
+            row.animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setStartDelay(60L * i)
+                .setDuration(260L)
+                .setInterpolator(AccelerateDecelerateInterpolator())
+                .start()
+            col.addView(row, rowLp(px))
         }
 
         col.addView(TextView(this).apply {
@@ -220,9 +232,13 @@ class RippleWearBreathingActivity : Activity() {
             setPadding(px(14), px(10), px(14), px(10))
             isClickable = true
             isFocusable = true
-            setOnClickListener {
-                pace = p
-                startSession()
+            setOnClickListener { view ->
+                view.animate().scaleX(0.94f).scaleY(0.94f).setDuration(80L)
+                    .withEndAction {
+                        pace = p
+                        startSession()
+                    }
+                    .start()
             }
         }
         card.addView(TextView(this).apply {
@@ -306,12 +322,72 @@ class RippleWearBreathingActivity : Activity() {
             Gravity.CENTER
         ))
 
-        root.setOnClickListener { stopAndFinish() }
+        root.setOnClickListener {
+            if (started) stopAndFinish() else startCountdown()
+        }
 
-        running = true
+        started = false
+        running = false
         phaseIndex = 0
         cyclesDone = 0
-        runPhase()
+
+        phaseLabel?.text = p.title
+        countLabel?.text = "READY"
+        cycleLabel?.text = "TAP TO START"
+        startIdlePulse()
+    }
+
+    /** Slow gentle pulse on the ready screen, inviting the tap. */
+    private fun startIdlePulse() {
+        idleAnimator?.cancel()
+        idleAnimator = ValueAnimator.ofFloat(SCALE_MIN, SCALE_MIN + 0.07f).apply {
+            duration = 1600L
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            interpolator = AccelerateDecelerateInterpolator()
+            addUpdateListener { a ->
+                val s = a.animatedValue as Float
+                circle?.scaleX = s
+                circle?.scaleY = s
+            }
+            start()
+        }
+    }
+
+    /** 3-2-1 lead-in so the user can settle before the first inhale. */
+    private fun startCountdown() {
+        started = true
+        running = true
+        idleAnimator?.cancel()
+        idleAnimator = null
+        phaseLabel?.text = "GET READY"
+        cycleLabel?.text = "TAP TO END"
+        for (i in 0 until 3) {
+            handler.postDelayed({
+                if (!running) return@postDelayed
+                countLabel?.text = (3 - i).toString()
+                popCountLabel()
+                try {
+                    vibrator?.vibrate(VibrationEffect.createOneShot(40, VibrationEffect.DEFAULT_AMPLITUDE))
+                } catch (_: Exception) {}
+            }, i * 1000L)
+        }
+        handler.postDelayed({
+            if (running) runPhase()
+        }, 3000L)
+    }
+
+    /** Quick scale pop on each countdown tick. */
+    private fun popCountLabel() {
+        countLabel?.let { label ->
+            label.scaleX = 1.6f
+            label.scaleY = 1.6f
+            label.animate()
+                .scaleX(1f).scaleY(1f)
+                .setDuration(320L)
+                .setInterpolator(OvershootInterpolator(2f))
+                .start()
+        }
     }
 
     private fun runPhase() {
@@ -321,12 +397,17 @@ class RippleWearBreathingActivity : Activity() {
         val secs = p.phaseSeconds[phaseIndex]
         val phaseMs = secs * 1000L
 
-        phaseLabel?.text = name
+        phaseLabel?.let { label ->
+            label.animate().cancel()
+            label.alpha = 0f
+            label.text = name
+            label.animate().alpha(1f).setDuration(250L).start()
+        }
         vibrateForPhase(name)
 
         animator?.cancel()
         when (name) {
-            "INHALE"  -> animateCircle(currentScale(), SCALE_MAX, phaseMs, p.curve)
+            "INHALE"  -> { animateCircle(currentScale(), SCALE_MAX, phaseMs, p.curve); spawnRipple(phaseMs) }
             "TOP-UP"  -> animateCircle(currentScale(), SCALE_MAX + 0.08f, phaseMs, Curve.SNAPPY)
             "EXHALE"  -> animateCircle(currentScale(), SCALE_MIN, phaseMs, p.curve)
             else      -> animator = null  // HOLD: hold current scale
@@ -347,6 +428,31 @@ class RippleWearBreathingActivity : Activity() {
             }
             runPhase()
         }, phaseMs)
+    }
+
+    /** Thin ring that expands past the circle and fades — the "ripple". */
+    private fun spawnRipple(phaseMs: Long) {
+        val p = pace ?: return
+        val density = resources.displayMetrics.density
+        val size = (150 * density).toInt()
+        val ring = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0x00000000)
+                setStroke((2 * density).toInt(), p.accent)
+            }
+            scaleX = SCALE_MIN
+            scaleY = SCALE_MIN
+            alpha = 0.8f
+        }
+        root.addView(ring, 0, FrameLayout.LayoutParams(size, size, Gravity.CENTER))
+        ring.animate()
+            .scaleX(1.35f).scaleY(1.35f)
+            .alpha(0f)
+            .setDuration(phaseMs.coerceAtMost(2500L))
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .withEndAction { root.removeView(ring) }
+            .start()
     }
 
     private fun currentScale(): Float = circle?.scaleX ?: SCALE_MIN
@@ -383,6 +489,7 @@ class RippleWearBreathingActivity : Activity() {
         running = false
         handler.removeCallbacksAndMessages(null)
         animator?.cancel()
+        idleAnimator?.cancel()
         finish()
     }
 
@@ -395,6 +502,7 @@ class RippleWearBreathingActivity : Activity() {
         running = false
         handler.removeCallbacksAndMessages(null)
         animator?.cancel()
+        idleAnimator?.cancel()
         super.onDestroy()
     }
 }
