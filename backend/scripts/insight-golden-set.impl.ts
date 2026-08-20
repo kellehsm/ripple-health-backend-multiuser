@@ -165,5 +165,89 @@ function falsy(name: string, cond: any) {
   truthy("glucoseOvernight.ci95 defined", t.ci95 != null && t.ci95[1] > t.ci95[0]);
 }
 
+// ---- Wave 3: weatherRainActivity (steps comparison) ----
+{
+  const drySteps   = [8500, 9000, 8200, 8800, 9200, 8600, 8400, 8700, 9100, 8300];
+  const rainySteps = [5500, 5800, 5200, 5600, 6000, 5300, 5700, 5400, 5900, 5100];
+  const t = welchTTest(drySteps, rainySteps);
+  truthy("weatherRainActivity.pValue significant for clear step gap", t.pValue < 0.01);
+  truthy("weatherRainActivity.dry steps higher than rainy", t.meanA > t.meanB);
+  truthy("weatherRainActivity.passesMDE steps", passesMDE("steps", Math.abs(t.meanA - t.meanB)));
+  truthy("weatherRainActivity.effectSize magnitude", Math.abs(t.effectSize) > 0.5);
+}
+
+// ---- Wave 3: weatherTempSleep (hot vs cool nights) ----
+{
+  const coolSleep = [27000, 27600, 26400, 28200, 27000, 28800, 27600, 26400, 27000, 27600]; // ~450min
+  const hotSleep  = [22800, 23400, 22200, 23400, 22800, 24000, 23400, 22200, 22800, 23400]; // ~380min
+  const t = welchTTest(coolSleep, hotSleep);
+  truthy("weatherTempSleep.pValue significant", t.pValue < 0.01);
+  truthy("weatherTempSleep.cooler nights longer sleep", t.meanA > t.meanB);
+  truthy("weatherTempSleep.passesMDE sleep_secs (30min)", passesMDE("sleep_secs", Math.abs(t.meanA - t.meanB)));
+}
+
+// ---- Wave 3: weatherDaylightMood (Pearson correlation) ----
+{
+  const daylight = [120, 180, 240, 300, 360, 420, 480, 540, 600, 660, 720, 780];
+  const mood     = [2.5, 2.8, 3.0, 3.2, 3.4, 3.5, 3.7, 3.8, 4.0, 4.1, 4.2, 4.3];
+  const r = pearson(daylight, mood);
+  truthy("weatherDaylightMood.pearson positive correlation", r > 0.9);
+  truthy("weatherDaylightMood.passes threshold 0.2", Math.abs(r) > 0.2);
+}
+
+// ---- Wave 3 cross-metric: bestDayRecipe (lift calculation) ----
+{
+  // Simulate top-quartile days having behavior present 80% vs 30% on other days.
+  const topRateWith    = 8 / 10; // 10 "with" days, 8 in top quartile
+  const restRateWith   = 3 / 10; // 10 "without" days, 3 in top quartile
+  const lift = topRateWith / Math.max(0.01, restRateWith);
+  truthy("bestDayRecipe.lift > 1.4", lift > 1.4);
+  // Mood split passes Welch + MDE.
+  const withMood    = [4.2, 4.5, 4.3, 4.4, 4.6, 4.1, 4.3, 4.5, 4.2, 4.4];
+  const withoutMood = [3.0, 3.2, 2.9, 3.1, 3.0, 3.3, 3.1, 2.8, 3.2, 3.0];
+  const t = welchTTest(withMood, withoutMood);
+  truthy("bestDayRecipe.welch pValue significant", t.pValue < 0.01);
+  truthy("bestDayRecipe.passesMDE mood", passesMDE("mood_score", Math.abs(t.meanA - t.meanB)));
+  truthy("bestDayRecipe.meanA > meanB", t.meanA > t.meanB);
+}
+
+// ---- Wave 3 cross-metric: sleepExerciseInteraction (2×2 buckets) ----
+{
+  // Bucket A (sleep+exercise) should show highest next-day mood.
+  const bucketA = [4.2, 4.4, 4.3, 4.5, 4.1, 4.3, 4.2, 4.4]; // combined
+  const bucketB = [3.6, 3.8, 3.7, 3.5, 3.9, 3.6];            // sleep only
+  const bucketC = [3.4, 3.6, 3.5, 3.3, 3.7, 3.5];            // exercise only
+  const tAB = welchTTest(bucketA, bucketB);
+  const tAC = welchTTest(bucketA, bucketC);
+  truthy("sleepExerciseInteraction.A>B pValue<0.05", tAB.pValue < 0.05);
+  truthy("sleepExerciseInteraction.A>C pValue<0.05", tAC.pValue < 0.05);
+  const bestSingleMean = Math.max(tAB.meanB, tAC.meanB);
+  const combinationLift = tAB.meanA - bestSingleMean;
+  truthy("sleepExerciseInteraction.combinationLift passesMDE", passesMDE("mood_score", combinationLift));
+  const passes = benjaminiHochberg([tAB.pValue, tAC.pValue], 0.10);
+  truthy("sleepExerciseInteraction.FDR at least one passes", passes[0] || passes[1]);
+}
+
+// ---- Wave 3 cross-metric: mealTimingSleep (duration + quality) ----
+{
+  // Late meals → less sleep (in minutes).
+  const lateSleepMin  = [350, 360, 340, 355, 345, 360, 350, 340, 355, 348];
+  const earlySleepMin = [420, 435, 415, 430, 425, 440, 420, 430, 415, 428];
+  const tDur = welchTTest(lateSleepMin, earlySleepMin);
+  truthy("mealTimingSleep.duration pValue significant", tDur.pValue < 0.05);
+  truthy("mealTimingSleep.early sleep longer", tDur.meanB > tDur.meanA);
+  // MDE in sleep_secs (convert min to sec).
+  truthy("mealTimingSleep.passesMDE sleep_secs", passesMDE("sleep_secs", Math.abs(tDur.meanA - tDur.meanB) * 60));
+
+  // Sleep quality comparison.
+  const lateQuality  = [5.5, 5.8, 5.6, 5.4, 5.9, 5.7, 5.5, 5.6, 5.8, 5.4];
+  const earlyQuality = [7.2, 7.5, 7.0, 7.3, 7.4, 7.1, 7.2, 7.5, 7.1, 7.3];
+  const tQ = welchTTest(lateQuality, earlyQuality);
+  truthy("mealTimingSleep.quality pValue significant", tQ.pValue < 0.01);
+  truthy("mealTimingSleep.passesMDE sleep_quality", passesMDE("sleep_quality", Math.abs(tQ.meanA - tQ.meanB)));
+  const passes = benjaminiHochberg([tDur.pValue, tQ.pValue], 0.10);
+  truthy("mealTimingSleep.FDR passes at least one", passes.some(Boolean));
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

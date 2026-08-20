@@ -247,6 +247,9 @@ export const MDE: Record<string, number> = {
   minutes: 15,
   energy_level: 0.5,        // /10 scale (cycle energy)
   glucose_cv_pct: 5,        // 5 pct-points overnight CV
+  // Weather-related metrics
+  precipitation_mm: 1,      // 1 mm threshold for "rainy"
+  daylight_minutes: 30,     // 30 min swing in sunshine duration
 };
 
 export function passesMDE(metric: keyof typeof MDE | string, absDiff: number): boolean {

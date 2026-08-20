@@ -171,6 +171,9 @@ export const api = {
   }> {
     return request("/summary/monthly-review");
   },
+  monthlyNarrative: function (month: string): Promise<{ month: string; narrative: string }> {
+    return request(`/summary/monthly-narrative?month=${encodeURIComponent(month)}`);
+  },
   whyMightThatBe: function (): Promise<{ notices: { text: string }[] }> {
     return request("/summary/why-might-that-be");
   },

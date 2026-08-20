@@ -63,6 +63,7 @@ import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
 import { runInsightsJob } from "./jobs/insightsJob.js";
 import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
 import { runHardcoverSyncJob } from "./jobs/hardcover-sync.js";
+import { runWeatherSyncJob } from "./services/weatherSync.js";
 import cron from "node-cron";
 import { query } from "./db.js";
 import { encryptCredential, isEncrypted } from "./lib/credCrypto.js";
@@ -346,6 +347,11 @@ async function main() {
   // Hardcover two-way sync — every 4 hours for all connected users
   cron.schedule("0 */4 * * *", () => void runHardcoverSyncJob(app.log));
   app.log.info("Hardcover sync scheduled (every 4 hours)");
+
+  // Weather daily sync — runs at 6 AM each day; backfills 90 days on first run per user
+  cron.schedule("0 6 * * *", () => void runWeatherSyncJob());
+  void runWeatherSyncJob(); // seed on startup
+  app.log.info("Weather sync scheduled (daily 6 AM + startup)");
 }
 
 main().catch((err) => {

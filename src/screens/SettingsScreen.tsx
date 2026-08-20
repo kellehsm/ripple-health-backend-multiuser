@@ -292,7 +292,7 @@ export function SettingsScreen() {
       )}
 
       {/* Data Sources */}
-      {matches("Data Sources", "Health Connect", "Sync", "permissions", "Dexcom", "CGM", "Connected Banks", "Plaid", "transactions", "Hardcover", "books", "reading") && (
+      {matches("Data Sources", "Health Connect", "Sync", "permissions", "Dexcom", "CGM", "Connected Banks", "Plaid", "transactions", "Hardcover", "books", "reading", "Weather", "location", "weather data", "rain") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>DATA SOURCES</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -316,6 +316,12 @@ export function SettingsScreen() {
             )}
             {matches("Hardcover", "books", "reading", "sync") && (
               <MenuRow title="Hardcover" subtitle="Sync your book tracking with Hardcover.app" onPress={() => nav("SettingsHardcover")} theme={theme} />
+            )}
+            {matches("Hardcover", "books", "reading", "sync") && matches("Weather", "location", "weather data", "rain") && (
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+            )}
+            {matches("Weather", "location", "weather data", "rain", "daylight") && (
+              <MenuRow title="Weather location" subtitle="Set your city for daily weather insights" onPress={() => nav("SettingsWeatherLocation")} theme={theme} />
             )}
           </View>
         </>

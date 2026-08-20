@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated, Share, StyleSheet, Alert, RefreshControl } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated, Share, StyleSheet, Alert, RefreshControl, Easing } from "react-native";
 import ViewShot, { type ViewShotRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
@@ -67,16 +67,49 @@ function TrendBar({ label, score, prev, theme, index }: { label: string; score: 
   );
 }
 
+function NarrativeShimmer({ theme }: { theme: any }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(anim, { toValue: 0, duration: 900, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    ).start();
+  }, []);
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0.85] });
+  return (
+    <Animated.View style={{ opacity, gap: 7 }}>
+      {[90, 75, 85, 60].map((w, i) => (
+        <View
+          key={i}
+          style={{ height: 11, borderRadius: 6, backgroundColor: theme.cardBorder, width: `${w}%` }}
+        />
+      ))}
+    </Animated.View>
+  );
+}
+
 export function MonthlyRecapScreen() {
   const { theme } = useTheme();
   const [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [narrative, setNarrative] = useState<string | null>(null);
+  const [narrativeLoading, setNarrativeLoading] = useState(false);
   const viewShotRef = useRef<ViewShotRef>(null);
 
   useEffect(() => {
     api.monthlyReview()
-      .then(setReview)
+      .then((r) => {
+        setReview(r);
+        // Fetch narrative for the same month
+        setNarrativeLoading(true);
+        api.monthlyNarrative(r.month)
+          .then((res) => setNarrative(res.narrative))
+          .catch(() => setNarrative(null))
+          .finally(() => setNarrativeLoading(false));
+      })
       .catch(() => setReview(null))
       .finally(() => setLoading(false));
   }, []);
@@ -152,6 +185,19 @@ export function MonthlyRecapScreen() {
               <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12 }}>Share</Text>
             </Pressable>
           </View>
+
+          {(narrativeLoading || narrative) ? (
+            <ShadowCard size="card" bg={theme.card} accent={theme.purple.solid} rotate={0.2} cardId="recap_narrative">
+              <Text style={[styles.sectionTitle, { color: theme.textSoft }]}>YOUR MONTH IN WORDS</Text>
+              <View style={{ marginTop: 8 }}>
+                {narrativeLoading ? (
+                  <NarrativeShimmer theme={theme} />
+                ) : (
+                  <Text style={{ fontSize: 13, color: theme.textStrong, lineHeight: 20 }}>{narrative}</Text>
+                )}
+              </View>
+            </ShadowCard>
+          ) : null}
 
           <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} rotate={-0.3} cardId="recap_score">
             <Text style={[styles.sectionTitle, { color: theme.teal.fg }]}>AVERAGE WELLNESS SCORE</Text>
