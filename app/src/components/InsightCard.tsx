@@ -35,6 +35,7 @@ const TYPE_ICON: Record<string, string> = {
   spending: "wallet-outline",
   streak: "flame",
   mindfulness: "leaf-outline",
+  category_summary: "layers-outline",
 };
 
 const CONFIDENCE_LABEL: Record<Confidence, string> = {
@@ -248,7 +249,8 @@ const TYPE_TIP: Record<string, string> = {
   medication:   "Never adjust your medication schedule without consulting your doctor.",
   cycle:        "Cycle-based patterns can vary month to month — keep tracking.",
   exercise:     "Rest days are part of any effective training routine.",
-  mindfulness:  "Even a short session counts — consistency over duration.",
+  mindfulness:      "Even a short session counts — consistency over duration.",
+  category_summary: "These patterns are drawn from multiple observations — keep logging to refine them.",
 };
 
 /**

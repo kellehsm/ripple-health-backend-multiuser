@@ -102,7 +102,7 @@ export async function buildDayFrame(userId: string, windowDays = 120): Promise<D
   const summaries = await query<RawSummary>(
     `SELECT date::text AS date, summary_data
      FROM daily_summaries
-     WHERE user_id = $1 AND date >= CURRENT_DATE - $2::int
+     WHERE user_id = $1 AND date >= (NOW() AT TIME ZONE 'America/New_York')::date - $2::int
      ORDER BY date`,
     [userId, windowDays]
   );
@@ -112,7 +112,7 @@ export async function buildDayFrame(userId: string, windowDays = 120): Promise<D
   const cycleRows = await safeQuery<{ date: string; phase: string }>(
     `SELECT log_date::text AS date, phase
      FROM cycle_day_logs
-     WHERE user_id = $1 AND log_date >= CURRENT_DATE - $2::int`,
+     WHERE user_id = $1 AND log_date >= (NOW() AT TIME ZONE 'America/New_York')::date - $2::int`,
     [userId, windowDays]
   );
   const cycleByDate = new Map(cycleRows.map(r => [r.date, r.phase]));
@@ -122,19 +122,19 @@ export async function buildDayFrame(userId: string, windowDays = 120): Promise<D
        SELECT logged_at::date AS d
        FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
        WHERE m.user_id = $1 AND m.name = 'mindfulness'
-         AND ml.logged_at >= CURRENT_DATE - $2::int
+         AND ml.logged_at >= (NOW() AT TIME ZONE 'America/New_York')::date - $2::int
        GROUP BY logged_at::date
      ),
      read AS (
        SELECT logged_at::date AS d
        FROM reading_sessions
-       WHERE user_id = $1 AND logged_at >= CURRENT_DATE - $2::int
+       WHERE user_id = $1 AND logged_at >= (NOW() AT TIME ZONE 'America/New_York')::date - $2::int
        GROUP BY logged_at::date
      ),
      hob AS (
        SELECT logged_at::date AS d
        FROM hobby_logs
-       WHERE user_id = $1 AND logged_at >= CURRENT_DATE - $2::int
+       WHERE user_id = $1 AND logged_at >= (NOW() AT TIME ZONE 'America/New_York')::date - $2::int
        GROUP BY logged_at::date
      )
      SELECT COALESCE(mind.d, read.d, hob.d)::text AS date,
@@ -150,7 +150,7 @@ export async function buildDayFrame(userId: string, windowDays = 120): Promise<D
     `SELECT logged_at::date AS date, AVG(stress_score)::float AS score
      FROM journal_entries
      WHERE user_id = $1 AND stress_score IS NOT NULL
-       AND logged_at >= CURRENT_DATE - $2::int
+       AND logged_at >= (NOW() AT TIME ZONE 'America/New_York')::date - $2::int
      GROUP BY logged_at::date`,
     [userId, windowDays]
   );
@@ -159,7 +159,7 @@ export async function buildDayFrame(userId: string, windowDays = 120): Promise<D
   const weatherRows = await safeQuery<{ date: string; cond: string }>(
     `SELECT observed_at::date::text AS date, MAX(condition) AS cond
      FROM weather_observations
-     WHERE user_id = $1 AND observed_at >= CURRENT_DATE - $2::int
+     WHERE user_id = $1 AND observed_at >= (NOW() AT TIME ZONE 'America/New_York')::date - $2::int
      GROUP BY observed_at::date`,
     [userId, windowDays]
   );
@@ -316,14 +316,17 @@ export function lagPairColumns(
   lag: number,
 ): { a: number[]; b: number[]; dates: string[] } {
   const a: number[] = [], b: number[] = [], dates: string[] = [];
-  const idx = new Map(frame.rows.map((r, i) => [r.date, i]));
   for (const r of frame.rows) {
-    const iA = idx.get(r.date)!;
-    const iB = iA + lag;
-    if (iB < 0 || iB >= frame.rows.length) continue;
     const va = (r as any)[fieldA];
-    const vb = (frame.rows[iB] as any)[fieldB];
-    if (typeof va === "number" && Number.isFinite(va) && typeof vb === "number" && Number.isFinite(vb)) {
+    if (typeof va !== "number" || !Number.isFinite(va)) continue;
+    // Compute the target calendar date by adding `lag` days.
+    const d = new Date(r.date + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + lag);
+    const targetDate = d.toISOString().slice(0, 10);
+    const targetRow = frame.byDate.get(targetDate);
+    if (!targetRow) continue;
+    const vb = (targetRow as any)[fieldB];
+    if (typeof vb === "number" && Number.isFinite(vb)) {
       a.push(va); b.push(vb); dates.push(r.date);
     }
   }

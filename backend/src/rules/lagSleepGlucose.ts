@@ -43,12 +43,13 @@ export const LagSleepGlucoseRule: InsightRule = {
     if (!passesMDE("glucose_mg_dl", Math.abs(t.meanA - t.meanB))) return null;
 
     const dir = t.meanA > t.meanB ? "higher" : "lower";
-    const ci = formatCI(t.ci95, 1);
+    const ci = t.ci95 ? formatCI(t.ci95, 1) : null;
     return {
       title: `Nights of poor sleep run into ${dir}-glucose mornings`,
       description:
         `On mornings after your bottom-tertile sleep nights, your average glucose was ${t.meanA.toFixed(0)} mg/dL, ` +
-        `vs ${t.meanB.toFixed(0)} mg/dL after your best sleep nights. ${ci}.`,
+        `vs ${t.meanB.toFixed(0)} mg/dL after your best sleep nights.` +
+        (ci ? ` ${ci}.` : ""),
       confidence: t.pValue < 0.01 ? "very_high" : t.pValue < 0.05 ? "high" : "moderate",
       confidenceScore: Math.round((1 - Math.min(t.pValue, 0.2) / 0.2) * 60 + Math.min(Math.abs(t.effectSize) / 0.8, 1) * 40),
       timesObserved: pairs.a.length,

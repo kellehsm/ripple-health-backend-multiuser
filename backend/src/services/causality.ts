@@ -124,7 +124,8 @@ export function findChangePoint(
     const before = values.slice(0, i);
     const after = values.slice(i);
     const r = welchTTest(before, after);
-    const tAbs = Math.abs((r.meanA - r.meanB)) / Math.max(1e-9, (r.ci95[1] - r.ci95[0]) / 3.92);
+    const ciWidth = r.ci95 ? (r.ci95[1] - r.ci95[0]) : 1e-9;
+    const tAbs = Math.abs((r.meanA - r.meanB)) / Math.max(1e-9, ciWidth / 3.92);
     if (!best || tAbs > best.t) best = { i, t: tAbs };
   }
   if (!best) return null;
