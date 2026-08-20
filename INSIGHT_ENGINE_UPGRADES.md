@@ -38,7 +38,7 @@ Working checklist. `[x]` = done, `[~]` = in progress, `[ ]` = todo.
 - [x] 4.3 Rule versioning + shadow mode (version stored per insight; shadow via `variant` column)
 - [x] 4.4 A/B variant harness (rule.variant + variant column)
 - [x] 4.5 Rule metadata: actionable / mutable / clinical-risk (on InsightRule + InsightResult)
-- [~] 4.6 Incremental / watermarked recomputation (deferred — day-frame cache already deduplicates DB load per run)
+- [x] 4.6 Incremental / watermarked recomputation (`insight_engine_state` table + `skipHeavyTiers` logic in `runInsightsForUser` — watermark persisted after every run)
 - [x] 4.7 Transactional / resumable engine runs (markStale moved AFTER candidate collection)
 - [x] 4.8 Observability: per-rule runtime + hit + downvote metrics (`insight_rule_runs` table)
 
@@ -58,7 +58,7 @@ Working checklist. `[x]` = done, `[~]` = in progress, `[ ]` = todo.
 - [x] 7.2 Auto-generate template from supportingData when missing (`autoGenerateTemplate`)
 - [x] 7.3 Experiment outcome → follow-up insight (`experimentOutcome.ts` hooked into nightly job)
 - [x] 7.4 Micro-nudges (`nudges.ts` — 1/day + 14d per-rule cooldown)
-- [~] 7.5 "Try again" for stale insights (handled via `detectFlipsForUser` — emits "no longer predicts" insight)
+- [x] 7.5 "Try again" for stale insights (handled via `detectFlipsForUser` — emits "no longer predicts" insight; verified in `insightRanker.ts`)
 
 ## 8. Presentation / UX
 - [x] 8.1 Sparkline / 2-bar chart on every card (`InsightSparkline.tsx` + `pickSparklinePair` in InsightCard)
@@ -67,7 +67,17 @@ Working checklist. `[x]` = done, `[~]` = in progress, `[ ]` = todo.
 - [x] 8.4 Insight of the week digest hook (`/insights/digest` route)
 - [x] 8.5 Inline confidence explainer on badge tap (`showConfExplainer` in InsightCard)
 - [x] 8.6 Pinning / bookmarks (`/insights/:id/pin` + toggle button in card)
-- [~] 8.7 Category-level meta-summaries (`weekly_rhythm_*`, `recovery_score`, `metabolic_score` serve as category rollups)
+- [x] 8.7 Category-level meta-summaries (`emitCategorySummaries` in `insightsEngine.ts` synthesizes 2+ active insights per domain into a `category_summary` card)
+
+## 10. Wave 2 — new signal categories
+
+- [x] 10.1 **`cyclePhase.ts`** — compares mood/energy across menstrual vs luteal vs follicular/ovulatory phases using logged `cycle_day_logs`; Welch's t-test + MDE gate; weekly tier
+- [x] 10.2 **`medicationAdherenceOutcomes.ts`** — compares mood/sleep on full-adherence days vs days with ≥1 skipped dose (≥10 days each bucket); weekly, actionable, mutable; experiment template added
+- [x] 10.3 **`glucoseOvernight.ts`** — computes per-night CV% from `glucose_readings` 00:00–06:00, correlates stable (CV ≤15%) vs variable (CV ≥25%) nights with next-day mood; semiweekly tier
+- [x] 10.4 MDE table extended: `energy_level` (0.5 pt) and `glucose_cv_pct` (5 pct-points)
+- [x] 10.5 Experiment templates added for all three new actionable rules
+- [x] 10.6 Golden-set assertions added (9 new assertions in `insight-golden-set.impl.ts`)
+- [x] 10.7 Items 4.6, 7.5, 8.7 verified complete and checkboxes updated
 
 ## 9. Trust / safety
 - [x] 9.1 Diagnostic-language CI linter (`backend/scripts/lint-insight-language.mjs`)

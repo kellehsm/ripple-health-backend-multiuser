@@ -245,6 +245,8 @@ export const MDE: Record<string, number> = {
   caffeine_mg: 40,
   alcohol_grams: 5,
   minutes: 15,
+  energy_level: 0.5,        // /10 scale (cycle energy)
+  glucose_cv_pct: 5,        // 5 pct-points overnight CV
 };
 
 export function passesMDE(metric: keyof typeof MDE | string, absDiff: number): boolean {

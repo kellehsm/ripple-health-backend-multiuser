@@ -133,5 +133,37 @@ function falsy(name: string, cond: any) {
   truthy("granger lift positive when X predicts Y", g.lift >= 0);
 }
 
+// ---- Wave 2: cyclePhase (mood split) ----
+{
+  // Simulate follicular/ovulatory baseline vs luteal low-mood group.
+  const luteal    = [2.5, 2.8, 2.6, 2.7, 2.9, 2.4, 2.5, 2.6, 2.8, 2.7];
+  const baseline  = [3.5, 3.6, 3.4, 3.7, 3.5, 3.8, 3.6, 3.5, 3.7, 3.6, 3.4, 3.5];
+  const t = welchTTest(luteal, baseline);
+  truthy("cyclePhase.welch detects luteal-vs-baseline mood gap", t.pValue < 0.01);
+  truthy("cyclePhase.meanA lower than meanB", t.meanA < t.meanB);
+  truthy("cyclePhase.passesMDE mood", passesMDE("mood_score", Math.abs(t.meanA - t.meanB)));
+}
+
+// ---- Wave 2: medicationAdherenceOutcomes (mood split) ----
+{
+  const fullDays   = [3.6, 3.8, 3.7, 3.6, 3.5, 3.9, 3.7, 3.6, 3.8, 3.7, 3.6, 3.8];
+  const missedDays = [2.9, 3.0, 2.8, 3.1, 2.9, 3.0, 2.8, 2.9, 3.0, 2.8];
+  const t = welchTTest(fullDays, missedDays);
+  truthy("medAdherenceOutcomes.pValue significant", t.pValue < 0.05);
+  truthy("medAdherenceOutcomes.mood higher on full days", t.meanA > t.meanB);
+  truthy("medAdherenceOutcomes.passesMDE", passesMDE("mood_score", Math.abs(t.meanA - t.meanB)));
+}
+
+// ---- Wave 2: glucoseOvernight (stable vs variable nights) ----
+{
+  const stableMood   = [3.7, 3.8, 3.6, 3.9, 3.7, 3.8, 3.9, 3.7, 3.6, 3.8];
+  const variableMood = [2.9, 3.0, 2.8, 2.9, 3.1, 2.8, 3.0, 2.9, 2.8, 3.0];
+  const t = welchTTest(stableMood, variableMood);
+  truthy("glucoseOvernight.pValue significant", t.pValue < 0.05);
+  truthy("glucoseOvernight.mood higher after stable night", t.meanA > t.meanB);
+  truthy("glucoseOvernight.passesMDE", passesMDE("mood_score", Math.abs(t.meanA - t.meanB)));
+  truthy("glucoseOvernight.ci95 defined", t.ci95 != null && t.ci95[1] > t.ci95[0]);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

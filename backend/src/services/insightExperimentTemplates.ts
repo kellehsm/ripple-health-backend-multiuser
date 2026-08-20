@@ -71,6 +71,11 @@ const TEMPLATES: Record<string, ExperimentTemplate> = {
   hobbies_vs_spending:      { description: "Track hobby spend separately for 2 weeks.",                       duration_days: 14, metrics: ["spending_total"] },
   spending_cycle_phase:     { description: "Set a spending pause during your flagged cycle phase.",           duration_days: 28, metrics: ["spending_total"] },
 
+  // Wave 2 — cycle phase / medication outcomes / overnight glucose
+  cycle_phase_mood_energy:          { description: "During your flagged cycle phase, add a brief low-intensity activity each day for 4 weeks and track mood.", duration_days: 28, metrics: ["mood_score", "energy_level"] },
+  medication_adherence_outcomes:    { description: "Use phone reminders to hit full adherence every day for 2 weeks; compare mood logs to your baseline.", duration_days: 14, metrics: ["adherence_pct", "mood_score"] },
+  glucose_overnight_mood:           { description: "Avoid eating within 2 hours of bed for 2 weeks; track overnight glucose variation and next-day mood.", duration_days: 14, metrics: ["glucose_cv", "mood_score"] },
+
   // Cycle / medication
   medication_adherence:     { description: "Set a fixed daily reminder for each dose for 2 weeks.",           duration_days: 14, metrics: ["adherence_pct"] },
   missed_slot:              { description: "Set a phone alarm for the flagged slot for 2 weeks.",             duration_days: 14, metrics: ["adherence_pct"] },

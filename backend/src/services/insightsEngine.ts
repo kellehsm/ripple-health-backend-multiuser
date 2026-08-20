@@ -98,6 +98,10 @@ import { SleepArchitectureRule } from "../rules/sleepArchitecture.js";
 import { RecoveryDayRule } from "../rules/recoveryDay.js";
 import { SymptomLagTriggerRule } from "../rules/symptomLagTrigger.js";
 import { SeasonalYoYRule } from "../rules/seasonalYoY.js";
+// Wave 2 — new signal categories
+import { CyclePhaseRule } from "../rules/cyclePhase.js";
+import { MedicationAdherenceOutcomesRule } from "../rules/medicationAdherenceOutcomes.js";
+import { GlucoseOvernightRule } from "../rules/glucoseOvernight.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -198,6 +202,10 @@ export const ALL_RULES: InsightRule[] = [
   RecoveryDayRule,
   SymptomLagTriggerRule,
   SeasonalYoYRule,
+  // Wave 2 — new signal categories
+  CyclePhaseRule,
+  MedicationAdherenceOutcomesRule,
+  GlucoseOvernightRule,
 ];
 
 export interface StoredInsight {
