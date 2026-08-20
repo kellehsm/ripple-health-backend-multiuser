@@ -699,6 +699,7 @@ export function ExerciseSessionScreen() {
             {planned.length > 0 && (
               <Text style={[styles.sectionLabel, { color: theme.textSoft, marginTop: 4 }]}>LOGGED</Text>
             )}
+            <Text style={{ color: theme.textSoft, fontSize: 11, marginBottom: 2, textAlign: "right" }}>Hold a set to delete</Text>
             {entries.map((entry) => (
               <Swipeable
                 key={entry.id}

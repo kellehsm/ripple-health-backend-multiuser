@@ -162,6 +162,7 @@ export function ExerciseScreen() {
   const [showTooltip, setShowTooltip] = useState(false);
   const [sessions, setSessions] = useState<ExerciseSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<WorkoutSuggestion | null>(null);
   const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(null);
   const [plannerVisible, setPlannerVisible] = useState(false);
@@ -224,6 +225,7 @@ export function ExerciseScreen() {
     }
 
     if (!refreshing) setLoading(true);
+    setLoadError(null);
     Promise.all([
       api.getWorkoutWizardStatus().catch(() => ({ complete: false })),
       api.listExerciseSessions(20, 0).catch(() => []),
@@ -246,6 +248,8 @@ export function ExerciseScreen() {
         setSuggestion(sugVal);
         setActiveProgram(activeProgramVal);
       }
+    }).catch(() => {
+      if (!cancelled) setLoadError("Couldn't load workout data");
     }).finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
     return () => { cancelled = true; };
   }, [prefsLoading, preferences.selectedModules, reloadKey]));
@@ -403,6 +407,15 @@ export function ExerciseScreen() {
             onDismiss={() => setShowTooltip(false)}
           />
         )}
+        {loadError ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: theme.teal.tint, borderRadius: 12, borderWidth: 1.5, borderColor: theme.teal.solid, padding: 10, marginBottom: 8 }}>
+            <Ionicons name="alert-circle-outline" size={16} color={theme.teal.solid} />
+            <Text style={{ color: theme.textSoft, fontSize: 12, flex: 1 }}>{loadError}</Text>
+            <Pressable onPress={() => { invalidateCache('exercise:main'); setReloadKey((k) => k + 1); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retry loading exercise data">
+              <Text style={{ color: theme.teal.solid, fontSize: 12, fontWeight: "800" }}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {/* Active session banner — tap the row to continue, tap the X to
             discard the unfinished session (removes it and its log entries). */}
         {openSession && (

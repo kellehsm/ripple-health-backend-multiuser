@@ -39,10 +39,8 @@ export async function syncHealthData(): Promise<SyncResult> {
   const startOfDay = new Date(now);
   startOfDay.setHours(0, 0, 0, 0);
 
-  // Sleep window: 8pm yesterday → now
-  const sleepWindowStart = new Date(now);
-  sleepWindowStart.setDate(sleepWindowStart.getDate() - 1);
-  sleepWindowStart.setHours(20, 0, 0, 0);
+  // Sleep window: rolling 72h → now (catches sessions outside the old 8 PM cutoff)
+  const sleepWindowStart = new Date(now.getTime() - 72 * 60 * 60 * 1000);
 
   const errors: string[] = [];
   let steps: number | null = null;

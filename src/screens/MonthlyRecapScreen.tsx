@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated, Share, StyleSheet, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated, Share, StyleSheet, Alert, RefreshControl } from "react-native";
 import ViewShot, { type ViewShotRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
@@ -71,6 +71,7 @@ export function MonthlyRecapScreen() {
   const { theme } = useTheme();
   const [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const viewShotRef = useRef<ViewShotRef>(null);
 
   useEffect(() => {
@@ -79,6 +80,14 @@ export function MonthlyRecapScreen() {
       .catch(() => setReview(null))
       .finally(() => setLoading(false));
   }, []);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    api.monthlyReview()
+      .then(setReview)
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  }
 
   async function shareAsImage() {
     try {
@@ -127,7 +136,7 @@ export function MonthlyRecapScreen() {
         </View>
       ) : (
         <ViewShot ref={viewShotRef} options={{ format: "png", quality: 0.95, result: "tmpfile" }}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <View>
               <Text style={{ fontSize: 22, fontWeight: "900", color: theme.textStrong }}>{monthLabel(review.month)}</Text>

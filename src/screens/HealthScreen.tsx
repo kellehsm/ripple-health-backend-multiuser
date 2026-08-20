@@ -1400,7 +1400,7 @@ export function HealthScreen() {
             marginTop: 4,
             paddingVertical: 6,
             paddingHorizontal: 10,
-            borderRadius: 12,
+            borderRadius: 20,
             borderWidth: 1.5,
             borderColor: hcResult.startsWith("Sync failed") || hcResult.startsWith("Permission")
               ? (theme.coral?.sub ?? "#B84A2E")
@@ -1834,7 +1834,7 @@ export function HealthScreen() {
                 marginTop: 8,
                 paddingVertical: 5,
                 paddingHorizontal: 10,
-                borderRadius: 12,
+                borderRadius: 20,
                 borderWidth: 1.5,
                 borderColor: palette.border,
                 backgroundColor: palette.bg,
@@ -2009,7 +2009,7 @@ function makeStyles(ink: string, card: string, teal: string = "#3FA0A6") {
   deltaBadge: {
     borderWidth: 2,
     borderColor: "rgba(128,128,128,0.4)",
-    borderRadius: 12,
+    borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
@@ -2039,7 +2039,7 @@ function makeStyles(ink: string, card: string, teal: string = "#3FA0A6") {
     ...layeredShadow('card'),
   },
   hcBtnText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
-  tirBadge: { borderRadius: 12, borderWidth: 1.5, paddingHorizontal: 8, paddingVertical: 3 },
+  tirBadge: { borderRadius: 20, borderWidth: 1.5, paddingHorizontal: 8, paddingVertical: 3 },
   tirBadgeText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
   addAnnotationBtn: {
     width: 26, height: 26, borderRadius: 12, borderWidth: 1.5,
@@ -2058,11 +2058,11 @@ function makeStyles(ink: string, card: string, teal: string = "#3FA0A6") {
   },
   annotationModalTitle: { fontSize: 14, fontWeight: "800", marginBottom: 10 },
   annotationInput: {
-    borderWidth: 2, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
+    borderWidth: 2, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10,
     fontSize: 14,
   },
   annotationBtn: {
-    borderRadius: 12, paddingVertical: 10, alignItems: "center",
+    borderRadius: 16, paddingVertical: 10, alignItems: "center",
   },
   annotationBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
   waterTile: {
@@ -2072,7 +2072,7 @@ function makeStyles(ink: string, card: string, teal: string = "#3FA0A6") {
   waterTileHeader: { flexDirection: "row", alignItems: "center", gap: 4 },
   waterLogBtn: {
     marginTop: 8,
-    borderRadius: 12,
+    borderRadius: 20,
     borderWidth: 2,
     paddingHorizontal: 8,
     paddingVertical: 4,

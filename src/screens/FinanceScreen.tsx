@@ -46,6 +46,7 @@ type SpendingEntry = {
   source: string | null;
   plaid_transaction_id: string | null;
   logged_at: string;
+  tag: string | null;
 };
 
 const CATEGORIES = [
@@ -584,7 +585,7 @@ export function FinanceScreen() {
                 {syncing ? "  ·  syncing…" : ""}
               </Text>
               {view === "day" && (
-                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= dailyBudget ? (theme.teal?.solid ?? "#14b8a6") : (theme.red?.solid ?? "#ef4444") }}>
+                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= dailyBudget ? (theme.teal?.solid ?? "#14b8a6") : (theme.red?.solid ?? "#C0392B") }}>
                   {total <= dailyBudget
                     ? "On track"
                     : `Over by $${(total - dailyBudget).toFixed(2)}`}
@@ -651,7 +652,7 @@ export function FinanceScreen() {
         {entries.length > 0 && monthForecast.dayOfMonth >= 3 && (function () {
           const overBudget = monthForecast.projected > monthForecast.budget;
           const pct = Math.min(100, Math.round((monthForecast.projected / monthForecast.budget) * 100));
-          const barColor = pct > 110 ? theme.red?.solid ?? "#ef4444" : pct > 90 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
+          const barColor = pct > 110 ? theme.red?.solid ?? "#C0392B" : pct > 90 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
           const remaining = monthForecast.budget - monthForecast.projected;
           return (
             <ShadowCard size="card" accent={theme.purple.solid} rotate={-0.3}>
@@ -662,7 +663,7 @@ export function FinanceScreen() {
               <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
                 <View>
                   <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>PROJECTED</Text>
-                  <Text style={{ color: overBudget ? (theme.red?.solid ?? "#ef4444") : theme.textStrong, fontSize: 26, fontWeight: "900", letterSpacing: -0.5 }}>
+                  <Text style={{ color: overBudget ? (theme.red?.solid ?? "#C0392B") : theme.textStrong, fontSize: 26, fontWeight: "900", letterSpacing: -0.5 }}>
                     {formatAmount(monthForecast.projected)}
                   </Text>
                 </View>
@@ -681,7 +682,7 @@ export function FinanceScreen() {
                   borderRadius: 4,
                 }} />
               </View>
-              <Text style={{ color: overBudget ? (theme.red?.solid ?? "#ef4444") : theme.teal.solid, fontSize: 13, fontWeight: "800" }}>
+              <Text style={{ color: overBudget ? (theme.red?.solid ?? "#C0392B") : theme.teal.solid, fontSize: 13, fontWeight: "800" }}>
                 {overBudget
                   ? formatAmount(Math.abs(remaining)) + " over budget at this pace"
                   : formatAmount(remaining) + " under budget at this pace"}
@@ -845,6 +846,11 @@ export function FinanceScreen() {
                           </View>
                           {e.source === "plaid" && (
                             <Ionicons name="card-outline" size={11} color={theme.textSoft} />
+                          )}
+                          {e.tag === "emotional_spend" && (
+                            <View style={{ borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: theme.berry.tint ?? theme.purple.tint }}>
+                              <Text style={{ fontSize: 10, fontWeight: "700", color: theme.berry?.solid ?? theme.purple.solid }}>emotional</Text>
+                            </View>
                           )}
                           <Text style={[s.txTime, { color: theme.textSoft }]}>{formatTime(e.logged_at)}</Text>
                         </View>

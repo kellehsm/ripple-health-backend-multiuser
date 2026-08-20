@@ -113,7 +113,7 @@ export function CustomizeDashboardScreen() {
             key={id}
             style={[
               styles.row,
-              { borderColor: ink, backgroundColor: isHidden ? card : theme.teal.tint, opacity: isHidden ? 0.6 : 1 },
+              { borderColor: theme.cardBorder, backgroundColor: isHidden ? card : theme.teal.tint, opacity: isHidden ? 0.6 : 1 },
             ]}
           >
             <View style={{ flex: 1, paddingRight: 8 }}>
@@ -124,7 +124,7 @@ export function CustomizeDashboardScreen() {
               <Pressable
                 onPress={function () { moveUp(index); }}
                 disabled={index === 0}
-                style={[styles.arrowBtn, { borderColor: ink, backgroundColor: card, opacity: index === 0 ? 0.3 : 1 }]}
+                style={[styles.arrowBtn, { borderColor: theme.cardBorder, backgroundColor: card, opacity: index === 0 ? 0.3 : 1 }]}
                 hitSlop={6}
               >
                 <Ionicons name="chevron-up" size={16} color={ink} />
@@ -132,7 +132,7 @@ export function CustomizeDashboardScreen() {
               <Pressable
                 onPress={function () { moveDown(index); }}
                 disabled={index === layout.order.length - 1}
-                style={[styles.arrowBtn, { borderColor: ink, backgroundColor: card, opacity: index === layout.order.length - 1 ? 0.3 : 1 }]}
+                style={[styles.arrowBtn, { borderColor: theme.cardBorder, backgroundColor: card, opacity: index === layout.order.length - 1 ? 0.3 : 1 }]}
                 hitSlop={6}
               >
                 <Ionicons name="chevron-down" size={16} color={ink} />
@@ -151,7 +151,7 @@ export function CustomizeDashboardScreen() {
 
       <Pressable
         onPress={resetToDefault}
-        style={[styles.resetBtn, { borderColor: ink, backgroundColor: card }]}
+        style={[styles.resetBtn, { borderColor: theme.cardBorder, backgroundColor: card }]}
       >
         <Ionicons name="refresh-outline" size={15} color={ink} style={{ marginRight: 6 }} />
         <Text style={[styles.resetText, { color: ink }]}>Reset to default order</Text>

@@ -20,6 +20,7 @@ import { UndoBanner } from "../components/UndoBanner";
 import { TooltipBubble } from "../components/TooltipBubble";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
+import { WeeklyDigestModal } from "../components/WeeklyDigestModal";
 
 function SkeletonPulse({ style }: { style?: object }) {
   const opacity = useRef(new Animated.Value(0.4)).current;
@@ -31,12 +32,14 @@ function SkeletonPulse({ style }: { style?: object }) {
     anim.start();
     return () => anim.stop();
   }, []);
-  return <Animated.View style={[{ backgroundColor: "#C8C8C8", borderRadius: 14 }, style, { opacity }]} />;
+  const { theme } = useTheme();
+  return <Animated.View style={[{ backgroundColor: theme.cardBorder, borderRadius: 14 }, style, { opacity }]} />;
 }
 
 function SkeletonCard() {
+  const { theme: skTheme } = useTheme();
   return (
-    <View style={{ gap: 10, padding: 14, borderRadius: 26, borderWidth: 2, borderColor: "#E0E0E0", backgroundColor: "#F5F5F5" }}>
+    <View style={{ gap: 10, padding: 14, borderRadius: 26, borderWidth: 2, borderColor: skTheme.cardBorder, backgroundColor: skTheme.card }}>
       <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
         <SkeletonPulse style={{ width: 30, height: 30, borderRadius: 12 }} />
         <View style={{ flex: 1, gap: 6 }}>
@@ -92,9 +95,9 @@ function computeSleepMoodInsight(data: WeeklyDayCorr[]): string | null {
   if (Math.abs(diff) < 0.3) return null;
   const days = data.length;
   if (diff > 0) {
-    return `On nights with 7h+ sleep, next-day mood averaged ${goodAvg.toFixed(1)} vs ${poorAvg.toFixed(1)} on shorter-sleep nights (${goodSleep.length} of ${days} days). Descriptive only.`;
+    return `On nights with 7h+ sleep, next-day mood averaged ${goodAvg.toFixed(1)} vs ${poorAvg.toFixed(1)} on shorter-sleep nights (${goodSleep.length} of ${days} days).`;
   } else {
-    return `On nights with under 7h sleep, next-day mood averaged ${poorAvg.toFixed(1)} vs ${goodAvg.toFixed(1)} on longer-sleep nights (${poorSleep.length} of ${days} days). Descriptive only.`;
+    return `On nights with under 7h sleep, next-day mood averaged ${poorAvg.toFixed(1)} vs ${goodAvg.toFixed(1)} on longer-sleep nights (${poorSleep.length} of ${days} days).`;
   }
 }
 
@@ -156,6 +159,8 @@ export function InsightsScreen() {
 
   type WeeklyDay = { date: string; avg_mood: number | null; sleep_hours: number; total_spent: number };
   const [weeklyData, setWeeklyData] = useState<WeeklyDay[]>([]);
+  const [digest, setDigest] = useState<any>(null);
+  const [digestVisible, setDigestVisible] = useState(false);
   // Per-card animation values for stagger entrance
   const cardAnims = useRef<Animated.Value[]>([]);
   const staggerRef = useRef<Animated.CompositeAnimation | null>(null);
@@ -195,6 +200,7 @@ export function InsightsScreen() {
       if (dash?.weekly_mood && Array.isArray(dash.weekly_mood)) {
         setWeeklyData(dash.weekly_mood);
       }
+      api.weeklyDigest().then(setDigest).catch(() => {});
     } catch (e: any) {
       if (!loadCancelledRef.current) setError("Couldn't load insights — pull to retry.");
     } finally {
@@ -308,7 +314,7 @@ export function InsightsScreen() {
     <ScrollView
       style={{ flex: 1, backgroundColor: "transparent" }}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={theme.primary} colors={[theme.primary]} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
     >
       {showTooltip && (
         <TooltipBubble
@@ -557,6 +563,60 @@ export function InsightsScreen() {
         <Text style={{ color: theme.textSoft, fontSize: 16 }}>›</Text>
       </Pressable>
 
+      <Pressable
+        onPress={() => navigation.navigate("InsightsTrends")}
+        style={({ pressed }) => [
+          {
+            marginTop: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderWidth: 1.5,
+            borderRadius: 14,
+            borderColor: theme.cardBorder,
+            backgroundColor: theme.card,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            opacity: pressed ? 0.7 : 1,
+          },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="View trends"
+      >
+        <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: 13 }}>
+          Trends
+        </Text>
+        <Text style={{ color: theme.textSoft, fontSize: 16 }}>›</Text>
+      </Pressable>
+
+      {digest && (
+        <Pressable
+          onPress={() => setDigestVisible(true)}
+          style={({ pressed }) => [
+            {
+              marginTop: 10,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              borderWidth: 1.5,
+              borderRadius: 14,
+              borderColor: theme.teal.solid,
+              backgroundColor: theme.teal.tint,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="View weekly digest"
+        >
+          <Text style={{ color: theme.teal.fg, fontWeight: "700", fontSize: 13 }}>
+            📅 Weekly digest
+          </Text>
+          <Text style={{ color: theme.teal.fg, fontSize: 16 }}>›</Text>
+        </Pressable>
+      )}
+
       <Text style={[styles.footer, { color: theme.textSoft }]}>
         Insights are based on statistical patterns in your personal data only. They describe observations, never diagnoses. Always consult a healthcare professional for medical decisions.
       </Text>
@@ -569,6 +629,7 @@ export function InsightsScreen() {
       />
     )}
     <FeatureIntroSheet intro={insightsIntro} visible={introVisible} onClose={dismissIntro} />
+    <WeeklyDigestModal visible={digestVisible} onClose={() => setDigestVisible(false)} digest={digest} theme={theme} />
     </View>
   );
 }

@@ -289,7 +289,7 @@ function makeStyles(ink: string, card: string) {
     shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 2,
   },
   bucketRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  bucketChip: { borderWidth: 2, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
+  bucketChip: { borderWidth: 2, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
   searchBtn: {
     borderRadius: 16, borderWidth: 2, borderColor: ink, paddingVertical: 12, alignItems: "center", marginTop: 4,
     shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 2,

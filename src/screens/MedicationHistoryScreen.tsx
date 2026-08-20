@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
@@ -57,22 +57,32 @@ export function MedicationHistoryScreen() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [stats, setStats] = useState<DoseStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const lastFetchRef = useRef(0);
 
-  useFocusEffect(useCallback(() => {
+  const fetchData = useCallback((force = false) => {
     let cancelled = false;
-    if (Date.now() - lastFetchRef.current < 30_000) return () => { cancelled = true; };
-    setLoading(true);
+    if (!force && Date.now() - lastFetchRef.current < 30_000) return () => { cancelled = true; };
     lastFetchRef.current = Date.now();
     api.getMedicationHistory(medicationId)
       .then((rows) => { if (!cancelled) setHistory(rows ?? []); })
       .catch(() => { if (!cancelled) setHistory([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
     api.getMedicationDoseStats(medicationId)
       .then((res: any) => { if (!cancelled) setStats(res ?? null); })
       .catch(() => { if (!cancelled) setStats(null); });
     return () => { cancelled = true; };
-  }, [medicationId]));
+  }, [medicationId]);
+
+  useFocusEffect(useCallback(() => {
+    setLoading(true);
+    return fetchData();
+  }, [fetchData]));
+
+  function handleRefresh() {
+    setRefreshing(true);
+    fetchData(true);
+  }
 
   if (loading) {
     return (
@@ -83,7 +93,11 @@ export function MedicationHistoryScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={{ backgroundColor: theme.page }}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}
+    >
       <Text style={[styles.medName, { color: theme.textStrong }]}>{medicationName}</Text>
 
       {stats && (stats.totalDoses > 0 || !stats.is_prn) && (
