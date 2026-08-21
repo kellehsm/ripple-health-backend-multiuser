@@ -98,6 +98,18 @@ import { SleepArchitectureRule } from "../rules/sleepArchitecture.js";
 import { RecoveryDayRule } from "../rules/recoveryDay.js";
 import { SymptomLagTriggerRule } from "../rules/symptomLagTrigger.js";
 import { SeasonalYoYRule } from "../rules/seasonalYoY.js";
+// Wave 2 — new signal categories
+import { CyclePhaseRule } from "../rules/cyclePhase.js";
+import { MedicationAdherenceOutcomesRule } from "../rules/medicationAdherenceOutcomes.js";
+import { GlucoseOvernightRule } from "../rules/glucoseOvernight.js";
+// Wave 3 — weather integration
+import { WeatherRainActivityRule } from "../rules/weatherRainActivity.js";
+import { WeatherTempSleepRule } from "../rules/weatherTempSleep.js";
+import { WeatherDaylightMoodRule } from "../rules/weatherDaylightMood.js";
+// Wave 3 — cross-metric
+import { BestDayRecipeRule } from "../rules/bestDayRecipe.js";
+import { SleepExerciseInteractionRule } from "../rules/sleepExerciseInteraction.js";
+import { MealTimingSleepRule } from "../rules/mealTimingSleep.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -198,6 +210,18 @@ export const ALL_RULES: InsightRule[] = [
   RecoveryDayRule,
   SymptomLagTriggerRule,
   SeasonalYoYRule,
+  // Wave 2 — new signal categories
+  CyclePhaseRule,
+  MedicationAdherenceOutcomesRule,
+  GlucoseOvernightRule,
+  // Wave 3 — weather integration
+  WeatherRainActivityRule,
+  WeatherTempSleepRule,
+  WeatherDaylightMoodRule,
+  // Wave 3 — cross-metric
+  BestDayRecipeRule,
+  SleepExerciseInteractionRule,
+  MealTimingSleepRule,
 ];
 
 export interface StoredInsight {

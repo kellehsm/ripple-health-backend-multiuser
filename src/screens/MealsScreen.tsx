@@ -19,6 +19,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  KeyboardAvoidingView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -50,6 +51,7 @@ import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
 import { SectionEditorModal, SectionDef } from "../components/SectionEditorModal";
 import { FeatureTour, TourStep } from "../components/FeatureTour";
 import { ScreenBackground } from "../components/ScreenBackground";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { formatNutrition } from "../utils/nutritionFormatter";
 import { MEALS_SECTIONS } from "../constants";
 import {
@@ -1152,6 +1154,7 @@ export function MealsScreen() {
   } : null;
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={{ flex: 1 }}>
     <LinearGradient colors={[theme.page, theme.gradientEnd]} style={{ flex: 1 }}>
     <ScreenBackground pageId="meals" />
@@ -1622,7 +1625,13 @@ export function MealsScreen() {
         <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Today's meals</Text>
 
         {mealsError ? (
-          <Text style={{ color: theme.coral.sub, fontSize: 12, marginTop: 6 }}>{mealsError}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: theme.coral.tint, borderRadius: 12, borderWidth: 1.5, borderColor: theme.coral.solid, padding: 10, marginTop: 6 }}>
+            <Ionicons name="alert-circle-outline" size={16} color={theme.coral.solid} />
+            <Text style={{ color: theme.coral.sub, fontSize: 12, flex: 1 }}>Couldn't load meals</Text>
+            <Pressable onPress={loadMeals} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retry loading meals">
+              <Text style={{ color: theme.coral.solid, fontSize: 12, fontWeight: "800" }}>Retry</Text>
+            </Pressable>
+          </View>
         ) : null}
 
         {loadingMeals ? (
@@ -1660,7 +1669,7 @@ export function MealsScreen() {
                   accessibilityLabel={`${groupType}, ${groupMeals.length} ${groupMeals.length === 1 ? "entry" : "entries"}, ${groupCals} calories. ${isCollapsed ? "Collapsed, double tap to expand" : "Expanded, double tap to collapse"}.`}
                   hitSlop={6}
                 >
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: groupColor }} />
+                  <ThemedIcon slot={`mealType.${groupType}`} size={16} color={groupColor} />
                   <Text style={{ color: theme.textStrong, fontSize: 11, fontWeight: "900", letterSpacing: 0.6, flex: 1 }} allowFontScaling maxFontSizeMultiplier={1.3}>
                     {groupType.toUpperCase()} · {groupMeals.length}
                   </Text>
@@ -1884,7 +1893,8 @@ export function MealsScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                 >
-                  <Text style={{ flex: 1, color: theme.textStrong, fontSize: 15, fontWeight: selected ? "800" : "600" }}>{type[0].toUpperCase() + type.slice(1)}</Text>
+                  <ThemedIcon slot={`mealType.${type}`} size={20} />
+                  <Text style={{ flex: 1, color: theme.textStrong, fontSize: 15, fontWeight: selected ? "800" : "600", marginLeft: 8 }}>{type[0].toUpperCase() + type.slice(1)}</Text>
                   {selected ? <Ionicons name="checkmark" size={20} color={theme.teal.solid} /> : null}
                 </Pressable>
               );
@@ -2009,6 +2019,7 @@ export function MealsScreen() {
     <FeatureTour steps={MEALS_TOUR} visible={showTour} onDone={() => setShowTour(false)} scrollRef={scrollViewRef} scrollY={scrollOffsetRef.current} onExtraPadding={setTourPadding} />
     <FeatureIntroSheet intro={mealsIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

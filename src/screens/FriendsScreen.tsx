@@ -39,6 +39,8 @@ import {
   sendCheer,
   getCheers,
   getMyCheersToday,
+  getSocialNotifPrefs,
+  SocialNotifPrefs,
   Friend,
   FriendRequest,
   Challenge,
@@ -115,6 +117,7 @@ export function FriendsScreen() {
   const [reloadKey, setReloadKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [socialNotifPrefs, setSocialNotifPrefs] = useState<SocialNotifPrefs | null>(null);
   const [actingOnRequest, setActingOnRequest] = useState<string | null>(null);
   const [nudges, setNudges] = useState<Nudge[]>([]);
   const [nudgingSent, setNudgingSent] = useState<string | null>(null);
@@ -161,7 +164,7 @@ export function FriendsScreen() {
         const tracked = <T,>(p: Promise<T>, fallback: T): Promise<T> =>
           p.catch(() => { anyError = true; return fallback; });
         try {
-          const [me, reqs, friendList, cList, nudgeList, feed, cheerList, cheersSent] = await Promise.all([
+          const [me, reqs, friendList, cList, nudgeList, feed, cheerList, cheersSent, notifPrefs] = await Promise.all([
             tracked(api.me(), null as any),
             tracked(getFriendRequests(), [] as FriendRequest[]),
             tracked(getFriends(), [] as Friend[]),
@@ -170,6 +173,7 @@ export function FriendsScreen() {
             tracked(getActivityFeed(), [] as FeedEntry[]),
             tracked(getCheers(), [] as Cheer[]),
             tracked(getMyCheersToday(), [] as string[]),
+            tracked(getSocialNotifPrefs(), null as SocialNotifPrefs | null),
           ]);
           if (cancelled) return;
           setLoadError(anyError);
@@ -181,6 +185,7 @@ export function FriendsScreen() {
           setActivityFeed(Array.isArray(feed) ? feed : []);
           setCheers(Array.isArray(cheerList) ? cheerList : []);
           setCheersSentToday(new Set(Array.isArray(cheersSent) ? cheersSent : []));
+          if (notifPrefs) setSocialNotifPrefs(notifPrefs);
 
           // Show feature tour first time
           const seen = await hasSeenTooltip("friends-tour");
@@ -393,6 +398,22 @@ export function FriendsScreen() {
           {cheers.length > 3 && (
             <Text style={{ color: theme.teal.sub, fontSize: 12 }}>+{cheers.length - 3} more</Text>
           )}
+        </View>
+      )}
+
+      {/* Social notification prefs banner */}
+      {socialNotifPrefs && Object.values(socialNotifPrefs).some(v => !v) && (
+        <View style={[styles.card, { backgroundColor: theme.amber.tint, borderColor: theme.amber.solid, paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }]}>
+          <Ionicons name="notifications-off-outline" size={16} color={theme.amber.fg} />
+          <Text style={{ color: theme.amber.fg, fontSize: 12, flex: 1, fontWeight: "600" }}>
+            Some social notifications are turned off.
+          </Text>
+          <Pressable
+            onPress={() => navigation.navigate("SettingsSocial")}
+            style={[styles.smallBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
+          >
+            <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>Review</Text>
+          </Pressable>
         </View>
       )}
 

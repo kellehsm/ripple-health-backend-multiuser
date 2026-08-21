@@ -52,14 +52,14 @@ function statusColor(status: string, theme: any): string {
   return theme.textSoft;
 }
 
-function deltaStr(before: number | null, during: number | null, metric: string): { text: string; color: string } | null {
+function deltaStr(before: number | null, during: number | null, metric: string, theme?: any): { text: string; color: string } | null {
   if (before === null || during === null) return null;
   const diff = during - before;
   const isPositive = diff > 0;
   const isNegative = diff < 0;
   const absDiff = Math.abs(diff);
   // For mood: higher is better. For sleep/TIR: higher is better.
-  const color = isPositive ? "#2F9E5A" : isNegative ? "#C0392B" : "#888";
+  const color = isPositive ? (theme?.teal?.solid ?? "#2F9E5A") : isNegative ? (theme?.red?.solid ?? "#C0392B") : (theme?.textSoft ?? "#888");
   const arrow = isPositive ? "↑" : isNegative ? "↓" : "→";
   const formattedDiff = metric === "tir" || metric === "Glucose TIR"
     ? arrow + " " + (isPositive ? "+" : "") + Math.round(diff) + "%"
@@ -386,7 +386,7 @@ export function ExperimentScreen() {
               <Text style={{ color: theme.textSoft, fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginBottom: 10 }}>BEFORE VS DURING</Text>
               {results.results.map((r, i) => {
                 if (r.before_value === null && r.during_value === null) return null;
-                const delta = deltaStr(r.before_value, r.during_value, r.metric);
+                const delta = deltaStr(r.before_value, r.during_value, r.metric, theme);
                 const metricLabel = r.metric === "tir" ? "Glucose TIR"
                   : r.metric === "sleep" ? "Sleep"
                   : r.metric === "mood" ? "Morning Mood"

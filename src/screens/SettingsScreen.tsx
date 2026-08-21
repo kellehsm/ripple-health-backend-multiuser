@@ -237,7 +237,7 @@ export function SettingsScreen() {
               <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
             )}
             {matches("Watch", "Wear", "tiles") && (
-              <MenuRow title="Watch Tiles" subtitle="Wear OS tile concepts — glance, log & breathe" onPress={() => nav("WatchTiles")} theme={theme} />
+              <MenuRow title="Watch Tiles (preview)" subtitle="Wear OS tile concepts — glance, log & breathe" onPress={() => nav("WatchTiles")} theme={theme} />
             )}
             {matches("Watch", "Wear", "tiles") && matches("Ask", "chat", "data", "AI", "assistant") && (
               <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
@@ -292,7 +292,7 @@ export function SettingsScreen() {
       )}
 
       {/* Data Sources */}
-      {matches("Data Sources", "Health Connect", "Sync", "permissions", "Dexcom", "CGM", "Connected Banks", "Plaid", "transactions", "Hardcover", "books", "reading") && (
+      {matches("Data Sources", "Health Connect", "Sync", "permissions", "Dexcom", "CGM", "Connected Banks", "Plaid", "transactions", "Hardcover", "books", "reading", "Weather", "location", "weather data", "rain") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>DATA SOURCES</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -316,6 +316,12 @@ export function SettingsScreen() {
             )}
             {matches("Hardcover", "books", "reading", "sync") && (
               <MenuRow title="Hardcover" subtitle="Sync your book tracking with Hardcover.app" onPress={() => nav("SettingsHardcover")} theme={theme} />
+            )}
+            {matches("Hardcover", "books", "reading", "sync") && matches("Weather", "location", "weather data", "rain") && (
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+            )}
+            {matches("Weather", "location", "weather data", "rain", "daylight") && (
+              <MenuRow title="Weather location" subtitle="Set your city for daily weather insights" onPress={() => nav("SettingsWeatherLocation")} theme={theme} />
             )}
           </View>
         </>
@@ -433,6 +439,16 @@ export function SettingsScreen() {
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>FRIEND SHARING</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <MenuRow title="Friend Sharing" subtitle="Control what friends can see and social notifications" onPress={() => nav("SettingsSocial")} theme={theme} />
+          </View>
+        </>
+      )}
+
+      {/* History */}
+      {matches("History", "log", "past", "entries") && (
+        <>
+          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>HISTORY</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <MenuRow title="History" subtitle="Browse all past log entries" onPress={() => nav("History")} theme={theme} />
           </View>
         </>
       )}

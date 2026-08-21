@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Animated, PanResponder, View, Text, Pressable, StyleSheet, Easing } from "react-native";
+import { Animated, PanResponder, View, Text, Pressable, StyleSheet, Easing, Modal, ScrollView, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
@@ -344,6 +344,44 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
     ]).start(() => setBurstPos(null));
   }
 
+  // ── Explain modal state ─────────────────────────────────────────────────
+  const [explainVisible, setExplainVisible] = useState(false);
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [explainText, setExplainText] = useState<string | null>(null);
+
+  async function handleExplain() {
+    setExplainVisible(true);
+    if (explainText) return; // already loaded
+    setExplainLoading(true);
+    try {
+      const res = await api.insightExplain(insight.id);
+      setExplainText(res?.system_guidance ?? "No explanation available.");
+    } catch {
+      setExplainText("Couldn't load an explanation right now — try again shortly.");
+    } finally {
+      setExplainLoading(false);
+    }
+  }
+
+  // ── Debug modal state (dev only) ────────────────────────────────────────
+  const [debugVisible, setDebugVisible] = useState(false);
+  const [debugLoading, setDebugLoading] = useState(false);
+  const [debugData, setDebugData] = useState<string | null>(null);
+
+  async function handleDebug() {
+    setDebugVisible(true);
+    if (debugData) return;
+    setDebugLoading(true);
+    try {
+      const res = await api.insightDebug(insight.id);
+      setDebugData(JSON.stringify(res, null, 2));
+    } catch (e: any) {
+      setDebugData("Error: " + (e?.message ?? "unknown"));
+    } finally {
+      setDebugLoading(false);
+    }
+  }
+
   const translateX = useRef(new Animated.Value(0)).current;
   const panResponder = useRef(PanResponder.create({
     onMoveShouldSetPanResponder: (_, { dx, dy }) => Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.5,
@@ -386,6 +424,7 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
       }}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
+      onLongPress={__DEV__ ? () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}); handleDebug(); } : undefined}
       style={{ flex: 1 }}
       accessibilityRole="button"
       accessibilityLabel={insight.title}
@@ -461,16 +500,24 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
             <Text style={[styles.tipText, { color: theme.textSoft }]}>{tip}</Text>
           )}
           <FeedbackRow insightId={insight.id} theme={theme} />
-          <Pressable
-            onPress={() => {
-              navigation.navigate("Chat", { initialQuestion: `Why might this be: ${insight.title}?` });
-            }}
-            accessibilityRole="link"
-            accessibilityLabel="Ask why in Chat"
-            style={{ marginTop: 8, alignSelf: "flex-start" }}
-          >
-            <Text style={{ color: theme.teal.solid, fontSize: 11, fontWeight: "700" }}>Ask why →</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 12, marginTop: 8, alignItems: "center" }}>
+            <Pressable
+              onPress={() => {
+                navigation.navigate("Chat", { initialQuestion: `Why might this be: ${insight.title}?` });
+              }}
+              accessibilityRole="link"
+              accessibilityLabel="Ask why in Chat"
+            >
+              <Text style={{ color: theme.teal.solid, fontSize: 11, fontWeight: "700" }}>Ask why →</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleExplain}
+              accessibilityRole="button"
+              accessibilityLabel="Ask about this insight"
+            >
+              <Text style={{ color: theme.teal.solid, fontSize: 11, fontWeight: "700" }}>Ask about this →</Text>
+            </Pressable>
+          </View>
           {RULES_WITH_TEMPLATES.has(insight.rule_id) && (
             <TryThisButton insightId={insight.id} theme={theme} />
           )}
@@ -515,6 +562,58 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
       </Animated.Text>
     )}
     </ShadowCard>
+
+    {/* ── Explain modal ────────────────────────────────────────────── */}
+    <Modal visible={explainVisible} transparent animationType="fade" onRequestClose={() => setExplainVisible(false)}>
+      <Pressable style={styles.modalOverlay} onPress={() => setExplainVisible(false)}>
+        <Pressable style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => {}}>
+          <View style={styles.modalHandle} />
+          <Text style={[styles.modalTitle, { color: theme.textStrong }]}>About this insight</Text>
+          {explainLoading ? (
+            <ActivityIndicator color={theme.teal.solid} style={{ marginVertical: 20 }} />
+          ) : (
+            <ScrollView style={{ maxHeight: 320 }}>
+              <Text style={[styles.modalBody, { color: theme.textStrong }]}>{explainText ?? ""}</Text>
+            </ScrollView>
+          )}
+          <Pressable
+            onPress={() => setExplainVisible(false)}
+            style={[styles.modalClose, { borderColor: theme.cardBorder }]}
+            accessibilityRole="button"
+            accessibilityLabel="Close explanation"
+          >
+            <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: "700" }}>Close</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+
+    {/* ── Debug modal (dev only) ───────────────────────────────────── */}
+    {__DEV__ && (
+      <Modal visible={debugVisible} transparent animationType="fade" onRequestClose={() => setDebugVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setDebugVisible(false)}>
+          <Pressable style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => {}}>
+            <View style={styles.modalHandle} />
+            <Text style={[styles.modalTitle, { color: theme.textStrong }]}>Debug — {insight.id.slice(0, 8)}</Text>
+            {debugLoading ? (
+              <ActivityIndicator color={theme.teal.solid} style={{ marginVertical: 20 }} />
+            ) : (
+              <ScrollView style={{ maxHeight: 340 }}>
+                <Text style={[styles.modalBody, { color: theme.textStrong, fontFamily: "monospace", fontSize: 11 }]}>{debugData ?? ""}</Text>
+              </ScrollView>
+            )}
+            <Pressable
+              onPress={() => setDebugVisible(false)}
+              style={[styles.modalClose, { borderColor: theme.cardBorder }]}
+              accessibilityRole="button"
+              accessibilityLabel="Close debug"
+            >
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: "700" }}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    )}
     </Animated.View>
   );
 });
@@ -625,6 +724,43 @@ const styles = StyleSheet.create({
   dismissText: {
     fontSize: 12,
     fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderWidth: 1.5,
+    padding: 20,
+    paddingBottom: 32,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#00000033",
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 12,
+  },
+  modalBody: {
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  modalClose: {
+    marginTop: 16,
+    alignSelf: "center",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 8,
   },
   feedbackRow: {
     marginTop: 12,

@@ -399,7 +399,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <Text style={[medStyles.medName, { color: taken ? theme.textSoft : theme.textStrong }]}>{med.name}</Text>
                           {med.is_prn && (
-                            <View style={{ backgroundColor: '#F59E0B', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 }}>
+                            <View style={{ backgroundColor: theme.amber.solid, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 }}>
                               <Text style={{ color: '#78350F', fontSize: 10, fontWeight: '700' }}>PRN</Text>
                             </View>
                           )}
@@ -585,7 +585,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <Text style={[medStyles.medName, { color: theme.textStrong, flex: 1 }]}>{med.name}</Text>
                       {med.is_prn && (
-                        <View style={{ backgroundColor: '#F59E0B', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 }}>
+                        <View style={{ backgroundColor: theme.amber.solid, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 }}>
                           <Text style={{ color: '#78350F', fontSize: 10, fontWeight: '700' }}>PRN</Text>
                         </View>
                       )}

@@ -71,6 +71,21 @@ const TEMPLATES: Record<string, ExperimentTemplate> = {
   hobbies_vs_spending:      { description: "Track hobby spend separately for 2 weeks.",                       duration_days: 14, metrics: ["spending_total"] },
   spending_cycle_phase:     { description: "Set a spending pause during your flagged cycle phase.",           duration_days: 28, metrics: ["spending_total"] },
 
+  // Wave 3 — cross-metric
+  best_day_recipe:            { description: "Combine the top behaviors from your best-day recipe every day for 2 weeks and track mood.", duration_days: 14, metrics: ["mood_score"] },
+  sleep_exercise_interaction: { description: "Pair 7+ hours of sleep with some exercise for 2 weeks; track next-day mood.", duration_days: 14, metrics: ["sleep_minutes", "exercise_sessions", "mood_score"] },
+  meal_timing_sleep:          { description: "Move your last meal before 8:30 PM for 2 weeks; track sleep duration and quality.", duration_days: 14, metrics: ["late_meal", "sleep_quality", "sleep_minutes"] },
+
+  // Wave 3 — weather
+  weather_rain_activity:    { description: "Try a 15-minute indoor workout on each rainy day for the next 2 weeks and track step count and mood.", duration_days: 14, metrics: ["steps", "exercise_sessions", "mood_score"] },
+  weather_temp_sleep:       { description: "On warm nights, try sleeping with a fan or lighter bedding for 2 weeks; track sleep duration.", duration_days: 14, metrics: ["sleep_minutes", "sleep_quality"] },
+  weather_daylight_mood:    { description: "On low-daylight days, add a 10-minute walk outdoors or near a bright window for 2 weeks; track mood.", duration_days: 14, metrics: ["mood_score"] },
+
+  // Wave 2 — cycle phase / medication outcomes / overnight glucose
+  cycle_phase_mood_energy:          { description: "During your flagged cycle phase, add a brief low-intensity activity each day for 4 weeks and track mood.", duration_days: 28, metrics: ["mood_score", "energy_level"] },
+  medication_adherence_outcomes:    { description: "Use phone reminders to hit full adherence every day for 2 weeks; compare mood logs to your baseline.", duration_days: 14, metrics: ["adherence_pct", "mood_score"] },
+  glucose_overnight_mood:           { description: "Avoid eating within 2 hours of bed for 2 weeks; track overnight glucose variation and next-day mood.", duration_days: 14, metrics: ["glucose_cv", "mood_score"] },
+
   // Cycle / medication
   medication_adherence:     { description: "Set a fixed daily reminder for each dose for 2 weeks.",           duration_days: 14, metrics: ["adherence_pct"] },
   missed_slot:              { description: "Set a phone alarm for the flagged slot for 2 weeks.",             duration_days: 14, metrics: ["adherence_pct"] },

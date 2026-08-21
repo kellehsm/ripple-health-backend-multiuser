@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Dimensions,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -53,6 +54,7 @@ export function HeartRateDetailScreen() {
   const [loadingChart, setLoadingChart] = useState(true);
   const [dailyRows, setDailyRows] = useState<DayRow[]>([]);
   const [loadingDaily, setLoadingDaily] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadChart = useCallback(async function (hours: number) {
     setLoadingChart(true);
@@ -73,6 +75,16 @@ export function HeartRateDetailScreen() {
       .catch(() => {})
       .finally(() => setLoadingDaily(false));
   }, []);
+
+  function handleRefresh() {
+    setRefreshing(true);
+    Promise.all([
+      loadChart(rangeHours),
+      api.heartRateDaily(7)
+        .then((rows: DayRow[]) => setDailyRows(Array.isArray(rows) ? rows : []))
+        .catch(() => {}),
+    ]).finally(() => setRefreshing(false));
+  }
 
   // Chart geometry
   const bpms = readings.map((r) => r.bpm);
@@ -113,7 +125,7 @@ export function HeartRateDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
     <ScreenBackground pageId="heart_detail" />
-    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content}>
+    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}>
 
       {/* Summary stats */}
       <View style={s.card}>

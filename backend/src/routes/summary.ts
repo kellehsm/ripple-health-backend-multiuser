@@ -3,6 +3,7 @@ import { query } from "../db.js";
 import { getDailySummary, generateDailySummary } from "../services/dailySummaryService.js";
 import { estToday, estYesterday, estDayOfWeek, estDayOfWeekForDayStr } from "../lib/estDate.js";
 import { getUserTz } from "../lib/userTz.js";
+import { getOrGenerateNarrative } from "../services/monthlyNarrative.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -666,6 +667,31 @@ export default async function summaryRoutes(app: FastifyInstance) {
         spending: { total: null, prev_total: null },
         observation: null,
       };
+    }
+  });
+
+  // GET /summary/monthly-narrative?month=YYYY-MM
+  // Returns cached or freshly-generated LLM narrative for a calendar month.
+  app.get("/monthly-narrative", async (req, reply) => {
+    const user_id = req.user_id;
+    const { month } = req.query as { month?: string };
+
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      reply.code(400);
+      return { error: "month parameter required in YYYY-MM format" };
+    }
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      reply.code(503);
+      return { error: "Narrative generation is not configured on this server." };
+    }
+
+    try {
+      const narrative = await getOrGenerateNarrative(user_id, month);
+      return { month, narrative };
+    } catch (err: any) {
+      reply.code(503);
+      return { error: "Could not generate narrative at this time." };
     }
   });
 

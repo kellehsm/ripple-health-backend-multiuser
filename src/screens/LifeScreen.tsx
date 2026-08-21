@@ -19,6 +19,7 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  KeyboardAvoidingView,
 } from "react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -601,6 +602,7 @@ export function LifeScreen() {
   }
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
     <View style={{ flex: 1 }}>
     <LinearGradient colors={[theme.page, theme.gradientEnd]} style={{ flex: 1 }}>
     <ScreenBackground pageId="life" />
@@ -1045,6 +1047,7 @@ export function LifeScreen() {
       </Modal>
     )}
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import {
   PanResponder,
   ScrollView,
+  RefreshControl,
   View,
   Text,
+  Animated,
   Pressable,
   StyleSheet,
   Dimensions,
@@ -285,6 +287,35 @@ function extractMetric(rows: DayRow[], key: MetricKey): (number | null)[] {
   });
 }
 
+function TrendsSkeletonPulse({ style }: { style?: object }) {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    const anim = Animated.loop(Animated.sequence([
+      Animated.timing(opacity, { toValue: 0.85, duration: 750, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0.4, duration: 750, useNativeDriver: true }),
+    ]));
+    anim.start();
+    return () => anim.stop();
+  }, []);
+  const { theme } = useTheme();
+  return <Animated.View style={[{ backgroundColor: theme.cardBorder, borderRadius: 14 }, style, { opacity }]} />;
+}
+
+function TrendsSkeleton() {
+  const { theme } = useTheme();
+  return (
+    <View style={{ gap: 14, paddingTop: 8 }}>
+      {[0, 1, 2].map(i => (
+        <View key={i} style={{ gap: 10, padding: 14, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, backgroundColor: theme.card }}>
+          <TrendsSkeletonPulse style={{ height: 14, width: "50%" }} />
+          <TrendsSkeletonPulse style={{ height: 100, width: "100%", borderRadius: 10 }} />
+          <TrendsSkeletonPulse style={{ height: 12, width: "80%" }} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function TrendsScreen() {
   const { theme } = useTheme();
   const ink = theme.ink;
@@ -292,6 +323,7 @@ export function TrendsScreen() {
   const s = useMemo(() => makeStyles(ink, card), [ink, card]);
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState<DayRow[]>([]);
   const [showTooltip, setShowTooltip] = useState(false);
   const [ctxObs, setCtxObs] = useState<CtxObs[]>([]);
@@ -309,8 +341,8 @@ export function TrendsScreen() {
     }, [])
   );
 
-  const load = useCallback(async (n: number) => {
-    setLoading(true);
+  const load = useCallback(async (n: number, isRefresh = false) => {
+    if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const end = new Date().toISOString().slice(0, 10);
       const start = new Date(Date.now() - (n - 1) * 86400000).toISOString().slice(0, 10);
@@ -365,6 +397,7 @@ export function TrendsScreen() {
       console.error("TrendsScreen load error", e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -401,6 +434,7 @@ export function TrendsScreen() {
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.page }}
       contentContainerStyle={s.page}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(days, true)} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
     >
       {showTooltip && (
         <TooltipBubble
@@ -431,11 +465,12 @@ export function TrendsScreen() {
       </View>
 
       {loading ? (
-        <LoadingIndicator color={theme.textSoft} style={{ marginTop: 48 }} />
+        <TrendsSkeleton />
       ) : rows.length === 0 ? (
         <View style={s.empty}>
+          <Text style={{ fontSize: 32, marginBottom: 12, textAlign: "center" }}>📊</Text>
           <Text style={[s.emptyTxt, { color: theme.textSoft }]}>
-            Log mood, sleep, and meals for at least a week to see your personal health patterns here.
+            Not enough data yet — keep logging and patterns will appear here after a week.
           </Text>
         </View>
       ) : (

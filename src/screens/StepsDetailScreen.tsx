@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import {
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -69,6 +70,7 @@ export function StepsDetailScreen() {
   const [weekStartDay, setWeekStartDay] = useState<number>(params.weekStartDay ?? 1);
   const [data, setData] = useState<BreakdownData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [monthlyData, setMonthlyData] = useState<MonthWeek[] | null>(null);
 
   // Widget deep links open this screen without route params — resolve the
@@ -112,6 +114,15 @@ export function StepsDetailScreen() {
       .catch(() => {});
   }, [metricId, weekStartDay]);
 
+  function handleRefresh() {
+    if (!metricId) return;
+    setRefreshing(true);
+    Promise.all([
+      api.metricDailyBreakdown(metricId, weekStartDay).then(setData).catch(() => {}),
+      api.metricMonthlyBreakdown(metricId, weekStartDay).then(setMonthlyData).catch(() => {}),
+    ]).finally(() => setRefreshing(false));
+  }
+
   if (loading) {
     return (
       <View style={[s.center, { backgroundColor: theme.page }]}>
@@ -154,7 +165,7 @@ export function StepsDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
     <ScreenBackground pageId="steps_detail" />
-    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content}>
+    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}>
       {/* Summary stats */}
       <View style={s.card}>
         <View style={s.statsRow}>

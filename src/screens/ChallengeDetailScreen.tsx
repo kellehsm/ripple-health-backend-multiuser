@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
+  RefreshControl,
   ScrollView,
   View,
   Text,
@@ -67,6 +68,7 @@ export function ChallengeDetailScreen() {
 
   const [challenge, setChallenge] = useState<ChallengeDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
   useFocusEffect(
@@ -81,6 +83,15 @@ export function ChallengeDetailScreen() {
       return () => { cancelled = true; };
     }, [challengeId])
   );
+
+  function handleRefresh() {
+    if (!challengeId) return;
+    setRefreshing(true);
+    getChallenge(challengeId)
+      .then((data) => setChallenge(data))
+      .catch(() => {})
+      .finally(() => setRefreshing(false));
+  }
 
   async function handleLeave() {
     Alert.alert(
@@ -139,6 +150,7 @@ export function ChallengeDetailScreen() {
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}
     >
       {/* Header */}
       <ShadowCard padding={16} bg={theme.purple.tint} accent={theme.purple.solid}>
@@ -261,7 +273,7 @@ export function ChallengeDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12, paddingBottom: 40 },
+  content: { padding: 16, gap: 12, paddingBottom: 100 },
   groupLabel: {
     fontSize: 9,
     fontWeight: "900",

@@ -1,5 +1,5 @@
 import notifee, { AndroidImportance } from "./notifeeSafe";
-import { initialize, aggregateRecord } from "react-native-health-connect";
+import { initialize, aggregateRecord, readRecords } from "react-native-health-connect";
 import { api } from "../api/client";
 import {
   initSmartChannels,
@@ -25,6 +25,10 @@ import {
 } from "./smartNotifications";
 
 const CHANNEL_ID = "ripple-wellness-live";
+
+// Throttle sleep+HR background sync to at most once per hour
+let lastSleepHrSyncAt = 0;
+const SLEEP_HR_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const NOTIF_ID = "ripple-wellness-live";
 
 // Settings cache — re-fetch every 10 minutes to pick up changes without hammering the API
@@ -84,6 +88,67 @@ async function syncAndUpdateNotification(notificationId: string) {
     }
   } catch (e) {
     console.error("FG service steps error", e);
+  }
+
+  // Sleep + heart rate: throttled to once per hour so the 5-min loop stays cheap
+  if (Date.now() - lastSleepHrSyncAt >= SLEEP_HR_INTERVAL_MS) {
+    try {
+      const now2 = new Date();
+      const sleepStart = new Date(now2.getTime() - 72 * 60 * 60 * 1000);
+      const sleepResult: any = await readRecords("SleepSession", {
+        timeRangeFilter: { operator: "between", startTime: sleepStart.toISOString(), endTime: now2.toISOString() },
+      });
+      if ((sleepResult.records as any[]).length > 0) {
+        const sessions = (sleepResult.records as any[]).map((s: any) => {
+          let deep_ms = 0, rem_ms = 0, light_ms = 0, awake_ms = 0;
+          for (const stg of (s.stages ?? [])) {
+            const dur = new Date(stg.endTime).getTime() - new Date(stg.startTime).getTime();
+            switch (stg.stage) {
+              case 5: deep_ms  += dur; break;
+              case 6: rem_ms   += dur; break;
+              case 4: light_ms += dur; break;
+              case 1: awake_ms += dur; break;
+            }
+          }
+          return {
+            start_time: s.startTime,
+            end_time: s.endTime,
+            quality_score: null,
+            deep_ms:  deep_ms  > 0 ? deep_ms  : null,
+            rem_ms:   rem_ms   > 0 ? rem_ms   : null,
+            light_ms: light_ms > 0 ? light_ms : null,
+            awake_ms: awake_ms > 0 ? awake_ms : null,
+          };
+        });
+        await api.syncSleep(sessions);
+      }
+    } catch (e) {
+      console.error("FG service sleep error", e);
+    }
+
+    try {
+      const now2 = new Date();
+      const hrStart = new Date(now2.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const readings: Array<{ recorded_at: string; bpm: number }> = [];
+      let pageToken: string | undefined;
+      do {
+        const hrResult: any = await readRecords("HeartRate", {
+          timeRangeFilter: { operator: "between", startTime: hrStart.toISOString(), endTime: now2.toISOString() },
+          pageToken,
+        } as any);
+        for (const r of hrResult.records as any[]) {
+          for (const s of r.samples ?? []) {
+            readings.push({ recorded_at: s.time, bpm: s.beatsPerMinute });
+          }
+        }
+        pageToken = hrResult.pageToken;
+      } while (pageToken);
+      if (readings.length > 0) await api.syncHeartRate(readings);
+    } catch (e) {
+      console.error("FG service heart rate error", e);
+    }
+
+    lastSleepHrSyncAt = Date.now();
   }
 
   try {

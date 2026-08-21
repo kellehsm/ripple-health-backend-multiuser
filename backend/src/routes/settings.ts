@@ -34,6 +34,7 @@ export default async function settingsRoutes(app: FastifyInstance) {
     "theme_palette", "app_appearance", "reduce_motion",
     "biometric_lock", "sick_day_mode",
     "onboarding_complete",
+    "weather",
   ]);
 
   app.patch("/", async (req) => {

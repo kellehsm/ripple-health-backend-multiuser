@@ -3,6 +3,7 @@ import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
 import {
+  RefreshControl,
   ScrollView,
   View,
   Text,
@@ -11,6 +12,7 @@ import {
   StyleSheet,
   Animated
 } from "react-native";
+import { EmptyState } from "../components/EmptyState";
 import { LinearGradient } from "expo-linear-gradient";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { LoadingIndicator } from "../components/LoadingIndicator";
@@ -19,6 +21,7 @@ import { RippleLoader } from "../components/RippleLoader";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
 import { trackMindfulnessCompletion, getTodayCompletedSections } from "../lib/mindfulnessTracker";
@@ -332,6 +335,8 @@ export function MindfulnessScreen() {
   const [todayDone, setTodayDone] = useState<string[]>([]);
   const [quickReset, setQuickReset] = useState(false);
   const [hubVisit, setHubVisit] = useState(0);
+  const [totalSessions, setTotalSessions] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const contentFade = useRef(new Animated.Value(1)).current;
   const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -345,6 +350,9 @@ export function MindfulnessScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
+      api.mindfulnessStats()
+        .then((s: any) => { if (!cancelled) setTotalSessions(s?.total_sessions ?? 0); })
+        .catch(() => { if (!cancelled) setTotalSessions(0); });
       hasSeenTooltip("mindfulness").then(seen => {
         if (!cancelled && !seen) {
           setShowTooltip(true);
@@ -397,6 +405,13 @@ export function MindfulnessScreen() {
       style={{ backgroundColor: "transparent" }}
       contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {
+        setRefreshing(true);
+        Promise.all([
+          api.mindfulnessStats().then((s: any) => setTotalSessions(s?.total_sessions ?? 0)).catch(() => {}),
+          getTodayCompletedSections().then(setTodayDone).catch(() => {}),
+        ]).finally(() => setRefreshing(false));
+      }} tintColor={theme.teal.solid} />}
     >
       {sectionLoading ? (
         <View style={{ alignItems: "center", paddingVertical: 80 }}>
@@ -412,7 +427,18 @@ export function MindfulnessScreen() {
           )}
           {activeSection === null && (
             <>
-              <StatsHero theme={theme} ink={ink} refreshKey={hubVisit} />
+              <View style={{ alignItems: "center", paddingTop: 4, paddingBottom: 2 }}>
+                <ThemedIcon slot="screen.mindfulness" size={48} />
+              </View>
+              {totalSessions === 0 ? (
+                <EmptyState
+                  icon="🧘"
+                  title="Start your first session"
+                  subtitle="Choose a practice below to begin. Your progress and streaks will appear here."
+                />
+              ) : (
+                <StatsHero theme={theme} ink={ink} refreshKey={hubVisit} />
+              )}
               <TileGrid theme={theme} ink={ink} onSelect={navigateTo} onQuickReset={startQuickReset} todayDone={todayDone} />
               <QuoteCard theme={theme} />
             </>

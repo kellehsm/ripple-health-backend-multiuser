@@ -1033,10 +1033,10 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
 function makeStyles(ink: string, card: string, cardBorder: string, _width: number) {
   const shadow = {
     shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1 as const,
-    shadowRadius: 0,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12 as const,
+    shadowRadius: 14,
+    elevation: 4,
   };
 
   return StyleSheet.create({
@@ -1076,7 +1076,7 @@ function makeStyles(ink: string, card: string, cardBorder: string, _width: numbe
     mealDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
     mealName: { fontSize: 14, fontWeight: "700" },
     mealMeta: { fontSize: 12, marginTop: 2 },
-    macroChip: { flex: 1, borderRadius: 12, borderWidth: 1.5, padding: 8, alignItems: "center", gap: 2 },
+    macroChip: { flex: 1, borderRadius: 20, borderWidth: 1.5, padding: 8, alignItems: "center", gap: 2 },
     substanceBadge: { alignSelf: "flex-start", borderRadius: 20, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
     substanceBadgeText: { fontSize: 13, fontWeight: "700" },
 
