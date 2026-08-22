@@ -115,6 +115,7 @@ async function main() {
   await app.register(cors, {
     origin: [
       "https://app.kels.gg",
+      /^http:\/\/app\.kels\.gg:\d+$/,
       /^http:\/\/localhost:\d+$/,
       /^http:\/\/129\.121\.125\.214:\d+$/,
     ],

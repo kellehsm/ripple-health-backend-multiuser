@@ -1,9 +1,7 @@
-import * as SQLite from "expo-sqlite";
 import { setNetworkOnline, setNetworkPending } from "./networkState";
 import { BASE_URL } from "../api/client";
 import { getToken } from "../lib/auth";
-
-const db = SQLite.openDatabaseSync("ripple_sync.db");
+import { db } from "./localDb";
 
 db.execSync(`
   CREATE TABLE IF NOT EXISTS sync_queue (

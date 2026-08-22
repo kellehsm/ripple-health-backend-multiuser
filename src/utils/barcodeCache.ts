@@ -1,6 +1,4 @@
-import * as SQLite from "expo-sqlite";
-
-const db = SQLite.openDatabaseSync("ripple_sync.db");
+import { db } from "./localDb";
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 db.execSync(`
