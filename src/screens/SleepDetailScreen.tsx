@@ -211,6 +211,15 @@ export function SleepDetailScreen() {
   const barW = Math.max(6, (chartInnerW - (nights.length - 1) * barGap) / nights.length);
 
   const avgSecs = nights.length ? nights.reduce((s, n) => s + n.totalSecs, 0) / nights.length : 0;
+
+  // Hoist per-bar geometry into a memo so the expensive map is skipped on unrelated re-renders
+  const barGeometry = useMemo(() => nights.map((n, i) => {
+    const x = PAD_L + i * (barW + barGap);
+    const hasStages = n.deep + n.rem + n.light + n.awake > 0;
+    return { n, x, hasStages };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [nights, barW, barGap, PAD_L]);
+
   const streak = consistencyStreak(sessions, 7);
   const debtSecs = (GOAL_SECS - avgSecs) * rangeDays;
   const isDebt = debtSecs > 0;
@@ -312,7 +321,14 @@ export function SleepDetailScreen() {
 
         {/* Stacked-bar chart per night */}
         {nights.length > 0 && (
-          <Svg width={CHART_W} height={CHART_H} style={{ marginTop: 8 }}>
+          <Svg
+            width={CHART_W}
+            height={CHART_H}
+            style={{ marginTop: 8 }}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`Sleep chart, ${nights.length} nights, average ${fmtHours(avgSecs)}`}
+          >
             {/* Goal line */}
             <Line
               x1={PAD_L} y1={PAD_T + chartInnerH * (1 - GOAL_SECS / maxSecs)}
@@ -324,9 +340,8 @@ export function SleepDetailScreen() {
               fontSize={8} fill={theme.textSoft} textAnchor="end"
             >8h</SvgText>
             {/* Bars */}
-            {nights.map((n, i) => {
-              const x = PAD_L + i * (barW + barGap);
-              const hasStages = n.deep + n.rem + n.light + n.awake > 0;
+            {barGeometry.map(({ n, x, hasStages }, i) => {
+              void i;
               // Sleep segments (asleep = deep + rem + light) grow from bottom;
               // awake stacks on top faded. If no stage data, show total as a
               // solid violet bar.
@@ -351,12 +366,12 @@ export function SleepDetailScreen() {
               );
             })}
             {/* X-axis labels every ~4 bars so 30d doesn't crowd */}
-            {nights.map((n, i) => {
+            {barGeometry.map(({ n, x }, i) => {
               const step = rangeDays === 7 ? 1 : 5;
               if (i % step !== 0) return null;
-              const x = PAD_L + i * (barW + barGap) + barW / 2;
+              const labelX = x + barW / 2;
               return (
-                <SvgText key={i} x={x} y={CHART_H - 6} fontSize={9} fill={theme.textSoft} textAnchor="middle">
+                <SvgText key={i} x={labelX} y={CHART_H - 6} fontSize={9} fill={theme.textSoft} textAnchor="middle">
                   {dayLabel(n.date)}
                 </SvgText>
               );

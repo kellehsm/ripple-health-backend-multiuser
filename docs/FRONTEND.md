@@ -143,6 +143,15 @@ The "LIVE PREVIEW" panel in `AppearanceSettingsScreen` renders the **actual scre
 - Page background editing: a small "Edit page background" button above the frame opens the same `ElementEditor` modal with `kind:"page"` and a per-page element ID.
 - Tap-to-edit flow: ShadowCard tap → `selectElement` → sets `selected` state in `ThemePreviewFrame` → `ElementEditor` modal opens bound to `AppSettingsContext` setters (opacity, glass blur, background image).
 
+### Chart performance & accessibility (2026-08 audit)
+
+All react-native-svg chart components follow three rules:
+1. **Geometry in `useMemo`** — point arrays, polyline/path strings, bar/tick coordinates are memoized on their data + dimension inputs; never recomputed inline per render. Leaf chart components are wrapped in `React.memo` where prop references are stable.
+2. **Scrub haptics** — pan-scrub charts (glucose in `HealthScreen` `onScrub`, trends scatter in `TrendsScreen` `handleScrub`) fire `Haptics.selectionAsync()` only when the snapped data point changes, guarded by a ref of the last index/timestamp.
+3. **Screen-reader traits** — data charts carry `accessible` + `accessibilityRole="image"` + a data-summarizing `accessibilityLabel` (latest value, range, count). Decorative rings sitting next to a visible value Text are hidden instead (`accessibilityElementsHidden` / `importantForAccessibility="no-hide-descendants"`).
+
+There is **no jest test suite** in this repo; chart refactors are validated by `npx tsc --noEmit` (26 known pre-existing errors) plus a web-bundle smoke test on Ripple Preview.
+
 ### Tokens (`src/theme/tokens.ts`)
 
 Shared numeric constants: `FONT_SIZES` (micro 9 → display 28), `SPACING` (xs 4 → xxl 32), `RADIUS` (sm 8 → card 18, pill 100).

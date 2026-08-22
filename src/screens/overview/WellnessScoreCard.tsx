@@ -3,7 +3,7 @@
  * The animated wellness score ring with sparkline history.
  * Extracted from OverviewScreen.tsx — no logic changes.
  */
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
 import Svg, { Polyline } from "react-native-svg";
 import { useTheme } from "../../theme/ThemeContext";
@@ -20,26 +20,29 @@ interface Props {
   onPress: () => void;
 }
 
-export function WellnessScoreCard({ dailySummary, wellnessHistory, onPress }: Props) {
+export const WellnessScoreCard = React.memo(function WellnessScoreCard({ dailySummary, wellnessHistory, onPress }: Props) {
   const { theme } = useTheme();
   const wsScores = dailySummary?.scores ?? null;
   const wsOverall = wsScores?.overall ?? null;
   const todayD = todayStr();
-  const histPts = wellnessHistory
-    .filter(h => h.overall_score !== null && h.date !== todayD)
-    .map(h => h.overall_score as number);
-  if (wsOverall !== null) histPts.push(wsOverall);
   const wsColor = scoreColor(wsOverall, theme);
   const SPARK_W = 120, SPARK_H = 36;
-  const sparkPoints = histPts.length >= 2
-    ? histPts.map((v, i) => {
-        const x = (i / (histPts.length - 1)) * SPARK_W;
-        const y = SPARK_H - (Math.min(Math.max(v, 0), 100) / 100) * SPARK_H;
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      }).join(" ")
-    : null;
+  const sparkPoints = useMemo(() => {
+    const histPts = wellnessHistory
+      .filter(h => h.overall_score !== null && h.date !== todayD)
+      .map(h => h.overall_score as number);
+    if (wsOverall !== null) histPts.push(wsOverall);
+    return histPts.length >= 2
+      ? histPts.map((v, i) => {
+          const x = (i / (histPts.length - 1)) * SPARK_W;
+          const y = SPARK_H - (Math.min(Math.max(v, 0), 100) / 100) * SPARK_H;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(" ")
+      : null;
+  }, [wellnessHistory, wsOverall, todayD]);
+  const scoreDesc = wsOverall !== null ? `, score ${wsOverall}` : "";
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Wellness score details">
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Wellness score details${scoreDesc}`}>
       <ShadowCard size="card" cardId="wellness_score">
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -62,4 +65,4 @@ export function WellnessScoreCard({ dailySummary, wellnessHistory, onPress }: Pr
       </ShadowCard>
     </Pressable>
   );
-}
+});

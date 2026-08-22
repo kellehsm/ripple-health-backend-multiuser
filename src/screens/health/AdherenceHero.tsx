@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert, Animated, Easing, LayoutAnimation, Platform, UIManager } from 'react-native';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -27,8 +27,10 @@ interface AdherenceData {
 export function ProgressRing({ size, stroke, progress, color, track, children }: {
   size: number; stroke: number; progress: number; color: string; track: string; children?: React.ReactNode;
 }) {
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
+  const { r, c } = useMemo(() => {
+    const radius = (size - stroke) / 2;
+    return { r: radius, c: 2 * Math.PI * radius };
+  }, [size, stroke]);
   const clamped = Math.max(0, Math.min(1, progress));
   const anim = React.useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -38,7 +40,7 @@ export function ProgressRing({ size, stroke, progress, color, track, children }:
   const dashOffset = anim.interpolate({ inputRange: [0, 1], outputRange: [c, 0] });
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}>
+      <Svg width={size} height={size} style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={track} strokeWidth={stroke} fill="none" />
         <AnimatedCircle
           cx={size / 2} cy={size / 2} r={r}
