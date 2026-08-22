@@ -32,6 +32,7 @@ async function saveRecentSearch(q: string): Promise<string[]> {
 }
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 
@@ -104,6 +105,7 @@ export function GlobalSearchScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="global_search" />
       <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.ink }]}>
         <Ionicons name="search" size={18} color={theme.textSoft} />
         <TextInput

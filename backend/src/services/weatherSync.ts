@@ -9,7 +9,7 @@
  * it backfills the last 90 days from the archive API.
  */
 
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 
 const DAILY_VARS = [
   "temperature_2m_max",
@@ -124,7 +124,29 @@ async function upsertDailyRows(
   return count;
 }
 
+const WEATHER_SYNC_LOCK_KEY = 5047261839405n;
+
 export async function runWeatherSyncJob(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const { rows: [lock] } = await client.query<{ acquired: boolean }>(
+      "SELECT pg_try_advisory_lock($1) AS acquired",
+      [WEATHER_SYNC_LOCK_KEY.toString()]
+    );
+    if (!lock?.acquired) {
+      console.info("[weatherSync] previous run still in progress — skipping");
+      return;
+    }
+    await runWeatherSyncJobBody();
+  } finally {
+    try {
+      await client.query("SELECT pg_advisory_unlock($1)", [WEATHER_SYNC_LOCK_KEY.toString()]);
+    } catch { /* best-effort */ }
+    client.release();
+  }
+}
+
+async function runWeatherSyncJobBody(): Promise<void> {
   // Fetch all users who have a weather location configured
   const users = await query<{
     user_id: string;

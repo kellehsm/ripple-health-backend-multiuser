@@ -50,13 +50,16 @@ export default async function searchRoutes(app: FastifyInstance) {
     }));
   });
 
-  app.get("/meals", async (req) => {
+  app.get("/meals", async (req, reply) => {
     const user_id = req.user_id;
     const { q, min_carbs, start, end } = req.query as any;
     const params: any[] = [user_id, start || "2000-01-01", end || new Date().toISOString()];
     const conditions: string[] = ["user_id = $1", "logged_at >= $2", "logged_at <= $3"];
 
-    if (q) { params.push("%" + q + "%"); conditions.push("name ILIKE $" + params.length); }
+    if (q) {
+      if (q.length > 200) return reply.code(400).send({ error: "q exceeds maximum length of 200" });
+      params.push("%" + q + "%"); conditions.push("name ILIKE $" + params.length);
+    }
     if (min_carbs) { params.push(parseFloat(min_carbs)); conditions.push("carbs_g >= $" + params.length); }
 
     return query(
@@ -84,14 +87,17 @@ export default async function searchRoutes(app: FastifyInstance) {
     );
   });
 
-  app.get("/spending", async (req) => {
+  app.get("/spending", async (req, reply) => {
     const user_id = req.user_id;
     const { min_amount, category, start, end } = req.query as any;
     const params: any[] = [user_id, start || "2000-01-01", end || new Date().toISOString()];
     const conditions: string[] = ["user_id = $1", "logged_at >= $2", "logged_at <= $3"];
 
     if (min_amount) { params.push(parseFloat(min_amount)); conditions.push("amount >= $" + params.length); }
-    if (category) { params.push("%" + category + "%"); conditions.push("category ILIKE $" + params.length); }
+    if (category) {
+      if (category.length > 200) return reply.code(400).send({ error: "category exceeds maximum length of 200" });
+      params.push("%" + category + "%"); conditions.push("category ILIKE $" + params.length);
+    }
 
     return query(
       `SELECT id, logged_at, amount::float, category

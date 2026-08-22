@@ -149,7 +149,7 @@ function OptionCard({ label, desc, selected, onPress, theme, ink }: {
         {
           borderColor: selected ? ink : theme.cardBorder ?? '#E5E7EB',
           backgroundColor: selected ? (theme.teal?.tint ?? '#E8F9F4') : theme.card,
-          shadowColor: "#000",
+          shadowColor: "rgba(60,40,20,0.1)",
         },
       ]}
     >
@@ -365,7 +365,7 @@ export function WorkoutSetupWizard({ onComplete }: Props) {
         {generatedDays.map((day) => (
           <View
             key={day.day_number}
-            style={[styles.dayCard, { backgroundColor: theme.card, borderColor: ink, shadowColor: "#000" }]}
+            style={[styles.dayCard, { backgroundColor: theme.card, borderColor: ink, shadowColor: "rgba(60,40,20,0.1)" }]}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <View style={[styles.dayBadge, { backgroundColor: theme.teal?.solid ?? ink }]}>
@@ -682,7 +682,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 14,
     gap: 12,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 14,
     marginBottom: 10,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

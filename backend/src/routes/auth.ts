@@ -28,9 +28,9 @@ export default async function authRoutes(app: FastifyInstance) {
     }
 
     // Dev-only shortcut: "demo" or the full demo email bypasses password check.
-    // Gated on DEMO_LOGIN_ENABLED so it can never work against production.
+    // Hard-blocked in production regardless of env var; also gated on DEMO_LOGIN_ENABLED.
     const emailLower = email.trim().toLowerCase();
-    if (process.env.DEMO_LOGIN_ENABLED === "1" && (emailLower === "demo" || emailLower === "demo@ripple.test")) {
+    if (process.env.NODE_ENV !== "production" && process.env.DEMO_LOGIN_ENABLED === "1" && (emailLower === "demo" || emailLower === "demo@ripple.test")) {
       email = "demo@ripple.test";
       password = "Ripple2026";
     }
@@ -79,8 +79,14 @@ export default async function authRoutes(app: FastifyInstance) {
       }
 
       const hash = await bcrypt.hash(new_password, 12);
-      await query("UPDATE users SET password_hash = $1 WHERE id = $2", [hash, req.user_id]);
-      return { ok: true };
+      // Bump token_version to invalidate all other sessions, then return a
+      // fresh token for the current session so the caller stays logged in.
+      const updated = await query<{ token_version: number }>(
+        "UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2 RETURNING token_version",
+        [hash, req.user_id]
+      );
+      const token = signToken(req.user_id, updated[0].token_version);
+      return { ok: true, token };
     }
   );
 

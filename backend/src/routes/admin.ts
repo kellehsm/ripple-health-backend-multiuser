@@ -13,6 +13,31 @@ function adminSecretMatches(supplied: string | undefined): boolean {
   return timingSafeEqual(a, b);
 }
 
+// In-memory rate limit: max 5 failed secret attempts per IP per 15 minutes.
+const ADMIN_RATE_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_RATE_MAX = 5;
+const adminFailures = new Map<string, { count: number; windowStart: number }>();
+
+function checkAdminRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = adminFailures.get(ip);
+  if (!entry || now - entry.windowStart > ADMIN_RATE_WINDOW_MS) {
+    adminFailures.set(ip, { count: 0, windowStart: now });
+    return true; // allow
+  }
+  return entry.count < ADMIN_RATE_MAX;
+}
+
+function recordAdminFailure(ip: string): void {
+  const now = Date.now();
+  const entry = adminFailures.get(ip);
+  if (!entry || now - entry.windowStart > ADMIN_RATE_WINDOW_MS) {
+    adminFailures.set(ip, { count: 1, windowStart: now });
+  } else {
+    entry.count += 1;
+  }
+}
+
 export default async function adminRoutes(app: FastifyInstance) {
   // GET /api/admin/perf?limit=10
   // Requires x-admin-secret header. Returns the top slow queries by mean
@@ -20,7 +45,12 @@ export default async function adminRoutes(app: FastifyInstance) {
   // enabled in postgresql.conf (shared_preload_libraries = pg_stat_statements),
   // otherwise the read returns { available: false }.
   app.get("/perf", async (req, reply) => {
+    const ip = req.ip;
+    if (!checkAdminRateLimit(ip)) {
+      return reply.code(429).send({ error: "Too many failed attempts" });
+    }
     if (!adminSecretMatches(req.headers["x-admin-secret"] as string | undefined)) {
+      recordAdminFailure(ip);
       return reply.code(401).send({ error: "Unauthorized" });
     }
     const limit = Math.min(50, Math.max(1, Number((req.query as any)?.limit ?? 10)));
@@ -60,7 +90,12 @@ export default async function adminRoutes(app: FastifyInstance) {
   // Row counts on hot tables + last-hour activity, so we can eyeball whether
   // the app is idle, active, or on fire without a shell.
   app.get("/health-summary", async (req, reply) => {
+    const ip = req.ip;
+    if (!checkAdminRateLimit(ip)) {
+      return reply.code(429).send({ error: "Too many failed attempts" });
+    }
     if (!adminSecretMatches(req.headers["x-admin-secret"] as string | undefined)) {
+      recordAdminFailure(ip);
       return reply.code(401).send({ error: "Unauthorized" });
     }
     const [counts] = await query<any>(

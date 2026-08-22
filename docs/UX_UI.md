@@ -60,6 +60,14 @@ Each family has five usable sub-tokens: `solid`, `bg`/`tint`, `fg`, `sub`, and `
 
 **Shadow color — always warm:** `rgba(60,40,20,0.1)` — never `"#000"` or `"rgba(0,0,0,...)"`.
 
+### Permitted de-facto color patterns
+
+Three patterns appear widely across the codebase and are explicitly permitted as exceptions to the "no hardcoded hex" rule:
+
+1. **`"#fff"` on solid accent or dark surfaces** — white text/icons on a solid metric-color background (e.g. a teal chip header, a dark modal header). Use only when the token system would require computing contrast dynamically.
+2. **`rgba(0,0,0,0.4)` modal overlay scrim** — the standard semi-transparent backdrop behind bottom sheets and modals. This is the only `rgba(0,0,0,…)` value permitted; all shadow colors must still use the warm formula.
+3. **`allowFontScaling={false}` / `maxFontSizeMultiplier`** — dense text layouts (chip labels, bar axis labels, badge text) may cap font scaling to prevent overflow; use `maxFontSizeMultiplier={1.3}` or `allowFontScaling={false}` only when the layout genuinely cannot accommodate larger text.
+
 ---
 
 ## 3. Typography
@@ -151,7 +159,11 @@ Use `coloredShadow()` or `layeredShadow()` from `src/theme/styleUtils.ts` where 
   >
     {/* 1. Screen title (textStrong, title size, weight 800) */}
     {/* 2. Hero banner (LinearGradient card, one per screen) */}
-    {/* 3. Metric chip grid (2×2 or 3×2, accent tint bg + solid border) */}
+    {/* 3. Metric chip grid (2×3 — 6 tiles, 3 columns × 2 rows, accent tint bg + solid border, all tile icons size 44)
+            Interaction convention for loggable tiles (e.g. Water):
+              press  → quick action (log one unit, optimistic + haptic)
+              long-press → open detail screen
+            Non-loggable tiles (e.g. MIND/Sleep/Glucose): press navigates to detail screen. */}
     {/* 4. Container cards (section content) */}
     {/* 5. Any recap/totals row (pastel score tiles) */}
   </ScrollView>

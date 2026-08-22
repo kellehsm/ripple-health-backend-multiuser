@@ -273,7 +273,7 @@ function StepsRing({ steps, goal, color, sub }: { steps: number | null; goal: nu
       {goalHit ? (
         <Ionicons name="checkmark-circle" size={20} color={color} />
       ) : (
-        <ThemedIcon slot="metric.steps" size={20} color={sub} />
+        <ThemedIcon slot="metric.steps" size={44} color={sub} />
       )}
     </View>
   );
@@ -359,11 +359,6 @@ export function HealthScreen() {
   const [waterGoal, setWaterGoal] = useState(DEFAULT_WATER_GOAL);
   const [sleepStages, setSleepStages] = useState<SleepStages | null>(null);
   const [sleepScore, setSleepScore] = useState<number | null>(null);
-  const [sleepWeekAvgSecs, setSleepWeekAvgSecs] = useState<number | null>(null);
-  const [sleepLastWeekAvgSecs, setSleepLastWeekAvgSecs] = useState<number | null>(null);
-  const [sleepBedtimeSpreadMins, setSleepBedtimeSpreadMins] = useState<number | null>(null);
-  const [sleepInsight, setSleepInsight] = useState<string | null>(null);
-  const [sleepExpanded, setSleepExpanded] = useState(false);
   const [stepGoal, setStepGoal] = useState(10000);
   const [showGoalNudge, setShowGoalNudge] = useState(false);
   const [mindStats, setMindStats] = useState<{ streak: number; week_minutes: number; total_sessions: number } | null>(null);
@@ -514,9 +509,6 @@ export function HealthScreen() {
         sleepWeekDaysVal = stats.week_days;
         setSleepWeekDays(sleepWeekDaysVal);
       }
-      if (stats?.week_avg_seconds > 0) setSleepWeekAvgSecs(stats.week_avg_seconds);
-      if (stats?.last_week_avg_seconds > 0) setSleepLastWeekAvgSecs(stats.last_week_avg_seconds);
-      if (stats?.bedtime_spread_mins != null) setSleepBedtimeSpreadMins(stats.bedtime_spread_mins);
     } catch (e) {
       if (__DEV__) console.error("Failed to load sleep stats", e);
     }
@@ -552,16 +544,6 @@ export function HealthScreen() {
     try {
       const summary = await api.dailySummary();
       if (summary?.scores?.sleep != null) setSleepScore(Number(summary.scores.sleep));
-    } catch (_) {}
-    try {
-      const insights: Array<{ title: string; rule_id?: string; description?: string }> = await api.getInsights();
-      if (Array.isArray(insights)) {
-        const sleepHit = insights.find((i) => {
-          const haystack = ((i.title ?? "") + " " + (i.description ?? "") + " " + (i.rule_id ?? "")).toLowerCase();
-          return haystack.includes("sleep");
-        });
-        setSleepInsight(sleepHit?.title ?? null);
-      }
     } catch (_) {}
   }, []);
 
@@ -948,9 +930,13 @@ export function HealthScreen() {
   }, [load, rangeHours]);
 
   useEffect(function () {
+    let cancelled = false;
     const start = new Date(Date.now() - rangeHours * 60 * 60 * 1000).toISOString();
     const end = new Date().toISOString();
-    api.getAnnotations(start, end).then(setAnnotations).catch(function () {});
+    api.getAnnotations(start, end).then(function (data) {
+      if (!cancelled) setAnnotations(data);
+    }).catch(function () {});
+    return function () { cancelled = true; };
   }, [rangeHours]);
 
   useEffect(function () {
@@ -1127,49 +1113,7 @@ export function HealthScreen() {
       <Animated.View style={{
         transform: [{ translateY: entranceAnim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
       }}>
-      {/* Mindfulness button */}
-      <Animated.View style={{ opacity: mindfulnessEntranceAnim }}>
-      <Pressable
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigation.getParent()?.navigate("Mindfulness");
-        }}
-        onPressIn={() => Animated.spring(mindfulnessScale, { toValue: 0.98, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
-        onPressOut={() => Animated.spring(mindfulnessScale, { toValue: 1, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
-        style={{
-          borderRadius: 26,
-          opacity: cardOpacity,
-          ...cardShadow,
-        }}
-        accessibilityRole="button"
-        accessibilityLabel="Open Mindfulness hub"
-      >
-        <Animated.View style={{
-          borderRadius: 26,
-          borderWidth: 2,
-          borderColor: ink,
-          backgroundColor: theme.purple.solid,
-          paddingVertical: 11,
-          paddingHorizontal: 14,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-          overflow: "hidden",
-          transform: [{ scale: mindfulnessScale }],
-        }}>
-          <Ionicons name="flower-outline" size={26} color={onSolid(theme.purple.solid)} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: onSolid(theme.purple.solid), fontSize: 16, fontWeight: "900", marginBottom: 1 }}>Mindfulness</Text>
-            <Text style={{ color: onSolid(theme.purple.solid), fontSize: 12, opacity: 0.75 }}>
-              {mindStats && (mindStats.streak > 0 || mindStats.week_minutes > 0)
-                ? `${mindStats.streak} day streak · ${mindStats.week_minutes}m this week`
-                : "Breathing · grounding · gratitude"}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={onSolid(theme.purple.solid)} style={{ opacity: 0.85 }} />
-        </Animated.View>
-      </Pressable>
-      </Animated.View>
+      {/* Mindfulness chip — now part of the 2×3 tile grid below */}
 
       {/* ── Step goal nudge banner ── */}
       {showGoalNudge && (
@@ -1231,8 +1175,9 @@ export function HealthScreen() {
                   ? `Glucose ${glucoseMgDl} milligrams per deciliter${tirPct !== null ? `, ${tirPct} percent in range` : ""}`
                   : "Glucose, no data"
               }
+              onPress={() => navigation.getParent()?.navigate("GlucoseDetail")}
             >
-              <ThemedIcon slot="metric.glucose" size={26} color={glucosePal.fg} />
+              <ThemedIcon slot="metric.glucose" size={44} color={glucosePal.fg} />
               <PopText value={glucoseValueText} style={[chipStyles.val, { color: glucosePal.fg }]} />
               {tirPct !== null && (
                 <Text style={[chipStyles.sub, { color: glucosePal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>
@@ -1298,9 +1243,9 @@ export function HealthScreen() {
                   backgroundColor={amberBg}
                   label="SLEEP"
                   accessibilityLabel={sleepDisplay
-                    ? `Sleep ${sleepDisplay} last night${sleepScore !== null ? ", score " + sleepScore : ""}. Tap for breakdown.`
-                    : "Sleep, no data. Tap to expand."}
-                  onPress={() => setSleepExpanded(function (v) { return !v; })}
+                    ? `Sleep ${sleepDisplay} last night${sleepScore !== null ? ", score " + sleepScore : ""}. Tap to open sleep details.`
+                    : "Sleep, no data. Tap to open sleep details."}
+                  onPress={() => navigation.getParent()?.navigate("SleepDetail")}
                 >
                   {/* Score ring — shows when score available */}
                   {sleepScore !== null ? (
@@ -1315,7 +1260,7 @@ export function HealthScreen() {
                       <Text style={{ fontSize: 9, fontWeight: "900", color: scoreColor }}>{sleepScore}</Text>
                     </AnimatedProgressRing>
                   ) : (
-                    <ThemedIcon slot="metric.sleep" size={26} color={amberSub} />
+                    <ThemedIcon slot="metric.sleep" size={44} color={amberSub} />
                   )}
                   {sleepDisplay ? (
                     <Text style={[chipStyles.val, { color: amberFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{sleepDisplay}</Text>
@@ -1335,13 +1280,6 @@ export function HealthScreen() {
                       })}
                     </Svg>
                   )}
-                  {/* Expand chevron */}
-                  <Ionicons
-                    name={sleepExpanded ? "chevron-up" : "chevron-down"}
-                    size={10}
-                    color={amberSub}
-                    style={{ opacity: 0.6 }}
-                  />
                 </MetricChip>
               );
             })()}
@@ -1352,8 +1290,9 @@ export function HealthScreen() {
               backgroundColor={theme.blue.bg}
               label="WATER"
               overflow="hidden"
-              accessibilityLabel={`Water ${waterCount ?? 0} of ${waterGoal} glasses. Tap to open water tracker.`}
-              onPress={() => navigation.getParent()?.navigate("WaterDetail")}
+              accessibilityLabel={`Water ${waterCount ?? 0} of ${waterGoal} glasses. Tap to log a glass, long press to open tracker.`}
+              onPress={handleLogWater}
+              onLongPress={() => navigation.getParent()?.navigate("WaterDetail")}
             >
               <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.blue.solid, opacity: waterFlashAnim, borderRadius: 11 }} pointerEvents="none" />
               {(theme as any).iconOverrides?.["metric.water"] ? (
@@ -1364,7 +1303,7 @@ export function HealthScreen() {
               <Animated.Text style={[chipStyles.sub, { color: theme.blue.sub, transform: [{ scale: waterCountScaleAnim }] }]}>
                 {waterCount ?? 0}/{waterGoal}
               </Animated.Text>
-              <Text style={{ fontSize: 9, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap for details</Text>
+              <Text style={{ fontSize: 9, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>hold for details</Text>
               {/* Goal celebration overlay */}
               <Animated.View
                 pointerEvents="none"
@@ -1409,160 +1348,47 @@ export function HealthScreen() {
                   </View>
                 );
               })()}
-              <ThemedIcon slot="metric.heart" size={28} color={berrySub} />
+              <ThemedIcon slot="metric.heart" size={44} color={berrySub} />
               <PopText value={hrLast !== null ? String(hrLast) : "--"} style={[chipStyles.val, { color: berryFg }]} />
               <Text style={[chipStyles.sub, { color: berrySub }]} allowFontScaling maxFontSizeMultiplier={1.3}>bpm</Text>
             </MetricChip>
             )}
+
+            {/* MINDFULNESS chip — 6th tile, completing 2×3 grid */}
+            <MetricChip
+              borderColor={theme.purple.solid}
+              backgroundColor={(theme.purple as any).bg ?? theme.purple.solid + "22"}
+              label="MIND"
+              accessibilityLabel={
+                mindStats && (mindStats.streak > 0 || mindStats.week_minutes > 0)
+                  ? `Mindfulness, ${mindStats.streak} day streak, ${mindStats.week_minutes} minutes this week`
+                  : "Mindfulness, tap to open"
+              }
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigation.getParent()?.navigate("Mindfulness");
+              }}
+            >
+              <ThemedIcon slot="screen.mindfulness" size={44} color={theme.purple.solid} />
+              {mindStats && mindStats.streak > 0 ? (
+                <Text style={[chipStyles.val, { color: theme.purple.solid }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {mindStats.streak}d
+                </Text>
+              ) : (
+                <Text style={[chipStyles.sub, { color: theme.purple.solid }]}>--</Text>
+              )}
+              {mindStats && mindStats.week_minutes > 0 && (
+                <Text style={[chipStyles.sub, { color: theme.purple.solid }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {mindStats.week_minutes}m wk
+                </Text>
+              )}
+            </MetricChip>
 
           </View>
         );
       })()}
       </Animated.View>
 
-      {/* ── Sleep expanded panel ── */}
-      {sleepExpanded && (function () {
-        const amberFgE = (theme as any).amber?.fg ?? "#7A5600";
-        const amberSubE = (theme as any).amber?.sub ?? "#906808";
-        const amberSolidE = (theme as any).amber?.solid ?? "#B88820";
-        const amberBgE = (theme as any).amber?.bg ?? "#F8EEC8";
-        const scoreColorE = sleepScore === null
-          ? amberSolidE
-          : sleepScore >= 75 ? theme.success
-          : sleepScore >= 50 ? theme.warning
-          : theme.danger;
-
-        // Format seconds helper
-        const fmtSecs = (s: number) => {
-          const h = Math.floor(s / 3600);
-          const m = Math.floor((s % 3600) / 60);
-          return m > 0 ? h + "h " + m + "m" : h + "h";
-        };
-
-        // Week avg vs last week
-        const weekAvgLine = (() => {
-          if (!sleepWeekAvgSecs || sleepWeekAvgSecs === 0) return null;
-          const avg = fmtSecs(sleepWeekAvgSecs);
-          if (!sleepLastWeekAvgSecs || sleepLastWeekAvgSecs === 0) return "Avg " + avg + " this week";
-          const diff = sleepWeekAvgSecs - sleepLastWeekAvgSecs;
-          const absDiff = Math.abs(diff);
-          const diffLabel = fmtSecs(absDiff);
-          const arrow = diff >= 0 ? "+" : "−";
-          return "Avg " + avg + " · " + arrow + diffLabel + " vs last week";
-        })();
-
-        // Bedtime consistency
-        const consistencyLine = (() => {
-          if (sleepBedtimeSpreadMins === null) return null;
-          const h = Math.floor(sleepBedtimeSpreadMins / 60);
-          const m = Math.round(sleepBedtimeSpreadMins % 60);
-          const label = h > 0 ? (h + "h " + (m > 0 ? m + "m" : "")) : m + "m";
-          return "Bedtime varied by " + label.trim() + " this week";
-        })();
-
-        // Stage quality from last night's stages
-        const stageQuality = (() => {
-          if (!sleepStages) return null;
-          const total = (sleepStages.deepMs ?? 0) + (sleepStages.remMs ?? 0) + (sleepStages.lightMs ?? 0) + (sleepStages.awakeMs ?? 0);
-          if (total === 0) return null;
-          const deepPct = Math.round(((sleepStages.deepMs ?? 0) / total) * 100);
-          const remPct = Math.round(((sleepStages.remMs ?? 0) / total) * 100);
-          return { deepPct, remPct, lowDeep: deepPct < 15 };
-        })();
-
-        // Debt / recovery outlook
-        const debtLine = (() => {
-          if (sleepAvgSecs === null) return null;
-          const debtSecs = (8 * 3600 - sleepAvgSecs) * 7;
-          if (debtSecs <= 0) {
-            return { text: "You're all caught up", ok: true };
-          }
-          const h = Math.floor(debtSecs / 3600);
-          const m = Math.floor((debtSecs % 3600) / 60);
-          const debtLabel = h > 0 ? (h + "h " + (m > 0 ? m + "m" : "")).trim() : m + "m";
-          const msg = debtSecs <= 7200
-            ? "You're " + debtLabel + " behind — an early night tonight will clear it"
-            : "You're " + debtLabel + " behind — a couple of early nights will clear it";
-          return { text: msg, ok: false };
-        })();
-
-        return (
-          <View
-            style={{
-              marginTop: 6,
-              borderRadius: 14,
-              borderWidth: 1.5,
-              borderColor: amberSolidE,
-              backgroundColor: amberBgE,
-              paddingVertical: 12,
-              paddingHorizontal: 14,
-              gap: 8,
-              ...(() => {
-                const isDarkE = !!(theme as any).isDark;
-                return isDarkE
-                  ? { shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2 }
-                  : { shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2 };
-              })(),
-            }}
-          >
-            {/* Week avg vs last week */}
-            {weekAvgLine && (
-              <Text style={{ fontSize: 12, fontWeight: "700", color: amberFgE }} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {weekAvgLine}
-              </Text>
-            )}
-            {/* Bedtime consistency */}
-            {consistencyLine && (
-              <Text style={{ fontSize: 12, fontWeight: "600", color: amberSubE }} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {consistencyLine}
-              </Text>
-            )}
-            {/* Stage quality */}
-            {stageQuality && (
-              <Text style={{ fontSize: 12, fontWeight: "600", color: stageQuality.lowDeep ? theme.warning : amberSubE }} allowFontScaling maxFontSizeMultiplier={1.3}>
-                {stageQuality.deepPct}% deep{stageQuality.lowDeep ? " (low)" : ""} · {stageQuality.remPct}% REM
-              </Text>
-            )}
-            {/* Smart insight */}
-            {sleepInsight && (
-              <Pressable
-                onPress={() => navigation.getParent()?.navigate("Insights")}
-                accessibilityRole="button"
-                accessibilityLabel={"Sleep insight: " + sleepInsight + ". Tap to open Insights."}
-                hitSlop={6}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: theme.primary, textDecorationLine: "underline" }} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  {sleepInsight}
-                </Text>
-              </Pressable>
-            )}
-            {/* Debt / recovery */}
-            {debtLine && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                {debtLine.ok && <Ionicons name="checkmark-circle" size={13} color={theme.success} />}
-                <Text
-                  style={{ fontSize: 12, fontWeight: "700", color: debtLine.ok ? theme.success : theme.warning, flex: 1 }}
-                  allowFontScaling
-                  maxFontSizeMultiplier={1.3}
-                >
-                  {debtLine.text}
-                </Text>
-              </View>
-            )}
-            {/* Navigation link */}
-            <Pressable
-              onPress={() => navigation.getParent()?.navigate("SleepDetail")}
-              accessibilityRole="button"
-              accessibilityLabel="Open sleep detail screen"
-              hitSlop={6}
-              style={{ alignSelf: "flex-end", flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: "700", color: amberSubE }}>Details</Text>
-              <Ionicons name="chevron-forward" size={11} color={amberSubE} />
-            </Pressable>
-          </View>
-        );
-      })()}
 
       {lastRefreshed && (
         <Text style={{ fontSize: 9, lineHeight: 13, fontWeight: "700", color: theme.textSoft, textAlign: "right", opacity: 0.7, marginTop: 6 }}>
@@ -1996,9 +1822,9 @@ export function HealthScreen() {
           const showMsg = dexcomSyncMsg !== null;
           const msgKind = dexcomSyncMsg?.kind ?? (stale ? "warn" : "ok");
           const palette =
-            msgKind === "err" ? { border: (theme as any).red?.sub ?? "#B84A2E", bg: (theme as any).red?.tint ?? "#FBEAE3", fg: (theme as any).red?.fg ?? "#7A1F0F" } :
-            msgKind === "warn" ? { border: (theme as any).amber?.sub ?? "#B8871E", bg: (theme as any).amber?.bg ?? "#FBEFD1", fg: (theme as any).amber?.fg ?? "#5A3E0A" } :
-            { border: (theme as any).teal?.sub ?? "#2E7A7F", bg: (theme as any).teal?.bg ?? "#E1F1F2", fg: (theme as any).teal?.fg ?? "#0F4A4D" };
+            msgKind === "err" ? { border: theme.red.sub, bg: theme.red.tint, fg: theme.red.fg } :
+            msgKind === "warn" ? { border: theme.amber.sub, bg: theme.amber.bg, fg: theme.amber.fg } :
+            { border: theme.teal.sub, bg: theme.teal.bg, fg: theme.teal.fg };
           const label = showMsg
             ? dexcomSyncMsg!.text
             : dexcomSyncing

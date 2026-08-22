@@ -41,7 +41,7 @@
 
 Two-level navigation inside `RootTabs.tsx`:
 
-**Root stack** (`createNativeStackNavigator`): `Tabs` (headerShown: false) + ~35 named screens pushed on top — Settings, History, all detail screens (Steps/HeartRate/Sleep), Insights, Mindfulness, Chat, ExerciseSession, Friends, Challenges, Leaderboard, Medication flows, Experiments, monthly recap, watch tiles, `WaterDetail` (navigated from the water chip on HealthScreen), etc.
+**Root stack** (`createNativeStackNavigator`): `Tabs` (headerShown: false) + ~37 named screens pushed on top — Settings, History, all detail screens (Steps/HeartRate/Sleep/`GlucoseDetail`), Insights, Mindfulness, Chat, ExerciseSession, Friends, Challenges, Leaderboard, Medication flows, Experiments, monthly recap, watch tiles, `WaterDetail` (navigated from the water chip on HealthScreen), `SettingsFeatureGuide` (`src/screens/settings/FeatureGuideScreen.tsx`), etc.
 
 **Tab navigator** (inside `"Tabs"` screen): `createBottomTabNavigator` with a custom `BottomNav` tab bar. Seven routes, lazily mounted by default:
 
@@ -93,6 +93,7 @@ Failed writes to queueable endpoints (`/meals`, `/journal`, `/spending`, `/metri
 
 - `queueOfflineRequest(endpoint, method, payload)` — inserts a row with a UUID `_sync_id` embedded in the payload.
 - `processSyncQueue()` — drains up to 50 items per call via `POST /api/sync/batch`. The backend handles idempotency; `already_processed` and `discard` statuses are treated as success and removed. Items exceeding 10 retry attempts are dropped.
+- **Drain wiring (App.tsx):** `processSyncQueue()` is called via a `flushSyncQueue()` wrapper that guards against concurrent invocations using a `syncInFlight` ref. It fires on: (1) app startup, (2) every `AppState → "active"` event, and (3) every network-reconnect event via `subscribeNetwork`. Previously the queue existed but was never automatically drained — this wiring ships as of the 2026-08 audit pass.
 - `src/utils/staleSyncState.ts` and `StaleSyncBanner` expose the pending-item count to the UI.
 - `src/utils/networkState.ts` tracks online/offline state; components subscribe via `OfflineBanner`.
 

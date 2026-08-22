@@ -14,6 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -245,6 +246,8 @@ export function WaterDetailScreen() {
   const [weekDayTotals, setWeekDayTotals] = useState<number[]>([]); // [6 days ago .. today]
   const [stats, setStats] = useState<{ yesterday_total?: number; seven_day_average?: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [rippleTrigger, setRippleTrigger] = useState(0);
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [goalInputText, setGoalInputText] = useState("");
@@ -319,10 +322,18 @@ export function WaterDetailScreen() {
       } catch (_) {}
     } catch (e) {
       console.error("WaterDetail load error", e);
+      setLoadError(true);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [goal]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    setLoadError(false);
+    loadData();
+  }, [loadData]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -352,7 +363,7 @@ export function WaterDetailScreen() {
       }
       // Refresh to get server-authoritative state
       const logs: Array<{ logged_at: string; value: number }> = await api.todaysWaterCount(metricId);
-      setTodayLogs(Array.isArray(logs) ? logs.filter(isTodayLog as any) : []);
+      setTodayLogs(Array.isArray(logs) ? logs.filter((l) => isTodayLog(l.logged_at)) : []);
     } catch (_) {
       // Rollback
       setTodayLogs((prev) => {
@@ -568,7 +579,18 @@ export function WaterDetailScreen() {
 
   return (
     <View style={s.page}>
-      <ScrollView contentContainerStyle={s.scroll}>
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.blue.bar ?? theme.blue.solid} colors={[theme.blue.bar ?? theme.blue.solid]} />}
+      >
+        {loadError && (
+          <View style={{ margin: 16, padding: 14, backgroundColor: theme.card, borderRadius: 16, borderWidth: 1, borderColor: theme.danger }}>
+            <Text style={{ color: theme.danger, fontWeight: "600", marginBottom: 8 }}>Failed to load water data.</Text>
+            <Pressable onPress={() => { setLoadError(false); setLoading(true); loadData(); }} style={{ alignSelf: "flex-start", paddingHorizontal: 14, paddingVertical: 6, backgroundColor: theme.danger, borderRadius: 10 }}>
+              <Text style={{ color: "#fff", fontWeight: "700" }}>Retry</Text>
+            </Pressable>
+          </View>
+        )}
         {/* Hero */}
         <View style={s.heroWrap}>
           <HeroDroplet count={count} goal={goal} color={blue.solid} reduceMotion={reduceMotion} />

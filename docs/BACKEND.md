@@ -102,14 +102,14 @@ All jobs are scheduled via `node-cron` in `server.ts` after the HTTP server star
 
 | Job | Schedule | File | Notes |
 |-----|----------|------|-------|
-| Daily Summary Engine (refresh today) | Every 30 min + startup | `jobs/dailySummaryJob.ts` | Seeds `daily_summaries` for today |
-| Daily Summary Engine (finalize yesterday) | 1:00 AM daily | `jobs/dailySummaryJob.ts` | Passes EST yesterday's date explicitly |
-| Insights Engine | 3:00 AM daily + 15 s after boot | `jobs/insightsJob.ts` | Runs 15 s after boot so summaries seed first |
+| Daily Summary Engine (refresh today) | Every 30 min + startup | `jobs/dailySummaryJob.ts` | Seeds `daily_summaries` for today; **pg advisory lock** prevents overlap |
+| Daily Summary Engine (finalize yesterday) | 1:00 AM EST daily | `jobs/dailySummaryJob.ts` | Passes EST yesterday's date explicitly; `timezone: "America/New_York"` |
+| Insights Engine | 3:00 AM EST daily + 15 s after boot | `jobs/insightsJob.ts` | `timezone: "America/New_York"`; **pg advisory lock** prevents overlap; runs 15 s after boot so summaries seed first |
 | Dexcom Share sync | Every 5 min + startup | `jobs/dexcom-share-sync.ts` | Skipped entirely if `DEXCOM_SHARE_DISABLED=1` |
-| sync_log TTL cleanup | 4:00 AM daily | server.ts (inline) | Deletes rows older than 30 days |
-| Google Drive backup | 2:00 AM daily | `jobs/google-drive-backup.ts` | Only scheduled if `GOOGLE_CLIENT_ID` is set; iterates all connected users |
-| Hardcover two-way sync | Every 4 hours | `jobs/hardcover-sync.ts` | All users with Hardcover connected |
-| Weather sync | 6:00 AM daily + startup | `services/weatherSync.ts` | Open-Meteo (keyless); backfills 90 days on first run per user |
+| sync_log TTL cleanup | 4:00 AM EST daily | server.ts (inline) | `timezone: "America/New_York"`; deletes rows older than 30 days |
+| Google Drive backup | 2:00 AM EST daily | `jobs/google-drive-backup.ts` | `timezone: "America/New_York"`; only scheduled if `GOOGLE_CLIENT_ID` is set; iterates all connected users |
+| Hardcover two-way sync | Every 4 hours | `jobs/hardcover-sync.ts` | All users with Hardcover connected; **pg advisory lock** prevents overlap |
+| Weather sync | 6:00 AM EST daily + startup | `services/weatherSync.ts` | `timezone: "America/New_York"`; Open-Meteo (keyless); backfills 90 days on first run per user |
 
 ---
 
@@ -138,13 +138,13 @@ All jobs are scheduled via `node-cron` in `server.ts` after the HTTP server star
 | Medications | `medications`, `medication_doses`, `medication_categories`, `medication_prescribers` |
 | Finance | `spending_entries`, `plaid_items`, `plaid_transactions` |
 | Substance tracking | `substance_logs` |
-| AI / insights | `user_insights`, `insight_feedback`, `weekly_narratives`, `user_baselines` |
+| AI / insights | `user_insights`, `insight_feedback`, `weekly_narratives`, `monthly_narratives`, `user_baselines`, `insight_rule_runs` (one row per evaluated rule per run — `fired` boolean; enables hit-rate computation as `SUM(fired)/COUNT(*)`), `insight_engine_state`, `insight_global_priors` |
 | Social | `friends`, `challenges`, `social_notifications` |
 | Misc | `sync_log`, `chart_annotations`, `experiments`, `error_reports`, `media_assets`, `hobbies` (completed_at added mig 037), `tab_preferences`, `mindfulness_sessions`, `cycle_entries` |
 
 ### Migration workflow
 
-Migrations live in `backend/migrations/NNN_*.sql` (currently 001–041). They are applied **manually** — the DATABASE_URL password contains special characters that break psql URL parsing, so use the explicit form:
+Migrations live in `backend/migrations/NNN_*.sql` (currently 001–049). They are applied **manually** — the DATABASE_URL password contains special characters that break psql URL parsing, so use the explicit form:
 
 ```bash
 sudo -u postgres psql wellness_multiuser < backend/migrations/NNN_name.sql
@@ -153,6 +153,19 @@ sudo -u postgres psql wellness_multiuser_dev < backend/migrations/NNN_name.sql
 ```
 
 There is no auto-migration runner; check the highest numbered file to find the current schema version.
+
+### Migrations 042–049 (audit-fix pass)
+
+| # | File | Summary |
+|---|------|---------|
+| 042 | `042_insights_snooze.sql` | Adds `snoozed_until` column to `user_insights`; insights hidden when `snoozed_until > NOW()` |
+| 043 | `043_dexcom_share_sessions.sql` | Adds `dexcom_share_sessions` table — persists Dexcom Share session IDs across restarts to avoid rate-limit lockouts |
+| 044 | `044_friend_cheers.sql` | Adds `friend_cheers` table — one-tap cheer per friend per day (streak cheers feature) |
+| 045 | `045_insight_engine_state.sql` | Adds `insight_engine_state` table — per-user `latest_frame_date` watermark for incremental engine skipping |
+| 046 | `046_token_version_and_indexes.sql` | Adds `token_version` column to `users` (JWT revocation) + performance indexes on `exercise_sessions` and other tables |
+| 047 | `047_weather_daily.sql` | Adds `weather_daily` table — daily weather per user (temp, rain, daylight, cloud cover) for weather insight rules |
+| 048 | `048_monthly_narratives.sql` | Adds `monthly_narratives` table — cached LLM-generated monthly narrative per user per month |
+| 049 | `049_composite_user_time_indexes.sql` | Composite `(user_id, time_col)` indexes on several tables lacking covering indexes for range queries |
 
 ---
 
@@ -225,7 +238,7 @@ Note: `/root/wellness-app-multiuser` is a **git worktree** of the dev repo, trac
 
 - **Purpose:** Bank/credit card transaction ingestion for spending tracking.
 - **Files:** `routes/plaid.ts`
-- **Details:** Webhook signature verified using raw request body (`req.rawBody`). Access tokens stored encrypted in `plaid_items`.
+- **Details:** Webhook signature verified using raw request body (`req.rawBody`). Access tokens stored encrypted in `plaid_items`. `syncTransactionsForItem` commits each page's upserts and cursor advance atomically in a single transaction — a crash resumes from the last completed page rather than reprocessing from scratch. Webhook sync errors are logged (previously silently swallowed).
 - **Env vars:** `PLAID_CLIENT_ID`, `PLAID_SANDBOX_SECRET`, `PLAID_PRODUCTION_SECRET`, `PLAID_ENV`, `PLAID_ANDROID_PACKAGE_NAME`
 
 ### Google (OAuth + Drive)
@@ -286,6 +299,8 @@ All vars from `backend/.env.example`:
 | `DEXCOM_CLIENT_SECRET` | Dexcom OAuth v3 client secret |
 | `DEXCOM_REDIRECT_URI` | Dexcom OAuth redirect URI |
 | `DEXCOM_API_BASE` | Dexcom API base URL (`https://sandbox-api.dexcom.com` or prod) |
+| `DEXCOM_SHARE_ACCOUNT_ID` | Dexcom Share account username (email); read by `jobs/dexcom-share-sync.ts` |
+| `DEXCOM_SHARE_PASSWORD` | Dexcom Share account password; stored encrypted in `user_settings` after first sync |
 | `DEXCOM_SHARE_REGION` | `us` or `ous` (outside US) for Share endpoint selection |
 | `DEXCOM_SHARE_DISABLED` | Set `1` or `true` to skip the Share polling cron entirely |
 | `API_BASE_URL` | Internal base URL for jobs/webhooks calling back into the API |
@@ -297,7 +312,11 @@ All vars from `backend/.env.example`:
 - **Never log or expose credential values.** The Dexcom Share sync explicitly passes only `{ err, user_id }` to the logger — never the `dexcom` settings object, which contains `share_password`.
 - **Week-start boundary reads `user_settings`.** Week-start day (Monday vs Sunday) is a per-user setting. Never hardcode either day — always read `user_settings` for the current user.
 - **Check the DB before assuming a feature is broken.** Multiple "this doesn't work" reports have been working backend logic with no UI wiring. Verify rows exist in the relevant table first.
-- **Demo accounts are locked down in prod.** The demo user password is scrambled in the production DB. The shortcut demo login is env-gated (`DEMO_LOGIN_ENABLED`). Never re-enable either without explicit instruction.
+- **Demo accounts are locked down in prod.** The demo user password is scrambled in the production DB. The shortcut demo login is env-gated (`DEMO_LOGIN_ENABLED`) **and hard-disabled when `NODE_ENV=production`** — the env gate check is a compile-time guard, not just a runtime config. Never re-enable either without explicit instruction.
 - **`CRED_ENCRYPTION_KEY` is fatal in production.** Server exits on startup if missing when `NODE_ENV=production`. In dev it only warns.
+- **change-password invalidates all other sessions.** `POST /api/auth/change-password` bumps `users.token_version` and returns a fresh token — existing tokens on other devices become invalid immediately.
+- **Admin routes rate-limit failed secret attempts.** `routes/admin.ts` enforces a maximum of 5 failed `x-admin-secret` attempts per IP per 15 minutes (in-memory bucket).
+- **Search input length capped at 200 chars.** `routes/search.ts` rejects `q` or `category` values longer than 200 characters with HTTP 400.
+- **`/export/all` uses explicit column lists.** The full-data export avoids `SELECT *` — each table is queried with an explicit column list to prevent accidental credential leakage if schema changes.
 - **No per-item secrets in responses.** Encrypted credentials (`enc:v1:*`) must never be returned in API responses. Decrypt server-side only when needed for outbound calls.
 - **On startup, a credential sweep runs automatically.** Any plaintext Dexcom passwords, Hardcover tokens, or Plaid access tokens found in the DB are encrypted in place. This is idempotent and fast once everything is encrypted.

@@ -8,7 +8,7 @@ import {
   TransactionsSyncRequest,
   SandboxItemFireWebhookRequestWebhookCodeEnum,
 } from "plaid";
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 import { encryptCredential, decryptCredential } from "../lib/credCrypto.js";
 import crypto from "crypto";
 
@@ -256,7 +256,9 @@ export default async function plaidRoutes(app: FastifyInstance) {
     if (!rows[0]) return reply.send({ ok: true });
 
     const { user_id, access_token, cursor } = rows[0];
-    await syncTransactionsForItem(user_id, item_id, decryptCredential(access_token), cursor).catch(() => {});
+    await syncTransactionsForItem(user_id, item_id, decryptCredential(access_token), cursor).catch((err: any) => {
+      console.error("[plaid] webhook sync error", { item_id, error: err?.message ?? String(err) });
+    });
 
     return reply.send({ ok: true });
   });
@@ -349,48 +351,62 @@ async function syncTransactionsForItem(
       ]);
     }
 
-    const CHUNK = 500;
-    for (let i = 0; i < toUpsert.length; i += CHUNK) {
-      const chunk = toUpsert.slice(i, i + CHUNK);
-      const params: any[] = [];
-      const valueClauses = chunk.map((row) => {
-        const base = params.length + 1;
-        params.push(...row);
-        return `($${base},$${base+1},$${base+2},$${base+3},$${base+4},'plaid',$${base+5},$${base+6})`;
-      });
-      await query(
-        `INSERT INTO spending_entries
-           (user_id, amount, category, merchant_name, notes, source, plaid_transaction_id, logged_at)
-         VALUES ${valueClauses.join(",")}
-         ON CONFLICT (plaid_transaction_id) DO UPDATE SET
-           amount        = EXCLUDED.amount,
-           category      = EXCLUDED.category,
-           merchant_name = EXCLUDED.merchant_name,
-           notes         = EXCLUDED.notes`,
-        params
+    // Atomically commit this page's upserts + cursor advance so a crash resumes
+    // from the last completed page rather than reprocessing from scratch.
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const CHUNK = 500;
+      for (let i = 0; i < toUpsert.length; i += CHUNK) {
+        const chunk = toUpsert.slice(i, i + CHUNK);
+        const params: any[] = [];
+        const valueClauses = chunk.map((row) => {
+          const base = params.length + 1;
+          params.push(...row);
+          return `($${base},$${base+1},$${base+2},$${base+3},$${base+4},'plaid',$${base+5},$${base+6})`;
+        });
+        await client.query(
+          `INSERT INTO spending_entries
+             (user_id, amount, category, merchant_name, notes, source, plaid_transaction_id, logged_at)
+           VALUES ${valueClauses.join(",")}
+           ON CONFLICT (plaid_transaction_id) DO UPDATE SET
+             amount        = EXCLUDED.amount,
+             category      = EXCLUDED.category,
+             merchant_name = EXCLUDED.merchant_name,
+             notes         = EXCLUDED.notes`,
+          params
+        );
+      }
+
+      // Remove transactions Plaid says were deleted/reversed (single batched DELETE)
+      if (removed.length > 0) {
+        const removedIds = removed.map((tx: any) => tx.transaction_id);
+        await client.query(
+          `DELETE FROM spending_entries WHERE plaid_transaction_id = ANY($1) AND user_id = $2`,
+          [removedIds, user_id]
+        );
+        totalRemoved += removed.length;
+      }
+
+      // Advance the cursor inside the same transaction so resumability is guaranteed
+      await client.query(
+        `UPDATE plaid_items SET cursor = $1, last_synced_at = NOW() WHERE item_id = $2`,
+        [next_cursor ?? null, item_id]
       );
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
+
     totalAdded += toUpsert.length;
-
-    // Remove transactions Plaid says were deleted/reversed (single batched DELETE)
-    if (removed.length > 0) {
-      const removedIds = removed.map((tx) => tx.transaction_id);
-      await query(
-        `DELETE FROM spending_entries WHERE plaid_transaction_id = ANY($1) AND user_id = $2`,
-        [removedIds, user_id]
-      );
-      totalRemoved += removed.length;
-    }
-
     nextCursor = next_cursor;
     hasMore = has_more;
   }
-
-  // Save the latest cursor so the next sync starts where this one left off
-  await query(
-    `UPDATE plaid_items SET cursor = $1, last_synced_at = NOW() WHERE item_id = $2`,
-    [nextCursor ?? null, item_id]
-  );
 
   return { added: totalAdded, removed: totalRemoved };
 }

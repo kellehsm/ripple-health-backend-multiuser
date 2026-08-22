@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
-  View, Text, Pressable, ScrollView, StyleSheet, Switch
+  View, Text, Pressable, RefreshControl, ScrollView, StyleSheet, Switch
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { toast, Msg } from "../lib/toast";
@@ -16,15 +17,19 @@ export function CustomizeDashboardScreen() {
   const [layout, setLayout] = useState<DashboardLayout>({ order: [...DEFAULT_CARD_ORDER], hidden: [] });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(function () {
+  const loadSettings = useCallback(function (isRefresh = false) {
+    if (isRefresh) setRefreshing(true);
     api.getSettings()
       .then(function (s: any) {
         setLayout(resolveLayout(s?.dashboard_layout));
       })
       .catch(function () {})
-      .finally(function () { setLoading(false); });
+      .finally(function () { setLoading(false); setRefreshing(false); });
   }, []);
+
+  useEffect(function () { loadSettings(); }, [loadSettings]);
 
   // Serialized saves: rapid taps update `pendingLayoutRef`; only one PATCH is
   // in flight at a time, and the final desired state is always sent last.
@@ -99,7 +104,13 @@ export function CustomizeDashboardScreen() {
   ) as any;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="customize_dashboard" />
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadSettings(true)} tintColor={theme.teal.bar} colors={[theme.teal.bar]} />}
+    >
       <Text style={[styles.hint, { color: theme.textSoft }]}>
         Reorder and hide cards on your Home screen. Changes save instantly.
       </Text>
@@ -161,6 +172,7 @@ export function CustomizeDashboardScreen() {
         <Text style={{ color: theme.textSoft, fontSize: 11, textAlign: "center", marginTop: 8 }}>Saving…</Text>
       ) : null}
     </ScrollView>
+    </View>
   );
 }
 
@@ -173,7 +185,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 22,
     padding: 12,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

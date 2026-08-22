@@ -16,6 +16,7 @@ import { ShadowCard } from "../components/ShadowCard";
 import { UndoBanner } from "../components/UndoBanner";
 import { toast } from "../lib/toast";
 import { Ionicons } from "@expo/vector-icons";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
 import { onSolid } from "../theme/colorUtils";
 import { api } from "../api/client";
@@ -370,6 +371,7 @@ export function CompletedScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="completed" />
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}

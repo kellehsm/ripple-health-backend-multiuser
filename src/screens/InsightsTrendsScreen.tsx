@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, Pressable } from "react-native";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
 import { InsightsScreen } from "./InsightsScreen";
 import { TrendsScreen } from "./TrendsScreen";
@@ -32,6 +33,7 @@ export function InsightsTrendsScreen({ route }: any) {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="insights_trends" />
       {/* Top tab bar */}
       <View style={{ flexDirection: "row", borderBottomWidth: 1.5, borderBottomColor: theme.cardBorder }}>
         {tabBtn("insights", "💡 Insights")}

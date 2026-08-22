@@ -1,4 +1,4 @@
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 import { generateDailySummary } from "../services/dailySummaryService.js";
 import { estToday } from "../lib/estDate.js";
 
@@ -18,46 +18,76 @@ function log(level: "INFO" | "ERROR", msg: string, meta?: Record<string, unknown
   }
 }
 
+// Distinct lock key — must not collide with INSIGHTS_JOB_LOCK_KEY (8419283746512)
+const DAILY_SUMMARY_LOCK_KEY = 7312948561023n;
+
 export async function runDailySummaryJob(date?: string): Promise<void> {
+  const client = await pool.connect();
+  try {
+    const { rows: [lock] } = await client.query<{ acquired: boolean }>(
+      "SELECT pg_try_advisory_lock($1) AS acquired",
+      [DAILY_SUMMARY_LOCK_KEY.toString()]
+    );
+    if (!lock?.acquired) {
+      log("INFO", "previous run still in progress — skipping");
+      return;
+    }
+    await runDailySummaryJobBody(date);
+  } finally {
+    try {
+      await client.query("SELECT pg_advisory_unlock($1)", [DAILY_SUMMARY_LOCK_KEY.toString()]);
+    } catch { /* best-effort */ }
+    client.release();
+  }
+}
+
+async function runDailySummaryJobBody(date?: string): Promise<void> {
   const targetDate = date ?? estToday();
 
-  let users: Array<{ id: string }>;
+  // Single aggregate pre-flight: fetch the set of user IDs that have any data
+  // for targetDate across all tracked sources. Replaces the previous N+1 pattern
+  // (one EXISTS query per user) with one query for all users.
+  let usersWithData: Set<string>;
+  let allUsers: Array<{ id: string }>;
   try {
-    users = await query<{ id: string }>("SELECT id FROM users");
+    const [dataRows, userRows] = await Promise.all([
+      query<{ user_id: string }>(
+        `SELECT DISTINCT user_id FROM (
+           SELECT user_id FROM journal_entries
+             WHERE logged_at >= $1::date AND logged_at < $1::date + INTERVAL '1 day'
+           UNION ALL
+           SELECT user_id FROM glucose_readings
+             WHERE recorded_at >= $1::date AND recorded_at < $1::date + INTERVAL '1 day'
+           UNION ALL
+           SELECT user_id FROM meals
+             WHERE logged_at >= $1::date AND logged_at < $1::date + INTERVAL '1 day'
+           UNION ALL
+           SELECT user_id FROM sleep_sessions
+             WHERE end_time >= $1::date AND end_time < $1::date + INTERVAL '1 day'
+           UNION ALL
+           SELECT m.user_id FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
+             WHERE ml.logged_at >= $1::date AND ml.logged_at < $1::date + INTERVAL '1 day'
+           UNION ALL
+           SELECT user_id FROM reading_logs WHERE logged_at = $1::date
+           UNION ALL
+           SELECT user_id FROM hobby_logs WHERE logged_at::date = $1::date
+         ) AS combined`,
+        [targetDate]
+      ),
+      query<{ id: string }>("SELECT id FROM users"),
+    ]);
+    usersWithData = new Set(dataRows.map((r) => r.user_id));
+    allUsers = userRows;
   } catch (err: unknown) {
     log("ERROR", "Failed to fetch users", { error: (err as Error)?.message });
     return;
   }
 
-  log("INFO", `Generating summaries for ${users.length} user(s), date=${targetDate}`);
+  const users = allUsers.filter(({ id }) => usersWithData.has(id));
+  log("INFO", `Generating summaries for ${users.length}/${allUsers.length} user(s) with data, date=${targetDate}`);
 
   const results = await Promise.allSettled(
     users.map(async ({ id: userId }) => {
-      // Pre-flight: skip users with no data at all today to avoid wasteful queries.
-      // Must cover every source the summary aggregates (journal, glucose, meals,
-      // sleep, custom metrics like steps/water, reading, hobbies) — checking only
-      // journal+glucose meant users logging just meals/steps/sleep never got a summary.
-      const [{ has_data }] = await query<{ has_data: boolean }>(
-        `SELECT (
-           EXISTS (SELECT 1 FROM journal_entries
-                   WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + INTERVAL '1 day')
-           OR EXISTS (SELECT 1 FROM glucose_readings
-                      WHERE user_id = $1 AND recorded_at >= $2::date AND recorded_at < $2::date + INTERVAL '1 day')
-           OR EXISTS (SELECT 1 FROM meals
-                      WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + INTERVAL '1 day')
-           OR EXISTS (SELECT 1 FROM sleep_sessions
-                      WHERE user_id = $1 AND end_time >= $2::date AND end_time < $2::date + INTERVAL '1 day')
-           OR EXISTS (SELECT 1 FROM metric_logs ml
-                      JOIN metrics m ON m.id = ml.metric_id
-                      WHERE m.user_id = $1 AND ml.logged_at >= $2::date AND ml.logged_at < $2::date + INTERVAL '1 day')
-           OR EXISTS (SELECT 1 FROM reading_logs
-                      WHERE user_id = $1 AND logged_at = $2::date)
-           OR EXISTS (SELECT 1 FROM hobby_logs
-                      WHERE user_id = $1 AND logged_at::date = $2::date)
-         ) AS has_data`,
-        [userId, targetDate]
-      );
-      if (!has_data) return null;
       return generateDailySummary(userId, targetDate);
     })
   );

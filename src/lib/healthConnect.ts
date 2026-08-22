@@ -155,7 +155,7 @@ export async function syncHealthData(opts?: {
   // Backend dedupes via ON CONFLICT (user_id, recorded_at).
   try {
     const hrWindowStart = new Date(now);
-    hrWindowStart.setDate(hrWindowStart.getDate() - 7);
+    hrWindowStart.setDate(hrWindowStart.getDate() - 30);
     const readings: Array<{ recorded_at: string; bpm: number }> = [];
     let recordCount = 0;
     let pageToken: string | undefined;

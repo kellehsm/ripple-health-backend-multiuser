@@ -100,6 +100,11 @@ function fmtTime(iso: string): string {
   return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+function fmtBpm(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return "--";
+  return String(Math.round(v));
+}
+
 function rollingAvg(arr: number[], window: number): (number | null)[] {
   return arr.map((_, i) => {
     const slice = arr.slice(Math.max(0, i - window + 1), i + 1);
@@ -185,7 +190,7 @@ export function HeartRateDetailScreen() {
   }
 
   // ── intraday chart geometry ──────────────────────────────────────────────
-  const bpms = readings.map((r) => r.bpm);
+  const bpms = readings.map((r) => r.bpm).filter((b) => Number.isFinite(b));
   const rawMin = bpms.length ? Math.min(...bpms) : 50;
   const rawMax = bpms.length ? Math.max(...bpms) : 120;
   const padding = Math.max(5, Math.round((rawMax - rawMin) * 0.1));
@@ -222,7 +227,7 @@ export function HeartRateDetailScreen() {
 
   // ── 30d trend chart geometry ─────────────────────────────────────────────
   const trend = hrStats?.trend_30d ?? [];
-  const trendResting = trend.map((r) => r.resting_bpm);
+  const trendResting = trend.map((r) => r.resting_bpm).filter((b) => Number.isFinite(b));
   const rollingAvgs = rollingAvg(trendResting, 7);
   const trendMin = trendResting.length ? Math.min(...trendResting) - 5 : 40;
   const trendMax = trendResting.length ? Math.max(...trendResting) + 5 : 100;
@@ -250,8 +255,8 @@ export function HeartRateDetailScreen() {
     .filter(Boolean) as string[];
 
   // ── week-over-week callout ───────────────────────────────────────────────
-  const thisWeekRest = hrStats?.this_week_avg_rest ?? null;
-  const lastWeekRest = hrStats?.last_week_avg_rest ?? null;
+  const thisWeekRest = hrStats?.this_week_avg_rest != null && Number.isFinite(hrStats.this_week_avg_rest) ? hrStats.this_week_avg_rest : null;
+  const lastWeekRest = hrStats?.last_week_avg_rest != null && Number.isFinite(hrStats.last_week_avg_rest) ? hrStats.last_week_avg_rest : null;
   const weekDelta = thisWeekRest != null && lastWeekRest != null ? thisWeekRest - lastWeekRest : null;
 
   // ── zones ────────────────────────────────────────────────────────────────
@@ -311,7 +316,7 @@ export function HeartRateDetailScreen() {
               {hrStats.today_min && (
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>TODAY LOW</Text>
-                  <Text style={{ color: "#60A5FA", fontSize: 18, fontWeight: "900", letterSpacing: -0.5 }}>
+                  <Text style={{ color: theme.blue.solid, fontSize: 18, fontWeight: "900", letterSpacing: -0.5 }}>
                     {hrStats.today_min.bpm} <Text style={{ fontSize: 11, fontWeight: "500" }}>bpm</Text>
                   </Text>
                   <Text style={{ color: theme.textSoft, fontSize: 11 }}>{fmtTime(hrStats.today_min.recorded_at)}</Text>
@@ -574,9 +579,9 @@ export function HeartRateDetailScreen() {
                       </Text>
                       <Text style={{ color: theme.textSoft, fontSize: 11 }}>{shortDate(row.date)}</Text>
                     </View>
-                    <Text style={[s.colVal, { color: theme.red.sub, fontWeight: "600" }]}>{row.resting_bpm}</Text>
-                    <Text style={[s.colVal, { color: theme.textStrong }]}>{row.avg_bpm}</Text>
-                    <Text style={[s.colVal, { color: theme.textStrong }]}>{row.peak_bpm}</Text>
+                    <Text style={[s.colVal, { color: theme.red.sub, fontWeight: "600" }]}>{fmtBpm(row.resting_bpm)}</Text>
+                    <Text style={[s.colVal, { color: theme.textStrong }]}>{fmtBpm(row.avg_bpm)}</Text>
+                    <Text style={[s.colVal, { color: theme.textStrong }]}>{fmtBpm(row.peak_bpm)}</Text>
                     <Text style={[s.colCount, { color: theme.textSoft }]}>{row.reading_count}</Text>
                   </View>
                 );
@@ -596,7 +601,7 @@ export function HeartRateDetailScreen() {
 
 function makeStyles(ink: string, card: string) {
   const shadow = {
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08 as const,
     shadowRadius: 6,

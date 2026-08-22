@@ -2197,9 +2197,10 @@ export function OverviewScreen() {
             <Animated.View style={{ opacity: greetingOpacity }}>
               {(function () {
                 const g = getGreeting();
+                const hasImgOverride = !!(theme as any).iconOverrides?.[g.emojiSlot];
                 return (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <ThemedIcon slot={g.emojiSlot} size={24} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: hasImgOverride ? 10 : 6 }}>
+                    <ThemedIcon slot={g.emojiSlot} size={hasImgOverride ? 56 : 24} />
                     <Text style={[styles.greeting, { color: theme.textStrong }]} accessibilityRole="header">
                       {g.text}{userName ? `, ${userName}` : ""}
                     </Text>

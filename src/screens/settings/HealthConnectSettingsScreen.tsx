@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, View, Text, Switch, Pressable, StyleSheet, Alert, Platform } from "react-native";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/core";
-import { getGrantedPermissions, initialize, revokeAllPermissions } from "react-native-health-connect";
+import { getGrantedPermissions, initialize, revokeAllPermissions, openHealthConnectSettings } from "react-native-health-connect";
 import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../../theme/ThemeContext";
 import { onSolid } from "../../theme/colorUtils";
@@ -215,7 +215,19 @@ export function HealthConnectSettingsScreen() {
         )}
         {(hcGranted === false || (hcGranted && !(grantedRecords.steps && grantedRecords.sleep && grantedRecords.heart && grantedRecords.exercise && grantedRecords.weight && grantedRecords.spo2))) && (
           <Pressable
-            onPress={async () => { await requestHealthPermissions().catch(() => false); checkPermissions(); }}
+            onPress={async () => {
+              try {
+                const granted = await requestHealthPermissions();
+                if (!granted) {
+                  // requestPermission returned nothing — open settings so user can grant manually
+                  openHealthConnectSettings();
+                }
+              } catch {
+                // Fallback: open Health Connect settings page directly
+                openHealthConnectSettings();
+              }
+              checkPermissions();
+            }}
             style={[styles.btn, { backgroundColor: theme.teal.solid, borderColor: theme.teal.sub }]}
           >
             <Text style={{ color: onSolid(theme.teal.solid), fontWeight: "600" }}>
@@ -242,7 +254,7 @@ export function HealthConnectSettingsScreen() {
           One-time setup: open Samsung Health → Settings → Connected services → Health Connect, and turn on sharing for Steps, Sleep, and Heart rate. Then grant the permissions above.
         </Text>
         <Pressable
-          onPress={() => IntentLauncher.startActivityAsync("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS").catch(() => Alert.alert("Unavailable", "Could not open Health Connect settings."))}
+          onPress={() => { try { openHealthConnectSettings(); } catch { Alert.alert("Unavailable", "Could not open Health Connect settings."); } }}
           style={[styles.btn, { backgroundColor: theme.blue.tint, borderColor: theme.blue.sub }]}
         >
           <Text style={{ color: theme.blue.fg, fontWeight: "600" }}>Open Health Connect settings</Text>
@@ -255,7 +267,7 @@ export function HealthConnectSettingsScreen() {
             To disconnect Samsung Health: open Health Connect settings below → App permissions → Connected apps → Samsung Health → turn off all permissions.
           </Text>
           <Pressable
-            onPress={() => IntentLauncher.startActivityAsync("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS").catch(() => Alert.alert("Unavailable", "Could not open Health Connect settings."))}
+            onPress={() => { try { openHealthConnectSettings(); } catch { Alert.alert("Unavailable", "Could not open Health Connect settings."); } }}
             style={[styles.btn, { backgroundColor: theme.coral.tint, borderColor: theme.coral.sub }]}
           >
             <Text style={{ color: theme.coral.fg, fontWeight: "600" }}>Disconnect Samsung Health</Text>

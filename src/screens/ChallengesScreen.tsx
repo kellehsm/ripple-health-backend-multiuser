@@ -13,6 +13,7 @@ import {
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { EmptyState } from "../components/EmptyState";
@@ -116,6 +117,7 @@ export function ChallengesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="challenges" />
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
@@ -223,7 +225,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderRadius: 22,
     padding: 14,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

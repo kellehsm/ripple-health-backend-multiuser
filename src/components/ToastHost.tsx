@@ -58,7 +58,7 @@ export function ToastHost() {
           paddingHorizontal: 14,
           paddingVertical: 10,
           maxWidth: "100%",
-          shadowColor: "#000",
+          shadowColor: "rgba(60,40,20,0.1)",
           shadowOpacity: 0.15,
           shadowRadius: 8,
           shadowOffset: { width: 0, height: 3 },

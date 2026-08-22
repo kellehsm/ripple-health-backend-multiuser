@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
+  Pressable,
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { EmptyState } from "../components/EmptyState";
@@ -73,6 +74,7 @@ export function StepsDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [monthlyData, setMonthlyData] = useState<MonthWeek[] | null>(null);
   const [monthToDateTotal, setMonthToDateTotal] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   // Widget deep links open this screen without route params — resolve the
   // steps metricId / week-start ourselves so the screen doesn't crash.
@@ -101,23 +103,27 @@ export function StepsDetailScreen() {
     return () => { cancelled = true; };
   }, [metricId]);
 
+  const loadData = useCallback((mid: string, wsd: number) => {
+    setLoading(true);
+    setLoadError(false);
+    Promise.all([
+      api.metricDailyBreakdown(mid, wsd),
+      api.metricMonthlyBreakdown(mid, wsd).catch(() => null),
+      api.stepsWeeklyTotal(mid, wsd).catch(() => null),
+    ])
+      .then(([breakdown, monthly, weeklyTotal]) => {
+        setData(breakdown);
+        if (monthly) setMonthlyData(monthly);
+        if (weeklyTotal) setMonthToDateTotal(weeklyTotal.month_to_date_total);
+      })
+      .catch(() => { setLoadError(true); })
+      .finally(() => setLoading(false));
+  }, []);
+
   useEffect(() => {
     if (!metricId) return;
-    setLoading(true);
-    api
-      .metricDailyBreakdown(metricId, weekStartDay)
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-    api
-      .metricMonthlyBreakdown(metricId, weekStartDay)
-      .then(setMonthlyData)
-      .catch(() => {});
-    api
-      .stepsWeeklyTotal(metricId, weekStartDay)
-      .then((r) => setMonthToDateTotal(r.month_to_date_total))
-      .catch(() => {});
-  }, [metricId, weekStartDay]);
+    loadData(metricId, weekStartDay);
+  }, [metricId, weekStartDay, loadData]);
 
   function handleRefresh() {
     if (!metricId) return;
@@ -129,11 +135,27 @@ export function StepsDetailScreen() {
     ]).finally(() => setRefreshing(false));
   }
 
+  function handleRetry() {
+    if (metricId) loadData(metricId, weekStartDay);
+  }
+
   if (loading) {
     return (
       <View style={[s.center, { backgroundColor: theme.page }]}>
         <ScreenBackground pageId="steps_detail" />
         <LoadingIndicator color={theme.teal.bar} />
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={[s.center, { backgroundColor: theme.page }]}>
+        <ScreenBackground pageId="steps_detail" />
+        <EmptyState icon="⚠️" title="Couldn't load step data" subtitle="Check your connection and try again." />
+        <Pressable onPress={handleRetry} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: theme.teal.tint, borderRadius: 14, borderWidth: 1.5, borderColor: theme.teal.solid }}>
+          <Text style={{ color: theme.teal.fg, fontWeight: "700", fontSize: 15 }}>Retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -263,6 +285,30 @@ export function StepsDetailScreen() {
             </View>
           );
         })}
+        <View style={[s.dayRow, { borderTopWidth: 0.5, borderTopColor: theme.cardBorder }]}>
+          <Text style={[s.dayName, { color: theme.textStrong, fontWeight: "700" }]}>Total</Text>
+          <View style={s.dayCols}>
+            <Text style={[s.colThis, { color: theme.textStrong, fontWeight: "700" }]}>{fmt(this_week_total)}</Text>
+            <Text style={[s.colLast, { color: theme.textSoft, fontWeight: "700" }]}>{fmt(last_week_total)}</Text>
+            <Text
+              style={[
+                s.colDiff,
+                {
+                  fontWeight: "700",
+                  color:
+                    this_week_total - last_week_total > 0
+                      ? theme.teal.bar
+                      : this_week_total - last_week_total < 0
+                      ? theme.coral.sub
+                      : theme.textSoft,
+                },
+              ]}
+            >
+              {this_week_total - last_week_total > 0 ? "↑" : this_week_total - last_week_total < 0 ? "↓" : "="}
+              {fmt(Math.abs(this_week_total - last_week_total))}
+            </Text>
+          </View>
+        </View>
         <View style={[s.dayColHeaders, { borderTopWidth: 0.5, borderTopColor: theme.cardBorder }]}>
           <Text style={[s.colHeaderSpacer, { color: theme.textSoft }]} />
           <Text style={[s.colHeaderThis, { color: theme.textSoft }]}>This wk</Text>

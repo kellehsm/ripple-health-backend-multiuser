@@ -437,7 +437,7 @@ export function ExperimentScreen() {
 
 function makeStyles(ink: string, card: string, border: string) {
   const shadow = {
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08 as const,
     shadowRadius: 6,

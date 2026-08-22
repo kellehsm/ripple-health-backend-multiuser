@@ -28,7 +28,7 @@ personalized pattern cards ("insights") to the `user_insights` table.
 | Table | Purpose |
 |---|---|
 | `user_insights` | One row per (user, rule); upserted each run |
-| `insight_rule_runs` | Observability: runtime, fired, FDR-rejected per rule per run |
+| `insight_rule_runs` | Observability: runtime, `fired` (boolean), FDR-rejected per rule per run — **every evaluated rule** gets a row (fired=TRUE or fired=FALSE); hit rate = `SUM(fired::int)/COUNT(*)` |
 | `insight_engine_state` | Per-user watermark (`latest_frame_date`) for incremental skipping |
 | `insight_feedback` | User ratings (helpful / neutral / not_useful / already_knew) |
 | `user_rule_weights` | Per-user rule weight adjusted from feedback |
@@ -101,7 +101,9 @@ Incremental optimisation: if `insight_engine_state.latest_frame_date` is ≥3 da
 - **Welch's t-test + Mann-Whitney U** — helpers in `backend/src/rules/stats.ts`
 - **Benjamini-Hochberg FDR** at q=0.10 across all candidates with p-values per run
 - **MDE gates** — per-metric minimum detectable effect table in `stats.ts`; a
-  reported difference below the threshold is silently dropped
+  reported difference below the threshold is silently dropped; the engine logs a
+  `warn` when a rule with an MDE threshold lacks a `/difference/i` key in
+  `supportingData` (indicates missing MDE-check wiring)
 - **Bootstrap CIs** — `bootstrapMeanDiffCI` for small-sample rules
 - **Autocorrelation-adjusted effective N** — `effectiveSampleSize` / `lag1Autocorr`
 - **Winsorization** at p2/p98 on baselines
@@ -134,12 +136,12 @@ request; cached in `monthly_narratives`. Never called from the nightly job.
 | `backend/src/services/dayFrame.ts` | `buildDayFrame` — shared 120-day snapshot |
 | `backend/src/services/insightRanker.ts` | `rankAndPersist`, `dedupInsights`, flip detection |
 | `backend/src/services/baselines.ts` | `refreshAllBaselines` |
-| `backend/src/services/ruleSunset.ts` | `sunsetLowHitRules` — archives low-signal rules |
+| `backend/src/services/ruleSunset.ts` | `sunsetLowHitRules` — archives low-signal rules; hit rate computed as `SUM(fired)/COUNT(*)` across all evaluated rows (not just fired rows) |
 | `backend/src/services/globalPriors.ts` | `computeGlobalPriors` — cross-user cold-start |
 | `backend/src/services/monthlyNarrative.ts` | LLM narrative generation + caching |
 | `backend/src/routes/insights.ts` | REST endpoints (see below) |
 | `backend/scripts/insight-golden-set.mjs` | Golden-set regression runner |
-| `backend/scripts/insight-golden-set.impl.ts` | 58 assertions over stats helpers |
+| `backend/scripts/insight-golden-set.impl.ts` | 77 assertions over stats helpers |
 | `backend/scripts/lint-insight-language.mjs` | Diagnostic-language CI linter |
 
 ### REST endpoints
@@ -165,7 +167,7 @@ request; cached in `monthly_narratives`. Never called from the nightly job.
 
 ## 3. Rule Catalog
 
-108 rules registered in `ALL_RULES`. Wave/phase noted where determinable from code comments.
+101 rules registered in `ALL_RULES`. Wave/phase noted where determinable from code comments.
 
 | Rule class | Rule ID | Trigger (one line) | Primary data sources | Wave |
 |---|---|---|---|---|
@@ -178,13 +180,13 @@ request; cached in `monthly_narratives`. Never called from the nightly job.
 | MealGlucoseTypeRule | meal_glucose_type | High-carb meals correlate with glucose spikes | meal_logs, glucose_readings | Core |
 | GlucoseTimeOfDayRule | glucose_time_of_day | Glucose peaks cluster in a specific time window | glucose_readings | Core |
 | SpendingVsMoodRule | spending_vs_mood | High-spend days correlate with mood change | transactions, mood_logs | Core |
-| MealStreakRule | meal_streak | Consecutive days hitting meal-log target | meal_logs | Core |
-| WaterStreakRule | water_streak | Consecutive days meeting hydration goal | water_logs | Core |
+| MealStreakRule | meal_logging_streak | Consecutive days hitting meal-log target | meal_logs | Core |
+| WaterStreakRule | water_logging_streak | Consecutive days meeting hydration goal | water_logs | Core |
 | StepGoalStreakRule | step_goal_streak | Consecutive days meeting step goal | activity_logs | Core |
-| MedicationAdherenceRule | medication_adherence | Adherence rate below threshold over past 14d | medication_logs | Core |
-| MissedSlotRule | missed_slot | Specific scheduled slot repeatedly missed | medication_schedule_slots, medication_logs | Core |
-| ExerciseConsistencyRule | exercise_consistency | Exercise frequency trend vs prior period | exercise_logs | Core |
-| UndertrainedMuscleRule | undertrained_muscle | A muscle group not worked in 7+ days | exercise_logs | Core |
+| MedicationAdherenceRule | medication_adherence_weekly | Adherence rate below threshold over past 14d | medication_logs | Core |
+| MissedSlotRule | missed_slot_pattern | Specific scheduled slot repeatedly missed | medication_schedule_slots, medication_logs | Core |
+| ExerciseConsistencyRule | exercise_consistency_monthly | Exercise frequency trend vs prior period | exercise_logs | Core |
+| UndertrainedMuscleRule | undertrained_muscle_group | A muscle group not worked in 7+ days | exercise_logs | Core |
 | ExerciseCycleCorrelationRule | exercise_cycle_correlation | Exercise volume differs by cycle phase | exercise_logs, cycle_day_logs | Core |
 | MedicationGlucoseCorrelationRule | medication_glucose_correlation | Medication-taken days have lower glucose | medication_logs, glucose_readings | Core |
 | SpendingVsExerciseRule | spending_vs_exercise | High-exercise days have lower discretionary spend | exercise_logs, transactions | Core |
@@ -245,7 +247,7 @@ request; cached in `monthly_narratives`. Never called from the nightly job.
 | TrendStepsRule | trend_steps | Daily steps trending vs prior 30d | activity_logs | Trend |
 | TrendMoodRule | trend_mood | Mood score trending vs prior 30d | mood_logs | Trend |
 | AnomalyDailyRule | anomaly_daily | Any metric today is >2SD from personal baseline | day_frame all metrics | Phase-5 |
-| StreakBrokenRule | streak_broken | Active streak just ended; first gap after ≥5 consecutive days | day_frame logs | Phase-5 |
+| StreakBrokenRule | streak_broken_or_restart | Active streak just ended; first gap after ≥5 consecutive days | day_frame logs | Phase-5 |
 | ForecastNextDayRule | forecast_next_day | Predict tomorrow's likely mood/glucose from today's patterns | day_frame, baselines | Phase-5 |
 | RecoveryScoreRule | recovery_score | Composite recovery score (HRV + sleep + resting HR + steps) below threshold | day_frame | Phase-5 |
 | MetabolicScoreRule | metabolic_score | Composite metabolic day score vs personal baseline | day_frame glucose/activity/sleep | Phase-5 |
@@ -253,17 +255,17 @@ request; cached in `monthly_narratives`. Never called from the nightly job.
 | WeeklyRhythmSpendRule | weekly_rhythm_spend | Spending reliably peaks on a specific day of week | transactions | Phase-5 |
 | LagSleepGlucoseRule | lag_sleep_glucose | Lagged correlation: last night's sleep predicts next-morning glucose | sleep_logs, glucose_readings | Phase-5 |
 | ChangePointRule | change_point | Detects a step-change in any key metric in the past 30d | day_frame | Phase-5 |
-| CaffeineDoseRule | caffeine_dose | Dose-response inflection point for caffeine vs sleep | substance_logs, sleep_logs | Phase-5 |
-| HabitClustersRule | habit_clusters | Behaviours that co-occur on the same days cluster into habit groups | day_frame all | Phase-5 |
+| CaffeineDoseRule | caffeine_dose_response | Dose-response inflection point for caffeine vs sleep | substance_logs, sleep_logs | Phase-5 |
+| HabitClustersRule | habit_clusters_best_days | Behaviours that co-occur on the same days cluster into habit groups | day_frame all | Phase-5 |
 | WorstDaysCommonRule | worst_days_common | Behaviours common on bottom-20% overall-score days | daily_summaries, all logs | Phase-5 |
-| MealCompositionRule | meal_composition | Macro balance (protein/carb/fat ratio) on best vs worst days | meal_logs | Phase-5 |
-| SleepArchitectureRule | sleep_architecture | Deep-sleep or REM ratio below healthy band | sleep_logs (detailed) | Phase-5 |
-| RecoveryDayRule | recovery_day | Identifies optimal rest days based on accumulated load | exercise_logs, hr_readings | Phase-5 |
+| MealCompositionRule | meal_composition_glucose | Macro balance (protein/carb/fat ratio) on best vs worst days | meal_logs | Phase-5 |
+| SleepArchitectureRule | sleep_architecture_mood | Deep-sleep or REM ratio below healthy band | sleep_logs (detailed) | Phase-5 |
+| RecoveryDayRule | recovery_day_pattern | Identifies optimal rest days based on accumulated load | exercise_logs, hr_readings | Phase-5 |
 | SymptomLagTriggerRule | symptom_lag_trigger | Symptom appears 1-2 days after a specific behaviour | symptom_logs, all behaviour logs | Phase-5 |
-| SeasonalYoYRule | seasonal_yoy | This month vs same month last year across key metrics | daily_summaries | Phase-5 |
-| CyclePhaseRule | cycle_phase | Mood/energy differs significantly by menstrual cycle phase | cycle_day_logs, mood_logs | Wave 2 |
+| SeasonalYoYRule | seasonal_yoy_mood | This month vs same month last year across key metrics | daily_summaries | Phase-5 |
+| CyclePhaseRule | cycle_phase_mood_energy | Mood/energy differs significantly by menstrual cycle phase | cycle_day_logs, mood_logs | Wave 2 |
 | MedicationAdherenceOutcomesRule | medication_adherence_outcomes | Full-adherence days show better mood/sleep vs skipped-dose days | medication_logs, mood/sleep | Wave 2 |
-| GlucoseOvernightRule | glucose_overnight | Overnight glucose CV% (00:00–06:00) predicts next-day mood | glucose_readings, mood_logs | Wave 2 |
+| GlucoseOvernightRule | glucose_overnight_mood | Overnight glucose CV% (00:00–06:00) predicts next-day mood | glucose_readings, mood_logs | Wave 2 |
 | WeatherRainActivityRule | weather_rain_activity | Rainy days reduce activity; user's pattern quantified | weather_data, activity_logs | Wave 3 |
 | WeatherTempSleepRule | weather_temp_sleep | Ambient temperature extremes correlate with sleep disruption | weather_data, sleep_logs | Wave 3 |
 | WeatherDaylightMoodRule | weather_daylight_mood | Short-daylight days (< threshold hours) predict mood dip | weather_data, mood_logs | Wave 3 |
@@ -271,7 +273,7 @@ request; cached in `monthly_narratives`. Never called from the nightly job.
 | SleepExerciseInteractionRule | sleep_exercise_interaction | Sleep × exercise interaction (both good = super-additive mood) | sleep_logs, exercise_logs, mood_logs | Wave 3 |
 | MealTimingSleepRule | meal_timing_sleep | Eating window closing time predicts sleep latency | meal_logs, sleep_logs | Wave 3 |
 
-**Total: 108 rules.**
+**Total: 101 rules.**
 
 ---
 
@@ -279,8 +281,10 @@ request; cached in `monthly_narratives`. Never called from the nightly job.
 
 ### Golden-set regression suite
 
-`backend/scripts/insight-golden-set.mjs` runs 58 assertions over the pure-function
-statistical helpers in `stats.ts` and `causality.ts`. No database required.
+`backend/scripts/insight-golden-set.mjs` runs 77 assertions over the pure-function
+statistical helpers in `stats.ts` and `causality.ts`. No database required. Assertions
+include fired/not-fired persistence checks, the MDE key-warning path, and representative
+streak-rule assertions.
 
 **Run it:**
 ```bash

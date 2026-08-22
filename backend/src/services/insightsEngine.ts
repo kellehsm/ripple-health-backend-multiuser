@@ -460,6 +460,13 @@ export async function runInsightsForUser(
   // heaviest legacy correlational rules.
   const RULE_TIMEOUT_MS = 30_000;
 
+  // Tracks all evaluated rules for fired=false rows (including null returns).
+  type EvalRecord = { rule: InsightRule; fired: boolean; runtimeMs: number };
+  const evalRecords: EvalRecord[] = [];
+
+  // Warn once per run (not per user) about MDE rules missing a "difference" key.
+  const mdeKeyMissingWarned = new Set<string>();
+
   await Promise.allSettled(
     eligibleRules.map(async (rule) => {
       const t0 = Date.now();
@@ -482,7 +489,10 @@ export async function runInsightsForUser(
         );
 
         const result = await Promise.race([invoke(), timeout]);
-        if (!result) return;
+        if (!result) {
+          evalRecords.push({ rule, fired: false, runtimeMs: Date.now() - t0 });
+          return;
+        }
 
         // MDE gate — if the rule declared a primary metric and reports an
         // effect that doesn't cross the minimum-detectable threshold, drop it.
@@ -491,15 +501,26 @@ export async function runInsightsForUser(
         const metric = rule.primaryMetric ?? result.primaryMetric;
         if (metric && MDE[metric] != null && result.supportingData) {
           const diffKey = Object.keys(result.supportingData).find(k => /difference/i.test(k));
+          if (!diffKey && !mdeKeyMissingWarned.has(rule.id)) {
+            mdeKeyMissingWarned.add(rule.id);
+            console.warn(
+              `[insightsEngine] MDE gate: rule "${rule.id}" has primaryMetric "${metric}" with an MDE threshold but supportingData contains no key matching /difference/i — gate skipped for this rule`
+            );
+          }
           if (diffKey) {
             const rawDiff = Number((result.supportingData as any)[diffKey]);
-            if (Number.isFinite(rawDiff) && !passesMDE(metric, Math.abs(rawDiff))) return;
+            if (Number.isFinite(rawDiff) && !passesMDE(metric, Math.abs(rawDiff))) {
+              evalRecords.push({ rule, fired: false, runtimeMs: Date.now() - t0 });
+              return;
+            }
           }
         }
 
         candidates.push({ rule, result, runtimeMs: Date.now() - t0 });
+        evalRecords.push({ rule, fired: true, runtimeMs: Date.now() - t0 });
       } catch (err: any) {
         errors.push(`${rule.id}: ${err?.message ?? "unknown error"}`);
+        evalRecords.push({ rule, fired: false, runtimeMs: Date.now() - t0 });
       }
     })
   );
@@ -528,18 +549,28 @@ export async function runInsightsForUser(
   })));
   foundRuleIds.push(...surviving.map(c => c.rule.id));
 
-  // Observability — one row per rule per run, non-blocking. Table uses a
-  // BIGSERIAL PK (see migration 034), so every insert is a new row — no
-  // conflicts to swallow. If an insert genuinely errors we log it once
-  // instead of hiding it silently.
+  // Observability — one row per evaluated rule per run, non-blocking.
+  // fired=TRUE means the rule returned a non-null result that passed all gates
+  // (MDE + FDR). fired=FALSE means the rule ran but produced no insight this
+  // cycle (null return, MDE gate failure, or uncaught error). This lets us
+  // compute accurate per-rule hit rates as SUM(fired)/COUNT(*).
+  // Table uses a BIGSERIAL PK (see migration 034), so every insert is a new
+  // row — no conflicts to swallow. If an insert genuinely errors we log it
+  // once instead of hiding it silently.
   Promise.all(
-    candidates.map(c => query(
-      `INSERT INTO insight_rule_runs (user_id, rule_id, rule_version, tier, runtime_ms, fired, fdr_rejected)
-       VALUES ($1, $2, $3, $4, $5, TRUE, $6)`,
-      [userId, c.rule.id, c.rule.version ?? 1, c.rule.tier ?? "semiweekly", c.runtimeMs, !!(c.result as any).__fdrRejected]
-    ).catch((err) => {
-      console.warn(`[insightsEngine] insight_rule_runs insert failed for rule ${c.rule.id}:`, err?.message);
-    }))
+    evalRecords.map(e => {
+      // A candidate is "fired" only if it survived FDR correction too.
+      const candidate = candidates.find(c => c.rule.id === e.rule.id);
+      const actuallyFired = e.fired && !!candidate && !(candidate.result as any).__fdrRejected;
+      const fdrRejected   = e.fired && !!candidate && !!(candidate.result as any).__fdrRejected;
+      return query(
+        `INSERT INTO insight_rule_runs (user_id, rule_id, rule_version, tier, runtime_ms, fired, fdr_rejected)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [userId, e.rule.id, e.rule.version ?? 1, e.rule.tier ?? "semiweekly", e.runtimeMs, actuallyFired, fdrRejected]
+      ).catch((err) => {
+        console.warn(`[insightsEngine] insight_rule_runs insert failed for rule ${e.rule.id}:`, err?.message);
+      });
+    })
   ).catch(() => {});
 
   // Category meta-summaries: when 2+ active insights exist per domain, emit

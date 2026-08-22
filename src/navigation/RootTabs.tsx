@@ -52,11 +52,13 @@ import { SocialSettingsScreen } from "../screens/settings/SocialSettingsScreen";
 import { CardImageSplitterScreen } from "../screens/CardImageSplitterScreen";
 import { WatchTilesScreen } from "../screens/WatchTilesScreen";
 import { WaterDetailScreen } from "../screens/WaterDetailScreen";
+import { GlucoseDetailScreen } from "../screens/GlucoseDetailScreen";
 import { ChatScreen } from "../screens/ChatScreen";
 import { MonthlyRecapScreen } from "../screens/MonthlyRecapScreen";
 import { InsightsHistoryScreen } from "../screens/InsightsHistoryScreen";
 import { CustomPlanBuilderScreen } from "../screens/CustomPlanBuilderScreen";
 import { MedicationRemindersScreen } from "../screens/settings/MedicationRemindersScreen";
+import { FeatureGuideScreen } from "../screens/settings/FeatureGuideScreen";
 import { BottomNav } from "../components/BottomNav";
 import { AppErrorBoundary } from "../components/AppErrorBoundary";
 import { useTabPreferences } from "../hooks/useTabPreferences";
@@ -226,6 +228,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
         <Stack.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
         <Stack.Screen name="WaterDetail" component={WaterDetailScreen} options={{ title: "Water Intake" }} />
+        <Stack.Screen name="GlucoseDetail" component={GlucoseDetailScreen} options={{ title: "Glucose" }} />
         <Stack.Screen name="StepsDetail" component={StepsDetailScreen} options={{ title: "Steps" }} />
         <Stack.Screen name="HeartRateDetail" component={HeartRateDetailScreen} options={{ title: "Heart Rate" }} />
         <Stack.Screen name="SleepDetail" component={SleepDetailScreen} options={{ title: "Sleep" }} />
@@ -256,6 +259,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="CustomPlanBuilder" component={CustomPlanBuilderScreen} options={{ title: "Build a Plan" }} />
         <Stack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} options={{ title: "Session Details" }} />
         <Stack.Screen name="MedicationReminders" component={MedicationRemindersScreen} options={{ headerTitle: () => <SettingsTitle title="Medication Reminders" /> }} />
+        <Stack.Screen name="SettingsFeatureGuide" component={FeatureGuideScreen} options={{ headerTitle: () => <SettingsTitle title="Feature Guide" /> }} />
         <Stack.Screen name="MedicationImport" component={MedicationImportScreen} options={{ title: "Import Medications" }} />
         <Stack.Screen name="MedicationHistory" component={MedicationHistoryScreen} options={({ route }: any) => ({ title: route.params?.medicationName ?? "Medication History" })} />
         <Stack.Screen name="Experiments" component={ExperimentScreen} options={{ title: "Experiments" }} />

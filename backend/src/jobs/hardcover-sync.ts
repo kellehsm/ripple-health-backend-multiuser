@@ -1,4 +1,4 @@
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 import { decryptCredential } from "../lib/credCrypto.js";
 
 const HARDCOVER_GRAPHQL = "https://api.hardcover.app/v1/graphql";
@@ -472,8 +472,30 @@ async function doPush(
   }
 }
 
+const HARDCOVER_SYNC_LOCK_KEY = 6198374052841n;
+
 // FIX #2: run all users in parallel (independent — no shared state)
 export async function runHardcoverSyncJob(log: Logger) {
+  const client = await pool.connect();
+  try {
+    const { rows: [lock] } = await client.query<{ acquired: boolean }>(
+      "SELECT pg_try_advisory_lock($1) AS acquired",
+      [HARDCOVER_SYNC_LOCK_KEY.toString()]
+    );
+    if (!lock?.acquired) {
+      log.info({ }, "[hardcoverSync] previous run still in progress — skipping");
+      return;
+    }
+    await runHardcoverSyncJobBody(log);
+  } finally {
+    try {
+      await client.query("SELECT pg_advisory_unlock($1)", [HARDCOVER_SYNC_LOCK_KEY.toString()]);
+    } catch { /* best-effort */ }
+    client.release();
+  }
+}
+
+async function runHardcoverSyncJobBody(log: Logger) {
   let users: { user_id: string; api_token: string }[];
   try {
     users = await query<any>(
