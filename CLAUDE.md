@@ -33,7 +33,7 @@ If a task changes nothing a doc describes, no update is needed — but check bef
 
 - **Never commit without showing the diff and getting explicit approval.**
 - **Never merge to master, push to production, or restart the prod backend without explicit approval.** (Deploy procedure: `docs/BACKEND.md`.)
-- **Never run `eas build` unless the user explicitly says "build now".** Batch native changes; JS-only changes need no build. Bump `app.json` version + `android.versionCode` + `package.json` before any preview build; merge dev→master first.
+- **Never start a build unprompted — but run a LOCAL build whenever the user asks for one.** "do a build" / "build now" / "local build" is sufficient authorization to run `eas build --platform android --profile preview --local`. Remote EAS builds stay off-limits (limited credits) unless the user names remote explicitly. Batch native changes; JS-only changes need no build. Bump `app.json` version + `android.versionCode` + `package.json` before any build; merge dev→master first.
 - **Never use `sed -i`** — it truncated a source file to 0 bytes in this repo. Use the Edit tool.
 - Push frontend changes to the `frontend` remote, backend changes to `origin`, both if both changed.
 - Timestamps in user-facing status updates are EST.

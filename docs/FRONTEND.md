@@ -179,23 +179,27 @@ Convention for async errors: screens use `try/catch` + local state for user-visi
 
 ### Builds are LOCAL (user-run)
 
-The user builds APKs locally themselves — **Claude must never trigger any build (EAS or local)**. `eas.json` still exists (profiles: development/preview/production, autoIncrement on preview+production) but is not the active workflow; since builds are local, `app.json android.versionCode` is authoritative.
+Builds run **locally on the user's machine**, not on EAS servers — but Claude may run them **when the user asks**. `eas.json` still exists (profiles: development/preview/production, autoIncrement on preview+production); since builds are local, `app.json android.versionCode` is authoritative.
 
-Current: `app.json version: "1.5.0"`, `versionCode: 21`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
+Current: `app.json version: "1.5.0"`, `versionCode: 22`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
 
 ### Build policy (enforce strictly)
 
-- **Never run any build command.** When native changes are ready, bump `app.json version` + `android.versionCode` + `package.json version`, merge `dev`→`master` and push both remotes, then tell the user it's ready for their local build.
+- **Never start a build unprompted; always run one when asked.** "do a build" / "build now" / "local build" authorizes a local build — no further confirmation needed.
+- **Local build command:** `eas build --platform android --profile preview --local`. Run it with `TMPDIR` and `EAS_LOCAL_BUILD_WORKINGDIR` pointed at a directory on a real disk (e.g. `~/.cache/eas-local-build`) — the default `/tmp` is a ~7.5 GB tmpfs and the ~6 GB workdir exhausts it, which kills the build mid-gradle with confusing "Disk quota exceeded" / truncated-log symptoms. Takes ~15 min; APK lands in the project root as `build-<timestamp>.apk` with the wear app embedded as a micro-APK.
+- **Remote EAS builds stay off-limits** (limited credits) unless the user explicitly asks for a remote build.
+- When native changes are ready but no build was requested, bump `app.json version` + `android.versionCode` + `package.json version`, merge `dev`→`master` and push both remotes, then tell the user it's ready to build.
 - JS-only changes (screens, styles, navigation, API calls) need no build — test in Expo Go or dev client.
 - Batch all native-touching changes (new packages with native modules, permissions, icon assets, plugin config, Kotlin in `plugins/`) into the running "pending native changes" list below.
 
 ### Pending native changes (batched for next local build)
 
-Shipped in git (1.5.0 / vc 21) but require a native rebuild to reach devices:
+Shipped in git (1.5.0 / vc 22) but require a native rebuild to reach devices:
 
 - **Watch breathing activity** — redesigned layout + BoxAnimView + ripple animations (`RippleWearBreathingActivity.kt`, `RippleWearBreatheTileService.kt`, `RippleWearLogTileService.kt`, `RippleWearMainActivity.kt`).
 - **Widget sleep path fix** — `RippleWidgetProvider.kt` corrected to call `/api/health-connect/sleep/stats` (was 404ing on wrong path).
 - **New Android Health Connect permissions** in `app.json`: `READ_EXERCISE`, `READ_BODY_MEASUREMENTS`, `READ_OXYGEN_SATURATION` (enables `sync_exercise` / `sync_weight` / `sync_spo2` toggles in Health Connect settings).
+- **expo-image-picker** (new native module) — gallery photo selection for the meal photo scanner (`PhotoScannerModal`, "Pick from photos" in the add-food sheet).
 
 ### Dev client vs Expo Go
 

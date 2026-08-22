@@ -224,7 +224,7 @@ Key routes: `GET /api/exercise/library`, `POST /api/exercise/sessions`, `GET /ap
 
 ## 9. Meals / Nutrition (Passio)
 
-**What it does:** Log meals with food items sourced from Passio nutritionix AI (barcode scan, text search, or manual). Tracks macros. Recipes (custom food combos). Glucose-response scoring per meal. Substance sub-tracker (caffeine and alcohol via USDA nutrient data). Frequent foods shortcut list.
+**What it does:** Log meals with food items sourced from Passio nutritionix AI (barcode scan, plate photo — camera capture or gallery pick via expo-image-picker, text search, or manual). Tracks macros. Recipes (custom food combos). Glucose-response scoring per meal. Substance sub-tracker (caffeine and alcohol via USDA nutrient data). Frequent foods shortcut list.
 
 **Screens:** `src/screens/MealsScreen.tsx`
 
