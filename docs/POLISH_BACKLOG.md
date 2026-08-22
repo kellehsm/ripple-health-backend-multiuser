@@ -1,6 +1,6 @@
 # Polish Backlog
 
-Ideas queued for implementation — pick any to ship.
+Living document — append new polish ideas as they surface; remove items once shipped. Pick any to implement.
 
 ---
 
