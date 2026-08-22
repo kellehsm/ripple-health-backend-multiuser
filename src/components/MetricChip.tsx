@@ -18,13 +18,14 @@ type Props = {
   label?: string;             // Bottom uppercase metric name
   labelColor?: string;
   onPress?: () => void;
+  onLongPress?: () => void;
   accessibilityLabel?: string;
   overflow?: "hidden" | "visible";
   children: ReactNode;        // Content between top edge and label
 };
 
 export function MetricChip({
-  borderColor, backgroundColor, label, labelColor, onPress, accessibilityLabel, overflow, children,
+  borderColor, backgroundColor, label, labelColor, onPress, onLongPress, accessibilityLabel, overflow, children,
 }: Props) {
   const { theme } = useTheme();
   const isDark = !!theme.isDark;
@@ -55,7 +56,7 @@ export function MetricChip({
     </>
   );
 
-  if (!onPress) {
+  if (!onPress && !onLongPress) {
     return (
       <View style={chipStyle} accessible={!!accessibilityLabel} accessibilityLabel={accessibilityLabel}>
         {inner}
@@ -67,6 +68,7 @@ export function MetricChip({
       <Pressable
         style={chipStyle}
         onPress={onPress}
+        onLongPress={onLongPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         accessibilityRole="button"

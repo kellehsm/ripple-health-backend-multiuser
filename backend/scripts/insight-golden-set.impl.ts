@@ -249,5 +249,111 @@ function falsy(name: string, cond: any) {
   truthy("mealTimingSleep.FDR passes at least one", passes.some(Boolean));
 }
 
+// ---- fired/not-fired persistence logic (unit-style simulation) ----
+{
+  // Simulate the evalRecords logic: a rule that returns null → fired=false.
+  // A rule that returns a result and survives FDR → fired=true.
+  // A rule that is FDR-rejected → fired=false (fdr_rejected=true).
+  type MockResult = { __fdrRejected?: boolean } | null;
+  type EvalRecord = { ruleId: string; fired: boolean; fdrRejected: boolean };
+
+  function buildEvalRecord(ruleId: string, result: MockResult): EvalRecord {
+    if (!result) return { ruleId, fired: false, fdrRejected: false };
+    const fdrRejected = !!(result as any).__fdrRejected;
+    return { ruleId, fired: !fdrRejected, fdrRejected };
+  }
+
+  // Rule returns null → not fired.
+  const r1 = buildEvalRecord("sleepVsMood", null);
+  falsy("fired/null: fired=false for null result", r1.fired);
+  falsy("fired/null: fdrRejected=false for null result", r1.fdrRejected);
+
+  // Rule returns result, passes FDR → fired.
+  const r2 = buildEvalRecord("streakRule", {});
+  truthy("fired/result: fired=true for passing result", r2.fired);
+  falsy("fired/result: fdrRejected=false for passing result", r2.fdrRejected);
+
+  // Rule FDR-rejected → not fired, fdr_rejected=true.
+  const r3 = buildEvalRecord("correlationRule", { __fdrRejected: true });
+  falsy("fired/fdr: fired=false when FDR-rejected", r3.fired);
+  truthy("fired/fdr: fdrRejected=true when FDR-rejected", r3.fdrRejected);
+}
+
+// ---- MDE key-matching warning path ----
+{
+  // Simulate the MDE gate logic: if no "difference" key found in supportingData,
+  // a warning should be emitted and the gate should be skipped (not block the rule).
+  const { MDE: mdeTable, passesMDE: passMDE } = { MDE, passesMDE };
+
+  function simulateMDEGate(
+    metric: string,
+    supportingData: Record<string, unknown>
+  ): { blocked: boolean; missingKey: boolean } {
+    if (!mdeTable[metric as keyof typeof mdeTable]) {
+      return { blocked: false, missingKey: false };
+    }
+    const diffKey = Object.keys(supportingData).find(k => /difference/i.test(k));
+    if (!diffKey) {
+      // Warning would be logged; gate is skipped (not blocked).
+      return { blocked: false, missingKey: true };
+    }
+    const rawDiff = Number((supportingData as any)[diffKey]);
+    if (Number.isFinite(rawDiff) && !passMDE(metric, Math.abs(rawDiff))) {
+      return { blocked: true, missingKey: false };
+    }
+    return { blocked: false, missingKey: false };
+  }
+
+  // Known metric, no "difference" key → missingKey=true, not blocked (gate skipped).
+  const noKey = simulateMDEGate("mood_score", { avg_mood: 3.5, n: 10 });
+  truthy("MDE/missingKey: missingKey=true when no difference key", noKey.missingKey);
+  falsy("MDE/missingKey: not blocked when key missing (gate skipped)", noKey.blocked);
+
+  // Known metric, has "difference" key, effect too small → blocked.
+  const tooSmall = simulateMDEGate("mood_score", { moodDifference: 0.1 });
+  falsy("MDE/tooSmall: missingKey=false", tooSmall.missingKey);
+  truthy("MDE/tooSmall: blocked=true for sub-MDE effect", tooSmall.blocked);
+
+  // Known metric, has "difference" key, effect passes → not blocked.
+  const passes = simulateMDEGate("mood_score", { moodDifference: 0.6 });
+  falsy("MDE/passes: not blocked for above-MDE effect", passes.blocked);
+
+  // Unknown metric → not blocked, no warning.
+  const unknown = simulateMDEGate("unknown_metric", { avg: 5 });
+  falsy("MDE/unknown: not blocked for unknown metric", unknown.blocked);
+  falsy("MDE/unknown: no missingKey for unknown metric", unknown.missingKey);
+}
+
+// ---- Representative streak/adherence rule assertions ----
+// These mirror simple deterministic logic used in streak-type rules.
+{
+  // Streak: N consecutive days → streak length.
+  function streakLength(days: boolean[]): number {
+    let len = 0;
+    for (let i = days.length - 1; i >= 0; i--) {
+      if (!days[i]) break;
+      len++;
+    }
+    return len;
+  }
+
+  eq("streak: 5 consecutive → 5", streakLength([true, true, true, true, true]), 5, 0);
+  eq("streak: broken at day 3 → 2", streakLength([true, true, true, false, true, true]), 2, 0);
+  eq("streak: no days → 0", streakLength([false, false, false]), 0, 0);
+
+  // Adherence: taken/total.
+  function adherenceRate(taken: number, total: number): number {
+    return total === 0 ? 0 : taken / total;
+  }
+  eq("adherence: 7/7 → 1.0", adherenceRate(7, 7), 1.0, 0.001);
+  eq("adherence: 5/7 → 0.714", adherenceRate(5, 7), 5 / 7, 0.001);
+  eq("adherence: 0/0 → 0", adherenceRate(0, 0), 0, 0.001);
+
+  // MealStreakRule-style: days with ≥3 meals = streak eligible.
+  const mealCounts = [3, 2, 4, 3, 3, 1, 3, 3, 3];
+  const mealStreak = streakLength(mealCounts.map(n => n >= 3));
+  eq("mealStreak: last 3 days ≥3 meals → streak=3", mealStreak, 3, 0);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

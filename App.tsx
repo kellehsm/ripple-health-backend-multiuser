@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Linking, Platform, ToastAndroid, Alert, View, StyleSheet, Text, Pressable, AppState as RNAppState } from "react-native";
+import { processSyncQueue } from "./src/utils/syncQueue";
+import { subscribeNetwork } from "./src/utils/networkState";
 import { StatusBar } from "expo-status-bar";
 // Notifee is a native module — stub it so the app doesn't crash if the module
 // isn't linked (e.g. development builds without native rebuild).
@@ -257,6 +259,15 @@ export default function App() {
   const [biometricLocked, setBiometricLocked] = useState(false);
 
   // Register logout handler so Settings can sign the user out
+  // Guard against concurrent sync-queue flushes (e.g. AppState + network
+  // events firing simultaneously).
+  const syncInFlight = useRef(false);
+  function flushSyncQueue() {
+    if (syncInFlight.current) return;
+    syncInFlight.current = true;
+    processSyncQueue().catch(() => {}).finally(() => { syncInFlight.current = false; });
+  }
+
   useEffect(() => {
     registerLogoutHandler(() => setAppState("login"));
     // Sync the device's IANA timezone to the backend so server-side
@@ -267,6 +278,12 @@ export default function App() {
     // Load persisted reduce-motion preference so animated components can
     // respect it before they first render.
     loadReducedMotion().catch(() => {});
+    // Flush any queued offline writes on startup.
+    flushSyncQueue();
+    // Re-flush whenever network comes back online.
+    const unsubNetwork = subscribeNetwork((online) => { if (online) flushSyncQueue(); });
+    return () => unsubNetwork();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -276,6 +293,8 @@ export default function App() {
         if (enabled && !isCurrentlyUnlocked()) {
           setBiometricLocked(true);
         }
+        // Flush any offline-queued writes when the app comes to foreground.
+        flushSyncQueue();
         // Fire local notif if the insights engine surfaced anything new
         // since our last visit. Cheap, rate-limited to one/day, silent on
         // errors so it never breaks the resume flow.

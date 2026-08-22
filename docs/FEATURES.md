@@ -14,7 +14,7 @@ Ripple Wellness is an Expo React Native app (TypeScript) backed by a Fastify/Pos
 | 2 | Overview / Dashboard | `dashboard.ts`, `summary.ts` | Overview, History, MonthlyRecap, Trends |
 | 3 | Health Metrics (custom) | `metrics.ts` | HealthScreen, HealthTabScreen |
 | 4 | Medications | `medications.ts`, `medication-doses.ts`, `medication-categories.ts`, `medication-prescribers.ts` | MedicationHistory, MedicationImport |
-| 5 | Glucose / Dexcom | `glucose.ts`, `glucose-status.ts`, `dexcom-auth.ts` | HealthScreen (glucose card) |
+| 5 | Glucose / Dexcom | `glucose.ts`, `glucose-status.ts`, `dexcom-auth.ts` | HealthScreen (glucose card), GlucoseDetail |
 | 6 | Heart Rate | `heart-rate.ts`, `health-connect.ts` | HeartRateDetail |
 | 7 | Sleep | `health-connect.ts` | SleepDetail, HealthScreen |
 | 8 | Steps & Exercise | `health-connect.ts`, `exercise.ts`, `programs.ts` | Exercise, ExerciseDetail, ExerciseSession, WorkoutSetupWizard, StepsDetail |
@@ -34,6 +34,7 @@ Ripple Wellness is an Expo React Native app (TypeScript) backed by a Fastify/Pos
 | 22 | Demo Mode | `auth.ts` | Login |
 | 23 | Admin | `admin.ts` | *(no screen — API only)* |
 | 24 | Settings & Preferences | `settings.ts`, `tab-preferences.ts`, `experiments.ts`, `hints.ts`, `programs.ts`, `media.ts` | Settings and sub-screens |
+| 25 | Offline Sync Queue | `sync.ts` | *(no dedicated screen — mobile utility)* |
 
 ---
 
@@ -94,6 +95,8 @@ Ripple Wellness is an Expo React Native app (TypeScript) backed by a Fastify/Pos
 
 **Water detail screen** (`WaterDetailScreen.tsx`): dedicated screen reachable from the water chip on HealthScreen. Features a droplet-fill hero, ripple log button, today's intake timeline, 7-day droplet strip, streak stats, and an AsyncStorage-backed goal editor.
 
+**Water MetricChip (HealthScreen):** quick-press logs one glass immediately with haptic feedback (optimistic update); long-press navigates to `WaterDetail`. A bug where logged glasses did not appear in the chip (bad filter callback) has been fixed.
+
 **API:**
 | Method | Path | File |
 |--------|------|------|
@@ -135,7 +138,14 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **What it does:** Manual glucose readings plus Dexcom CGM integration via OAuth (Dexcom Share API). Supports time-in-range (TIR) calculation, yesterday overlay on chart, glucose-status card for dashboard, and chart annotations. Dexcom sandbox supported via env var.
 
-**Screens:** Embedded in `HealthScreen.tsx`; `src/screens/settings/DexcomSettingsScreen.tsx`
+**Screens:** Embedded in `HealthScreen.tsx`; `src/screens/GlucoseDetailScreen.tsx` (route `"GlucoseDetail"`); `src/screens/settings/DexcomSettingsScreen.tsx`
+
+**GlucoseDetailScreen** — dedicated drill-down screen reached from the glucose MetricChip on HealthScreen:
+- **24-hour chart** with shaded target band (70–180 mg/dL)
+- **24h stats bar**: avg, low, high, time-in-range (TIR)
+- **7-day time-of-day bucket averages**: readings from the past 7 days grouped into time-of-day buckets (e.g. morning / afternoon / evening / night) and averaged
+- **30-day summary**: overall avg, TIR %, standard deviation
+- Uses existing `api.glucoseRange(start, end)` — no new backend routes
 
 **API:**
 | Method | Path | File |
@@ -147,6 +157,7 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 | GET | `/api/glucose-status` | `glucose-status.ts` |
 | GET | `/api/dexcom-auth/login` | `dexcom-auth.ts` |
 | GET | `/api/dexcom-auth/callback` | `dexcom-auth.ts` |
+| POST | `/api/dexcom` | `dexcom-verify.ts` — verify Dexcom Share credentials and store encrypted in user settings |
 | GET | `/api/annotations` | `annotations.ts` |
 | POST/DELETE | `/api/annotations` | `annotations.ts` |
 
@@ -162,7 +173,7 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **What it does:** Ingest heart rate readings in bulk from Health Connect (Android). Provides daily summary, recent readings list, and advanced stats. Used by the Insights Engine for recovery score computation.
 
-**Screens:** `src/screens/HeartRateDetailScreen.tsx` — upgraded with: 30-day resting-HR trend chart with 7-day rolling average, week-vs-last-week comparison (honors `week_start`), time-in-zones (DOB-based max HR; falls back to 190 if DOB absent), today's min/max with timestamps, and an HR insight banner.
+**Screens:** `src/screens/HeartRateDetailScreen.tsx` — upgraded with: 30-day resting-HR trend chart with 7-day rolling average, week-vs-last-week comparison (honors `week_start`), time-in-zones (DOB-based max HR; falls back to 190 if DOB absent), today's min/max with timestamps, and an HR insight banner. NaN guards added: null/non-finite samples are filtered before all stat computations; stat display falls back to `"--"` placeholders when no valid data exists.
 
 **API:**
 | Method | Path | File |
@@ -184,7 +195,7 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **What it does:** Sleep sessions synced from Health Connect with optional sleep stages (REM, deep, light, awake). Exposes range queries, stats, and per-session detail. Sleep data feeds Insights Engine correlations.
 
-**Screens:** `src/screens/SleepDetailScreen.tsx`. HealthScreen sleep card upgraded with: score ring, 7-night bar strip, and an expanded panel showing week avg vs last week, bedtime consistency spread, stage-% line, sleep insight link, and a recovery-outlook debt line.
+**Screens:** `src/screens/SleepDetailScreen.tsx`. HealthScreen sleep MetricChip navigates directly to `SleepDetail` on press. The inline expanded sleep panel previously shown on HealthScreen has been removed.
 
 **API:**
 | Method | Path | File |
@@ -208,7 +219,7 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **What it does:** Step counts synced from Health Connect. Exercise library + session logging with set/rep/weight entries, progressive overload tracking, and a Workout Setup Wizard that generates a personalized program. Includes AI-suggested next workout.
 
-**Screens:** `src/screens/ExerciseScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/ExerciseSessionScreen.tsx`, `src/screens/WorkoutSetupWizard.tsx`, `src/screens/StepsDetailScreen.tsx` — steps detail now shows This week / Last week / Month-to-date / Daily avg panels. HealthScreen step chip shows the current week total.
+**Screens:** `src/screens/ExerciseScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/ExerciseSessionScreen.tsx`, `src/screens/WorkoutSetupWizard.tsx`, `src/screens/StepsDetailScreen.tsx` — steps detail now shows This week / Last week / Month-to-date / Daily avg panels; the Day by Day list ends with a weekly Total row (this week vs last week with diff). HealthScreen step chip shows the current week total.
 
 **API:** `exercise.ts` (12 routes), `programs.ts` (11 routes), `health-connect.ts` (`/steps` GET+POST)
 
@@ -288,6 +299,8 @@ Key routes: `POST /api/plaid/create-link-token`, `POST /api/plaid/exchange-token
 **What it does:** Log mindfulness sessions (meditation, body scan, gratitude, soundscapes). Provides cumulative stats and a journal view of past sessions. Guided body-scan and soundscape sections exist in the UI.
 
 **Screens:** `src/screens/MindfulnessScreen.tsx`, `src/screens/mindfulness/BodyScanSection.tsx`, `src/screens/mindfulness/GratitudeHistory.tsx`, `src/screens/mindfulness/SoundscapesSection.tsx`, `src/screens/mindfulness/StatsHero.tsx`
+
+**HealthScreen entry point:** the top-of-page mindfulness bar has been replaced by a MIND MetricChip tile — the 6th tile completing the 2×3 metric chip grid. Pressing it navigates to `MindfulnessScreen`. All six MetricChip tile icons are normalized to size 44.
 
 **API:**
 | Method | Path | File |
@@ -496,7 +509,11 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 
 **What it does:** User settings stored in `users.settings` JSONB. Tab preferences (which tabs are visible, order). Feature hints dismissed tracking. Media uploads (profile images, card image splitter). Error reporting. Customizable dashboard blocks.
 
-**Screens:** `src/screens/SettingsScreen.tsx`, `src/screens/TabPreferencesScreen.tsx`, `src/screens/CustomizeDashboardScreen.tsx`, `src/screens/CardImageSplitterScreen.tsx`, `src/screens/settings/` (10 sub-screens)
+**Screens:** `src/screens/SettingsScreen.tsx`, `src/screens/TabPreferencesScreen.tsx`, `src/screens/CustomizeDashboardScreen.tsx`, `src/screens/CardImageSplitterScreen.tsx`, `src/screens/settings/` (11 sub-screens including `FeatureGuideScreen.tsx`)
+
+**Feature Guide subscreen:** Feature Guide entries have been moved out of SettingsScreen into a dedicated subscreen `src/screens/settings/FeatureGuideScreen.tsx` (route `"SettingsFeatureGuide"`). SettingsScreen now shows a single "Feature Guide" row that navigates to it.
+
+**HealthConnectSettingsScreen:** the grant-permissions and open-settings buttons now call `openHealthConnectSettings()` from `react-native-health-connect` directly, fixing a previous silent no-op that was using a manual intent string.
 
 **API:**
 | Method | Path | File |
@@ -509,6 +526,21 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 | POST | `/api/error-reports` | `error-reports.ts` |
 
 **Data:** `users.settings` JSONB, `feature_hints_dismissed`, `media_assets` (migration 035)
+
+**Status:** Shipped
+
+---
+
+## 25. Offline Sync Queue
+
+**What it does:** Idempotent offline-write buffer. Failed writes to queueable endpoints are stored in SQLite (`ripple_sync.db`) by the mobile client. On reconnect / foreground resume, the mobile app drains the queue via `POST /api/sync/batch`. The backend checks the `sync_log` table (keyed by `(user_id, sync_id)`) to detect already-processed items and deduplicates silently.
+
+**API:**
+| Method | Path | File |
+|--------|------|------|
+| POST | `/api/sync/batch` | `sync.ts` |
+
+**Data:** `sync_log` (migrations 003, 036) — `(sync_id, user_id, processed_at)`; rows TTL-cleaned nightly at 4 AM EST.
 
 **Status:** Shipped
 
@@ -550,7 +582,7 @@ Items carried forward from `FEATURE_IDEAS.md` that are **not** yet shipped:
 
 ### Social / Gamification
 - **Group challenges** — 3+ friends on the same metric
-- **Kudos / reactions** — fire, clap, star for friend milestones
+- *(Kudos / reactions — shipped as cheers: `friend_cheers` table, `POST /api/friends/cheer/:id`; see section 14)*
 - **Team challenges** — aggregate step count across two teams
 - **Rival mode** — pick one friend; show their stats alongside yours
 
@@ -565,7 +597,7 @@ Items carried forward from `FEATURE_IDEAS.md` that are **not** yet shipped:
 - **WearOS complication** — current glucose or steps on watch face
 - **Siri / Google Assistant shortcuts** — "log water", "what's my glucose"
 - **Data import wizard** — Apple Health / Google Fit / Cronometer / MyFitnessPal CSV
-- **Export to PDF health summary** — one-page monthly doctor-shareable doc (currently JSON/CSV exist; formatted single-page PDF is planned)
+- *(Export to PDF health summary — shipped as `/api/export/doctor-report` and `/api/export/weekly-digest.pdf`; see section 19)*
 - **Dark mode OLED theme** — true black backgrounds
 
 ### Integrations

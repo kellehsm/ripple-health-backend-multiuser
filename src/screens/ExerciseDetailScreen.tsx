@@ -3,7 +3,7 @@ import { View, Text, ScrollView, StyleSheet, Pressable, Image, Alert, RefreshCon
 import { Ionicons } from '@expo/vector-icons';
 import { toast } from '../lib/toast';
 import Svg, { Polyline, Line, Text as SvgText, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
@@ -16,11 +16,12 @@ const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/m
 function CyclingImage({ images, style }: { images: string[]; style: any }) {
   const { theme } = useTheme();
   const [idx, setIdx] = useState(0);
+  const isFocused = useIsFocused();
   useEffect(() => {
-    if (images.length <= 1) return;
+    if (images.length <= 1 || !isFocused) return;
     const t = setInterval(() => setIdx(i => (i + 1) % images.length), 2000);
     return () => clearInterval(t);
-  }, [images.length]);
+  }, [images.length, isFocused]);
   if (!images.length) {
     return <View style={[style, { backgroundColor: theme.teal.tint, opacity: 0.5 }]} />;
   }

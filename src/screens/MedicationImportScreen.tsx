@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
+import { ScreenBackground } from '../components/ScreenBackground';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
 import { useNavigation } from '@react-navigation/native';
@@ -123,6 +124,7 @@ export function MedicationImportScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.page }]}>
+      <ScreenBackground pageId="medication_import" />
 
       {/* ── Pick file ── */}
       {step === 'pick' && (

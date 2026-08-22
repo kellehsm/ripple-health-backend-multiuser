@@ -520,7 +520,7 @@ export function FinanceScreen() {
     ]);
   }
 
-  const s = useMemo(() => makeStyles(ink, theme.card, theme.cardBorder, theme.isDark, theme.purple.solid), [ink, theme.card, theme.cardBorder, theme.isDark, theme.purple.solid]);
+  const s = useMemo(() => makeStyles(ink, theme.card, theme.cardBorder, theme.purple.solid), [ink, theme.card, theme.cardBorder, theme.purple.solid]);
 
   return (
     <>
@@ -1137,7 +1137,7 @@ export function FinanceScreen() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeStyles(ink: string, card: string, border: string, isDark: boolean = false, purple: string = "#7B3FBF") {
+function makeStyles(ink: string, card: string, border: string, purple: string = "#7B3FBF") {
   const shadowCard = coloredShadow(purple);
   return StyleSheet.create({
     content:     { padding: 16, gap: 12, paddingBottom: 40 },
@@ -1152,7 +1152,7 @@ function makeStyles(ink: string, card: string, border: string, isDark: boolean =
     addBtn: {
       width: 38, height: 38, borderRadius: 19, borderWidth: 2,
       alignItems: "center", justifyContent: "center",
-      ...layeredShadow('tile', isDark),
+      ...layeredShadow('tile'),
     },
     chartRow:    { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
     chartCat:    { fontSize: 13, fontWeight: "600" },
@@ -1175,20 +1175,20 @@ function makeStyles(ink: string, card: string, border: string, isDark: boolean =
     amountInput: {
       borderWidth: 2, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12,
       fontSize: 32, fontWeight: "800",
-      ...layeredShadow('card', isDark),
+      ...layeredShadow('card'),
     },
     errorText:   { fontSize: 12, marginTop: -4 },
     textInput: {
       borderWidth: 2, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10,
       fontSize: 15, fontWeight: "500",
-      ...layeredShadow('card', isDark),
+      ...layeredShadow('card'),
     },
     chipWrap:    { flexDirection: "row", flexWrap: "wrap", gap: 7 },
     chip:        { borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5 },
     chipText:    { fontSize: 12 },
     saveBtn: {
       borderRadius: 22, borderWidth: 2, paddingVertical: 14, alignItems: "center", marginTop: 6,
-      ...layeredShadow('card', isDark),
+      ...layeredShadow('card'),
     },
     saveBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
     deleteBtn:   { borderRadius: 22, borderWidth: 2, paddingVertical: 12, alignItems: "center", backgroundColor: "transparent" },

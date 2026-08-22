@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { FlatList, View, Text, StyleSheet, RefreshControl } from "react-native";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
@@ -134,8 +135,10 @@ export function InsightsHistoryScreen() {
   }, [theme]);
 
   return (
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="insights_history" />
     <FlatList
-      style={{ flex: 1, backgroundColor: theme.page }}
+      style={{ flex: 1 }}
       contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 80 }}
       refreshControl={
         <RefreshControl
@@ -175,6 +178,7 @@ export function InsightsHistoryScreen() {
         ) : null
       }
     />
+    </View>
   );
 }
 

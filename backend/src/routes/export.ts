@@ -278,17 +278,17 @@ export default async function exportRoutes(app: FastifyInstance) {
 
     const LIMIT = 10000;
     const [glucose, meals, journal, spending, books, hobbies, hobbiesLogs, sleep, heartRate, metrics, metricLogs] = await Promise.all([
-      query<any>(`SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT * FROM meals WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT * FROM spending_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT * FROM books WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT * FROM hobbies WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT hl.* FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE h.user_id = $1 ORDER BY hl.logged_at DESC LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT * FROM sleep_sessions WHERE user_id = $1 ORDER BY start_time DESC LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT * FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT * FROM metrics WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
-      query<any>(`SELECT ml.* FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id WHERE m.user_id = $1 ORDER BY ml.logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, recorded_at, mg_dl, trend, source FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, logged_at, name, meal_type, carbs_g, sugar_g, calories, source_db, source_food_id, context, servings FROM meals WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, logged_at, mood_score, entry_text, context, mood_label, period, entry_type FROM journal_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, logged_at, amount, category, source, tag FROM spending_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, title, author, cover_url, total_pages, status, rating, started_at, finished_at, total_chapters, current_chapter, hardcover_id, updated_at, hardcover_synced_at FROM books WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, name, unit_label, icon, color_key, completed_at FROM hobbies WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT hl.id, hl.hobby_id, hl.logged_at, hl.amount, hl.rating, hl.note FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE h.user_id = $1 ORDER BY hl.logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, start_time, end_time, quality_score, source, deep_ms, rem_ms, light_ms, awake_ms FROM sleep_sessions WHERE user_id = $1 ORDER BY start_time DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, recorded_at, bpm, source FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT id, user_id, name, value_type, unit, icon, color_key FROM metrics WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT ml.id, ml.metric_id, ml.logged_at, ml.value, ml.note FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id WHERE m.user_id = $1 ORDER BY ml.logged_at DESC LIMIT ${LIMIT}`, [user_id]),
     ]);
 
     const payload = JSON.stringify({

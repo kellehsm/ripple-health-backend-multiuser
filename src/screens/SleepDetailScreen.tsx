@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Dimensions, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScreenBackground } from "../components/ScreenBackground";
 import Svg, { Line, Rect, Text as SvgText } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
@@ -235,8 +236,10 @@ export function SleepDetailScreen() {
   }
 
   return (
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="sleep_detail" />
     <ScrollView
-      style={{ backgroundColor: theme.page }}
+      style={{ flex: 1 }}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />
@@ -453,6 +456,7 @@ export function SleepDetailScreen() {
       )}
 
     </ScrollView>
+    </View>
   );
 }
 

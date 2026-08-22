@@ -16,11 +16,8 @@ import { reportError } from "../utils/errorReport";
 import { QUIET_PRESETS, muteFor, getMuteUntil, clearMute } from "../lib/muteNotifications";
 import { toast } from "../lib/toast";
 import Constants from "expo-constants";
-import { FEATURE_INTROS, type FeatureIntro } from "../onboarding/featureIntros";
-import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { WhatsNewModal } from "../components/WhatsNewModal";
 import { CHANGELOG, currentAppVersion } from "../lib/whatsNew";
-import { resetAllFeatureIntros } from "../onboarding/useFeatureIntro";
 
 const SUPPORT_EMAIL: string =
   (Constants.expoConfig?.extra as any)?.supportEmail ?? "support@ripple.test";
@@ -155,8 +152,6 @@ export function SettingsScreen() {
   }
 
   function nav(screen: string) { navigation.navigate(screen); }
-
-  const [openIntro, setOpenIntro] = useState<FeatureIntro | null>(null);
 
   // Returns true if any of the given labels/texts match the current search query
   function matches(...labels: string[]): boolean {
@@ -470,34 +465,16 @@ export function SettingsScreen() {
       )}
 
       {/* Feature Guide */}
-      {matches("Feature Guide", "onboarding", "walkthrough", "learn", "tour", ...FEATURE_INTROS.map(f => f.name)) && (
+      {matches("Feature Guide", "onboarding", "walkthrough", "learn", "tour") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>FEATURE GUIDE</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            {FEATURE_INTROS.filter(f => matches("Feature Guide", "learn", "tour", f.name)).map((f, i, arr) => (
-              <React.Fragment key={f.key}>
-                <MenuRow
-                  title={`${f.cards[0].emoji}  ${f.name}`}
-                  subtitle={f.cards[0].title}
-                  onPress={() => setOpenIntro(f)}
-                  theme={theme}
-                />
-                {i < arr.length - 1 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
-              </React.Fragment>
-            ))}
-            {matches("Feature Guide", "reset", "show again") && (
-              <>
-                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-                <MenuRow
-                  title="Show all intros again"
-                  subtitle="Every feature intro will re-appear on next visit"
-                  onPress={() => {
-                    void resetAllFeatureIntros().then(() => toast("Feature intros reset"));
-                  }}
-                  theme={theme}
-                />
-              </>
-            )}
+            <MenuRow
+              title="Feature Guide"
+              subtitle="Interactive tours for every Ripple feature"
+              onPress={() => nav("SettingsFeatureGuide")}
+              theme={theme}
+            />
           </View>
         </>
       )}
@@ -578,13 +555,6 @@ export function SettingsScreen() {
           </View>
         </>
       )}
-      {openIntro && (
-        <FeatureIntroSheet
-          intro={openIntro}
-          visible={true}
-          onClose={() => setOpenIntro(null)}
-        />
-      )}
       {showWhatsNew && (
         <WhatsNewModal entry={CHANGELOG[0] ?? null} onClose={() => setShowWhatsNew(false)} />
       )}
@@ -600,7 +570,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

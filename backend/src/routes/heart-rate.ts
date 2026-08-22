@@ -148,17 +148,20 @@ export default async function heartRateRoutes(app: FastifyInstance) {
     const { days = "7" } = req.query as any;
     const n = Math.min(Math.max(parseInt(days, 10) || 7, 1), 30);
     return query<any>(
-      `SELECT
-         date_trunc('day', recorded_at)::date AS date,
-         MIN(bpm)::int   AS resting_bpm,
-         MAX(bpm)::int   AS peak_bpm,
-         ROUND(AVG(bpm))::int AS avg_bpm,
-         COUNT(*)::int   AS reading_count
-       FROM heart_rate_readings
-       WHERE user_id = $1
-         AND recorded_at >= NOW() - ($2 || ' days')::interval
-       GROUP BY 1
-       ORDER BY 1 DESC`,
+      `SELECT date, resting_bpm, peak_bpm, avg_bpm, reading_count FROM (
+         SELECT
+           date_trunc('day', recorded_at)::date AS date,
+           PERCENTILE_CONT(0.05) WITHIN GROUP (ORDER BY bpm)::int AS resting_bpm,
+           MAX(bpm)::int   AS peak_bpm,
+           ROUND(AVG(bpm))::int AS avg_bpm,
+           COUNT(*)::int   AS reading_count
+         FROM heart_rate_readings
+         WHERE user_id = $1
+         GROUP BY 1
+         ORDER BY 1 DESC
+         LIMIT $2
+       ) sub
+       ORDER BY date DESC`,
       [user_id, n]
     );
   });

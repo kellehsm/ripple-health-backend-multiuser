@@ -79,7 +79,7 @@ export function QuickAddFAB({ actions }: QuickAddFABProps) {
 
 const styles = StyleSheet.create({
   container:   { position: "absolute", bottom: SPACING.xl, right: SPACING.lg, alignItems: "flex-end" },
-  fab:         { width: 56, height: 56, borderRadius: RADIUS.pill, alignItems: "center", justifyContent: "center", elevation: 6, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  fab:         { width: 56, height: 56, borderRadius: RADIUS.pill, alignItems: "center", justifyContent: "center", elevation: 6, shadowColor: "rgba(60,40,20,0.1)", shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   fabIcon:     { fontSize: 28, color: "#fff", fontWeight: "300", lineHeight: 32, marginTop: -1 },
   actionItem:  { position: "absolute", bottom: 0, right: 0, flexDirection: "row", alignItems: "center", gap: SPACING.sm },
   actionBtn:   { width: 48, height: 48, borderRadius: RADIUS.pill, alignItems: "center", justifyContent: "center", borderWidth: 1.5, elevation: 4 },

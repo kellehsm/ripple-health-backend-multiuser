@@ -286,12 +286,12 @@ async function main() {
   cron.schedule("0 1 * * *", () => {
     const yesterday = estYesterday();
     void runDailySummaryJob(yesterday);
-  });
+  }, { timezone: "America/New_York" });
   void runDailySummaryJob(); // seed on startup
   app.log.info("Daily Summary Engine scheduled (every 30 min + startup)");
 
   // Insights Engine — nightly at 3 AM + on startup (low priority, after summaries)
-  cron.schedule("0 3 * * *", () => void runInsightsJob());
+  cron.schedule("0 3 * * *", () => void runInsightsJob(), { timezone: "America/New_York" });
   setTimeout(() => void runInsightsJob(), 15000); // 15s after boot so summaries seed first
   app.log.info("Insights Engine scheduled (nightly 3 AM + startup)");
 
@@ -340,7 +340,7 @@ async function main() {
     } catch (err: any) {
       app.log.error({ err: err?.message }, "sync_log TTL cleanup failed");
     }
-  });
+  }, { timezone: "America/New_York" });
   app.log.info("sync_log TTL cleanup scheduled (nightly 4 AM)");
 
   // Nightly Google Drive backup — iterate over all users with Drive connected
@@ -361,7 +361,7 @@ async function main() {
       } catch (err: any) {
         app.log.error({ err: err?.message }, "Failed to fetch Drive backup users");
       }
-    });
+    }, { timezone: "America/New_York" });
     app.log.info("Nightly Google Drive backup scheduled at 2:00 AM");
   }
 
@@ -370,7 +370,7 @@ async function main() {
   app.log.info("Hardcover sync scheduled (every 4 hours)");
 
   // Weather daily sync — runs at 6 AM each day; backfills 90 days on first run per user
-  cron.schedule("0 6 * * *", () => void runWeatherSyncJob());
+  cron.schedule("0 6 * * *", () => void runWeatherSyncJob(), { timezone: "America/New_York" });
   void runWeatherSyncJob(); // seed on startup
   app.log.info("Weather sync scheduled (daily 6 AM + startup)");
 }

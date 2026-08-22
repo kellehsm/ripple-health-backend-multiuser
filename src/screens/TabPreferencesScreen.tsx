@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, Alert } from 'react-native';
+import { ScreenBackground } from '../components/ScreenBackground';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemedIcon } from '../theme/iconRegistry';
 import { useTabPreferences } from '../hooks/useTabPreferences';
@@ -72,8 +73,10 @@ export function TabPreferencesScreen({ onDone, mode, onCancel }: TabPreferencesS
   const ink = theme.ink;
 
   return (
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="tab_preferences" />
     <ScrollView
-      style={{ backgroundColor: theme.page, flex: 1 }}
+      style={{ flex: 1 }}
       contentContainerStyle={[styles.container, { paddingBottom: 40 }]}
       keyboardShouldPersistTaps="handled"
     >
@@ -97,7 +100,7 @@ export function TabPreferencesScreen({ onDone, mode, onCancel }: TabPreferencesS
                   backgroundColor: isSelected ? theme.teal.tint : theme.card,
                   borderColor: isSelected ? theme.teal.solid : theme.cardBorder,
                   borderWidth: isSelected ? 2 : 1,
-                  shadowColor: "#000",
+                  shadowColor: "rgba(60,40,20,0.1)",
                 },
               ]}
             >
@@ -160,6 +163,7 @@ export function TabPreferencesScreen({ onDone, mode, onCancel }: TabPreferencesS
         </Pressable>
       </View>
     </ScrollView>
+    </View>
   );
 }
 
@@ -191,7 +195,7 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
     borderRadius: 22,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

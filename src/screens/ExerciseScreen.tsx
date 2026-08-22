@@ -474,7 +474,7 @@ export function ExerciseScreen() {
         {!openSession && (
           <Pressable
             onPress={() => { setPlannerInitialQueue([]); setPlannerVisible(true); }}
-            style={[styles.startBtn, { backgroundColor: ink, borderColor: ink, shadowColor: "#000" }]}
+            style={[styles.startBtn, { backgroundColor: ink, borderColor: ink, shadowColor: "rgba(60,40,20,0.1)" }]}
           >
             <Text style={[styles.startBtnText, { color: theme.page }]}>🏃 Start workout session</Text>
           </Pressable>
@@ -515,7 +515,7 @@ export function ExerciseScreen() {
         {activeProgram && (
           <>
             <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>YOUR PLAN</Text>
-            <View style={[styles.programCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
+            <View style={[styles.programCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
               <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
                 <View style={{ flex: 1 }}>
                   {renamingProgram ? (
@@ -580,7 +580,7 @@ export function ExerciseScreen() {
 
         {/* Suggestion card */}
         {suggestion && (
-          <View style={[styles.suggestionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
+          <View style={[styles.suggestionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
             <View style={styles.suggestionHeader}>
               <Text style={styles.suggestionIcon}>{SUGGESTION_ICON[suggestion.type] ?? '💪'}</Text>
               <Text style={[styles.suggestionTitle, { color: theme.textStrong }]}>{suggestion.title}</Text>
@@ -869,7 +869,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 14,
     gap: 6,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -884,7 +884,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     padding: 14,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

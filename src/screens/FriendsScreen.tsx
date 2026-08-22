@@ -612,6 +612,8 @@ export function FriendsScreen() {
                 <Pressable
                   onPress={() => handleNudge(friend)}
                   disabled={nudgingSent === friend.connection_id}
+                  accessibilityRole="button"
+                  accessibilityLabel="Send a nudge"
                   style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                 >
                   {nudgingSent === friend.connection_id ? (
@@ -623,6 +625,8 @@ export function FriendsScreen() {
                 <Pressable
                   onPress={() => handleCheer(friend)}
                   disabled={cheeringSent === friend.user_id || cheersSentToday.has(friend.user_id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={cheersSentToday.has(friend.user_id) ? "Cheer sent" : "Send a cheer"}
                   style={[
                     styles.smallBtn,
                     cheersSentToday.has(friend.user_id)
@@ -747,7 +751,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -835,7 +839,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 14,
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

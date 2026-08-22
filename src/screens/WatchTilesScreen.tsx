@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  RefreshControl,
   ScrollView,
   View,
   Text,
@@ -11,6 +12,7 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import Svg, { Circle, Path, Rect, Defs, ClipPath, Line as SvgLine } from "react-native-svg";
 import * as Haptics from "expo-haptics";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
@@ -309,6 +311,7 @@ export function WatchTilesScreen() {
   const [stepGoal, setStepGoal] = useState<number>(10000);
   // "" = ask each time; pace id = skip picker on watch
   const [defaultBreathPace, setDefaultBreathPace] = useState<string>("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setTime(fmtClock(new Date())), 30000);
@@ -407,7 +410,13 @@ export function WatchTilesScreen() {
   ];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: theme.page }} contentContainerStyle={{ paddingVertical: 20, paddingBottom: 60 }}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="watch_tiles" />
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingVertical: 20, paddingBottom: 60 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setStatsKey((k) => k + 1); setTimeout(() => setRefreshing(false), 1200); }} tintColor={theme.teal.bar} colors={[theme.teal.bar]} />}
+    >
       <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: "600", textAlign: "center", paddingHorizontal: 32, marginBottom: 16 }}>
         Wear OS tile concepts — swipe between the three faces. Water, mood, and breathe sessions log for real.
       </Text>
@@ -630,6 +639,7 @@ export function WatchTilesScreen() {
         </View>
       </View>
     </ScrollView>
+    </View>
   );
 }
 

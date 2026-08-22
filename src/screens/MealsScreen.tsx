@@ -1681,7 +1681,7 @@ export function MealsScreen() {
                   accessibilityLabel={`${groupType}, ${groupMeals.length} ${groupMeals.length === 1 ? "entry" : "entries"}, ${groupCals} calories. ${isCollapsed ? "Collapsed, double tap to expand" : "Expanded, double tap to collapse"}.`}
                   hitSlop={6}
                 >
-                  <ThemedIcon slot={`mealType.${groupType}`} size={16} color={groupColor} />
+                  <ThemedIcon slot={`mealType.${groupType}`} size={24} color={groupColor} />
                   <Text style={{ color: theme.textStrong, fontSize: 11, fontWeight: "900", letterSpacing: 0.6, flex: 1 }} allowFontScaling maxFontSizeMultiplier={1.3}>
                     {groupType.toUpperCase()} · {groupMeals.length}
                   </Text>
@@ -1905,7 +1905,7 @@ export function MealsScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                 >
-                  <ThemedIcon slot={`mealType.${type}`} size={20} />
+                  <ThemedIcon slot={`mealType.${type}`} size={32} />
                   <Text style={{ flex: 1, color: theme.textStrong, fontSize: 15, fontWeight: selected ? "800" : "600", marginLeft: 8 }}>{type[0].toUpperCase() + type.slice(1)}</Text>
                   {selected ? <Ionicons name="checkmark" size={20} color={theme.teal.solid} /> : null}
                 </Pressable>

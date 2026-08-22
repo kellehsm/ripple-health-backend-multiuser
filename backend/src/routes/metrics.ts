@@ -11,15 +11,15 @@ export default async function metricsRoutes(app: FastifyInstance) {
     );
     return !!row;
   }
-  // List metric types; supports ?user_id= and/or ?name= filters
-  app.get("/", async (req) => {
+  // List metric types; supports ?name= filter. user_id is required (auth middleware sets it).
+  app.get("/", async (req, reply) => {
     const user_id = req.user_id;
+    if (!user_id) return reply.code(401).send({ error: "Unauthorized" });
     const { name } = req.query as any;
-    const conditions: string[] = [];
-    const params: any[] = [];
-    if (user_id) { params.push(user_id); conditions.push("user_id = $" + params.length); }
+    const conditions: string[] = ["user_id = $1"];
+    const params: any[] = [user_id];
     if (name) { params.push(name); conditions.push("name = $" + params.length); }
-    const where = conditions.length ? " WHERE " + conditions.join(" AND ") : "";
+    const where = " WHERE " + conditions.join(" AND ");
     return query("SELECT * FROM metrics" + where + " ORDER BY name", params);
   });
 
