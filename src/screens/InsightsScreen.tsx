@@ -57,11 +57,15 @@ function AnimatedCard({
   insight,
   onDismiss,
   onSnooze,
+  onPin,
+  isPinned,
   animValue,
 }: {
   insight: Insight;
   onDismiss?: (id: string) => void;
   onSnooze?: (id: string, days: number) => void;
+  onPin?: (id: string, pinned: boolean) => void;
+  isPinned?: boolean;
   animValue: Animated.Value;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
@@ -73,6 +77,8 @@ function AnimatedCard({
         insight={insight}
         onDismiss={onDismiss}
         onSnooze={onSnooze}
+        onPin={onPin}
+        isPinned={isPinned}
         onPressIn={() => Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
         onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
       />
@@ -153,6 +159,7 @@ export function InsightsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [undoItem, setUndoItem] = useState<Insight | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
   const [animationKey, setAnimationKey] = useState(0);
   const isFirstLoad = useRef(true);
   const loadCancelledRef = useRef(false);
@@ -264,6 +271,15 @@ export function InsightsScreen() {
       setDismissed(prev => prev.filter(i => i.id !== id));
       if (item) setInsights(prev => [{ ...item, dismissed: false }, ...prev]);
     } catch (_) {}
+  }
+
+  async function handlePin(id: string, pinned: boolean) {
+    setPinnedIds(prev => {
+      const next = new Set(prev);
+      if (pinned) next.add(id); else next.delete(id);
+      return next;
+    });
+    try { await api.insightPin(id, pinned); } catch (_) {}
   }
 
   async function handleRegenerate() {
@@ -422,6 +438,8 @@ export function InsightsScreen() {
                 insight={insight}
                 onDismiss={handleDismiss}
                 onSnooze={handleSnooze}
+                onPin={handlePin}
+                isPinned={pinnedIds.has(insight.id)}
                 animValue={cardAnims.current[i] ?? new Animated.Value(1)}
               />
             ))}
@@ -442,6 +460,8 @@ export function InsightsScreen() {
                 insight={insight}
                 onDismiss={handleDismiss}
                 onSnooze={handleSnooze}
+                onPin={handlePin}
+                isPinned={pinnedIds.has(insight.id)}
                 animValue={cardAnims.current[streaks.length + i] ?? new Animated.Value(1)}
               />
             ))}

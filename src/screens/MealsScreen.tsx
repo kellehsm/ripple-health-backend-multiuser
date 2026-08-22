@@ -314,13 +314,14 @@ type MacroDonutProps = {
   carbs: number | null;
   sugar: number | null;
   caffeine: number | null;
+  calories: number | null;
   carbColor: string;
   sugarColor: string;
   caffeineColor: string;
 };
 
-function MacroDonut({ carbs, sugar, caffeine, carbColor, sugarColor, caffeineColor }: MacroDonutProps) {
-  const [showLegend, setShowLegend] = useState(false);
+function MacroDonut({ carbs, sugar, caffeine, calories, carbColor, sugarColor, caffeineColor }: MacroDonutProps) {
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const { theme } = useTheme();
 
   const SIZE = 120;
@@ -348,17 +349,17 @@ function MacroDonut({ carbs, sugar, caffeine, carbColor, sugarColor, caffeineCol
   const hasData = total > 0;
 
   const macros = [
-    { label: "Carbs",    value: c,  unit: "g",  color: carbColor,     dasharray: `${carbArc} ${CIRC}`,  offset: CIRC * 0.25 + carbOffset },
-    { label: "Sugar",    value: s,  unit: "g",  color: sugarColor,    dasharray: `${sugarArc} ${CIRC}`, offset: CIRC * 0.25 + sugarOffset },
-    { label: "Caffeine", value: f,  unit: "mg", color: caffeineColor, dasharray: `${cafArc} ${CIRC}`,   offset: CIRC * 0.25 + cafOffset },
+    { label: "Carbs",    value: c,  unit: "g",  pct: total > 0 ? Math.round((c / total) * 100) : 0, color: carbColor,     dasharray: `${carbArc} ${CIRC}`,  offset: CIRC * 0.25 + carbOffset },
+    { label: "Sugar",    value: s,  unit: "g",  pct: total > 0 ? Math.round((s / total) * 100) : 0, color: sugarColor,    dasharray: `${sugarArc} ${CIRC}`, offset: CIRC * 0.25 + sugarOffset },
+    { label: "Caffeine", value: f,  unit: "mg", pct: total > 0 ? Math.round((f / total) * 100) : 0, color: caffeineColor, dasharray: `${cafArc} ${CIRC}`,   offset: CIRC * 0.25 + cafOffset },
   ];
 
   return (
     <View style={{ alignItems: "center" }}>
       <Pressable
-        onPress={() => { Haptics.selectionAsync(); setShowLegend(v => !v); }}
+        onPress={() => { Haptics.selectionAsync(); setShowBreakdown(v => !v); }}
         accessibilityRole="button"
-        accessibilityLabel="Macro breakdown donut — tap to toggle legend"
+        accessibilityLabel="Macro breakdown donut — tap to toggle breakdown"
       >
         <Svg width={SIZE} height={SIZE}>
           {/* Background track */}
@@ -383,17 +384,26 @@ function MacroDonut({ carbs, sugar, caffeine, carbColor, sugarColor, caffeineCol
             />
           )) : null}
         </Svg>
+        {/* Center label: show calories if available, else tap hint */}
         <View style={{ position: "absolute", top: 0, left: 0, width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ fontSize: 10, fontWeight: "800", color: theme.textSoft }}>TAP</Text>
+          {calories !== null ? (
+            <>
+              <Text style={{ fontSize: 18, fontWeight: "900", color: theme.textStrong, lineHeight: 20 }}>{calories}</Text>
+              <Text style={{ fontSize: 9, fontWeight: "800", color: theme.textSoft, letterSpacing: 0.4 }}>CAL</Text>
+            </>
+          ) : (
+            <Text style={{ fontSize: 10, fontWeight: "800", color: theme.textSoft }}>TAP</Text>
+          )}
         </View>
       </Pressable>
-      {showLegend && (
+      {showBreakdown && (
         <View style={{ marginTop: 8, gap: 3, alignItems: "flex-start" }}>
-          {macros.map(m => (
+          {macros.filter(m => m.value > 0).map(m => (
             <View key={m.label} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: m.color }} />
               <Text style={{ fontSize: 12, fontWeight: "700", color: theme.textStrong }}>{m.label}</Text>
               <Text style={{ fontSize: 12, color: theme.textSoft }}>{m.value}{m.unit}</Text>
+              <Text style={{ fontSize: 11, color: m.color, fontWeight: "700" }}>{m.pct}%</Text>
             </View>
           ))}
         </View>
@@ -1240,6 +1250,7 @@ export function MealsScreen() {
               carbs={totals.carbs}
               sugar={totals.sugar}
               caffeine={totals.caffeine}
+              calories={totals.calories}
               carbColor={theme.teal.solid}
               sugarColor={theme.coral.solid}
               caffeineColor={theme.violet.solid}

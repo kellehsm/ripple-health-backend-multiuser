@@ -537,6 +537,9 @@ export function OverviewScreen() {
   const stepsCounterAnim = useRef(new Animated.Value(0)).current;
   const waterCounterAnim = useRef(new Animated.Value(0)).current;
   const glucoseCounterAnim = useRef(new Animated.Value(0)).current;
+  // Correlation bar chart grow-on-mount — one scale (0→1) per bar column (up to 7 days)
+  const corrBarAnims = useRef<Animated.Value[]>([]);
+  const [corrBarScales, setCorrBarScales] = useState<number[]>([]);
   // Per-streak counter anims — rebuilt when allStreaks changes
   const streakCounterAnims = useRef<Animated.Value[]>([]);
 
@@ -1065,6 +1068,41 @@ export function OverviewScreen() {
       )
     ).start();
   }, [allStreaks]);
+
+  // Correlation bar grow-on-mount — staggered per-bar animation when data loads or type changes
+  useEffect(function () {
+    const n = weeklyData.length;
+    if (n === 0) return;
+    // Rebuild anim array if size changed
+    if (corrBarAnims.current.length !== n) {
+      corrBarAnims.current = Array.from({ length: n }, () => new Animated.Value(0));
+    } else {
+      corrBarAnims.current.forEach(v => v.setValue(0));
+    }
+    setCorrBarScales(new Array(n).fill(0));
+    const listeners: string[] = [];
+    corrBarAnims.current.forEach((anim, i) => {
+      const id = anim.addListener(({ value }) => {
+        setCorrBarScales(prev => {
+          const next = [...prev];
+          next[i] = value;
+          return next;
+        });
+      });
+      listeners.push(id);
+    });
+    Animated.stagger(
+      35,
+      corrBarAnims.current.map(v =>
+        Animated.timing(v, { toValue: 1, duration: 320, useNativeDriver: false })
+      )
+    ).start(() => {
+      corrBarAnims.current.forEach((anim, i) => anim.removeListener(listeners[i]));
+    });
+    return () => {
+      corrBarAnims.current.forEach((anim, i) => anim.removeListener(listeners[i]));
+    };
+  }, [weeklyData, correlation]);
 
   // Chip entrance stagger — fires when loading finishes and chips are ready
   useEffect(function () {
@@ -1914,8 +1952,9 @@ export function OverviewScreen() {
             </View>
             <Svg width={CORR_W} height={CORR_H + 20} style={{ marginTop: 8 }}>
               {weeklyData.map(function (d, i) {
-                const mH = moodBarH(d.avg_mood);
-                const cH = compBarH(d);
+                const scale = corrBarScales[i] ?? 1;
+                const mH = moodBarH(d.avg_mood) * scale;
+                const cH = compBarH(d) * scale;
                 const groupX = i * STEP;
                 const moodX = groupX + STEP / 2 - BAR_W - 1;
                 const compX = groupX + STEP / 2 + 1;
