@@ -280,6 +280,8 @@ export default function App() {
     loadReducedMotion().catch(() => {});
     // Flush any queued offline writes on startup.
     flushSyncQueue();
+    // Silent throttled Health Connect sync on launch (Android, ≤1 per 15 min).
+    import("./src/lib/healthConnect").then((m) => m.maybeAutoSync()).catch(() => {});
     // Re-flush whenever network comes back online.
     const unsubNetwork = subscribeNetwork((online) => { if (online) flushSyncQueue(); });
     return () => unsubNetwork();
@@ -295,6 +297,8 @@ export default function App() {
         }
         // Flush any offline-queued writes when the app comes to foreground.
         flushSyncQueue();
+        // Silent throttled Health Connect sync on foreground.
+        import("./src/lib/healthConnect").then((m) => m.maybeAutoSync()).catch(() => {});
         // Fire local notif if the insights engine surfaced anything new
         // since our last visit. Cheap, rate-limited to one/day, silent on
         // errors so it never breaks the resume flow.

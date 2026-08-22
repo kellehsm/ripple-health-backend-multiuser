@@ -1,5 +1,8 @@
-import { initialize, requestPermission, readRecords, aggregateGroupByPeriod } from "react-native-health-connect";
+import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { initialize, requestPermission, readRecords } from "react-native-health-connect";
 import { api } from "../api/client";
+import { getToken } from "./auth";
 
 // Module-level init flag so we can force re-initialization after revokeAllPermissions().
 // The library's native client becomes stale after revoke; resetting this flag ensures
@@ -16,6 +19,23 @@ async function ensureInitialized(): Promise<boolean> {
   const ready = await initialize();
   if (ready) _hcInitialized = true;
   return ready;
+}
+
+const AUTO_SYNC_KEY = "ripple_hc_last_auto_sync";
+const AUTO_SYNC_MIN_INTERVAL_MS = 15 * 60 * 1000;
+
+/**
+ * Silent, throttled HC sync for app launch/foreground. Never shows the
+ * permission dialog — if permissions are missing, reads fail silently.
+ */
+export async function maybeAutoSync(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  const token = await getToken().catch(() => null);
+  if (!token) return;
+  const last = Number((await AsyncStorage.getItem(AUTO_SYNC_KEY).catch(() => null)) ?? 0);
+  if (Date.now() - last < AUTO_SYNC_MIN_INTERVAL_MS) return;
+  await AsyncStorage.setItem(AUTO_SYNC_KEY, String(Date.now())).catch(() => {});
+  try { await syncHealthData(); } catch { /* silent — manual sync surfaces errors */ }
 }
 
 export async function requestHealthPermissions(): Promise<boolean> {
@@ -88,30 +108,44 @@ export async function syncHealthData(opts?: {
   const syncWeight = opts?.syncWeight !== false;
   const syncSpo2 = opts?.syncSpo2 !== false;
 
-  // Steps — use HC aggregation (deduplicates overlapping records across sources)
+  // Steps — sum raw records per data source per local day, then take the
+  // highest source for each day. HC's aggregate follows the HC app's source
+  // priority list, which can favor the phone pedometer over the watch; taking
+  // the best single source per day tracks the watch without double-counting.
   try {
     const historyStart = new Date(now);
     historyStart.setDate(historyStart.getDate() - 30);
     historyStart.setHours(0, 0, 0, 0);
 
-    const buckets = await aggregateGroupByPeriod({
-      recordType: "Steps",
-      timeRangeFilter: {
-        operator: "between",
-        startTime: historyStart.toISOString(),
-        endTime: now.toISOString(),
-      },
-      timeRangeSlicer: { period: "DAYS", length: 1 },
-    });
+    // date → origin packageName → summed count
+    const byDateOrigin: Record<string, Record<string, number>> = {};
+    let pageToken: string | undefined;
+    do {
+      const result: any = await readRecords("Steps", {
+        timeRangeFilter: {
+          operator: "between",
+          startTime: historyStart.toISOString(),
+          endTime: now.toISOString(),
+        },
+        pageToken,
+      } as any);
+      for (const r of result.records as any[]) {
+        const count = Number(r.count) || 0;
+        if (count <= 0) continue;
+        const d = new Date(r.startTime);
+        const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const origin = r.metadata?.dataOrigin ?? "unknown";
+        (byDateOrigin[localDate] ??= {})[origin] = (byDateOrigin[localDate][origin] ?? 0) + count;
+      }
+      pageToken = result.pageToken;
+    } while (pageToken);
 
     const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    await Promise.all(buckets.map(async (bucket) => {
-      const count = (bucket.result as any).COUNT_TOTAL ?? 0;
-      if (count <= 0) return;
-      const d = new Date(bucket.startTime);
-      const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      await api.syncSteps(localDate, count);
-      if (localDate === todayLocal) steps = count;
+    await Promise.all(Object.entries(byDateOrigin).map(async ([localDate, origins]) => {
+      const best = Math.max(...Object.values(origins));
+      if (best <= 0) return;
+      await api.syncSteps(localDate, best);
+      if (localDate === todayLocal) steps = best;
     }));
   } catch (e: any) {
     errors.push("Steps: " + (e?.message ?? "unknown error"));

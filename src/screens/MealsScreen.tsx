@@ -7,14 +7,11 @@ import { findIntro } from "../onboarding/featureIntros";
 import {
   ScrollView,
   View,
-  Text,
-  TextInput,
   Pressable,
   StyleSheet,
   Alert,
   RefreshControl,
   Animated,
-  Modal,
   LayoutAnimation,
   Platform,
   UIManager,
@@ -22,45 +19,37 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import { LoadingIndicator } from "../components/LoadingIndicator";
 import * as Haptics from "expo-haptics";
 import notifee from "../lib/notifeeSafe";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
-import { onSolid } from "../theme/colorUtils";
 import { coloredShadow } from "../theme/styleUtils";
-import { ShadowCard } from "../components/ShadowCard";
-import { IconBadge } from "../components/IconBadge";
-import { SearchScanBar } from "../components/SearchScanBar";
-import { ResultRow } from "../components/ResultRow";
 import { api } from "../api/client";
-import { MacroDonut, MealsEmptyState, MiniGlucoseChart } from "./meals/MealCards";
 import { TodaysMeals } from "./meals/TodaysMeals";
+import { MacrosSummary } from "./meals/MacrosSummary";
+import { AlcoholSection } from "./meals/AlcoholSection";
+import { LogMealCard } from "./meals/LogMealCard";
+import { FoodReportModal } from "./meals/FoodReportModal";
 
 import { BarcodeScannerModal } from "../components/BarcodeScannerModal";
 import { PhotoScannerModal } from "../components/PhotoScannerModal";
 import { invalidateBarcodeCache } from "../utils/barcodeCache";
 import { RecipeBuilderModal, Recipe } from "../components/RecipeBuilderModal";
-import { toast, Msg } from "../lib/toast";
+import { toast } from "../lib/toast";
 import { UndoBanner } from "../components/UndoBanner";
 import { TooltipBubble } from "../components/TooltipBubble";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
-import { SectionEditorModal, SectionDef } from "../components/SectionEditorModal";
+import { SectionEditorModal } from "../components/SectionEditorModal";
 import { FeatureTour, TourStep } from "../components/FeatureTour";
 import { ScreenBackground } from "../components/ScreenBackground";
-import { ThemedIcon } from "../theme/iconRegistry";
-import { formatNutrition } from "../utils/nutritionFormatter";
 import { MEALS_SECTIONS } from "../constants";
 import {
-  type SubstanceType,
   type SubstanceResult,
   type SubstancePending,
   type SubstanceEntry,
   type SubstanceTotals,
 } from "../types/substances";
-import { CaffeineForm } from "../components/CaffeineForm";
-import { AlcoholForm } from "../components/AlcoholForm";
-import { MacroEditForm, type MacroValues } from "../components/MacroEditForm";
+import { type MacroValues } from "../components/MacroEditForm";
 import { formatDateLocal } from "../utils/dateUtils";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -117,47 +106,12 @@ type PendingFood = {
   servings?: number | null;
 };
 
-type QuickDrink = {
-  name: string;
-  calories: number | null;
-  caffeine_mg: number | null;
-  carbs_g: number | null;
-  sugar_g: number | null;
-  sodium_mg: number | null;
-};
-
-const QUICK_DRINKS: QuickDrink[] = [
-  { name: "Water", calories: 0, caffeine_mg: null, carbs_g: 0, sugar_g: 0, sodium_mg: null },
-  { name: "Black Coffee", calories: 5, caffeine_mg: 95, carbs_g: 0, sugar_g: 0, sodium_mg: 5 },
-  { name: "Espresso", calories: 3, caffeine_mg: 63, carbs_g: 0, sugar_g: 0, sodium_mg: 5 },
-  { name: "Latte", calories: 120, caffeine_mg: 64, carbs_g: 12, sugar_g: 12, sodium_mg: 115 },
-  { name: "Green Tea", calories: 2, caffeine_mg: 28, carbs_g: 0, sugar_g: 0, sodium_mg: null },
-  { name: "Black Tea", calories: 2, caffeine_mg: 47, carbs_g: 0, sugar_g: 0, sodium_mg: null },
-  { name: "Energy Drink", calories: 110, caffeine_mg: 80, carbs_g: 27, sugar_g: 27, sodium_mg: 105 },
-  { name: "Diet Soda", calories: 0, caffeine_mg: 46, carbs_g: 0, sugar_g: 0, sodium_mg: 40 },
-  { name: "Orange Juice", calories: 112, caffeine_mg: null, carbs_g: 26, sugar_g: 21, sodium_mg: 2 },
-  { name: "Whole Milk", calories: 149, caffeine_mg: null, carbs_g: 12, sugar_g: 12, sodium_mg: 105 },
-  { name: "Kombucha", calories: 30, caffeine_mg: 14, carbs_g: 7, sugar_g: 4, sodium_mg: 10 },
-  { name: "Protein Shake", calories: 160, caffeine_mg: null, carbs_g: 6, sugar_g: 3, sodium_mg: 180 },
-];
-
 type GlucoseReading = {
   recorded_at: string;
   mg_dl: number;
 };
 
 const MEAL_TYPES: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
-
-function chipColors(i: number, theme: any): { bg: string; fg: string; sub: string } {
-  const palette = [
-    { bg: theme.teal.tint, fg: theme.teal.fg, sub: theme.teal.sub },
-    { bg: theme.coral.tint, fg: theme.coral.fg, sub: theme.coral.sub },
-    { bg: theme.purple.tint, fg: theme.purple.fg, sub: theme.purple.sub },
-    { bg: theme.berry.tint, fg: theme.berry.fg, sub: theme.berry.sub },
-  ];
-  return palette[i % palette.length];
-}
-
 
 export function MealsScreen() {
   const { theme } = useTheme();
@@ -224,7 +178,6 @@ export function MealsScreen() {
   const [loadingMeals, setLoadingMeals] = useState(true);
   const [mealsError, setMealsError] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<MealType>>(() => new Set());
-  // Alcohol section starts collapsed — expand only on tap or if there are entries today
   const [alcoholCollapsed, setAlcoholCollapsed] = useState(true);
   const [showFoodReport, setShowFoodReport] = useState(false);
 
@@ -258,6 +211,10 @@ export function MealsScreen() {
   const [subTotals, setSubTotals] = useState<SubstanceTotals>({ caffeine_mg: 0, standard_drinks: 0 });
   const [subLoading, setSubLoading] = useState(false);
 
+  // Servings prompt modal state
+  const [servingsPromptName, setServingsPromptName] = useState<string | null>(null);
+  const [servingsInput, setServingsInput] = useState("1");
+
   type UndoMeal =
     | { type: "meal"; data: Meal; timer: ReturnType<typeof setTimeout> }
     | { type: "substance"; data: SubstanceEntry; timer: ReturnType<typeof setTimeout> };
@@ -266,7 +223,6 @@ export function MealsScreen() {
   const mealsLoadedRef = useRef(false);
   const loadMeals = useCallback(function () {
     const today = formatDateLocal(new Date());
-    // Only show the skeleton on the very first load — focus/pull refreshes update in place
     if (!mealsLoadedRef.current) setLoadingMeals(true);
     setMealsError(null);
     return api.meals(today)
@@ -294,7 +250,6 @@ export function MealsScreen() {
         setSubEntries(Array.isArray(data?.entries) ? data.entries : []);
         if (data?.totals) {
           setSubTotals(data.totals);
-          // Auto-expand once if there are drinks today, but respect manual collapses after
           if (Number(data.totals.standard_drinks) > 0 && !alcoholAutoExpandedRef.current) {
             alcoholAutoExpandedRef.current = true;
             setAlcoholCollapsed(false);
@@ -308,7 +263,6 @@ export function MealsScreen() {
   useEffect(function () {
     loadMeals();
     loadSubstances();
-    // Load hidden frequent meal names first, then filter the list on arrival
     AsyncStorage.getItem("ripple_hidden_frequent")
       .then(function (raw) {
         const hidden = new Set<string>(raw ? JSON.parse(raw) : []);
@@ -339,7 +293,6 @@ export function MealsScreen() {
       .catch(function () {});
   }, [loadMeals, loadSubstances]);
 
-  // Refresh today's data whenever the screen regains focus (mount effect covers first load)
   const firstFocusRef = useRef(true);
   useFocusEffect(useCallback(function () {
     if (firstFocusRef.current) { firstFocusRef.current = false; return; }
@@ -382,7 +335,6 @@ export function MealsScreen() {
     setSearchError(null);
     setSearchResults([]);
     setPendingFood(null);
-    // 15s watchdog so the spinner can't spin forever on a slow / dead network
     const timeoutId = setTimeout(function () {
       if (seq === foodSearchSeqRef.current) {
         setSearching(false);
@@ -412,8 +364,6 @@ export function MealsScreen() {
   }
 
   async function handleLogMultipleFoods(foods: FoodResult[]) {
-    // Photo scan multi-select — log each item at 1 serving as-detected. User
-    // can tap the pencil on any card to tweak macros or servings after.
     let successCount = 0;
     for (const food of foods) {
       try {
@@ -430,7 +380,7 @@ export function MealsScreen() {
           servings: 1,
         });
         successCount++;
-      } catch (_) { /* keep going */ }
+      } catch (_) {}
     }
     if (successCount > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(function () {});
@@ -472,8 +422,6 @@ export function MealsScreen() {
     openFrequentPending(meal);
   }
 
-  // Per-frequent-meal servings default lives in AsyncStorage — no backend
-  // schema change needed since it's a local convenience.
   const FREQ_SERVINGS_KEY = "ripple_frequent_servings";
   async function loadFrequentServings(name: string): Promise<number | null> {
     try {
@@ -491,9 +439,6 @@ export function MealsScreen() {
       await AsyncStorage.setItem(FREQ_SERVINGS_KEY, JSON.stringify(map));
     } catch {}
   }
-  // Alert.prompt is iOS-only, so this uses a small Modal instead.
-  const [servingsPromptName, setServingsPromptName] = useState<string | null>(null);
-  const [servingsInput, setServingsInput] = useState("1");
   function promptFrequentServings(name: string) {
     setServingsInput("1");
     setServingsPromptName(name);
@@ -512,9 +457,6 @@ export function MealsScreen() {
   function openFrequentPending(meal: FrequentMeal) {
     setSearchResults([]);
     setSearchQuery("");
-    // Apply the saved default servings on the pending food so the user can
-    // still edit before saving. Fire-and-forget — if it fails, we just
-    // don't prefill.
     loadFrequentServings(meal.name).then((s) => {
       if (s != null && s !== 1) setPendingFood((cur) => cur ? { ...cur, servings: s } as any : cur);
     });
@@ -530,11 +472,6 @@ export function MealsScreen() {
     });
   }
 
-  /**
-   * Guard against double-taps that accidentally log the same meal twice.
-   * If a same-named meal was logged within the last 15 minutes, prompt
-   * before adding a second entry. Silent on brand-new meal names.
-   */
   function isLikelyDuplicate(name: string): boolean {
     const cutoff = Date.now() - 15 * 60 * 1000;
     const normalized = name.trim().toLowerCase();
@@ -545,7 +482,7 @@ export function MealsScreen() {
     });
   }
 
-  function handleQuickDrink(drink: QuickDrink) {
+  function handleQuickDrink(drink: { name: string; calories: number | null; caffeine_mg: number | null; carbs_g: number | null; sugar_g: number | null; sodium_mg: number | null }) {
     if (isLikelyDuplicate(drink.name)) {
       Alert.alert(
         "Log this twice?",
@@ -560,7 +497,7 @@ export function MealsScreen() {
     actuallyLogQuickDrink(drink);
   }
 
-  function actuallyLogQuickDrink(drink: QuickDrink) {
+  function actuallyLogQuickDrink(drink: { name: string; calories: number | null; caffeine_mg: number | null; carbs_g: number | null; sugar_g: number | null; sodium_mg: number | null }) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     api.addMeal({
       meal_type: mealType,
@@ -624,7 +561,6 @@ export function MealsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSearchError(null);
 
-    // Save correction if this came from a barcode scan and the user changed any value
     const barcode = pendingFood.barcode;
     if (barcode && pendingFood.source_db !== "manual" && pendingFood.source_db !== "user_correction") {
       const changed =
@@ -681,10 +617,6 @@ export function MealsScreen() {
         setSearchQuery("");
         setSearchResults([]);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Multi-item plates are common — surface an "Add another" so the
-        // user can chain a second item without re-tapping through the
-        // search + type-picker again. Tapping "Add another" opens the
-        // add-food sheet pre-focused.
         toast("Meal logged.");
         setTimeout(function () {
           Alert.alert(
@@ -718,7 +650,6 @@ export function MealsScreen() {
   function handleAddServing(meal: Meal) {
     const current = Number(meal.servings) || 1;
     const next = Math.round((current + 1) * 4) / 4;
-    // Optimistic bump
     setMeals(function (prev) { return prev.map(function (m) { return m.id === meal.id ? Object.assign({}, m, { servings: next }) : m; }); });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(function () {});
     api.updateMeal(meal.id, { servings: next })
@@ -729,8 +660,6 @@ export function MealsScreen() {
       });
   }
 
-  // One timer per pending delete so deleting a second item never cancels the
-  // first item's server-side delete.
   const deleteTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   function handleDeleteMeal(meal: Meal) {
@@ -807,7 +736,6 @@ export function MealsScreen() {
   function handleLogSubstance(values: SubstancePending) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Save correction if barcode-scanned and user changed the substance value
     const barcode = values.barcode;
     if (barcode && values.source_db !== "manual" && values.source_db !== "user_correction") {
       const cafChanged = values.caffeine_mg !== values.original_caffeine_mg;
@@ -866,7 +794,6 @@ export function MealsScreen() {
 
   function handleToggleGlucose(meal: Meal) {
     if (editingMealId === meal.id) return;
-    // Smooth height animation on expand/collapse — feels less jarring than an instant flip
     if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
@@ -892,6 +819,21 @@ export function MealsScreen() {
       .finally(function () {
         setLoadingGlucose(function (prev) { return Object.assign({}, prev, { [meal.id]: false }); });
       });
+  }
+
+  async function handleHideFrequent(name: string) {
+    try {
+      const raw = await AsyncStorage.getItem("ripple_hidden_frequent");
+      const arr: string[] = raw ? JSON.parse(raw) : [];
+      if (!arr.includes(name)) arr.push(name);
+      await AsyncStorage.setItem("ripple_hidden_frequent", JSON.stringify(arr));
+    } catch (_) {}
+    setHiddenFrequent(function (prev) {
+      const next = new Set(prev);
+      next.add(name);
+      return next;
+    });
+    setFrequentMeals(function (prev) { return prev.filter(function (m) { return m.name !== name; }); });
   }
 
   // Nutrition columns are per-serving; totals multiply by servings (defaults to 1).
@@ -927,452 +869,119 @@ export function MealsScreen() {
           onDismiss={() => setShowTooltip(false)}
         />
       )}
-      {/* Section editor pencil */}
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 4 }}>
         <Pressable onPress={() => setShowSectionEditor(true)} hitSlop={10} accessibilityLabel="Customize Meals screen">
           <Ionicons name="pencil-outline" size={17} color={theme.textSoft} />
         </Pressable>
       </View>
-      {/* Totals strip — horizontal scroll so it doesn't wrap awkwardly on small phones */}
+
       {totals !== null && (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 8 }} style={{ flex: 1 }}>
-            {totals.calories !== null ? (
-              <View style={[styles.totalBlock, { backgroundColor: theme.berry.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Calories today ${totals.calories}`}>
-                <Ionicons name="flame" size={14} color={onSolid(theme.berry.solid)} />
-                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.berry.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>CAL</Text>
-                <Text style={[styles.totalBlockValue, { color: onSolid(theme.berry.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.calories}</Text>
-              </View>
-            ) : null}
-            {totals.carbs !== null ? (
-              <View style={[styles.totalBlock, { backgroundColor: theme.teal.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Carbs ${totals.carbs} grams`}>
-                <Ionicons name="nutrition-outline" size={14} color={onSolid(theme.teal.solid)} />
-                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.teal.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>CARBS</Text>
-                <Text style={[styles.totalBlockValue, { color: onSolid(theme.teal.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.carbs}g</Text>
-              </View>
-            ) : null}
-            {totals.sugar !== null ? (
-              <View style={[styles.totalBlock, { backgroundColor: theme.coral.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Sugar ${totals.sugar} grams`}>
-                <Ionicons name="ice-cream-outline" size={14} color={onSolid(theme.coral.solid)} />
-                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.coral.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>SUGAR</Text>
-                <Text style={[styles.totalBlockValue, { color: onSolid(theme.coral.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.sugar}g</Text>
-              </View>
-            ) : null}
-            {totals.sodium !== null ? (
-              <View style={[styles.totalBlock, { backgroundColor: theme.amber.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Sodium ${totals.sodium} milligrams`}>
-                <Ionicons name="water-outline" size={14} color={onSolid(theme.amber.solid)} />
-                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.amber.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>SODIUM</Text>
-                <Text style={[styles.totalBlockValue, { color: onSolid(theme.amber.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.sodium}mg</Text>
-              </View>
-            ) : null}
-            {totals.caffeine !== null ? (
-              <View style={[styles.totalBlock, { backgroundColor: theme.violet.solid, flexDirection: "row", alignItems: "center", gap: 6 }]} accessibilityLabel={`Caffeine ${totals.caffeine} milligrams`}>
-                <Ionicons name="flash-outline" size={14} color={onSolid(theme.violet.solid)} />
-                <Text style={[styles.totalBlockLabel, { color: onSolid(theme.violet.solid) }]} allowFontScaling maxFontSizeMultiplier={1.3}>CAFFEINE</Text>
-                <Text style={[styles.totalBlockValue, { color: onSolid(theme.violet.solid), marginLeft: 4 }]} numberOfLines={1} adjustsFontSizeToFit allowFontScaling maxFontSizeMultiplier={1.3}>{totals.caffeine}mg</Text>
-              </View>
-            ) : null}
-          </ScrollView>
-          {foodReport.length >= 3 ? (
-            <Pressable
-              onPress={function () { Haptics.selectionAsync(); setShowFoodReport(true); }}
-              hitSlop={6}
-              accessibilityRole="button"
-              accessibilityLabel="Open food impact insights"
-              style={{ padding: 8, borderRadius: 12, borderWidth: 1.5, borderColor: theme.berry.solid, backgroundColor: theme.berry.tint }}
-            >
-              <Ionicons name="analytics-outline" size={18} color={theme.berry.solid} />
-            </Pressable>
-          ) : null}
-        </View>
-      )}
-
-      {/* Macro donut card — shown when at least one gram-tracked macro exists */}
-      {totals !== null && (totals.carbs !== null || totals.sugar !== null || totals.caffeine !== null) && (
-        <ShadowCard size="card" cardId="macro_donut">
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-            <MacroDonut
-              carbs={totals.carbs}
-              sugar={totals.sugar}
-              caffeine={totals.caffeine}
-              calories={totals.calories}
-              carbColor={theme.teal.solid}
-              sugarColor={theme.coral.solid}
-              caffeineColor={theme.violet.solid}
-            />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 2 }]}>Today's macros</Text>
-              {totals.carbs !== null && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: theme.teal.solid }} />
-                  <Text style={{ fontSize: 12, color: theme.textSoft }}>Carbs</Text>
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: theme.textStrong, marginLeft: "auto" }}>{totals.carbs}g</Text>
-                </View>
-              )}
-              {totals.sugar !== null && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: theme.coral.solid }} />
-                  <Text style={{ fontSize: 12, color: theme.textSoft }}>Sugar</Text>
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: theme.textStrong, marginLeft: "auto" }}>{totals.sugar}g</Text>
-                </View>
-              )}
-              {totals.caffeine !== null && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <View style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: theme.violet.solid }} />
-                  <Text style={{ fontSize: 12, color: theme.textSoft }}>Caffeine</Text>
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: theme.textStrong, marginLeft: "auto" }}>{totals.caffeine}mg</Text>
-                </View>
-              )}
-              <Text style={{ fontSize: 10, color: theme.textSoft, marginTop: 4 }}>Tap ring for legend</Text>
-            </View>
-          </View>
-        </ShadowCard>
-      )}
-
-      {/* Log a meal card */}
-      <View ref={tourLogRef}>
-      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} rotate={-0.5} cardId="meal_log">
-        <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Log a meal</Text>
-
-        {/* Frequent meals + recipes */}
-        {/* Quick drinks row — always visible */}
-        <View style={styles.frequentSection}>
-          <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>DRINKS</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.frequentRow}>
-            {QUICK_DRINKS.map(function (drink) {
-              return (
-                <Pressable
-                  key={drink.name}
-                  onPress={function () { handleQuickDrink(drink); }}
-                  style={[styles.frequentChip, { backgroundColor: theme.teal.tint }]}
-                >
-                  <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700" }} numberOfLines={1}>{drink.name}</Text>
-                  {(drink.calories != null && drink.calories > 0) || drink.caffeine_mg != null ? (
-                    <Text style={{ color: theme.teal.sub, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
-                      {[drink.calories != null && drink.calories > 0 ? drink.calories + " cal" : null, drink.caffeine_mg != null ? drink.caffeine_mg + "mg caf" : null].filter(Boolean).join(" · ")}
-                    </Text>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        {!hiddenSections.includes('your_usual') && ((frequentMeals.length > 0 || recipes.length > 0) ? (
-          <View style={styles.frequentSection}>
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
-              <Text style={[styles.sectionLabel, { color: theme.textSoft, flex: 1, marginBottom: 0 }]}>YOUR USUAL</Text>
-              <Pressable
-                onPress={function () { setEditingRecipe(null); setShowRecipeBuilder(true); }}
-                style={[styles.secondaryBtn, { paddingVertical: 4 }]}
-              >
-                <Ionicons name="bookmark-outline" size={12} color={ink} />
-                <Text style={styles.secondaryBtnText}>+ RECIPE</Text>
-              </Pressable>
-            </View>
-            {(function () {
-              // Require >=3 logged samples before surfacing the nudge — a
-              // single-log spike isn't a pattern (correlation copy rule).
-              const highSpikeMeal = frequentMeals.reduce<{ name: string; spike: number; count: number } | null>(function (best, m) {
-                const s = impactScores[m.name];
-                if (s == null || s <= 40) return best;
-                const rep = foodReport.find(function (r) { return r.meal_name === m.name; });
-                if (!rep || rep.sample_count < 3) return best;
-                if (!best || s > best.spike) return { name: m.name, spike: s, count: rep.sample_count };
-                return best;
-              }, null);
-              return highSpikeMeal ? (
-                <View style={{ backgroundColor: theme.amber.tint, borderRadius: 12, borderWidth: 1.5, borderColor: theme.amber.solid, padding: 8, marginBottom: 8, flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Text style={{ fontSize: 11, color: theme.amber.sub }}>
-                    {highSpikeMeal.name + " has averaged a +" + highSpikeMeal.spike + " mg/dL rise across " + highSpikeMeal.count + " recent logs"}
-                  </Text>
-                </View>
-              ) : null;
-            })()}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.frequentRow}>
-              {recipes.map(function (recipe) {
-                if (!recipeScales.current.has(recipe.id)) {
-                  recipeScales.current.set(recipe.id, new Animated.Value(1));
-                }
-                const recipeScale = recipeScales.current.get(recipe.id)!;
-                return (
-                  <Animated.View key={recipe.id} style={{ transform: [{ scale: recipeScale }] }}>
-                    <Pressable
-                      onPress={function () { handleLogRecipe(recipe); }}
-                      onLongPress={function () { handleEditRecipe(recipe); }}
-                      onPressIn={function () {
-                        Animated.spring(recipeScale, { toValue: 0.96, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
-                      }}
-                      onPressOut={function () {
-                        Animated.spring(recipeScale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
-                      }}
-                      style={[styles.frequentChip, { backgroundColor: theme.teal.tint }]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Log recipe ${recipe.name}${recipe.calories != null ? `, ${recipe.calories} calories` : ""}`}
-                      accessibilityHint="Double tap to log. Long press to edit the recipe."
-                    >
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                        <Ionicons name="bookmark" size={11} color={theme.teal.fg} />
-                        <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700" }} numberOfLines={1}>{recipe.name}</Text>
-                      </View>
-                      {(recipe.calories != null || recipe.carbs_g != null) ? (
-                        <Text style={{ color: theme.teal.sub, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
-                          {recipe.calories != null ? recipe.calories + " cal" : recipe.carbs_g + "g carbs"}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  </Animated.View>
-                );
-              })}
-              {frequentMeals.map(function (meal, i) {
-                const cc = chipColors(i, theme);
-                const spike = impactScores[meal.name];
-                const badgeBg = spike == null ? null : spike <= 20 ? theme.teal.solid : spike <= 40 ? (theme.amber?.solid ?? "#f59e0b") : (theme.berry?.solid ?? theme.coral.solid);
-                const chipKey = meal.source_food_id ?? meal.name;
-                if (!chipScales.current.has(chipKey)) {
-                  chipScales.current.set(chipKey, new Animated.Value(1));
-                }
-                const chipScale = chipScales.current.get(chipKey)!;
-                return (
-                  <Animated.View key={meal.source_food_id ?? meal.name + i} style={{ transform: [{ scale: chipScale }] }}>
-                    <Pressable
-                      onPress={function () { Haptics.selectionAsync(); handleSelectFrequent(meal); }}
-                      onLongPress={function () {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        Alert.alert(
-                          meal.name,
-                          "Long-press options",
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            {
-                              text: "Set default servings",
-                              onPress: function () { promptFrequentServings(meal.name); },
-                            },
-                            {
-                              text: "Hide from usuals",
-                              style: "destructive",
-                              onPress: async function () {
-                                try {
-                                  const raw = await AsyncStorage.getItem("ripple_hidden_frequent");
-                                  const arr: string[] = raw ? JSON.parse(raw) : [];
-                                  if (!arr.includes(meal.name)) arr.push(meal.name);
-                                  await AsyncStorage.setItem("ripple_hidden_frequent", JSON.stringify(arr));
-                                } catch (_) {}
-                                setHiddenFrequent(function (prev) {
-                                  const next = new Set(prev);
-                                  next.add(meal.name);
-                                  return next;
-                                });
-                                setFrequentMeals(function (prev) { return prev.filter(function (m) { return m.name !== meal.name; }); });
-                              },
-                            },
-                          ]
-                        );
-                      }}
-                      onPressIn={function () {
-                        Animated.spring(chipScale, { toValue: 0.96, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
-                      }}
-                      onPressOut={function () {
-                        Animated.spring(chipScale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 4 }).start();
-                      }}
-                      style={[styles.frequentChip, { backgroundColor: cc.bg }]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Log ${meal.name}${meal.calories != null ? `, ${meal.calories} calories` : ""}${spike != null && spike > 30 ? `, averages ${spike} milligrams per deciliter glucose rise` : ""}`}
-                      accessibilityHint="Double tap to log. Long press to hide from your usuals."
-                    >
-                      <Text style={{ color: cc.fg, fontSize: 13, fontWeight: "700" }} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>{meal.name}</Text>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3, flexWrap: "wrap" }}>
-                        {spike != null && badgeBg != null && spike > 30 ? (
-                          <View
-                            style={{ backgroundColor: badgeBg, borderRadius: 10, paddingHorizontal: 5, paddingVertical: 2 }}
-                            accessibilityLabel={"averages a " + spike + " milligrams per deciliter glucose rise"}
-                          >
-                            <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>↑{spike} mg/dL</Text>
-                          </View>
-                        ) : null}
-                        {(meal.calories != null || meal.carbs_g != null) ? (
-                          <Text style={{ color: cc.sub, fontSize: 11 }} numberOfLines={1}>
-                            {meal.calories != null ? meal.calories + " cal" : meal.carbs_g + "g carbs"}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  </Animated.View>
-                );
-              })}
-            </ScrollView>
-          </View>
-        ) : (
-          <Pressable
-            onPress={function () { setEditingRecipe(null); setShowRecipeBuilder(true); }}
-            style={[styles.secondaryBtn, { alignSelf: "flex-start", marginBottom: 8 }]}
-          >
-            <Ionicons name="bookmark-outline" size={12} color={ink} />
-            <Text style={styles.secondaryBtnText}>+ SAVE A RECIPE</Text>
-          </Pressable>
-        ))}
-
-        {/* Compact meal-type pill (replaces the FOR chip row). Tap opens the
-            picker sheet — saves a full row of vertical space. */}
-        <Pressable
-          onPress={function () { Haptics.selectionAsync(); setMealTypePickerVisible(true); }}
-          style={[styles.typePill, { borderColor: ink, backgroundColor: card }]}
-          accessibilityRole="button"
-          accessibilityLabel={`Meal type: ${mealType}. Tap to change.`}
-        >
-          <Text style={{ color: theme.textSoft, fontSize: 9, fontWeight: "800", letterSpacing: 0.5 }}>FOR</Text>
-          <Text style={{ color: ink, fontSize: 12, fontWeight: "800", marginLeft: 6 }}>{mealType.toUpperCase()}</Text>
-          <Ionicons name="chevron-down" size={12} color={theme.textSoft} style={{ marginLeft: 4 }} />
-        </Pressable>
-
-        {/* Search + single "+ Add food" action (opens sheet with Barcode / Photo / Manual) */}
-        <SearchScanBar
-          placeholder="Search foods (pizza, salad…)"
-          query={searchQuery}
-          onQueryChange={handleFoodQueryChange}
-          onSubmit={() => handleSearch()}
-          searching={searching}
-          accentColor={theme.coral.solid}
-          error={searchError}
-          errorColor={theme.coral.sub}
-          actions={[
-            { label: "+ ADD FOOD", icon: "add-circle-outline", onPress: () => setAddSheetVisible(true), accessibilityLabel: "Add a food — scan barcode, photo, or enter manually" },
-          ]}
+        <MacrosSummary
+          theme={theme}
+          totals={totals}
+          foodReport={foodReport}
+          cardTitleStyle={styles.cardTitle}
+          onOpenFoodReport={function () { setShowFoodReport(true); }}
         />
+      )}
 
-        {pendingFood ? (
-          <MacroEditForm
-            initial={pendingFood}
-            saveLabel="Log it"
-            onSave={handleSavePending}
-            onCancel={function () { setPendingFood(null); }}
-          />
-        ) : searchResults.length > 0 ? (
-          <View style={{ marginTop: 12, gap: 8 }}>
-            {searchResults.map(function (food, i) {
-              const nutrition = formatNutrition(food.carbs_g, food.sugar_g, food.calories, food.caffeine_mg, food.sodium_mg);
-              return (
-                <ResultRow
-                  key={food.source_food_id ?? String(i)}
-                  title={food.name}
-                  subtitle={nutrition ?? undefined}
-                  onPress={function () { handleSelectFood(food); }}
-                  accessibilityLabel={`Log ${food.name}${nutrition ? `, ${nutrition}` : ""}`}
-                  rightIcon={{ name: "create-outline", color: theme.coral.sub }}
-                />
-              );
-            })}
-          </View>
-        ) : null}
-      </ShadowCard>
-      </View>
+      <LogMealCard
+        theme={theme}
+        ink={ink}
+        card={card}
+        tourLogRef={tourLogRef}
+        mealType={mealType}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        searching={searching}
+        searchError={searchError}
+        pendingFood={pendingFood}
+        frequentMeals={frequentMeals}
+        recipes={recipes}
+        impactScores={impactScores}
+        foodReport={foodReport}
+        hiddenSections={hiddenSections}
+        addSheetVisible={addSheetVisible}
+        mealTypePickerVisible={mealTypePickerVisible}
+        servingsPromptName={servingsPromptName}
+        servingsInput={servingsInput}
+        chipScales={chipScales}
+        recipeScales={recipeScales}
+        styles={{
+          frequentSection: styles.frequentSection,
+          sectionLabel: styles.sectionLabel,
+          frequentRow: styles.frequentRow,
+          frequentChip: styles.frequentChip,
+          secondaryBtn: styles.secondaryBtn,
+          secondaryBtnText: styles.secondaryBtnText,
+          typePill: styles.typePill,
+          cardTitle: styles.cardTitle,
+          totalBlock: styles.totalBlock,
+          totalBlockLabel: styles.totalBlockLabel,
+          totalBlockValue: styles.totalBlockValue,
+        }}
+        onSearchQueryChange={handleFoodQueryChange}
+        onSearch={handleSearch}
+        onSelectFood={handleSelectFood}
+        onSavePending={handleSavePending}
+        onCancelPending={function () { setPendingFood(null); }}
+        onSelectFrequent={handleSelectFrequent}
+        onLogRecipe={handleLogRecipe}
+        onEditRecipe={handleEditRecipe}
+        onQuickDrink={handleQuickDrink}
+        onPromptFrequentServings={promptFrequentServings}
+        onHideFrequent={handleHideFrequent}
+        onOpenRecipeBuilder={function () { setEditingRecipe(null); setShowRecipeBuilder(true); }}
+        onOpenAddSheet={function () { setAddSheetVisible(true); }}
+        onCloseAddSheet={function () { setAddSheetVisible(false); }}
+        onOpenMealTypePicker={function () { setMealTypePickerVisible(true); }}
+        onCloseMealTypePicker={function () { setMealTypePickerVisible(false); }}
+        onSelectMealType={function (type) { setMealType(type); setMealTypePickerVisible(false); }}
+        onCloseServingsPrompt={function () { setServingsPromptName(null); }}
+        onServingsInputChange={setServingsInput}
+        onSaveServingsPrompt={saveServingsPrompt}
+        onOpenScanner={function () { setAddSheetVisible(false); setScannerVisible(true); }}
+        onOpenPhotoScanner={function () { setAddSheetVisible(false); setPhotoScannerFromGallery(false); setPhotoScannerVisible(true); }}
+        onOpenGalleryScanner={function () { setAddSheetVisible(false); setPhotoScannerFromGallery(true); setPhotoScannerVisible(true); }}
+        onEnterManually={function () {
+          setAddSheetVisible(false);
+          setPendingFood({ name: "", carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null, source_db: "manual" });
+          setSearchResults([]);
+        }}
+      />
 
-      {/* Alcohol — collapsed by default unless there are entries today, so days
-          without drinks don't waste scroll space. */}
+      {/* Alcohol section */}
       {!hiddenSections.includes('booze') && (
-      <ShadowCard size="card" bg={theme.purple.tint} accent={theme.purple.solid}>
-        <Pressable
-          onPress={function () {
-            Haptics.selectionAsync();
-            setAlcoholCollapsed(v => !v);
+        <AlcoholSection
+          theme={theme}
+          ink={ink}
+          card={card}
+          collapsed={alcoholCollapsed}
+          subQuery={subQuery}
+          subResults={subResults}
+          subSearching={subSearching}
+          subSearchError={subSearchError}
+          pendingSub={pendingSub}
+          subEntries={subEntries}
+          subTotals={subTotals}
+          subLoading={subLoading}
+          totalBlockStyle={styles.totalBlock}
+          totalBlockLabelStyle={styles.totalBlockLabel}
+          totalBlockValueStyle={styles.totalBlockValue}
+          sectionLabelStyle={styles.sectionLabel}
+          onToggleCollapse={function () { setAlcoholCollapsed(v => !v); }}
+          onSubQueryChange={handleSubQueryChange}
+          onSubSearch={handleSubSearch}
+          onOpenSubScanner={function () { setSubScannerVisible(true); }}
+          onAddManually={function () {
+            setPendingSub({ name: "", substance_type: "alcohol", caffeine_mg: null, abv_percent: null, volume_ml: null, source_db: "manual" });
+            setSubResults([]);
           }}
-          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel={`Alcohol section, ${subTotals.standard_drinks} standard drinks today. ${alcoholCollapsed ? "Collapsed" : "Expanded"}. Double tap to toggle.`}
-        >
-          <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0, flex: 1 }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Alcohol</Text>
-          {subTotals.standard_drinks > 0 ? (
-            <Text style={{ color: theme.purple.solid, fontSize: 11, fontWeight: "800" }}>
-              {subTotals.standard_drinks} STD
-            </Text>
-          ) : null}
-          <Ionicons name={alcoholCollapsed ? "chevron-down" : "chevron-up"} size={16} color={theme.textSoft} />
-        </Pressable>
-
-        {alcoholCollapsed ? null : (
-        <View style={{ marginTop: 10 }}>
-        {subTotals.standard_drinks > 0 && (
-          <View style={[styles.totalBlock, { backgroundColor: theme.purple.solid, marginBottom: 10 }]}>
-            <Text style={[styles.totalBlockLabel, { color: onSolid(theme.purple.solid) }]}>STD DRINKS TODAY</Text>
-            <Text style={[styles.totalBlockValue, { color: onSolid(theme.purple.solid) }]}>{subTotals.standard_drinks}</Text>
-          </View>
-        )}
-
-        <SearchScanBar
-          placeholder="Search by name (beer, wine, spirits…)"
-          query={subQuery}
-          onQueryChange={handleSubQueryChange}
-          onSubmit={() => handleSubSearch()}
-          searching={subSearching}
-          accentColor={theme.purple.solid}
-          error={subSearchError}
-          errorColor={theme.purple.sub}
-          actions={[
-            { label: "SCAN BARCODE", icon: "barcode-outline", onPress: () => setSubScannerVisible(true), accessibilityLabel: "Scan an alcohol product barcode" },
-            { label: "+ ADD MANUALLY", onPress: () => {
-              setPendingSub({ name: "", substance_type: "alcohol", caffeine_mg: null, abv_percent: null, volume_ml: null, source_db: "manual" });
-              setSubResults([]);
-            }, accessibilityLabel: "Add an alcohol entry manually" },
-          ]}
+          onSelectSubResult={handleSelectSubResult}
+          onLogSubstance={handleLogSubstance}
+          onCancelPendingSub={function () { setPendingSub(null); }}
+          onDeleteSubstance={handleDeleteSubstance}
         />
-
-        {!pendingSub && subResults.length > 0 && (
-          <View style={{ marginTop: 8, gap: 8 }}>
-            {subResults.map(function (r, i) {
-              return (
-                <ResultRow
-                  key={r.source_food_id ?? String(i)}
-                  title={r.name}
-                  subtitle={r.abv_percent != null ? `${r.abv_percent}% ABV` : undefined}
-                  onPress={function () { handleSelectSubResult(r); }}
-                  accessibilityLabel={`Log ${r.name}${r.abv_percent != null ? `, ${r.abv_percent} percent alcohol` : ""}`}
-                  rightIcon={{ name: "create-outline", color: theme.purple.solid }}
-                />
-              );
-            })}
-          </View>
-        )}
-
-        {pendingSub ? (
-          <AlcoholForm
-            initial={pendingSub}
-            onSave={handleLogSubstance}
-            onCancel={function () { setPendingSub(null); }}
-            theme={theme}
-          />
-        ) : null}
-
-        {subLoading ? (
-          <LoadingIndicator style={{ marginTop: 8 }} />
-        ) : subEntries.filter(e => e.substance_type === "alcohol").length > 0 ? (
-          <View style={{ marginTop: 10, gap: 6 }}>
-            <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>TODAY</Text>
-            {subEntries.filter(e => e.substance_type === "alcohol").map(function (entry) {
-              const detail = entry.abv_percent != null && entry.volume_ml != null
-                ? entry.abv_percent + "% · " + entry.volume_ml + "mL"
-                : "alcohol";
-              return (
-                <ResultRow
-                  key={entry.id}
-                  title={entry.name || "Alcohol"}
-                  subtitle={detail}
-                  accessibilityLabel={`${entry.name || "Alcohol"} entry, ${detail}`}
-                  badge={{ icon: "wine-outline", iconColor: onSolid(theme.purple.solid), bgColor: theme.purple.solid }}
-                  rightIcon={{
-                    name: "trash-outline",
-                    color: theme.coral.solid,
-                    size: 15,
-                    onPress: function () { handleDeleteSubstance(entry); },
-                    accessibilityLabel: `Delete ${entry.name || "alcohol"} entry`,
-                  }}
-                />
-              );
-            })}
-          </View>
-        ) : null}
-        </View>
-        )}
-      </ShadowCard>
       )}
 
       {/* Today's meals list */}
@@ -1412,179 +1021,14 @@ export function MealsScreen() {
         onRetryLoad={loadMeals}
       />
 
-      {/* Food Report — now surfaced as a modal via the insights button on the totals strip */}
-      <Modal
-        visible={showFoodReport && foodReport.length >= 3}
-        transparent
-        animationType="slide"
-        onRequestClose={function () { setShowFoodReport(false); }}
-      >
-        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }} onPress={function () { setShowFoodReport(false); }}>
-          <Pressable
-            style={{ marginTop: "auto", backgroundColor: theme.card, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, maxHeight: "80%" }}
-            onPress={() => {}}
-          >
-            {(function () {
-              const sorted = [...foodReport].sort((a, b) => b.avg_spike - a.avg_spike);
-              const spiky = sorted.slice(0, 5);
-              const stable = [...foodReport].sort((a, b) => a.avg_spike - b.avg_spike).slice(0, 5).filter(s => s.avg_spike <= 30);
-              const maxSpike = spiky[0]?.avg_spike ?? 1;
-              return (
-                <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                    <Ionicons name="analytics-outline" size={18} color={theme.berry.solid} />
-                    <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0, flex: 1 }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Food Report</Text>
-                    <Pressable onPress={function () { setShowFoodReport(false); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close food report">
-                      <Ionicons name="close" size={20} color={theme.textSoft} />
-                    </Pressable>
-                  </View>
-
-                  <Text style={[styles.sectionLabel, { color: theme.coral.sub, marginBottom: 8 }]}>SPIKES GLUCOSE MOST</Text>
-                  <View style={{ gap: 8, marginBottom: 16 }}>
-                    {spiky.map(function (item, i) {
-                      const barW = Math.max(6, Math.round((item.avg_spike / maxSpike) * 100));
-                      const isHigh = item.avg_spike > 50;
-                      const barColor = isHigh ? theme.coral.solid : item.avg_spike > 25 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
-                      return (
-                        <View key={item.meal_name} style={{ gap: 4 }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
-                              <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", width: 14 }}>{i + 1}</Text>
-                              <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }} numberOfLines={1}>{item.meal_name}</Text>
-                            </View>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                              <Text style={{ color: barColor, fontSize: 13, fontWeight: "900" }}>+{item.avg_spike}</Text>
-                              <Text style={{ color: theme.textSoft, fontSize: 10 }}>mg/dL</Text>
-                              <Text style={{ color: theme.textSoft, fontSize: 10, marginLeft: 4 }}>×{item.sample_count}</Text>
-                            </View>
-                          </View>
-                          <View style={{ height: 5, backgroundColor: theme.cardBorder, borderRadius: 3, overflow: "hidden" }}>
-                            <View style={{ height: 5, width: (`${barW}%` as `${number}%`), backgroundColor: barColor, borderRadius: 3 }} />
-                          </View>
-                        </View>
-                      );
-                    })}
-                  </View>
-
-                  {stable.length > 0 && (
-                    <>
-                      <Text style={[styles.sectionLabel, { color: theme.teal.sub, marginBottom: 8 }]}>STAYS STABLE</Text>
-                      <View style={{ gap: 6 }}>
-                        {stable.map(function (item) {
-                          return (
-                            <View key={item.meal_name} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                              <Ionicons name="checkmark-circle" size={14} color={theme.teal.solid} />
-                              <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }} numberOfLines={1}>{item.meal_name}</Text>
-                              <Text style={{ color: theme.teal.solid, fontSize: 12, fontWeight: "800" }}>+{item.avg_spike}</Text>
-                              <Text style={{ color: theme.textSoft, fontSize: 10 }}>mg/dL</Text>
-                              <Text style={{ color: theme.textSoft, fontSize: 10, marginLeft: 2 }}>×{item.sample_count}</Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    </>
-                  )}
-
-                  <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 14, lineHeight: 16 }}>
-                    Average glucose rise 45–105 min after eating. Based on {foodReport.length} foods across your history.
-                  </Text>
-                </ScrollView>
-              );
-            })()}
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Meal-type picker sheet (opens from the compact "For X ▾" pill) */}
-      <Modal visible={mealTypePickerVisible} transparent animationType="fade" onRequestClose={function () { setMealTypePickerVisible(false); }}>
-        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }} onPress={function () { setMealTypePickerVisible(false); }}>
-          <Pressable onPress={function (e) { e.stopPropagation(); }} style={{ backgroundColor: card, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 2, borderBottomWidth: 0, borderColor: theme.cardBorder, padding: 12 }}>
-            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 1, textAlign: "center", paddingVertical: 8 }}>LOG THIS AS</Text>
-            {MEAL_TYPES.map(function (type) {
-              const selected = mealType === type;
-              return (
-                <Pressable
-                  key={type}
-                  onPress={function () { Haptics.selectionAsync(); setMealType(type); setMealTypePickerVisible(false); }}
-                  style={function (state: any) { return { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, backgroundColor: state.pressed ? theme.page : "transparent" }; }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                >
-                  <ThemedIcon slot={`mealType.${type}`} size={32} />
-                  <Text style={{ flex: 1, color: theme.textStrong, fontSize: 15, fontWeight: selected ? "800" : "600", marginLeft: 8 }}>{type[0].toUpperCase() + type.slice(1)}</Text>
-                  {selected ? <Ionicons name="checkmark" size={20} color={theme.teal.solid} /> : null}
-                </Pressable>
-              );
-            })}
-            <Pressable onPress={function () { setMealTypePickerVisible(false); }} style={{ paddingVertical: 12, alignItems: "center" }}>
-              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: "700" }}>Cancel</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={servingsPromptName != null} transparent animationType="fade" onRequestClose={function () { setServingsPromptName(null); }}>
-        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 }} onPress={function () { setServingsPromptName(null); }}>
-          <Pressable onPress={function (e) { e.stopPropagation(); }} style={{ backgroundColor: card, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, padding: 16, gap: 10 }}>
-            <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "800" }}>Default servings for {servingsPromptName}</Text>
-            <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-              Every time you tap this chip, log this many servings by default (0.25 – 10).
-            </Text>
-            <TextInput
-              value={servingsInput}
-              onChangeText={setServingsInput}
-              keyboardType="decimal-pad"
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={saveServingsPrompt}
-              style={{ borderWidth: 2, borderColor: theme.cardBorder, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, color: theme.textStrong, fontSize: 16 }}
-            />
-            <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
-              <Pressable onPress={function () { setServingsPromptName(null); }} style={{ paddingVertical: 10, paddingHorizontal: 14 }}>
-                <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: "700" }}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={saveServingsPrompt} style={{ paddingVertical: 10, paddingHorizontal: 18, backgroundColor: theme.teal.solid, borderRadius: 12 }}>
-                <Text style={{ color: "#fff", fontSize: 14, fontWeight: "800" }}>Save</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Add-food action sheet (replaces the 3 stacked scan buttons) */}
-      <Modal visible={addSheetVisible} transparent animationType="fade" onRequestClose={function () { setAddSheetVisible(false); }}>
-        <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" }} onPress={function () { setAddSheetVisible(false); }}>
-          <Pressable onPress={function (e) { e.stopPropagation(); }} style={{ backgroundColor: card, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 2, borderBottomWidth: 0, borderColor: theme.cardBorder, padding: 12 }}>
-            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 1, textAlign: "center", paddingVertical: 8 }}>ADD A FOOD</Text>
-            {[
-              { label: "Scan a barcode",   icon: "barcode-outline" as const, onPress: function () { setAddSheetVisible(false); setScannerVisible(true); } },
-              { label: "Snap a photo",     icon: "camera-outline"  as const, onPress: function () { setAddSheetVisible(false); setPhotoScannerFromGallery(false); setPhotoScannerVisible(true); } },
-              { label: "Pick from photos", icon: "images-outline"  as const, onPress: function () { setAddSheetVisible(false); setPhotoScannerFromGallery(true); setPhotoScannerVisible(true); } },
-              { label: "Enter manually",   icon: "create-outline"  as const, onPress: function () {
-                setAddSheetVisible(false);
-                setPendingFood({ name: "", carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null, source_db: "manual" });
-                setSearchResults([]);
-              } },
-            ].map(function (row) {
-              return (
-                <Pressable
-                  key={row.label}
-                  onPress={row.onPress}
-                  style={function (state: any) { return { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, paddingHorizontal: 12, borderRadius: 12, backgroundColor: state.pressed ? theme.page : "transparent" }; }}
-                  accessibilityRole="button"
-                  accessibilityLabel={row.label}
-                >
-                  <Ionicons name={row.icon} size={20} color={theme.textStrong} />
-                  <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "600" }}>{row.label}</Text>
-                </Pressable>
-              );
-            })}
-            <Pressable onPress={function () { setAddSheetVisible(false); }} style={{ paddingVertical: 12, alignItems: "center" }}>
-              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: "700" }}>Cancel</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <FoodReportModal
+        theme={theme}
+        visible={showFoodReport}
+        foodReport={foodReport}
+        cardTitleStyle={styles.cardTitle}
+        sectionLabelStyle={styles.sectionLabel}
+        onClose={function () { setShowFoodReport(false); }}
+      />
 
       <BarcodeScannerModal
         visible={scannerVisible}
@@ -1646,8 +1090,6 @@ function makeStyles(ink: string, card: string, border: string, coral: string = "
   return StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
 
-  // Totals strip
-  totalsRow: { flexDirection: "row", gap: 8 },
   totalBlock: {
     flex: 1,
     borderRadius: 22,
@@ -1663,7 +1105,6 @@ function makeStyles(ink: string, card: string, border: string, coral: string = "
   totalBlockLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.6, marginBottom: 4 },
   totalBlockValue: { fontSize: 20, fontWeight: "800" },
 
-  // Card
   card: {
     borderRadius: 22,
     borderWidth: 2,
@@ -1691,26 +1132,12 @@ function makeStyles(ink: string, card: string, border: string, coral: string = "
     elevation: 2,
   },
 
-  chipRow: { flexDirection: "row", gap: 6, marginBottom: 10, flexWrap: "wrap" },
   typePill: {
     flexDirection: "row", alignItems: "center", alignSelf: "flex-start",
     borderWidth: 2, borderRadius: 999,
     paddingHorizontal: 12, paddingVertical: 6, marginBottom: 8,
   },
-  typeChip: {
-    borderWidth: 2,
-    borderColor: ink,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
 
-  // searchRow / textInput / actionBtn / belowSearchRow now live in components/SearchScanBar.tsx
   secondaryBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1729,44 +1156,6 @@ function makeStyles(ink: string, card: string, border: string, coral: string = "
   },
   secondaryBtnText: { color: ink, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
 
-  // resultRow now lives in components/ResultRow.tsx
-
-  editForm: { marginTop: 12, gap: 8 },
-  macroInputRow: { flexDirection: "row", gap: 6 },
-  macroInput: {
-    flex: 1,
-    borderWidth: 2,
-    borderColor: ink,
-    borderRadius: 16,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    fontSize: 12,
-    backgroundColor: card,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  macroLabel: { flex: 1, fontSize: 9, fontWeight: "800", letterSpacing: 0.6, textAlign: "center" },
-  editFormButtons: { flexDirection: "row", gap: 8 },
-  cancelBtn: {
-    borderWidth: 2,
-    borderColor: ink,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: card,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  cancelBtnText: { color: ink, fontWeight: "800", fontSize: 11, letterSpacing: 0.4 },
-
   // Meal row card
   mealCard: {
     marginTop: 10,
@@ -1780,22 +1169,6 @@ function makeStyles(ink: string, card: string, border: string, coral: string = "
     elevation: 3,
   },
   mealContent: { flexDirection: "row", alignItems: "flex-start", padding: 10 },
-  mealIconTile: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: ink,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 2,
-    flexShrink: 0,
-  },
   mealMain: { flex: 1, flexDirection: "row", alignItems: "flex-start" },
   iconBtn: { padding: 6, marginLeft: 2 },
   glucosePanel: { borderTopWidth: 1, marginHorizontal: 10, paddingTop: 10, paddingBottom: 10 },
