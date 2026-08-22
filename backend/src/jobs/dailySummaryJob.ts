@@ -2,11 +2,20 @@ import { query } from "../db.js";
 import { generateDailySummary } from "../services/dailySummaryService.js";
 import { estToday } from "../lib/estDate.js";
 
-type LogLevel = "INFO" | "ERROR";
-function log(level: LogLevel, msg: string, meta?: Record<string, unknown>) {
-  const line = `[dailySummaryJob] [${level}] ${msg}`;
-  if (meta) (level === "ERROR" ? console.error : console.log)(line, meta);
-  else (level === "ERROR" ? console.error : console.log)(line);
+type StructuredLogger = { info: (obj: Record<string, unknown> | string, msg?: string) => void; error: (obj: Record<string, unknown> | string, msg?: string) => void };
+
+let _logger: StructuredLogger | null = null;
+export function setDailySummaryLogger(logger: StructuredLogger) { _logger = logger; }
+
+function log(level: "INFO" | "ERROR", msg: string, meta?: Record<string, unknown>) {
+  if (_logger) {
+    if (level === "ERROR") _logger.error(meta ?? {}, `[dailySummaryJob] ${msg}`);
+    else _logger.info(meta ?? {}, `[dailySummaryJob] ${msg}`);
+  } else {
+    const line = `[dailySummaryJob] [${level}] ${msg}`;
+    if (meta) (level === "ERROR" ? console.error : console.log)(line, meta);
+    else (level === "ERROR" ? console.error : console.log)(line);
+  }
 }
 
 export async function runDailySummaryJob(date?: string): Promise<void> {

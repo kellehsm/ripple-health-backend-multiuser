@@ -16,7 +16,7 @@ export function signToken(user_id: string, token_version: number = 0): string {
 // (SecureStore is not accessible from the widget process), so they carry a
 // "widget" scope that restricts them to the handful of endpoints the widget uses.
 export function signWidgetToken(user_id: string): string {
-  return jwt.sign({ user_id, scope: "widget" }, JWT_SECRET!, { expiresIn: JWT_EXPIRY });
+  return jwt.sign({ user_id, scope: "widget" }, JWT_SECRET!, { expiresIn: "7d" });
 }
 
 const WIDGET_GET_PREFIXES = [

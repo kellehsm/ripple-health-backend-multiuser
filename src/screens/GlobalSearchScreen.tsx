@@ -121,7 +121,7 @@ export function GlobalSearchScreen() {
         />
         {loading && <LoadingIndicator size="small" color={theme.teal.bar} />}
         {!loading && query.length > 0 && (
-          <Pressable onPress={() => { setQuery(""); setResults(null); }} hitSlop={8}>
+          <Pressable onPress={() => { setQuery(""); setResults(null); }} hitSlop={8} accessibilityLabel="Clear search">
             <Ionicons name="close-circle" size={18} color={theme.textSoft} />
           </Pressable>
         )}
@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

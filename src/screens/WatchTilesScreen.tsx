@@ -18,7 +18,7 @@ import { trackMindfulnessCompletion } from "../lib/mindfulnessTracker";
 import { todayStr } from "../utils/dateUtils";
 import { invalidateCachePrefix } from "../utils/staleCache";
 
-// Watch-face palette (fixed dark face, independent of app theme)
+// Watch-face palette: hardcoded intentionally — watch preview uses a fixed dark bezel outside the app theme system.
 const W = {
   bg: "#10141A",
   fg: "#F2F4F7",

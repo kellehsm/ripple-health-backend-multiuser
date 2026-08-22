@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
+  KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -122,7 +123,7 @@ export function NewChallengeScreen() {
         goal_value: parsedGoal,
         start_date: startDate,
         end_date: endDate,
-        invite_user_ids: selectedFriends,
+        friend_ids: selectedFriends,
       });
       toast("Challenge created!");
       navigation.goBack();
@@ -134,6 +135,10 @@ export function NewChallengeScreen() {
   }
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
@@ -328,6 +333,7 @@ export function NewChallengeScreen() {
         )}
       </Pressable>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -345,7 +351,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 2,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 10,
   },
   textInput: {
@@ -368,7 +374,7 @@ const styles = StyleSheet.create({
   dateRow: { flexDirection: "row", gap: 10 },
   chip: {
     borderWidth: 2,
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
@@ -376,7 +382,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 2,
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 10,
     marginBottom: 6,
   },
@@ -394,7 +400,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 8,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

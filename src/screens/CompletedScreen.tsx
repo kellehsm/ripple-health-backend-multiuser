@@ -322,7 +322,7 @@ export function CompletedScreen() {
       for (const entry of progEntries) { if (entry) progMap[entry[0]] = entry[1]; }
       setProgress(progMap);
     } catch (e) {
-      console.error("Failed to load bookshelf", e);
+      if (__DEV__) console.error("Failed to load bookshelf", e);
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -350,7 +350,7 @@ export function CompletedScreen() {
       setPendingDelete(null);
       try { await api.deleteBook(id); }
       catch (e) {
-        console.error(e);
+        if (__DEV__) console.error(e);
         toast("Couldn't remove that book. Try again.", "error");
         load();
       }
@@ -507,7 +507,7 @@ function makeStyles(ink: string) {
       borderWidth: 2,
       borderColor: ink,
       padding: 14,
-      shadowColor: "#000",
+      shadowColor: "rgba(60,40,20,0.1)",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.08,
       shadowRadius: 6,

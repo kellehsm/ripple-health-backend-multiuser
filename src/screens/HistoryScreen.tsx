@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import {
   ScrollView, View, Text, TextInput, Pressable,
-  StyleSheet
+  StyleSheet, RefreshControl
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { useTheme } from "../theme/ThemeContext";
@@ -30,6 +30,7 @@ export function HistoryScreen() {
   const styles = useMemo(() => makeStyles(ink, card), [ink, card]);
   const [mode, setMode] = useState<FilterMode>("glucose");
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [results, setResults] = useState<any[]>([]);
@@ -85,8 +86,20 @@ export function HistoryScreen() {
   const MODES: FilterMode[] = ["glucose", "meals", "mood", "spending"];
   const modeLabel: Record<FilterMode, string> = { glucose: "Glucose", meals: "Meals", mood: "Mood", spending: "Spending" };
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    if (hasSearched) await handleSearch().catch(() => {});
+    setRefreshing(false);
+  }
+
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={{ backgroundColor: theme.page }}
+      contentContainerStyle={styles.content}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
+    >
       <View style={styles.modeRow}>
         {MODES.map(m => (
           <Pressable
@@ -269,14 +282,14 @@ export function HistoryScreen() {
 
 function makeStyles(ink: string, card: string) {
   const shadow = {
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08 as const,
     shadowRadius: 6,
     elevation: 3,
   };
   return StyleSheet.create({
-  content: { padding: 16, gap: 12, paddingBottom: 32 },
+  content: { padding: 16, gap: 12, paddingBottom: 96 },
   modeRow: { flexDirection: "row", gap: 8 },
   modeChip: {
     flex: 1, borderWidth: 2, borderRadius: 16, paddingVertical: 8, alignItems: "center",

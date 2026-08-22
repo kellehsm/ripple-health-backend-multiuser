@@ -36,7 +36,7 @@ const CHANGE_ICON: Record<string, string> = {
   added: '✅',
   dose_changed: '💊',
   frequency_changed: '🕐',
-  prescriber_changed: '👨‍⚕️',
+  prescriber_changed: '🩺',
   stopped: '🛑',
 };
 

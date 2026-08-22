@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { toast } from "../lib/toast";
+import { RANK_COLORS } from "../constants";
 import {
   getChallenge,
   leaveChallenge,
@@ -57,8 +58,6 @@ function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
-
-const RANK_COLORS = ["", "#F5B800", "#A8A8A8", "#C07A4A"];
 
 export function ChallengeDetailScreen() {
   const { theme } = useTheme();
@@ -155,7 +154,7 @@ export function ChallengeDetailScreen() {
       {/* Header */}
       <ShadowCard padding={16} bg={theme.purple.tint} accent={theme.purple.solid}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <View style={[styles.iconBadge, { backgroundColor: theme.purple.solid, borderColor: theme.ink }]}>
+          <View style={[styles.iconBadge, { backgroundColor: theme.purple.solid, borderColor: theme.cardBorder }]}>
             <Ionicons name={CATEGORY_ICON[challenge.category]} size={24} color="#fff" />
           </View>
           <View style={{ flex: 1 }}>
@@ -295,7 +294,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderRadius: 10,
+    borderRadius: 20,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -311,7 +310,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

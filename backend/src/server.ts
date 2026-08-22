@@ -59,8 +59,8 @@ import hardcoverRoutes from "./routes/hardcover.js";
 import { requireAuth } from "./middleware/auth.js";
 import { createDownloadToken } from "./lib/downloadTokens.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
-import { runDailySummaryJob } from "./jobs/dailySummaryJob.js";
-import { runInsightsJob } from "./jobs/insightsJob.js";
+import { runDailySummaryJob, setDailySummaryLogger } from "./jobs/dailySummaryJob.js";
+import { runInsightsJob, setInsightsLogger } from "./jobs/insightsJob.js";
 import { syncDexcomShareGlucose } from "./jobs/dexcom-share-sync.js";
 import { runHardcoverSyncJob } from "./jobs/hardcover-sync.js";
 import { runWeatherSyncJob } from "./services/weatherSync.js";
@@ -205,14 +205,35 @@ async function main() {
     return { token: createDownloadToken(req.user_id) };
   });
 
+  // Global error handler — prevents stack traces leaking to clients.
+  // Validation / 4xx errors (statusCode < 500) are forwarded with their message;
+  // all other errors are logged internally and return a generic 500.
+  app.setErrorHandler((err, _req, reply) => {
+    const status = (err as any).statusCode ?? 500;
+    if (status < 500) {
+      reply.code(status).send({ error: err.message });
+    } else {
+      app.log.error(err);
+      reply.code(500).send({ error: "Internal server error" });
+    }
+  });
+
   const port = Number(process.env.PORT) || 4000;
   await app.listen({ port, host: "0.0.0.0" });
-  console.log(`Wellness multi-user API running on port ${port}`);
+  app.log.info(`Wellness multi-user API running on port ${port}`);
+
+  // Wire structured logger into background jobs so they use pino instead of console.*
+  setDailySummaryLogger(app.log);
+  setInsightsLogger(app.log);
 
   // One-time lazy migration: encrypt any legacy plaintext credentials at rest.
   // Runs on every boot but no-ops once everything is encrypted (or if no key set).
   void (async () => {
     if (!process.env.CRED_ENCRYPTION_KEY) {
+      if (process.env.NODE_ENV === "production") {
+        app.log.error("CRED_ENCRYPTION_KEY not set in production — refusing to start");
+        process.exit(1);
+      }
       app.log.warn("CRED_ENCRYPTION_KEY not set — stored credentials remain plaintext");
       return;
     }

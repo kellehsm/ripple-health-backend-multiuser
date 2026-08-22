@@ -151,7 +151,7 @@ export function createChallenge(data: {
   goal_value?: number | null;
   start_date: string;
   end_date: string;
-  invite_user_ids?: string[];
+  friend_ids?: string[];
 }): Promise<Challenge> {
   return req("/challenges", {
     method: "POST",

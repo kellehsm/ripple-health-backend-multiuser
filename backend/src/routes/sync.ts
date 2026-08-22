@@ -45,9 +45,13 @@ export default async function syncRoutes(app: FastifyInstance) {
     );
   }
 
-  app.post<{ Body: { items: BatchItem[] } }>("/batch", async (req) => {
+  app.post<{ Body: { items: BatchItem[] } }>("/batch", async (req, reply) => {
     const { items } = req.body;
     if (!Array.isArray(items) || items.length === 0) return [];
+    if (items.length > 500) {
+      reply.code(400);
+      return { error: "Too many items (max 500)" };
+    }
 
     const results: ItemResult[] = [];
     const client = await pool.connect();

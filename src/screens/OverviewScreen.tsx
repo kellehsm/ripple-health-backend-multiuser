@@ -2217,9 +2217,9 @@ export function OverviewScreen() {
                         { backgroundColor: isFreeze ? theme.blue.tint : s.color(theme) },
                         // Milestone styling: gold ring at 7+, brighter at 30+
                         s.count >= 30
-                          ? { borderWidth: 2, borderColor: "#F1C40F" }
+                          ? { borderWidth: 2, borderColor: theme.amber.solid }
                           : s.count >= 7
-                          ? { borderWidth: 1.5, borderColor: "#D4A017" }
+                          ? { borderWidth: 1.5, borderColor: theme.amber.sub }
                           : null,
                       ]}
                       accessibilityRole="button"

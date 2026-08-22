@@ -20,7 +20,7 @@ export function InsightsTrendsScreen({ route }: any) {
           paddingVertical: 8,
           alignItems: "center",
           borderBottomWidth: 2.5,
-          borderBottomColor: active ? theme.ink : "transparent",
+          borderBottomColor: active ? theme.teal.solid : "transparent",
         }}
       >
         <Text style={{ fontSize: 13, fontWeight: "900", color: active ? theme.textStrong : theme.textSoft }}>
@@ -38,17 +38,13 @@ export function InsightsTrendsScreen({ route }: any) {
         {tabBtn("trends", "📈 Trends")}
       </View>
 
-      {/* Content — conditionally mount each screen */}
-      {tab === "insights" && (
-        <View style={{ flex: 1 }}>
-          <InsightsScreen />
-        </View>
-      )}
-      {tab === "trends" && (
-        <View style={{ flex: 1 }}>
-          <TrendsScreen />
-        </View>
-      )}
+      {/* Both screens stay mounted; only visibility changes to preserve scroll position */}
+      <View style={{ flex: 1, display: tab === "insights" ? "flex" : "none" }}>
+        <InsightsScreen />
+      </View>
+      <View style={{ flex: 1, display: tab === "trends" ? "flex" : "none" }}>
+        <TrendsScreen />
+      </View>
     </View>
   );
 }
