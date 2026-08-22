@@ -105,7 +105,7 @@ Use `useFontSizes()` (from `src/theme/fontSystem.ts`) to read scaled values — 
 
 **Primary ramp (2026-08 revamp).** New/revamped screens use only four steps plus the caps micro-label: `title` (22, screen title), `subheading` (16, card title), `body` (14), `caption` (11), and `micro` only via the `SectionLabel` component. `display`, `heading`, and `label` remain valid in legacy code but should not be introduced in new work; pick the nearest primary step. Never hardcode a font size.
 
-**Card language.** One card style: `ShadowCard` with its default border (theme ink / user outline color). Per-card colored borders are banned; the single sanctioned accent is `ShadowCard`'s `accent` prop (left edge gradient strip).
+**Card language.** One card style: `ShadowCard` with its default border (theme ink / user outline color). Per-card colored borders are banned; the single sanctioned accent is `ShadowCard`'s `accent` prop (left edge gradient strip). Cards always render straight — `ShadowCard` ignores its legacy `rotate` prop (angled cards rejected 2026-08); don't add rotation transforms to cards or tiles.
 
 **No-junk-data rule.** Sections with empty/zero data never render full-size tiles showing "0 …" or "--" — use `GhostRow` (slim dashed placeholder with optional CTA) or `EmptyState` for whole-section emptiness.
 

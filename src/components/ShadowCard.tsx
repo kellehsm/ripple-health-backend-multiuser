@@ -129,7 +129,9 @@ export function ShadowCard({
   // so it remains visible; in light mode it uses the ink color directly.
   const hardColor = isDark ? "rgba(0,0,0,0.75)" : ink;
 
-  const transform = rotate !== undefined ? [{ rotate: `${rotate}deg` }] : undefined;
+  // Tilt disabled by design decision (2026-08) — cards render straight; `rotate` prop is ignored.
+  void rotate;
+  const transform = undefined;
 
   // Press-scale animation
   const scaleAnim = useRef(new Animated.Value(1)).current;

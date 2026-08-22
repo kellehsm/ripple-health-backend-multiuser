@@ -127,7 +127,7 @@ export function GlucoseChartCard({
 
   return (
     <Animated.View style={{ opacity: glucoseEntranceAnim }}>
-    <ShadowCard size="hero" accent={theme.berry.solid} rotate={-0.5} padding={14} cardId="glucose_card">
+    <ShadowCard size="hero" accent={theme.berry.solid} padding={14} cardId="glucose_card">
       <View style={styles.cardHeaderRow}>
         <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Glucose</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end", flexWrap: "wrap" }}>

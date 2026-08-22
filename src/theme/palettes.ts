@@ -272,9 +272,9 @@ export function familyForPalette(paletteId: string): ThemeFamily {
 // 11. Cozy Cat — warm cream & marmalade orange with cat illustration icons
 const cozyCat: Theme = {
   id: "cozy-cat", name: "Cozy Cat", group: "Premium", isDark: false,
-  ink: "#3A2417", cream: "#FFF4E4", page: "#FFEBD6", gradientEnd: "#FFD9B8", card: "#FFFBF4", cardBorder: "#E8C29A",
+  ink: "#3A2417", cream: "#FFF1DE", page: "#FCE4C8", gradientEnd: "#F7D3A8", card: "#FFFBF4", cardBorder: "#E8C29A",
   textStrong: "#3A2417", textSoft: "#8A6A4E",
-  topBar: "#FFDCB4",
+  topBar: "#FFD3A0", bottomBar: "#FFD3A0",
   primary: "#E8763A", success: "#5FA05A", warning: "#D99C2B", danger: "#C94F3D",
   glucoseHigh: "#C94F3D", glucoseLow: "#5B87C5",
   teal:   cf("#6BA36A", "#4C7F4B", "#E3F0DC", "#3A2417", "#E3F0DC", "#6BA36A"),
