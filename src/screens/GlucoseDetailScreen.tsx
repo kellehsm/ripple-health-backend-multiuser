@@ -228,7 +228,7 @@ export function GlucoseDetailScreen() {
           {loading24h ? (
             <LoadingIndicator style={{ marginVertical: 30 }} color={accent} />
           ) : readings24h.length === 0 ? (
-            <EmptyState icon="🩸" title="No readings in the last 24h" subtitle="Connect Dexcom or add readings manually on the Health tab." />
+            <EmptyState slot="empty.glucose" title="No readings in the last 24h" subtitle="Connect Dexcom or add readings manually on the Health tab." />
           ) : (
             <Svg width={CHART_W} height={CHART_H} style={{ marginTop: 10 }}>
               {/* Grid lines */}
@@ -294,7 +294,7 @@ export function GlucoseDetailScreen() {
           {loading30d ? (
             <LoadingIndicator color={accent} style={{ marginVertical: 16 }} />
           ) : readings7d.length === 0 ? (
-            <EmptyState icon="🕐" title="Not enough data yet" subtitle="7 days of readings needed for time-of-day averages." />
+            <EmptyState slot="empty.clock" title="Not enough data yet" subtitle="7 days of readings needed for time-of-day averages." />
           ) : (
             <View style={{ gap: 10, marginTop: 8 }}>
               {todBuckets.map(({ key, label, avg, count }) => {
@@ -349,7 +349,7 @@ export function GlucoseDetailScreen() {
           {loading30d ? (
             <LoadingIndicator color={accent} style={{ marginVertical: 16 }} />
           ) : vals30.length === 0 ? (
-            <EmptyState icon="📊" title="No 30-day data yet" subtitle="Connect Dexcom or add readings to see your 30-day glucose summary." />
+            <EmptyState slot="empty.trend" title="No 30-day data yet" subtitle="Connect Dexcom or add readings to see your 30-day glucose summary." />
           ) : (
             <View style={{ gap: 12, marginTop: 4 }}>
               <View style={s.statsRow}>

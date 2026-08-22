@@ -13,6 +13,7 @@ import {
 import { LoadingIndicator } from "./LoadingIndicator";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { onSolid } from "../theme/colorUtils";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
@@ -39,11 +40,11 @@ interface MoodCategory {
 // ─── Data ─────────────────────────────────────────────────────────────────────
 // MOOD_CATEGORIES imported from constants/moodCategories.ts
 
-const PERIOD_META: Record<MoodPeriod, { label: string; emoji: string }> = {
-  morning:   { label: "Morning",   emoji: "🌅" },
-  afternoon: { label: "Afternoon", emoji: "☀️" },
-  evening:   { label: "Evening",   emoji: "🌆" },
-  night:     { label: "Night",     emoji: "🌙" },
+const PERIOD_META: Record<MoodPeriod, { label: string; slot: string }> = {
+  morning:   { label: "Morning",   slot: "greeting.morning"   },
+  afternoon: { label: "Afternoon", slot: "greeting.afternoon" },
+  evening:   { label: "Evening",   slot: "greeting.evening"   },
+  night:     { label: "Night",     slot: "greeting.night"     },
 };
 
 
@@ -131,9 +132,12 @@ export function MoodCheckInModal({ visible, period, onDismiss, onSubmitted }: Pr
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: ink }]}>
             <View>
-              <Text style={[styles.periodLabel, { color: theme.textSoft }]}>
-                {meta.emoji}  {meta.label.toUpperCase()}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <ThemedIcon slot={meta.slot} size={14} />
+                <Text style={[styles.periodLabel, { color: theme.textSoft }]}>
+                  {meta.label.toUpperCase()}
+                </Text>
+              </View>
               <Text style={[styles.headerTitle, { color: theme.textStrong }]}>
                 How are you feeling?
               </Text>

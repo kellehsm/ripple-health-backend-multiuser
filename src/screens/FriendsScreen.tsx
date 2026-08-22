@@ -20,6 +20,7 @@ import { onSolid } from "../theme/colorUtils";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { ShadowCard } from "../components/ShadowCard";
 import { toast } from "../lib/toast";
 import { FeatureTour, TourStep } from "../components/FeatureTour";
@@ -619,7 +620,7 @@ export function FriendsScreen() {
                   {nudgingSent === friend.connection_id ? (
                     <ActivityIndicator size="small" color={theme.teal.fg} />
                   ) : (
-                    <Text style={{ fontSize: 16 }}>👋</Text>
+                    <ThemedIcon slot="social.nudge" size={16} />
                   )}
                 </Pressable>
                 <Pressable
@@ -668,9 +669,10 @@ export function FriendsScreen() {
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                   {entry.milestones.map((m) => (
                     <View key={m.type} style={[styles.feedBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
-                      <Text style={{ fontSize: 13 }}>
-                        {m.type === "steps_streak" ? "👟" : m.type === "exercise_streak" ? "💪" : "📖"}
-                      </Text>
+                      <ThemedIcon
+                        slot={m.type === "steps_streak" ? "social.steps_streak" : m.type === "exercise_streak" ? "social.exercise_streak" : "social.book_streak"}
+                        size={13}
+                      />
                       <Text style={{ color: theme.teal.fg, fontSize: 12, fontWeight: "700", marginLeft: 4 }}>
                         {m.count}d {m.label}
                       </Text>

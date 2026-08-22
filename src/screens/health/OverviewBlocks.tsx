@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { ThemedIcon } from '../../theme/iconRegistry';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { api } from '../../api/client';
@@ -149,7 +150,7 @@ export function OverviewBlocks({
           accessibilityRole="button"
           accessibilityLabel={`Medication overview. ${medSummaryLine}.${nextDose ? ` Next dose: ${nextDose}.` : ""}${overdueRefillCount > 0 ? ` ${overdueRefillCount} ${overdueRefillCount === 1 ? "refill" : "refills"} overdue.` : ""}`}
         >
-          <Text style={obStyles.icon}>💊</Text>
+          <ThemedIcon slot="health.meds_block" size={28} style={obStyles.icon as any} />
           <Text style={[obStyles.blockLabel, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.3}>Meds</Text>
           <Text style={[obStyles.blockValue, { color: theme.teal.fg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{medSummaryLine}</Text>
           {nextDose ? (
@@ -178,7 +179,7 @@ export function OverviewBlocks({
           accessibilityRole="button"
           accessibilityLabel="Cycle overview"
         >
-          <Text style={obStyles.icon}>🌸</Text>
+          <ThemedIcon slot="health.cycle_block" size={28} style={obStyles.icon as any} />
           <Text style={[obStyles.blockLabel, { color: theme.textStrong }]}>Cycle</Text>
           <Text style={[obStyles.blockValue, { color: theme.purple?.fg ?? '#5B21B6' }]}>{cycleDayLine}</Text>
           {cyclePhase ? <Text style={[obStyles.blockSub, { color: theme.textSoft }]}>{cyclePhase}</Text> : null}
@@ -198,7 +199,7 @@ export function OverviewBlocks({
           accessibilityRole="button"
           accessibilityLabel="Symptoms overview"
         >
-          <Text style={obStyles.icon}>📝</Text>
+          <ThemedIcon slot="health.symptoms_block" size={28} style={obStyles.icon as any} />
           <Text style={[obStyles.blockLabel, { color: theme.textStrong }]}>Symptoms</Text>
           <Text style={[obStyles.blockValue, { color: theme.textSoft }]}>{symptomLine}</Text>
         </Pressable>

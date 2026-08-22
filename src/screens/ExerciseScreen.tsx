@@ -12,6 +12,7 @@ import { onSolid } from '../theme/colorUtils';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { ThemedIcon } from '../theme/iconRegistry';
 import { ShadowCard } from '../components/ShadowCard';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
@@ -30,16 +31,11 @@ interface WorkoutSuggestion {
   data: Record<string, any> | null;
 }
 
-const SUGGESTION_ICON: Record<string, string> = {
-  rest_day: '😴',
-  neglected_muscle: '🎯',
-  program_gap: '📋',
-  preferred_day: '📅',
-  consistency_streak: '🔥',
-  low_completion: '⏱️',
-  no_history: '🏋️',
-  generic: '💪',
-};
+/** Maps suggestion type to exerciseSuggestion.* slot id. */
+function suggestionSlot(type: string): string {
+  const known = ['rest_day','neglected_muscle','program_gap','preferred_day','consistency_streak','low_completion','no_history','generic'];
+  return `exerciseSuggestion.${known.includes(type) ? type : 'generic'}`;
+}
 
 interface ActiveProgram {
   id: string;
@@ -476,7 +472,10 @@ export function ExerciseScreen() {
             onPress={() => { setPlannerInitialQueue([]); setPlannerVisible(true); }}
             style={[styles.startBtn, { backgroundColor: ink, borderColor: ink, shadowColor: "rgba(60,40,20,0.1)" }]}
           >
-            <Text style={[styles.startBtnText, { color: theme.page }]}>🏃 Start workout session</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <ThemedIcon slot="ui.run" size={18} color={theme.page} />
+              <Text style={[styles.startBtnText, { color: theme.page }]}>Start workout session</Text>
+            </View>
           </Pressable>
         )}
 
@@ -582,7 +581,7 @@ export function ExerciseScreen() {
         {suggestion && (
           <View style={[styles.suggestionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
             <View style={styles.suggestionHeader}>
-              <Text style={styles.suggestionIcon}>{SUGGESTION_ICON[suggestion.type] ?? '💪'}</Text>
+              <ThemedIcon slot={suggestionSlot(suggestion.type)} size={22} style={styles.suggestionIcon as any} />
               <Text style={[styles.suggestionTitle, { color: theme.textStrong }]}>{suggestion.title}</Text>
             </View>
             <Text style={[styles.suggestionBody, { color: theme.textSoft }]}>{suggestion.body}</Text>
@@ -751,7 +750,7 @@ export function ExerciseScreen() {
                     <CyclingImage images={ex.images} style={{ width: '100%', height: 220 }} />
                   ) : (
                     <View style={{ width: '100%', height: 220, backgroundColor: theme.teal.tint, alignItems: 'center', justifyContent: 'center' }}>
-                      {dayLoading ? <LoadingIndicator /> : <Text style={{ fontSize: 48 }}>🏋️</Text>}
+                      {dayLoading ? <LoadingIndicator /> : <ThemedIcon slot="ui.gym" size={48} />}
                     </View>
                   )}
                   <View style={{ padding: 14, gap: 4 }}>
@@ -788,7 +787,10 @@ export function ExerciseScreen() {
               }}
               style={{ backgroundColor: ink, borderRadius: 26, borderWidth: 2, borderColor: ink, paddingVertical: 16, alignItems: 'center', shadowColor: 'rgba(60,40,20,0.1)', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.12, shadowRadius: 14, elevation: 4 }}
             >
-              <Text style={{ color: theme.page, fontSize: 16, fontWeight: '800' }}>🏃 Start this workout</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <ThemedIcon slot="ui.run" size={18} color={theme.page} />
+                <Text style={{ color: theme.page, fontSize: 16, fontWeight: '800' }}>Start this workout</Text>
+              </View>
             </Pressable>
           </View>
         </SafeAreaView>

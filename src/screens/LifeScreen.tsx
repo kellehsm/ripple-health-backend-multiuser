@@ -36,6 +36,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { coloredShadow } from "../theme/styleUtils";
 import { onSolid } from "../theme/colorUtils";
 import { ShadowCard } from "../components/ShadowCard";
@@ -643,7 +644,7 @@ export function LifeScreen() {
         onPress={() => navigation.navigate("Experiments")}
         style={[styles.completedBtn, { backgroundColor: theme.card, borderColor: ink }]}
       >
-        <Text style={{ fontSize: 16, marginRight: 4 }}>🧪</Text>
+        <ThemedIcon slot="ui.flask" size={16} style={{ marginRight: 4 } as any} />
         <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 13, flex: 1 }}>
           Experiments
         </Text>
@@ -977,7 +978,7 @@ export function LifeScreen() {
       {!hasGratitudeToday && (
         <ShadowCard size="card" bg={theme.berry.tint} accent={theme.berry.solid} cardId="mood_log_card">
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <Text style={{ fontSize: 22 }}>📓</Text>
+            <ThemedIcon slot="mindfulness.gratitude" size={22} />
             <Text style={{ fontSize: 16, fontWeight: "900", color: theme.berry.fg, flex: 1 }}>
               What are you grateful for today?
             </Text>
@@ -1027,7 +1028,7 @@ export function LifeScreen() {
       <Modal transparent animationType="fade" visible onRequestClose={() => setRatingBook(null)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <View style={{ width: "100%", maxWidth: 340, backgroundColor: theme.card, borderColor: theme.cardBorder, borderWidth: 2, borderRadius: 22, padding: 20, alignItems: "center", gap: 6 }}>
-            <Text style={{ fontSize: 30 }}>🎉</Text>
+            <ThemedIcon slot="ui.celebrate" size={30} />
             <Text style={{ color: theme.textStrong, fontSize: 17, fontWeight: "800", textAlign: "center" }}>Finished!</Text>
             <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center" }} numberOfLines={2}>
               How was “{ratingBook.title}”?

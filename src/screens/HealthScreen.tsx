@@ -1118,7 +1118,7 @@ export function HealthScreen() {
       {/* ── Step goal nudge banner ── */}
       {showGoalNudge && (
         <View style={{ borderRadius: 18, borderWidth: 2, borderColor: theme.teal.solid, backgroundColor: theme.teal.bg, padding: 12, flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Text style={{ fontSize: 20 }}>🎯</Text>
+          <ThemedIcon slot="health.goal" size={20} />
           <Pressable onPress={() => navigation.navigate("SettingsTracking")} style={{ flex: 1 }}>
             <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "900" }}>Set your daily step goal</Text>
             <Text style={{ color: theme.teal.sub, fontSize: 11, fontWeight: "600", marginTop: 1 }}>Tap to pick a target → shows on your step ring</Text>
@@ -1314,7 +1314,7 @@ export function HealthScreen() {
                   transform: [{ scale: waterCelebAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.6, 1.15, 1] }) }],
                 }}
               >
-                <Text style={{ fontSize: 22 }}>💧</Text>
+                <ThemedIcon slot="health.water_block" size={22} />
                 <Text style={{ fontSize: 9, fontWeight: "900", color: theme.blue.sub, letterSpacing: 0.5 }}>GOAL!</Text>
               </Animated.View>
             </MetricChip>
@@ -1751,7 +1751,7 @@ export function HealthScreen() {
               style={[styles.annotationChip, { backgroundColor: theme.amber?.bg ?? "#FFF7ED", borderColor: theme.amber?.sub ?? "#D97706" }]}
               accessibilityLabel={"Annotation: " + ann.label}
             >
-              <Text style={{ fontSize: 12 }}>🚩</Text>
+              <ThemedIcon slot="ui.flag" size={12} />
               <Text style={[styles.annotationChipLabel, { color: theme.textStrong }]} numberOfLines={1}>{ann.label}</Text>
               <Text style={[styles.annotationChipTime, { color: theme.textSoft }]}>{timeLabel}</Text>
               <Pressable

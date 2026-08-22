@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Image, ImageStyle, StyleProp, Text, View } from "react-native";
+import { Image, ImageStyle, StyleProp, View } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 
 // Base URL for the free-exercise-db image set.
 export const EXERCISE_IMAGE_BASE =
@@ -38,7 +39,7 @@ export function CyclingImage({
           { backgroundColor: theme.teal.tint, alignItems: "center", justifyContent: "center" },
         ]}
       >
-        <Text style={{ fontSize: 32 }}>🏋️</Text>
+        <ThemedIcon slot="ui.gym" size={32} />
       </View>
     );
   }

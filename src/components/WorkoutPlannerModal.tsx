@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { ThemedIcon } from '../theme/iconRegistry';
 import { api } from '../api/client';
 import { LoadingIndicator } from './LoadingIndicator';
 
@@ -102,7 +103,7 @@ export function WorkoutPlannerModal({ visible, onClose, onBegin, initialQueue }:
             </View>
 
             <View style={[s.searchBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
+              <ThemedIcon slot="ui.search" size={16} style={{ marginRight: 8 } as any} />
               <TextInput
                 style={[s.searchInput, { color: theme.textStrong }]}
                 value={query}
@@ -188,7 +189,7 @@ export function WorkoutPlannerModal({ visible, onClose, onBegin, initialQueue }:
             >
               {queue.length === 0 ? (
                 <View style={s.empty}>
-                  <Text style={{ fontSize: 48 }}>🏋️</Text>
+                  <ThemedIcon slot="ui.gym" size={48} />
                   <Text style={[s.emptyTitle, { color: theme.textStrong }]}>No exercises planned</Text>
                   <Text style={[s.emptySub, { color: theme.textSoft }]}>
                     Add exercises below to build your workout,{'\n'}or begin now and log as you go.
@@ -243,7 +244,7 @@ export function WorkoutPlannerModal({ visible, onClose, onBegin, initialQueue }:
               >
                 {starting
                   ? <LoadingIndicator color="#fff" size="small" />
-                  : <Text style={s.beginBtnText}>🏃  Begin Workout</Text>
+                  : <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><ThemedIcon slot="ui.run" size={16} color="#fff" /><Text style={s.beginBtnText}>Begin Workout</Text></View>
                 }
               </Pressable>
             </View>

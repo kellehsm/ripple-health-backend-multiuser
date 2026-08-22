@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { api } from "../api/client";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { toast } from "../lib/toast";
@@ -206,7 +207,7 @@ export function ExperimentScreen() {
           </View>
         ) : experiments.length === 0 ? (
           <View style={[s.card, { alignItems: "center", paddingVertical: 32 }]}>
-            <Text style={{ fontSize: 32, marginBottom: 8 }}>🧪</Text>
+            <ThemedIcon slot="ui.flask" size={32} style={{ marginBottom: 8 } as any} />
             <Text style={{ color: theme.textStrong, fontSize: 16, fontWeight: "700", marginBottom: 6 }}>No experiments yet</Text>
             <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center", lineHeight: 18 }}>
               Run a short personal experiment — try something new and see how your metrics respond.
@@ -419,7 +420,7 @@ export function ExperimentScreen() {
           {/* Hedge notice — always shown */}
           <View style={[s.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid + "40" }]}>
             <View style={{ flexDirection: "row", gap: 8 }}>
-              <Text style={{ fontSize: 16 }}>💡</Text>
+              <ThemedIcon slot="ui.bulb" size={16} />
               <Text style={{ color: theme.teal.fg, fontSize: 13, lineHeight: 18, flex: 1 }}>
                 {results.hedge ?? "Early signal — a short window like this can be affected by normal day-to-day variation."}
               </Text>

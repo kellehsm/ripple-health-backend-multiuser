@@ -6,6 +6,7 @@ import Svg, { Polyline, Line, Text as SvgText, Rect, Defs, LinearGradient as Svg
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { ThemedIcon } from '../theme/iconRegistry';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { ShadowCard } from '../components/ShadowCard';
@@ -307,7 +308,7 @@ export function ExerciseDetailScreen() {
       <Text style={[styles.sectionLabel, { color: theme.textSoft, marginTop: 4 }]}>EXERCISES LOGGED</Text>
       {session.entries.length === 0 ? (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 20 }]}>
-          <Text style={{ fontSize: 28 }}>🏋️</Text>
+          <ThemedIcon slot="ui.gym" size={28} />
           <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No exercises logged</Text>
           <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
             This session was saved without individual exercises.
@@ -333,7 +334,7 @@ export function ExerciseDetailScreen() {
                     style={[styles.progressionBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}
                     accessibilityLabel={`All sets maxed. Try ${suggestNextWeight(entry as any, entry.target_rep_range_max) ?? entry.weight_used + 5} pounds next time.`}
                   >
-                    <Text style={{ fontSize: 15 }}>🏆</Text>
+                    <ThemedIcon slot="ui.trophy" size={15} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.progressionTitle, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>
                         All sets maxed!

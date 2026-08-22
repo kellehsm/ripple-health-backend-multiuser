@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { EmptyState } from "../components/EmptyState";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { ShadowCard } from "../components/ShadowCard";
 import { UndoBanner } from "../components/UndoBanner";
 import { toast } from "../lib/toast";
@@ -463,7 +464,10 @@ export function CompletedScreen() {
                 <View key={item.id} style={[styles.card, { backgroundColor: theme.violet.tint }]}>
                   <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
                     <View style={[styles.iconTile, { backgroundColor: theme.violet.bg, borderColor: ink }]}>
-                      <Text style={{ fontSize: 20 }}>{item.icon || "🎯"}</Text>
+                      {item.icon
+                        ? <Text style={{ fontSize: 20 }}>{item.icon}</Text>
+                        : <ThemedIcon slot="ui.target" size={20} />
+                      }
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.title, { color: theme.textStrong }]} numberOfLines={2}>{item.name}</Text>
@@ -476,7 +480,7 @@ export function CompletedScreen() {
           )}
 
           {completedBooks.length === 0 && readingBooks.length === 0 && completedHobbies.length === 0 && !loadError && (
-            <EmptyState icon="📚" title="No books yet" subtitle="Add one from the Life tab to start your shelf." />
+            <EmptyState slot="empty.books" title="No books yet" subtitle="Add one from the Life tab to start your shelf." />
           )}
 
         </>

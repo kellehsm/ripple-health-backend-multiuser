@@ -152,7 +152,7 @@ export function StepsDetailScreen() {
     return (
       <View style={[s.center, { backgroundColor: theme.page }]}>
         <ScreenBackground pageId="steps_detail" />
-        <EmptyState icon="⚠️" title="Couldn't load step data" subtitle="Check your connection and try again." />
+        <EmptyState slot="empty.warning" title="Couldn't load step data" subtitle="Check your connection and try again." />
         <Pressable onPress={handleRetry} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: theme.teal.tint, borderRadius: 14, borderWidth: 1.5, borderColor: theme.teal.solid }}>
           <Text style={{ color: theme.teal.fg, fontWeight: "700", fontSize: 15 }}>Retry</Text>
         </Pressable>
@@ -164,7 +164,7 @@ export function StepsDetailScreen() {
     return (
       <View style={[s.center, { backgroundColor: theme.page }]}>
         <ScreenBackground pageId="steps_detail" />
-        <EmptyState icon="👟" title="No step data yet" subtitle="Sync from Health Connect on the Health tab to see your weekly trends." />
+        <EmptyState slot="empty.steps" title="No step data yet" subtitle="Sync from Health Connect on the Health tab to see your weekly trends." />
       </View>
     );
   }

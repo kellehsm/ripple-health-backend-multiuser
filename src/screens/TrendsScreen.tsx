@@ -13,6 +13,7 @@ import {
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import Svg, { Circle, Line, Rect, Text as SvgText } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { ShadowCard } from "../components/ShadowCard";
 import { api } from "../api/client";
 import { useFocusEffect } from "@react-navigation/native";
@@ -468,7 +469,7 @@ export function TrendsScreen() {
         <TrendsSkeleton />
       ) : rows.length === 0 ? (
         <View style={s.empty}>
-          <Text style={{ fontSize: 32, marginBottom: 12, textAlign: "center" }}>📊</Text>
+          <ThemedIcon slot="ui.chart" size={32} style={{ marginBottom: 12 } as any} />
           <Text style={[s.emptyTxt, { color: theme.textSoft }]}>
             Not enough data yet — keep logging and patterns will appear here after a week.
           </Text>

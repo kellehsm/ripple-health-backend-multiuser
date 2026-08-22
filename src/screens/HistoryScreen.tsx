@@ -233,7 +233,7 @@ export function HistoryScreen() {
 
       {!loading && hasSearched && !searchError && results.length === 0 ? (
         <EmptyState
-          emoji="🔍"
+          slot="ui.search"
           title="No results found"
           message={`No ${modeLabel[mode].toLowerCase()} entries match your filters. Try adjusting the search criteria.`}
         />

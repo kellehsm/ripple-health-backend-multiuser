@@ -54,7 +54,8 @@ export const DEFAULT_ICONS: Record<string, IconAsset> = {
   // ── Greeting ─────────────────────────────────────────────────────────────────
   "greeting.morning":   emoji("🌅"),
   "greeting.afternoon": emoji("☀️"),
-  "greeting.evening":   emoji("🌙"),
+  "greeting.evening":   emoji("🌆"),
+  "greeting.night":     emoji("🌙"),
 
   // ── Metrics ──────────────────────────────────────────────────────────────────
   "metric.steps":    ionicon("walk"),
@@ -111,6 +112,91 @@ export const DEFAULT_ICONS: Record<string, IconAsset> = {
   "ui.seedling":    emoji("🌱"),
   "ui.sparkle":     emoji("✨"),
   "ui.bulb":        emoji("💡"),
+  "ui.trophy":      emoji("🏆"),
+  "ui.celebrate":   emoji("🎉"),
+  "ui.gratitude":   emoji("🙏"),
+  "ui.shuffle":     emoji("🔀"),
+  "ui.bell":        emoji("🔔"),
+  "ui.headphones":  emoji("🎧"),
+  "ui.music":       emoji("🎵"),
+  "ui.mute":        emoji("🔇"),
+  "ui.lightning":   emoji("⚡"),
+  "ui.breath":      emoji("🌬️"),
+  "ui.gym":         emoji("🏋️"),
+  "ui.run":         emoji("🏃"),
+  "ui.mail":        emoji("💌"),
+  "ui.map":         emoji("🗺️"),
+  "ui.chart":       emoji("📊"),
+  "ui.flask":       emoji("🧪"),
+  "ui.search":      emoji("🔍"),
+  "ui.hand":        emoji("✋"),
+  "ui.clock_alarm": emoji("⏰"),
+  "ui.medal":       emoji("🏅"),
+  "ui.target":      emoji("🎯"),
+  "ui.freeze":      emoji("❄️"),
+  "ui.pin":         emoji("📌"),
+
+  // ── Empty states ──────────────────────────────────────────────────────────────
+  "empty.books":    emoji("📚"),
+  "empty.heart":    emoji("💓"),
+  "empty.trend":    emoji("📈"),
+  "empty.glucose":  emoji("🩸"),
+  "empty.clock":    emoji("🕐"),
+  "empty.steps":    emoji("👟"),
+  "empty.warning":  emoji("⚠️"),
+  "empty.insights": emoji("💡"),
+  "empty.default":  emoji("📭"),
+
+  // ── Medication history event types ────────────────────────────────────────────
+  "medHistory.added":              emoji("✅"),
+  "medHistory.dose_changed":       emoji("💊"),
+  "medHistory.frequency_changed":  emoji("🕐"),
+  "medHistory.prescriber_changed": emoji("🩺"),
+  "medHistory.stopped":            emoji("🛑"),
+  "medHistory.list":               emoji("📋"),
+
+  // ── Exercise suggestion types ─────────────────────────────────────────────────
+  "exerciseSuggestion.rest_day":           emoji("😴"),
+  "exerciseSuggestion.neglected_muscle":   emoji("🎯"),
+  "exerciseSuggestion.program_gap":        emoji("📋"),
+  "exerciseSuggestion.preferred_day":      emoji("📅"),
+  "exerciseSuggestion.consistency_streak": emoji("🔥"),
+  "exerciseSuggestion.low_completion":     emoji("⏱️"),
+  "exerciseSuggestion.no_history":         emoji("🏋️"),
+  "exerciseSuggestion.generic":            emoji("💪"),
+
+  // ── Mindfulness section tiles ─────────────────────────────────────────────────
+  "mindfulness.breathing":  emoji("🫁"),
+  "mindfulness.grounding":  emoji("🌿"),
+  "mindfulness.meditation": emoji("⏱"),
+  "mindfulness.gratitude":  emoji("📓"),
+  "mindfulness.body_scan":  emoji("🧘"),
+  "mindfulness.sounds":     emoji("🎧"),
+
+  // ── Mindfulness session milestones ────────────────────────────────────────────
+  "milestone.1":   emoji("🌱"),
+  "milestone.5":   emoji("🌿"),
+  "milestone.10":  emoji("🌊"),
+  "milestone.20":  emoji("🧘"),
+  "milestone.50":  emoji("⭐"),
+  "milestone.100": emoji("🏆"),
+
+  // ── Friends / social ──────────────────────────────────────────────────────────
+  "social.nudge":           emoji("👋"),
+  "social.steps_streak":    emoji("👟"),
+  "social.exercise_streak": emoji("💪"),
+  "social.book_streak":     emoji("📖"),
+
+  // ── Overview / health block icons ─────────────────────────────────────────────
+  "health.meds_block":     emoji("💊"),
+  "health.cycle_block":    emoji("🌸"),
+  "health.symptoms_block": emoji("📝"),
+  "health.water_block":    emoji("💧"),
+  "health.goal":           emoji("🎯"),
+
+  // ── Insights correlations ─────────────────────────────────────────────────────
+  "insight.sleep_corr":   emoji("🌙"),
+  "insight.finance_corr": emoji("💰"),
 };
 
 // ─── Resolver ─────────────────────────────────────────────────────────────────

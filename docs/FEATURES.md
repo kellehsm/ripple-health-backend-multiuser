@@ -179,7 +179,7 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 | Method | Path | File |
 |--------|------|------|
 | GET | `/api/heart-rate` | `heart-rate.ts` |
-| GET | `/api/heart-rate/daily` | `heart-rate.ts` |
+| GET | `/api/heart-rate/daily` | `heart-rate.ts` — last-N-days-with-data (not NOW-anchored); `resting_bpm` via `PERCENTILE_CONT(0.05)`; default N=7, max 30 |
 | GET | `/api/heart-rate/stats` | `heart-rate.ts` — 30-day resting trend, rolling avg, zones, week comparison |
 | POST | `/api/health-connect/heart-rate` | `health-connect.ts` |
 
@@ -513,7 +513,7 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 
 **Feature Guide subscreen:** Feature Guide entries have been moved out of SettingsScreen into a dedicated subscreen `src/screens/settings/FeatureGuideScreen.tsx` (route `"SettingsFeatureGuide"`). SettingsScreen now shows a single "Feature Guide" row that navigates to it.
 
-**HealthConnectSettingsScreen:** the grant-permissions and open-settings buttons now call `openHealthConnectSettings()` from `react-native-health-connect` directly, fixing a previous silent no-op that was using a manual intent string.
+**HealthConnectSettingsScreen:** the grant-permissions and open-settings buttons now call `openHealthConnectSettings()` from `react-native-health-connect` directly, fixing a previous silent no-op that was using a manual intent string. Additional HC permission flow fixes: grant-permission call now `await`s dialog resolution before re-checking granted state (fixes stuck "permissions needed" screen); revoking permissions in-app calls `resetHCInitialized()` so the HC client reinitializes on next use and the UI self-heals to "permissions needed" state rather than showing a broken sync.
 
 **API:**
 | Method | Path | File |

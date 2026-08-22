@@ -1,9 +1,27 @@
 import { initialize, requestPermission, readRecords, aggregateGroupByPeriod } from "react-native-health-connect";
 import { api } from "../api/client";
 
+// Module-level init flag so we can force re-initialization after revokeAllPermissions().
+// The library's native client becomes stale after revoke; resetting this flag ensures
+// the next syncHealthData / requestHealthPermissions call re-runs initialize().
+let _hcInitialized = false;
+
+/** Call after revokeAllPermissions() to force the next HC call to re-initialize. */
+export function resetHCInitialized(): void {
+  _hcInitialized = false;
+}
+
+async function ensureInitialized(): Promise<boolean> {
+  if (_hcInitialized) return true;
+  const ready = await initialize();
+  if (ready) _hcInitialized = true;
+  return ready;
+}
+
 export async function requestHealthPermissions(): Promise<boolean> {
   try {
-    const ready = await initialize();
+    // ensureInitialized re-runs initialize() whenever the flag was reset (e.g. after revoke).
+    const ready = await ensureInitialized();
     if (!ready) return false;
     const granted = await requestPermission([
       { accessType: "read", recordType: "Steps" },
@@ -43,7 +61,12 @@ export async function syncHealthData(opts?: {
   syncWeight?: boolean;
   syncSpo2?: boolean;
 }): Promise<SyncResult> {
-  await initialize();
+  // Use ensureInitialized so a post-revoke sync re-initializes the native client
+  // rather than calling into a stale handle (which throws/hangs).
+  const ready = await ensureInitialized();
+  if (!ready) {
+    return { steps: null, sleepHours: null, sleepStages: null, heartRate: null, activeMinutes: null, weightKg: null, spo2Pct: null, errors: ["Health Connect not available — permissions may have been revoked."] };
+  }
 
   const now = new Date();
   const startOfDay = new Date(now);

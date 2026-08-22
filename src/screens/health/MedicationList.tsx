@@ -10,6 +10,18 @@ import { LongPressActionMenu } from '../../components/LongPressActionMenu';
 import { Medication, MedSlot, computeMedStatus, statusBadge, nextDoseCallout } from './shared';
 import { AddMedicationModal, MedicationInfoModal } from './AddMedicationModal';
 import { AdherenceHero } from './AdherenceHero';
+import { ThemedIcon } from '../../theme/iconRegistry';
+
+/** Map time-of-day bucket to an icon slot. */
+function bucketSlotId(bucket: string): string {
+  const map: Record<string, string> = {
+    morning: 'greeting.morning',
+    midday:  'greeting.afternoon',
+    evening: 'greeting.evening',
+    custom:  'ui.clock_alarm',
+  };
+  return map[bucket] ?? 'ui.clock_alarm';
+}
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -269,7 +281,6 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
           })()}
           {Object.entries(buckets).map(([bucket, meds]) => {
             if (meds.length === 0) return null;
-            const BUCKET_ICONS: Record<string, string> = { morning: '🌅', midday: '☀️', evening: '🌙', custom: '⏰' };
             const bucketSlots = meds
               .map((med) => med.slots.find((s) => {
                 const b = ['morning', 'midday', 'evening'].includes(s.time_of_day) ? s.time_of_day : 'custom';
@@ -289,7 +300,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                   accessibilityRole="button"
                   accessibilityLabel={`${BUCKET_LABELS[bucket]} complete, ${takenCount} of ${bucketSlots.length} taken. Double tap to expand.`}
                 >
-                  <Text style={{ fontSize: 15 }}>{BUCKET_ICONS[bucket]}</Text>
+                  <ThemedIcon slot={bucketSlotId(bucket)} size={15} />
                   <Text style={[medStyles.bucketLabel, { color: theme.teal.fg, flex: 1 }]} allowFontScaling maxFontSizeMultiplier={1.3}>
                     {BUCKET_LABELS[bucket]}
                   </Text>
@@ -313,7 +324,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                     accessibilityRole={allTaken ? 'button' : undefined}
                     accessibilityLabel={allTaken ? `${BUCKET_LABELS[bucket]}, all taken. Double tap to collapse.` : undefined}
                   >
-                    <Text style={{ fontSize: 14 }}>{BUCKET_ICONS[bucket]}</Text>
+                    <ThemedIcon slot={bucketSlotId(bucket)} size={14} />
                     <Text style={[medStyles.bucketLabel, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.3} accessibilityRole="header">{BUCKET_LABELS[bucket]}</Text>
                     <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }} allowFontScaling maxFontSizeMultiplier={1.3}>
                       {takenCount}/{bucketSlots.length}
@@ -424,7 +435,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
               <View style={[medStyles.bucket, { backgroundColor: theme.card, borderColor: theme.cardBorder, ...coloredShadow(theme.amber?.solid ?? '#D97706') }]}>
                 <View style={medStyles.bucketHeader}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ fontSize: 14 }}>✋</Text>
+                    <ThemedIcon slot="ui.hand" size={14} />
                     <Text style={[medStyles.bucketLabel, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.3} accessibilityRole="header">As needed</Text>
                   </View>
                 </View>
@@ -513,7 +524,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
             if (medications.length === 0) {
               return (
                 <View style={{ padding: 24, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, backgroundColor: theme.card, alignItems: 'center', gap: 8 }}>
-                  <Text style={{ fontSize: 30 }}>💊</Text>
+                  <ThemedIcon slot="health.meds_block" size={30} />
                   <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: '700', textAlign: 'center' }}>No medications yet</Text>
                   <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: 'center', lineHeight: 18 }}>
                     Add your first medication above to start tracking doses, refills, and adherence.
@@ -732,7 +743,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
           }}
         >
           <View style={[medStyles.perfectCard, { backgroundColor: theme.teal.solid, borderColor: theme.ink }]}>
-            <Text style={{ fontSize: 34 }}>🎉</Text>
+            <ThemedIcon slot="ui.celebrate" size={34} />
             <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>Perfect day!</Text>
             <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>All {totalToday} doses taken</Text>
           </View>
