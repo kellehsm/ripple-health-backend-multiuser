@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Modal, RefreshControl, TextInput } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Modal, RefreshControl, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { toast } from '../lib/toast';
 import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
@@ -382,6 +382,10 @@ export function ExerciseScreen() {
   const openSession = sessions.find((s) => !s.ended_at);
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
     <View style={[styles.container, { backgroundColor: theme.page }]}>
       <ScreenBackground pageId="exercise" />
       <ScrollView
@@ -526,10 +530,10 @@ export function ExerciseScreen() {
                           fontWeight: "900", color: theme.textStrong,
                         }}
                       />
-                      <Pressable onPress={handleSaveRename} hitSlop={8}>
+                      <Pressable onPress={handleSaveRename} hitSlop={8} accessibilityLabel="Save program name">
                         <Ionicons name="checkmark" size={20} color={theme.teal.solid} />
                       </Pressable>
-                      <Pressable onPress={() => setRenamingProgram(false)} hitSlop={8}>
+                      <Pressable onPress={() => setRenamingProgram(false)} hitSlop={8} accessibilityLabel="Cancel rename">
                         <Ionicons name="close" size={20} color={theme.textSoft} />
                       </Pressable>
                     </View>
@@ -791,6 +795,7 @@ export function ExerciseScreen() {
       </Modal>
       <FeatureIntroSheet intro={exerciseIntro} visible={introVisible} onClose={dismissIntro} />
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

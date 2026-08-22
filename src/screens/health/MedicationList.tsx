@@ -400,7 +400,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                           <Text style={[medStyles.medName, { color: taken ? theme.textSoft : theme.textStrong }]}>{med.name}</Text>
                           {med.is_prn && (
                             <View style={{ backgroundColor: theme.amber.solid, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 }}>
-                              <Text style={{ color: '#78350F', fontSize: 10, fontWeight: '700' }}>PRN</Text>
+                              <Text style={{ color: theme.amber.fg, fontSize: 10, fontWeight: '700' }}>PRN</Text>
                             </View>
                           )}
                         </View>
@@ -586,7 +586,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                       <Text style={[medStyles.medName, { color: theme.textStrong, flex: 1 }]}>{med.name}</Text>
                       {med.is_prn && (
                         <View style={{ backgroundColor: theme.amber.solid, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 }}>
-                          <Text style={{ color: '#78350F', fontSize: 10, fontWeight: '700' }}>PRN</Text>
+                          <Text style={{ color: theme.amber.fg, fontSize: 10, fontWeight: '700' }}>PRN</Text>
                         </View>
                       )}
                       {/* Info button */}
@@ -785,7 +785,7 @@ const medStyles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 16,
     alignItems: 'center',
-    shadowColor: "#3FA0A6",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
     shadowRadius: 12,

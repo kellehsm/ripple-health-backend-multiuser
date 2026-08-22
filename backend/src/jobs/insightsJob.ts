@@ -5,6 +5,24 @@ import { processEndedExperiments } from "../services/experimentOutcome.js";
 import { computeGlobalPriors } from "../services/globalPriors.js";
 import { sunsetLowHitRules } from "../services/ruleSunset.js";
 
+type StructuredLogger = { info: (obj: Record<string, unknown> | string, msg?: string) => void; warn: (obj: Record<string, unknown> | string, msg?: string) => void; error: (obj: Record<string, unknown> | string, msg?: string) => void };
+
+let _logger: StructuredLogger | null = null;
+export function setInsightsLogger(logger: StructuredLogger) { _logger = logger; }
+
+function ilog(msg: string, meta?: Record<string, unknown>) {
+  if (_logger) _logger.info(meta ?? {}, `[InsightsJob] ${msg}`);
+  else console.log(`[InsightsJob] ${msg}`, meta ?? "");
+}
+function iwarn(msg: string, meta?: Record<string, unknown>) {
+  if (_logger) _logger.warn(meta ?? {}, `[InsightsJob] ${msg}`);
+  else console.warn(`[InsightsJob] ${msg}`, meta ?? "");
+}
+function ierror(msg: string, meta?: Record<string, unknown>) {
+  if (_logger) _logger.error(meta ?? {}, `[InsightsJob] ${msg}`);
+  else console.error(`[InsightsJob] ${msg}`, meta ?? "");
+}
+
 // Arbitrary constant — must be the same across all callers of pg_advisory_lock.
 // Picking a big, hand-chosen 64-bit int so it doesn't collide with anything else
 // the app might advisory-lock in the future.
@@ -21,7 +39,7 @@ export async function runInsightsJob(): Promise<void> {
       [INSIGHTS_JOB_LOCK_KEY.toString()]
     );
     if (!lock?.acquired) {
-      console.warn("[InsightsJob] previous run still in progress — skipping");
+      iwarn("previous run still in progress — skipping");
       return;
     }
     await runInsightsJobBody();
@@ -39,9 +57,9 @@ async function runInsightsJobBody(): Promise<void> {
   // ones from last week.
   try {
     const b = await refreshAllBaselines();
-    console.log(`[InsightsJob] baselines refreshed: ${b.users} users, ${b.totalMetricsWritten} metric rows written`);
+    ilog(`baselines refreshed: ${b.users} users, ${b.totalMetricsWritten} metric rows written`);
   } catch (err: any) {
-    console.error(`[InsightsJob] baselines refresh failed:`, err?.message);
+    ierror("baselines refresh failed", { error: err?.message });
   }
 
   const users = await query<{ id: string }>("SELECT id FROM users");
@@ -53,27 +71,27 @@ async function runInsightsJobBody(): Promise<void> {
     const result = results[i];
     if (result.status === "fulfilled") {
       if (result.value.errors.length > 0) {
-        console.error(`[InsightsJob] user ${id} rule errors:`, result.value.errors);
+        ierror(`user ${id} rule errors`, { errors: result.value.errors });
       }
-      console.log(`[InsightsJob] user ${id}: ${result.value.found}/${result.value.ran} rules fired in ${result.value.runMs}ms`);
+      ilog(`user ${id}: ${result.value.found}/${result.value.ran} rules fired in ${result.value.runMs}ms`);
     } else {
-      console.error(`[InsightsJob] failed for user ${id}:`, (result.reason as any)?.message);
+      ierror(`failed for user ${id}`, { error: (result.reason as any)?.message });
     }
   }
 
   // Post-run housekeeping.
   try {
     const outcomes = await processEndedExperiments();
-    console.log(`[InsightsJob] experiment outcomes emitted: ${outcomes.processed}`);
-  } catch (err: any) { console.error(`[InsightsJob] outcome processing failed:`, err?.message); }
+    ilog(`experiment outcomes emitted: ${outcomes.processed}`);
+  } catch (err: any) { ierror("outcome processing failed", { error: err?.message }); }
 
   try {
     const priors = await computeGlobalPriors();
-    console.log(`[InsightsJob] global priors updated for ${priors.rules} rules`);
-  } catch (err: any) { console.error(`[InsightsJob] global priors failed:`, err?.message); }
+    ilog(`global priors updated for ${priors.rules} rules`);
+  } catch (err: any) { ierror("global priors failed", { error: err?.message }); }
 
   try {
     const sunset = await sunsetLowHitRules();
-    console.log(`[InsightsJob] rule sunset: ${sunset.archived} rules archived`);
-  } catch (err: any) { console.error(`[InsightsJob] sunset failed:`, err?.message); }
+    ilog(`rule sunset: ${sunset.archived} rules archived`);
+  } catch (err: any) { ierror("sunset failed", { error: err?.message }); }
 }

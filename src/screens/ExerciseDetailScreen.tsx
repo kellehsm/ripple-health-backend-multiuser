@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Image, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Image, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { toast } from '../lib/toast';
 import Svg, { Polyline, Line, Text as SvgText, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
@@ -14,6 +14,7 @@ import { formatDuration, entryLabel, suggestNextWeight } from '../utils/exercise
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
 function CyclingImage({ images, style }: { images: string[]; style: any }) {
+  const { theme } = useTheme();
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     if (images.length <= 1) return;
@@ -21,7 +22,7 @@ function CyclingImage({ images, style }: { images: string[]; style: any }) {
     return () => clearInterval(t);
   }, [images.length]);
   if (!images.length) {
-    return <View style={[style, { backgroundColor: '#D8F5EB', opacity: 0.5 }]} />;
+    return <View style={[style, { backgroundColor: theme.teal.tint, opacity: 0.5 }]} />;
   }
   return <Image source={{ uri: IMAGE_BASE + images[idx] }} style={style} resizeMode="cover" />;
 }
@@ -181,6 +182,7 @@ export function ExerciseDetailScreen() {
 
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [showInstructions, setShowInstructions] = useState<string | null>(null);
 
@@ -219,8 +221,25 @@ export function ExerciseDetailScreen() {
   const hasHR = session.hr_summary && session.hr_summary.sample_count > 0;
   const hasZones = hasHR && Object.values(session.hr_summary!.time_in_zone_seconds).some((v) => v > 0);
 
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      const data = await api.getExerciseSession(sessionId);
+      setSession(data);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={{ backgroundColor: theme.page }}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
+    >
       {/* Header stats */}
       <View style={[styles.headerCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <View style={styles.statRow}>
@@ -355,7 +374,7 @@ export function ExerciseDetailScreen() {
           marginTop: 24,
           marginBottom: 12,
           paddingVertical: 12,
-          borderRadius: 14,
+          borderRadius: 16,
           borderWidth: 1.5,
           borderColor: theme.coral.solid,
           backgroundColor: pressed ? theme.coral.tint : "transparent",
@@ -377,7 +396,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     overflow: 'hidden',
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -394,7 +413,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 14,
     gap: 12,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -416,7 +435,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 2,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -425,7 +444,7 @@ const styles = StyleSheet.create({
   exerciseImage: { width: '100%', height: 220 },
   exerciseCardBody: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14 },
   exerciseDetailChip: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 2,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -437,7 +456,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 2,
     flexDirection: 'row',
     alignItems: 'center',

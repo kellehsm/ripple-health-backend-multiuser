@@ -16,6 +16,7 @@ import { ShadowCard } from "../components/ShadowCard";
 import { getLeaderboard, getReactions, addReaction, LeaderboardEntry, Reaction, SocialCategory } from "../api/friends";
 import { toast } from "../lib/toast";
 import { getWeekStart } from "../utils/dateUtils";
+import { RANK_COLORS } from "../constants";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -56,7 +57,6 @@ function formatValue(value: number, category: SocialCategory): string {
 }
 
 const RANK_MEDALS = ["", "gold", "silver", "bronze"] as const;
-const RANK_COLORS = ["", "#F5B800", "#A8A8A8", "#C07A4A"];
 const REACTION_EMOJIS = ["🔥", "💪", "👏", "⭐", "🚀"] as const;
 
 export function LeaderboardScreen() {
@@ -191,7 +191,7 @@ export function LeaderboardScreen() {
                 setLoading(true);
                 fetchData().finally(() => setLoading(false));
               }}
-              style={{ borderWidth: 2, borderColor: theme.ink, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 8, backgroundColor: theme.card }}
+              style={{ borderWidth: 2, borderColor: theme.cardBorder, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 8, backgroundColor: theme.card }}
             >
               <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 13 }}>Retry</Text>
             </Pressable>
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   myBanner: {
     marginTop: 12,
-    borderRadius: 14,
+    borderRadius: 22,
     borderWidth: 2,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -346,14 +346,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderRadius: 14,
+    borderRadius: 22,
     padding: 10,
   },
   board: {
     borderRadius: 22,
     borderWidth: 2,
     overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

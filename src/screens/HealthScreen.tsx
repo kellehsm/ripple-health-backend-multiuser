@@ -462,7 +462,7 @@ export function HealthScreen() {
       lastSyncTimeRef.current = Date.now();
       setLastSyncMinutes(0);
     } catch (e) {
-      console.error("Failed to load steps", e);
+      if (__DEV__) console.error("Failed to load steps", e);
     }
     try {
       const stepsList = await api.getStepsMetric();
@@ -486,7 +486,7 @@ export function HealthScreen() {
         setSleepDisplay(null);
       }
     } catch (e) {
-      console.error("Failed to load sleep", e);
+      if (__DEV__) console.error("Failed to load sleep", e);
     }
     try {
       const stats = await api.sleepStats();
@@ -508,7 +508,7 @@ export function HealthScreen() {
         setSleepWeekDays(sleepWeekDaysVal);
       }
     } catch (e) {
-      console.error("Failed to load sleep stats", e);
+      if (__DEV__) console.error("Failed to load sleep stats", e);
     }
     try {
       const cachedStages = await AsyncStorage.getItem("ripple_sleep_stages");
@@ -568,7 +568,7 @@ export function HealthScreen() {
       } catch (_) {}
       setCached(cacheKey, { metricId: metric.id, count, statLine });
     } catch (e) {
-      console.error("Failed to load water data", e);
+      if (__DEV__) console.error("Failed to load water data", e);
     }
   }, []);
 
@@ -600,7 +600,7 @@ export function HealthScreen() {
           setCached(cacheKey, { readings: readingList, sevenDay: [] });
         });
     } catch (e) {
-      console.error("Failed to load heart rate", e);
+      if (__DEV__) console.error("Failed to load heart rate", e);
     } finally {
       setHrLoading(false);
     }
@@ -658,7 +658,7 @@ export function HealthScreen() {
       prevWaterRef.current = newCount;
       setWaterCount(newCount);
     } catch (e) {
-      console.error("Failed to log water", e);
+      if (__DEV__) console.error("Failed to log water", e);
       prevWaterRef.current = prevCount;
       setWaterCount(prevCount);
       toast("Couldn't log that glass of water. Try again.", "error");
@@ -763,7 +763,7 @@ export function HealthScreen() {
         }
       })
       .catch(function (e) {
-        console.error("Failed to load glucose data", e);
+        if (__DEV__) console.error("Failed to load glucose data", e);
       })
       .finally(function () {
         setLoading(false);
@@ -1156,6 +1156,7 @@ export function HealthScreen() {
               await AsyncStorage.setItem("ripple_step_goal_nudge_dismissed", "true").catch(() => {});
             }}
             hitSlop={10}
+            accessibilityLabel="Dismiss step goal prompt"
           >
             <Ionicons name="close" size={18} color={theme.teal.sub} />
           </Pressable>
@@ -1751,6 +1752,7 @@ export function HealthScreen() {
                   }).catch(function () {});
                 }}
                 hitSlop={8}
+                accessibilityLabel="Delete annotation"
               >
                 <Ionicons name="close-circle" size={14} color={theme.textSoft} />
               </Pressable>

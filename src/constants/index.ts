@@ -35,6 +35,14 @@ export const FLOW_COLORS: Record<string, string> = {
   heavy:    "#C48070",
 };
 
+// ─── Social / Leaderboard ─────────────────────────────────────────────────────
+
+/**
+ * Medal colors for rank positions in leaderboards and challenge screens.
+ * Index 0 is unused (ranks are 1-based); 1=gold, 2=silver, 3=bronze.
+ */
+export const RANK_COLORS: string[] = ["", "#F5B800", "#A8A8A8", "#C07A4A"];
+
 // ─── Meals ────────────────────────────────────────────────────────────────────
 
 /**

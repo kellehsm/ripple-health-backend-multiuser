@@ -10,7 +10,9 @@ const MAX_MESSAGES = 30;
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export default async function chatRoutes(app: FastifyInstance) {
-  app.post("/", async (req, reply) => {
+  app.post("/", {
+    config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+  }, async (req, reply) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       reply.code(503);
@@ -32,9 +34,9 @@ export default async function chatRoutes(app: FastifyInstance) {
               activity_score, hydration_score, nutrition_score, mood_score, productivity_score,
               stress_score, summary_data
        FROM daily_summaries
-       WHERE user_id = $1 AND date >= CURRENT_DATE - ${CONTEXT_DAYS} * INTERVAL '1 day'
+       WHERE user_id = $1 AND date >= (CURRENT_DATE - ($2::int * INTERVAL '1 day'))
        ORDER BY date DESC`,
-      [user_id]
+      [user_id, CONTEXT_DAYS]
     );
 
     const system = [
@@ -68,6 +70,6 @@ ${JSON.stringify(rows)}`,
       .map(b => b.text)
       .join("");
 
-    return { reply: text, usage: response.usage };
+    return { reply: text };
   });
 }

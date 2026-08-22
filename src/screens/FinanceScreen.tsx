@@ -257,8 +257,9 @@ export function FinanceScreen() {
           markTooltipSeen("finance");
         }
       });
+      let tourTimer: ReturnType<typeof setTimeout> | undefined;
       hasSeenTooltip("finance-tour").then(seen => {
-        if (!cancelled && !seen) { markTooltipSeen("finance-tour"); setTimeout(() => setShowTour(true), 600); }
+        if (!cancelled && !seen) { markTooltipSeen("finance-tour"); tourTimer = setTimeout(() => setShowTour(true), 600); }
       });
       api.getSettings().then((s: any) => {
         if (!cancelled) {
@@ -268,7 +269,7 @@ export function FinanceScreen() {
       }).catch(() => {});
       load();
       syncPlaid();
-      return () => { cancelled = true; };
+      return () => { cancelled = true; if (tourTimer) clearTimeout(tourTimer); };
     }, [])
   );
 

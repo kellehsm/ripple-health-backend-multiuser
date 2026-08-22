@@ -394,7 +394,7 @@ export function TrendsScreen() {
       });
       setCtxObs(obs);
     } catch (e) {
-      console.error("TrendsScreen load error", e);
+      if (__DEV__) console.error("TrendsScreen load error", e);
     } finally {
       setLoading(false);
       setRefreshing(false);

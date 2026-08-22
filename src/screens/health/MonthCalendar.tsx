@@ -77,7 +77,7 @@ export function MonthCalendar({
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-    <View style={[calStyles.container, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
+    <View style={[calStyles.container, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
       <View style={calStyles.header}>
         <Pressable onPress={prevMonth} hitSlop={8} accessibilityRole="button" accessibilityLabel="Previous month"><Text style={{ color: theme.textStrong, fontSize: 20 }}>‹</Text></Pressable>
         <Text style={[calStyles.monthLabel, { color: theme.textStrong }]}>{monthLabel}</Text>
@@ -212,7 +212,7 @@ const calStyles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     padding: 14,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

@@ -77,6 +77,7 @@ export default async function exportRoutes(app: FastifyInstance) {
     const startIso = startDate.toISOString();
     const endIso = endDate.toISOString();
 
+    try {
     // Fetch all needed data in parallel
     const [glucoseRows, mealRows, userRow] = await Promise.all([
       query<any>(
@@ -263,28 +264,35 @@ export default async function exportRoutes(app: FastifyInstance) {
       .header("Content-Type", "application/pdf")
       .header("Content-Disposition", `attachment; filename="ripple-wellness-report-${startDate.toISOString().slice(0, 10)}.pdf"`)
       .send(pdf);
+    } catch (err) {
+      if (!reply.sent) {
+        reply.code(500).send({ error: "Failed to generate report" });
+      } else {
+        reply.raw.destroy();
+      }
+    }
   });
 
   app.get("/all", async (req, reply: FastifyReply) => {
     const user_id = req.user_id;
 
+    const LIMIT = 10000;
     const [glucose, meals, journal, spending, books, hobbies, hobbiesLogs, sleep, heartRate, metrics, metricLogs] = await Promise.all([
-      query<any>(`SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at`, [user_id]),
-      query<any>(`SELECT * FROM meals WHERE user_id = $1 ORDER BY logged_at`, [user_id]),
-      query<any>(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at`, [user_id]),
-      query<any>(`SELECT * FROM spending_entries WHERE user_id = $1 ORDER BY logged_at`, [user_id]),
-      query<any>(`SELECT * FROM books WHERE user_id = $1`, [user_id]),
-      query<any>(`SELECT * FROM hobbies WHERE user_id = $1`, [user_id]),
-      query<any>(`SELECT hl.* FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE h.user_id = $1 ORDER BY hl.logged_at`, [user_id]),
-      query<any>(`SELECT * FROM sleep_sessions WHERE user_id = $1 ORDER BY start_time`, [user_id]),
-      query<any>(`SELECT * FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at`, [user_id]),
-      query<any>(`SELECT * FROM metrics WHERE user_id = $1`, [user_id]),
-      query<any>(`SELECT ml.* FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id WHERE m.user_id = $1 ORDER BY ml.logged_at`, [user_id]),
+      query<any>(`SELECT * FROM glucose_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT * FROM meals WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT * FROM spending_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT * FROM books WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT * FROM hobbies WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT hl.* FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id WHERE h.user_id = $1 ORDER BY hl.logged_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT * FROM sleep_sessions WHERE user_id = $1 ORDER BY start_time DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT * FROM heart_rate_readings WHERE user_id = $1 ORDER BY recorded_at DESC LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT * FROM metrics WHERE user_id = $1 LIMIT ${LIMIT}`, [user_id]),
+      query<any>(`SELECT ml.* FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id WHERE m.user_id = $1 ORDER BY ml.logged_at DESC LIMIT ${LIMIT}`, [user_id]),
     ]);
 
     const payload = JSON.stringify({
       exported_at: new Date().toISOString(),
-      user_id,
       glucose,
       meals,
       journal,
@@ -296,7 +304,7 @@ export default async function exportRoutes(app: FastifyInstance) {
       heart_rate: heartRate,
       metrics,
       metric_logs: metricLogs,
-    }, null, 2);
+    });
 
     const date = new Date().toISOString().slice(0, 10);
     reply
@@ -313,6 +321,7 @@ export default async function exportRoutes(app: FastifyInstance) {
   app.get("/weekly-digest.pdf", async (req, reply: FastifyReply) => {
     const user_id = req.user_id;
 
+    try {
     const insights = await query<any>(
       `SELECT title, description, confidence, confidence_score, type
        FROM user_insights
@@ -388,6 +397,13 @@ export default async function exportRoutes(app: FastifyInstance) {
       { align: "center", width: 480 }
     );
     doc.end();
+    } catch (err) {
+      if (!reply.sent) {
+        reply.code(500).send({ error: "Failed to generate digest" });
+      } else {
+        reply.raw.destroy();
+      }
+    }
   });
 
   /**

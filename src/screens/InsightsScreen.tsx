@@ -673,7 +673,7 @@ function makeStyles(page: string, ink: string, card: string) {
       borderWidth: 2,
       padding: 24,
       alignItems: "center",
-      shadowColor: "#000",
+      shadowColor: "rgba(60,40,20,0.1)",
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.08,
       shadowRadius: 6,

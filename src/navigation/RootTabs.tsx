@@ -57,6 +57,7 @@ import { InsightsHistoryScreen } from "../screens/InsightsHistoryScreen";
 import { CustomPlanBuilderScreen } from "../screens/CustomPlanBuilderScreen";
 import { MedicationRemindersScreen } from "../screens/settings/MedicationRemindersScreen";
 import { BottomNav } from "../components/BottomNav";
+import { AppErrorBoundary } from "../components/AppErrorBoundary";
 import { useTabPreferences } from "../hooks/useTabPreferences";
 import { useTheme } from "../theme/ThemeContext";
 import { navigationRef } from "./navigationRef";
@@ -211,6 +212,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
   const { theme } = useTheme();
 
   return (
+    <AppErrorBoundary>
     <NavigationContainer ref={navigationRef} onStateChange={onNavigationStateChange}>
       <Stack.Navigator
         screenOptions={{
@@ -281,5 +283,6 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
+    </AppErrorBoundary>
   );
 }
