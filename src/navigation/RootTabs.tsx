@@ -146,9 +146,9 @@ function TabNavigator() {
           Exercise: theme.berry.tint,
           Life:     theme.violet.tint,
           Finance:  theme.violet.tint,
-          Home:     theme.page,
+          Home:     theme.topBar ?? theme.teal.tint,
         };
-        const headerBg = accentMap[route.name] ?? theme.page;
+        const headerBg = accentMap[route.name] ?? theme.topBar ?? theme.teal.tint;
         return ({
         animation: 'fade' as const,
         animationDuration: 100,
