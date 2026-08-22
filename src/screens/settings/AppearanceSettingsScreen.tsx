@@ -17,6 +17,7 @@ import {
   OVERVIEW_TEMPLATE, WELLNESS_TEMPLATE, MEALS_TEMPLATE, LIFE_TEMPLATE,
   FINANCE_TEMPLATE, HEALTH_TAB_TEMPLATE,
 } from "../../theme/pageTemplates";
+import { ThemePreviewFrame } from "./ThemePreviewFrame";
 
 // ─── Per-object items ─────────────────────────────────────────────────────────
 
@@ -609,6 +610,15 @@ export function AppearanceSettingsScreen() {
 
   return (
     <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+
+      {/* ── Live Preview ───────────────────────────────────────────── */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>LIVE PREVIEW</Text>
+      <Text style={[styles.sectionDesc, { color: theme.textSoft }]}>
+        Tap any card, tile, or the page background to edit that element directly.
+      </Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingTop: 12, paddingBottom: 8 }]}>
+        <ThemePreviewFrame />
+      </View>
 
       {/* ── Light / dark mode ──────────────────────────────────────── */}
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>APPEARANCE MODE</Text>

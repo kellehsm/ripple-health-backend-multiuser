@@ -129,6 +129,20 @@ Greeting updates: `greeting.evening` → 🌆; `greeting.night` added → 🌙.
 - `syncHealthData` returns a graceful errors array (instead of throwing) when Health Connect is unavailable or permissions have been revoked — callers inspect `errors[]` rather than catching.
 - HR sync window: **30 days** (rolling, picks up Samsung Health's delayed backfill).
 
+### Theme Studio preview (`src/screens/settings/ThemePreviewFrame.tsx`)
+
+The "LIVE PREVIEW" panel in `AppearanceSettingsScreen` renders the **actual screen components** inside a scaled 320×560 phone frame (scale 0.52).
+
+**Architecture:**
+- `src/theme/ThemeEditContext.tsx` — `{ editMode, selectedId, selectElement }` context. Default value has `editMode: false` so the rest of the app is unaffected.
+- `ShadowCard` consumes `ThemeEditContext`. When `editMode=true` and the card has a `cardId`/`tileId`, taps call `selectElement(objectId, kind)` instead of `onPress`; a primary-colored highlight glow renders when `selectedId === objectId`.
+- `ThemePreviewFrame` wraps the frame content in `ThemeEditContext.Provider` with `editMode=true`. It uses **`NavigationIndependentTree`** (from `@react-navigation/core`, v7 API) + `NavigationContainer` to host a minimal `createNativeStackNavigator` containing just the selected page's real screen component. The screens fetch live API data — real user data appears in the preview.
+- Page chips map keys to actual screen components: overview→OverviewScreen, wellness→HealthScreen, meals→MealsScreen, life→LifeScreen, finance→FinanceScreen, health_tab→HealthTabScreen, exercise→ExerciseScreen, mindfulness→MindfulnessScreen, insights→InsightsScreen.
+- An `ScreenErrorBoundary` (local class component) catches screen render errors and shows a caption fallback instead of crashing.
+- Scale/touch math: the phone-outer View is rendered at full size with `transform:[{scale:0.52}]` and negative `marginRight`/`marginBottom` equal to `full_dim × (1 - 0.52)` so the surrounding layout collapses to the visual size. Touch coordinates align automatically because RN hit-testing follows the scaled visual bounds.
+- Page background editing: a small "Edit page background" button above the frame opens the same `ElementEditor` modal with `kind:"page"` and a per-page element ID.
+- Tap-to-edit flow: ShadowCard tap → `selectElement` → sets `selected` state in `ThemePreviewFrame` → `ElementEditor` modal opens bound to `AppSettingsContext` setters (opacity, glass blur, background image).
+
 ### Tokens (`src/theme/tokens.ts`)
 
 Shared numeric constants: `FONT_SIZES` (micro 9 → display 28), `SPACING` (xs 4 → xxl 32), `RADIUS` (sm 8 → card 18, pill 100).
