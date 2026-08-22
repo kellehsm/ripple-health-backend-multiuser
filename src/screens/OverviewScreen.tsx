@@ -57,92 +57,52 @@ import { WeeklyDigestModal } from "../components/WeeklyDigestModal";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 import { CountUpText } from "../components/CountUpText";
 import { AnimatedProgressRing } from "../components/AnimatedProgressRing";
+import {
+  MetricChipsCard,
+} from "./overview/MetricChipsCard";
+import {
+  TimelineCard,
+} from "./overview/TimelineCard";
+import {
+  WeeklyReviewCard,
+  MoodPatternCard,
+  CrossMetricCard,
+  MonthlyReviewCard,
+} from "./overview/WeeklyReviewCard";
+import {
+  SkeletonBox,
+  WaterDroplet,
+  AnimatedCounterText,
+  AnimatedChip,
+  timeOfDayBucket,
+  getGreeting,
+  streakMotivationMessage,
+  SCREEN_W,
+  CHART_W,
+  CHIP_W,
+  WATER_GOAL,
+  CHART_H,
+  PAD_L,
+  PAD_B,
+  PAD_T,
+  CORR_W,
+  CORR_H,
+  BAR_W,
+  STEP,
+  type JournalEntry,
+  type WeeklyDay,
+  type PatternEvent,
+  type GlucoseReading,
+  type DayEvent,
+  type WeeklyDigest,
+  type GlucoseStatus,
+  type SleepStats,
+  type Bucket,
+  type ChipData,
+} from "./overview/shared";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type JournalEntry = {
-  id: string;
-  logged_at: string;
-  mood_score: number;
-  mood_label: string | null;
-  entry_text: string | null;
-  period: string | null;
-  entry_type: string;
-};
-
-type WeeklyDay = {
-  date: string;
-  avg_mood: number | null;
-  sleep_hours: number;
-  total_spent: number;
-};
-
-type PatternEvent = {
-  time: string;
-  type: "mood" | "spend" | "meal" | "glucose_spike" | "water" | "hobby";
-  label: string;
-  entry_type?: string;
-  period?: string;
-};
-
-type GlucoseReading = { recorded_at: string; mg_dl: number };
-
-type DayEvent = {
-  time: string;
-  type: "mood" | "meal" | "spend";
-  label: string;
-  entry_type?: string;
-  mood_score?: number;
-  carbs_g?: number | null;
-};
-
-type WeeklyDigest = {
-  glucose_by_tod: Partial<Record<string, { avg: number; count: number }>>;
-  meal_flags: Array<{ label: string }>;
-  spending_spikes: Array<{ label: string }>;
-  heart_rate: { has_data: boolean; resting?: number; peak?: number };
-  steps: { this_week: number; last_week: number };
-  hobbies: { this_week_sessions: number; last_week_sessions: number };
-  exercise?: { sessions_this_week: number; total_minutes_this_week: number };
-  books?: { finished_this_month: number };
-  mood?: { avg_this_week: number | null };
-};
-
-type GlucoseStatus = { hasData: boolean; mg_dl: number | null; arrow: string | null };
-type SleepStats = { yesterday_seconds: number; seven_day_average_seconds: number };
-
-// Bucket is an alias for MoodBucket imported from constants
-type Bucket = MoodBucket;
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-// BUCKET_ORDER and BUCKET_LABEL imported from ../constants
-
-const SCREEN_W = Dimensions.get("window").width;
-const CHART_W = SCREEN_W - 64;
-// 16dp page padding each side, 8dp gap between 3 chips → 2 gaps
-const CHIP_W = Math.floor((SCREEN_W - 32 - 16) / 3);
-const WATER_GOAL = 8;
-const CHART_H = 140;
-const PAD_L = 28;
-const PAD_B = 16;
-const PAD_T = 10;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function timeOfDayBucket(date: Date): Bucket {
-  const h = date.getHours();
-  if (h >= 5 && h < 11) return "morning";
-  if (h >= 11 && h < 16) return "afternoon";
-  if (h >= 16 && h < 21) return "evening";
-  return "night";
-}
-
-function getGreeting(): { text: string; emojiSlot: string } {
-  const hour = new Date().getHours();
-  if (hour < 12) return { text: "Good morning",   emojiSlot: "greeting.morning"   };
-  if (hour < 17) return { text: "Good afternoon", emojiSlot: "greeting.afternoon" };
-  return           { text: "Good evening",   emojiSlot: "greeting.evening"   };
-}
+// ─── Screen-local helpers ─────────────────────────────────────────────────────
+// (types, constants, and small components now live in ./overview/shared.tsx)
 
 // Screen-local wrappers that bind chart constants to the generic util functions
 function glucoseY(val: number, minVal: number, maxVal: number): number {
@@ -151,16 +111,6 @@ function glucoseY(val: number, minVal: number, maxVal: number): number {
 
 function eventX(t: number, windowStart: number, windowEnd: number): number {
   return eventXBase(t, windowStart, windowEnd, CHART_W, PAD_L);
-}
-
-function streakMotivationMessage(maxStreak: number): string | null {
-  if (maxStreak >= 100) return "100 days! You're in rare company 🏆";
-  if (maxStreak >= 60) return "Two months of showing up — unstoppable 🌟";
-  if (maxStreak >= 30) return "One full month! You've built a real habit 💪";
-  if (maxStreak >= 20) return "20 days strong — this is who you are now 🔥";
-  if (maxStreak >= 10) return "Double digits! Keep the momentum going 🎯";
-  if (maxStreak >= 5) return "5 days in — the habit is forming 🌱";
-  return null;
 }
 
 function computeInsights(params: {
@@ -241,166 +191,6 @@ function computeInsights(params: {
 
   return insights.slice(0, 4);
 }
-
-// ─── Skeleton box component ───────────────────────────────────────────────────
-
-function SkeletonBox({ style }: { style?: object }) {
-  const { theme } = useTheme();
-  const shimmer = useRef(new Animated.Value(0)).current;
-  const reduceMotion = useReduceMotion();
-  useEffect(() => {
-    if (reduceMotion) return;
-    Animated.loop(
-      Animated.timing(shimmer, { toValue: 1, duration: 1100, useNativeDriver: true })
-    ).start();
-  }, [shimmer, reduceMotion]);
-  const translateX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-150, SCREEN_W + 50] });
-  return (
-    <View style={[{ backgroundColor: theme.cardBorder, borderRadius: 16, overflow: "hidden" }, style]}>
-      {!reduceMotion && (
-        <Animated.View style={{ position: "absolute", top: 0, bottom: 0, width: 120, transform: [{ translateX }] }}>
-          <LinearGradient
-            colors={["transparent", "rgba(255,255,255,0.15)", "transparent"]}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={{ flex: 1 }}
-          />
-        </Animated.View>
-      )}
-    </View>
-  );
-}
-
-// ─── Water droplet SVG ───────────────────────────────────────────────────────
-
-function WaterDroplet({ count, fillPct, color }: { count: number; fillPct: number; color: string }) {
-  // viewBox coordinate space (fixed — the drop path is drawn in these units)
-  const VW = 32, VH = 38;
-  // rendered size
-  const W = 40, H = 48;
-  const DROP = "M16,3 C12,8 4,18 4,27 C4,34.2 9.4,38 16,38 C22.6,38 28,34.2 28,27 C28,18 20,8 16,3Z";
-  const fillH = VH * fillPct;
-  const fillY = VH - fillH;
-  return (
-    <View style={{ width: W, height: H, alignItems: "center", justifyContent: "center" }}>
-      <Svg width={W} height={H} viewBox={`0 0 ${VW} ${VH}`} style={{ position: "absolute" }}>
-        <Defs>
-          <ClipPath id="wdrop">
-            <Path d={DROP} />
-          </ClipPath>
-        </Defs>
-        <Path d={DROP} fill="none" stroke={color} strokeWidth="2" opacity={0.3} />
-        {fillH > 0 && (
-          <Rect x={0} y={fillY} width={VW} height={fillH + 1} fill={color} opacity={0.7} clipPath="url(#wdrop)" />
-        )}
-      </Svg>
-      <Text style={{ position: "absolute", bottom: 8, fontSize: 12, lineHeight: 15, fontWeight: "900", color: fillPct > 0.3 ? "#fff" : color }}>
-        {count}
-      </Text>
-    </View>
-  );
-}
-
-// ─── Animated counter text ────────────────────────────────────────────────────
-
-function AnimatedCounterText({
-  animValue,
-  targetValue,
-  style,
-  format,
-}: {
-  animValue: Animated.Value;
-  targetValue: number;
-  style?: object;
-  format?: (v: number) => string;
-}) {
-  // interpolateNode produces a JS-driven string — we must use Animated.Text
-  const interpolated = animValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, targetValue],
-  });
-  // We need a listener to convert to a display string; use state + addListener
-  const [display, setDisplay] = useState(() => (format ? format(0) : "0"));
-  useEffect(() => {
-    const id = (interpolated as any).addListener(({ value }: { value: number }) => {
-      setDisplay(format ? format(Math.floor(value)) : String(Math.floor(value)));
-    });
-    return () => (interpolated as any).removeListener(id);
-  }, [interpolated, format]);
-  return <Text style={style} numberOfLines={1}>{display}</Text>;
-}
-
-// ─── Animated chip wrapper ────────────────────────────────────────────────────
-
-function AnimatedChip({
-  entranceAnim,
-  children,
-  onPress,
-  onLongPress,
-  onPressIn,
-  onPressOut,
-  chipWidth,
-  dimmed,
-  style,
-  accessibilityLabel,
-  accessibilityRole,
-}: {
-  entranceAnim: Animated.Value;
-  children: React.ReactNode;
-  onPress?: () => void;
-  onLongPress?: () => void;
-  onPressIn?: () => void;
-  onPressOut?: () => void;
-  chipWidth?: number;
-  dimmed?: boolean;
-  style?: object;
-  accessibilityLabel?: string;
-  accessibilityRole?: "button" | "none" | "link" | "search" | "image" | "keyboardkey" | "text" | "adjustable" | "imagebutton" | "header" | "summary" | "checkbox" | "combobox" | "menu" | "menubar" | "menuitem" | "progressbar" | "radio" | "radiogroup" | "scrollbar" | "spinbutton" | "switch" | "tab" | "tablist" | "timer" | "toolbar";
-}) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = () => {
-    Haptics.selectionAsync();
-    Animated.spring(scaleAnim, { toValue: 0.94, useNativeDriver: true, damping: 18, stiffness: 400 }).start();
-    onPressIn?.();
-  };
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, damping: 18, stiffness: 400 }).start();
-    onPressOut?.();
-  };
-
-  const entranceOpacity = entranceAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
-  const entranceTranslateY = entranceAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] });
-
-  // Plain View with explicit pixel width avoids percentage ambiguity through animated layers.
-  return (
-    <View style={{ width: chipWidth }}>
-      <Animated.View style={{ opacity: entranceOpacity, transform: [{ translateY: entranceTranslateY }] }}>
-        <Animated.View style={{ opacity: dimmed ? 0.55 : 1, transform: [{ scale: scaleAnim }] }}>
-          <Pressable
-            onPress={onPress}
-            onLongPress={onLongPress}
-            delayLongPress={400}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            style={[style, { width: chipWidth }]}
-            accessibilityLabel={accessibilityLabel}
-            accessibilityRole={accessibilityRole}
-          >
-            {children}
-          </Pressable>
-        </Animated.View>
-      </Animated.View>
-    </View>
-  );
-}
-
-// ─── Correlation chart constants ──────────────────────────────────────────────
-
-const CORR_W = SCREEN_W - 64;
-const CORR_H = 90;
-const BAR_W = Math.floor((CORR_W / 7) * 0.35);
-const STEP = CORR_W / 7;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -1230,17 +1020,6 @@ export function OverviewScreen() {
   const lowBandY = glucoseY(70, minVal, maxVal);
   const usableH = CHART_H - PAD_T - PAD_B;
 
-  // Correlation chart
-  const maxSpend = Math.max(...weeklyData.map((d) => d.total_spent), 1);
-  const maxSleep = Math.max(...weeklyData.map((d) => d.sleep_hours), 8);
-  function moodBarH(avg_mood: number | null) { return avg_mood === null ? 0 : ((avg_mood - 1) / 4) * CORR_H; }
-  function compBarH(d: WeeklyDay) {
-    return correlation === "sleep" ? (d.sleep_hours / maxSleep) * CORR_H : (d.total_spent / maxSpend) * CORR_H;
-  }
-
-  // Timeline events — show all (water + hobbies now included from backend)
-  const visibleEvents = showAllEvents ? patternEvents : patternEvents.slice(0, 8);
-
   // Weekly recap (Monday only)
   const isWeekStart = new Date().getDay() === 1;
   const showRecap = isWeekStart && !recapDismissed && digest !== null;
@@ -1250,45 +1029,7 @@ export function OverviewScreen() {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
-  // ── Event type styling helpers ─────────────────────────────────────────────
-  function eventDotColor(type: PatternEvent["type"]): string {
-    switch (type) {
-      case "meal": return theme.coral.solid;
-      case "mood": return theme.violet.solid;
-      case "spend": return theme.purple.solid;
-      case "glucose_spike": return theme.red.solid;
-      case "water": return theme.blue.solid;
-      case "hobby": return theme.teal.solid;
-      default: return theme.textSoft;
-    }
-  }
-
-  function eventIcon(type: PatternEvent["type"]): string {
-    switch (type) {
-      case "meal": return "restaurant";
-      case "mood": return "happy-outline";
-      case "spend": return "card-outline";
-      case "glucose_spike": return "pulse";
-      case "water": return "water-outline";
-      case "hobby": return "barbell-outline";
-      default: return "ellipse";
-    }
-  }
-
-  // ─── Metric chip renderer ─────────────────────────────────────────────────
-  type ChipData = {
-    label: string;
-    value: string;
-    sub?: string;
-    color: string;
-    icon: string;
-    /** iconRegistry slot — lets themes swap this icon for a custom image */
-    slot?: string;
-    empty?: boolean;
-    onPress?: () => void;
-    tileId?: string;
-    quickLog?: QuickLogKind;
-  };
+  // ─── Metric chip data ─────────────────────────────────────────────────────
 
   const currentMoodEntry = entryPerPeriod[currentBucket];
   const chips: ChipData[] = [
@@ -1367,75 +1108,21 @@ export function OverviewScreen() {
   function renderCard(id: CardId): React.ReactNode {
     switch (id) {
       case "metric_chips":
-        return loading ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {[1,2,3,4,5,6].map(i => <SkeletonBox key={i} style={{ width: CHIP_W, height: 84 }} />)}
-          </View>
-        ) : (
-          <View>
-          <View ref={tourChipsRef} style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }} accessibilityLabel="Key metrics">
-            {chips.map((chip, index) => {
-              // Determine if this chip uses an animated counter
-              const isSteps = chip.label === "STEPS" && stepsCount !== null && stepsCount > 0;
-              const isWater = chip.label === "WATER" && waterCount > 0;
-              const isGlucose = chip.label === "GLUCOSE" && !!glucoseStatus?.hasData && glucoseStatus.mg_dl != null;
-              const animValue = isSteps ? stepsCounterAnim : isWater ? waterCounterAnim : isGlucose ? glucoseCounterAnim : null;
-              const realNum  = isSteps ? stepsCount! : isWater ? waterCount : isGlucose ? glucoseStatus!.mg_dl! : 0;
-              const glucoseArrow = isGlucose && glucoseStatus?.arrow ? " " + glucoseStatus.arrow : "";
-              const entranceAnim = chipAnims.current[index] ?? new Animated.Value(1);
-              return (
-                <AnimatedChip
-                  key={chip.label}
-                  entranceAnim={entranceAnim}
-                  onPress={chip.onPress}
-                  onLongPress={chip.quickLog ? () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setQuickLogKind(chip.quickLog!); } : undefined}
-                  chipWidth={CHIP_W}
-                  dimmed={chip.empty}
-                  style={[styles.metricChip, { borderColor: chip.color, overflow: "hidden" }]}
-                  accessibilityLabel={chip.label + ": " + chip.value}
-                  accessibilityRole={chip.onPress ? "button" : undefined}
-                >
-                  {chip.tileId && (
-                    <ThemedSurface elementId={chip.tileId} kind="tile" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} imageOpacity={0.85} />
-                  )}
-                  {/* Diagonal accent wash — ties each tile to its metric color */}
-                  <LinearGradient
-                    colors={[chip.color + "24", chip.color + "00"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    pointerEvents="none"
-                    style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-                  />
-                  <View style={[styles.chipIcon, { backgroundColor: chip.color }]}>
-                    {chip.slot ? (
-                      <ThemedIcon slot={chip.slot} size={19} color={onSolid(chip.color)} />
-                    ) : (
-                      <Ionicons name={chip.icon as any} size={19} color={onSolid(chip.color)} />
-                    )}
-                  </View>
-                  {chip.label === "WATER" && waterCount > 0 ? (
-                    <WaterDroplet count={waterCount} fillPct={Math.min(waterCount / WATER_GOAL, 1)} color={chip.color} />
-                  ) : chip.label === "MOOD" && !chip.empty ? (
-                    <Animated.View style={{ transform: [{ scale: moodScaleAnim }] }}>
-                      <Text style={[styles.chipValue, { color: theme.textStrong }]} numberOfLines={1}>{chip.value}</Text>
-                    </Animated.View>
-                  ) : animValue ? (
-                    <AnimatedCounterText
-                      animValue={animValue}
-                      targetValue={realNum}
-                      style={[styles.chipValue, { color: theme.textStrong }]}
-                      format={isSteps ? (v) => v.toLocaleString() : isGlucose ? (v) => String(v) + glucoseArrow : undefined}
-                    />
-                  ) : (
-                    <Text style={[styles.chipValue, { color: theme.textStrong }]} numberOfLines={1}>{chip.value}</Text>
-                  )}
-                  {chip.label !== "WATER" && chip.sub ? <Text style={[styles.chipSub, { color: theme.textSoft }]} numberOfLines={1}>{chip.sub}</Text> : null}
-                  <Text style={[styles.chipLabel, { color: theme.textSoft }]}>{chip.label}</Text>
-                </AnimatedChip>
-              );
-            })}
-          </View>
-          </View>
+        return (
+          <MetricChipsCard
+            loading={loading}
+            chips={chips}
+            stepsCount={stepsCount}
+            waterCount={waterCount}
+            glucoseStatus={glucoseStatus}
+            stepsCounterAnim={stepsCounterAnim}
+            waterCounterAnim={waterCounterAnim}
+            glucoseCounterAnim={glucoseCounterAnim}
+            chipAnims={chipAnims}
+            moodScaleAnim={moodScaleAnim}
+            tourChipsRef={tourChipsRef}
+            onQuickLog={(kind) => setQuickLogKind(kind)}
+          />
         );
 
       case "wellness_score": {
@@ -1551,226 +1238,36 @@ export function OverviewScreen() {
 
       case "timeline":
         return (
-          <View ref={tourTimelineRef}>
-          <ShadowCard size="card" bg={glucoseOutOfRange ? theme.red.tint : theme.card} accent={theme.berry.solid} cardId="timeline">
-            <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Today's timeline</Text>
-            {loading ? (
-              <SkeletonBox style={{ height: CHART_H, marginBottom: 8 }} />
-            ) : dayGlucose.length > 0 ? (
-              <>
-                <View {...panResponder.panHandlers} style={{ marginBottom: 6 }}>
-                  <Svg width={CHART_W} height={CHART_H} accessibilityLabel="Glucose chart">
-                    <Rect x={PAD_L} y={highBandY} width={CHART_W - PAD_L} height={lowBandY - highBandY} fill={mode === "dark" ? theme.berry.sub : theme.berry.tint} opacity={mode === "dark" ? 0.25 : 0.4} stroke={ink} strokeWidth={1} strokeDasharray="5,5" />
-                    <SvgText x={PAD_L - 3} y={highBandY + 4} fontSize={8} fill={theme.textSoft} textAnchor="end">180</SvgText>
-                    <SvgText x={PAD_L - 3} y={lowBandY + 4} fontSize={8} fill={theme.textSoft} textAnchor="end">70</SvgText>
-                    {yesterdayPoints ? (
-                      <Polyline points={yesterdayPoints} fill="none" stroke={theme.berry.bar} strokeWidth={1.5} strokeDasharray="5,4" opacity={0.4} />
-                    ) : null}
-                    {glucosePoints ? (
-                      <>
-                        <Polyline points={glucosePoints} fill="none" stroke={ink} strokeWidth={3.5} />
-                        <Polyline points={glucosePoints} fill="none" stroke={theme.berry.bar} strokeWidth={2} />
-                      </>
-                    ) : null}
-                    {lastGlucoseVal !== null && lastGlucoseReading ? (() => {
-                      const lx = eventX(new Date(lastGlucoseReading.recorded_at).getTime(), windowStart, windowEnd);
-                      const ly = glucoseY(lastGlucoseVal, minVal, maxVal);
-                      const isHigh = lastGlucoseVal > 180;
-                      const isLow = lastGlucoseVal < 70;
-                      const dotFill = isHigh ? theme.glucoseHigh : isLow ? theme.glucoseLow : theme.berry.bar;
-                      const labelX = lx + 6 + 26 > CHART_W ? lx - 32 : lx + 6;
-                      return (
-                        <>
-                          <Circle cx={lx} cy={ly} r={5} fill={dotFill} stroke={ink} strokeWidth={1.5} />
-                          <Rect x={labelX} y={ly - 9} width={30} height={14} rx={4} fill={dotFill} opacity={0.92} />
-                          <SvgText x={labelX + 15} y={ly + 2} fontSize={9} fontWeight="bold" fill="#fff" textAnchor="middle">{lastGlucoseVal}</SvgText>
-                        </>
-                      );
-                    })() : null}
-                    {dayEvents.map(function (ev, i) {
-                      const t = new Date(ev.time).getTime();
-                      if (t < windowStart || t > windowEnd) return null;
-                      const x = eventX(t, windowStart, windowEnd);
-                      const gVal = interpolateGlucose(dayGlucose, t);
-                      const y = gVal !== null ? glucoseY(gVal, minVal, maxVal) : PAD_T + usableH;
-                      const markerText = ev.type === "spend" ? "$" : ev.type === "mood" && ev.mood_score ? moodScoreEmoji(ev.mood_score) : ev.type === "mood" ? "·" : "M";
-                      const markerBg = ev.type === "meal" ? theme.coral.tint : ev.type === "spend" ? theme.purple.tint : theme.violet.tint;
-                      return (
-                        <React.Fragment key={i}>
-                          <Circle cx={x} cy={y} r={9} fill={markerBg} stroke={ink} strokeWidth={2} />
-                          <SvgText x={x} y={y + 4} fontSize={8} fill={ink} textAnchor="middle" fontWeight="bold">{markerText}</SvgText>
-                        </React.Fragment>
-                      );
-                    })}
-                    {scrub && (() => {
-                      const cy = glucoseY(scrub.mgDl, minVal, maxVal);
-                      const hasYest = scrub.yestMgDl !== null;
-                      const delta = hasYest ? scrub.mgDl - scrub.yestMgDl! : null;
-                      const tipW = hasYest ? 90 : 68;
-                      const tipH = hasYest ? 50 : 30;
-                      const tipX = scrub.x + 10 + tipW > CHART_W ? scrub.x - tipW - 10 : scrub.x + 10;
-                      const tipY = PAD_T;
-                      const timeStr = new Date(scrub.time).getHours().toString().padStart(2, "0") + ":" + new Date(scrub.time).getMinutes().toString().padStart(2, "0");
-                      const deltaStr = delta !== null ? (delta >= 0 ? "+" : "") + delta + " vs 24h ago" : "";
-                      const deltaColor = delta === null ? ink : delta > 10 ? theme.berry.solid : delta < -10 ? theme.teal.solid : theme.textSoft;
-                      return (
-                        <>
-                          <SvgLine x1={scrub.x} y1={PAD_T} x2={scrub.x} y2={CHART_H - PAD_B} stroke={ink} strokeWidth={1.5} strokeDasharray="4,3" opacity={0.6} />
-                          <Circle cx={scrub.x} cy={cy} r={5} fill={theme.berry.solid} stroke={ink} strokeWidth={2} />
-                          {hasYest && (
-                            <Circle cx={scrub.x} cy={glucoseY(scrub.yestMgDl!, minVal, maxVal)} r={4} fill={theme.berry.bar} stroke={ink} strokeWidth={1.5} opacity={0.55} />
-                          )}
-                          <Rect x={tipX} y={tipY} width={tipW} height={tipH} rx={6} fill={theme.card} stroke={ink} strokeWidth={1.5} />
-                          <SvgText x={tipX + tipW / 2} y={tipY + 13} fontSize={12} fontWeight="800" fill={theme.berry.solid} textAnchor="middle">{scrub.mgDl} mg/dL</SvgText>
-                          <SvgText x={tipX + tipW / 2} y={tipY + 26} fontSize={9} fill={theme.textSoft} textAnchor="middle">{timeStr}</SvgText>
-                          {hasYest && (
-                            <>
-                              <SvgText x={tipX + tipW / 2} y={tipY + 38} fontSize={9} fill={theme.textSoft} textAnchor="middle">24h ago: {scrub.yestMgDl}</SvgText>
-                              {delta !== null && <SvgText x={tipX + tipW / 2} y={tipY + 49} fontSize={8} fontWeight="700" fill={deltaColor} textAnchor="middle">{deltaStr}</SvgText>}
-                            </>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </Svg>
-                </View>
-                <View style={[styles.legendRow, { marginBottom: 12 }]}>
-                  {[
-                    { color: theme.berry.bar, label: "Today", dash: false },
-                    ...(yesterdayGlucose.length > 0 ? [{ color: theme.berry.bar, label: "24h ago", dash: true }] : []),
-                    { color: theme.coral.tint, label: "Meal", dash: false },
-                    { color: theme.violet.tint, label: "Mood", dash: false },
-                    { color: theme.purple.tint, label: "Spend", dash: false },
-                  ].map(l => (
-                    <View key={l.label} style={styles.legendItem}>
-                      <View style={[styles.legendDot, { backgroundColor: l.color, borderWidth: 1.5, borderColor: ink, opacity: l.dash ? 0.45 : 1 }]} />
-                      <Text style={{ color: theme.textSoft, fontSize: 10 }}>{l.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              </>
-            ) : (
-              <View style={[styles.emptyState, { borderColor: ink }]}>
-                <Ionicons name="pulse-outline" size={24} color={theme.textSoft} />
-                <Text style={[styles.emptyText, { color: theme.textSoft }]}>No glucose readings yet — connect Dexcom in Settings to see your chart here</Text>
-              </View>
-            )}
-            {loading ? (
-              <View style={{ gap: 12 }}>
-                <SkeletonBox style={{ height: 18, width: "70%" }} />
-                <SkeletonBox style={{ height: 18, width: "55%" }} />
-                <SkeletonBox style={{ height: 18, width: "80%" }} />
-              </View>
-            ) : patternEvents.length === 0 ? (
-              <View style={[styles.emptyState, { borderColor: ink }]}>
-                <Ionicons name="calendar-outline" size={24} color={theme.textSoft} />
-                <Text style={[styles.emptyText, { color: theme.textSoft }]}>Log a meal, mood, or spend to start your day's timeline</Text>
-              </View>
-            ) : (
-              <>
-                {/* ── Timeline scrubber ── */}
-                {patternEvents.length > 0 && (() => {
-                  const { dayStart, dayEnd } = timelineWindowBounds();
-                  const thumbRatio = Math.max(0, Math.min(1, timelineScrubberX.current / (CHART_W - PAD_L)));
-                  const thumbX = thumbRatio * (CHART_W - PAD_L);
-                  const eventPositions = patternEvents.map(ev => {
-                    const t = new Date(ev.time).getTime();
-                    return Math.max(0, Math.min(CHART_W - PAD_L, ((t - dayStart) / (dayEnd - dayStart)) * (CHART_W - PAD_L)));
-                  });
-                  return (
-                    <View style={{ marginBottom: 10, marginTop: 4 }} {...timelinePanResponder.panHandlers}>
-                      {timelineScrubberTime && (
-                        <View style={{
-                          position: "absolute",
-                          top: 0,
-                          left: Math.max(0, thumbX - 18),
-                          zIndex: 10,
-                          backgroundColor: theme.card,
-                          borderRadius: 8,
-                          borderWidth: 1.5,
-                          borderColor: ink,
-                          paddingHorizontal: 5,
-                          paddingVertical: 2,
-                        }}>
-                          <Text style={{ fontSize: 9, fontWeight: "800", color: theme.textStrong }}>{timelineScrubberTime}</Text>
-                        </View>
-                      )}
-                      <View style={{ height: 28, marginTop: 16, position: "relative" }}>
-                        <View style={{ position: "absolute", left: 0, right: 0, top: 12, height: 2, backgroundColor: theme.cardBorder, borderRadius: 1 }} />
-                        {eventPositions.map((xPos, ei) => (
-                          <View key={ei} style={{
-                            position: "absolute",
-                            left: xPos - 3,
-                            top: 9,
-                            width: 6,
-                            height: 6,
-                            borderRadius: 3,
-                            backgroundColor: eventDotColor(patternEvents[ei].type),
-                            borderWidth: 1,
-                            borderColor: ink,
-                          }} />
-                        ))}
-                        <View style={{
-                          position: "absolute",
-                          left: thumbX - 1,
-                          top: 0,
-                          width: 2,
-                          height: 28,
-                          backgroundColor: ink,
-                          borderRadius: 1,
-                          opacity: 0.7,
-                        }} />
-                        <View style={{
-                          position: "absolute",
-                          left: thumbX - 7,
-                          top: 6,
-                          width: 14,
-                          height: 14,
-                          borderRadius: 7,
-                          backgroundColor: theme.teal.solid,
-                          borderWidth: 2,
-                          borderColor: ink,
-                        }} />
-                      </View>
-                    </View>
-                  );
-                })()}
-                {visibleEvents.map(function (ev, i) {
-                  const dotColor = eventDotColor(ev.type);
-                  const icon = eventIcon(ev.type);
-                  const isLast = i === visibleEvents.length - 1;
-                  return (
-                    <View key={i} style={{ flexDirection: "row", minHeight: 36 }}>
-                      <Text style={[styles.tlTime, { color: theme.textSoft }]}>{fmtTime(ev.time)}</Text>
-                      <View style={{ width: 20, alignItems: "center", marginRight: 10 }}>
-                        <View style={[styles.tlIconDot, { backgroundColor: dotColor }]}>
-                          <Ionicons name={icon as any} size={9} color={onSolid(dotColor)} />
-                        </View>
-                        {!isLast && <View style={[styles.tlLine, { backgroundColor: theme.cardBorder }]} />}
-                      </View>
-                      <Text
-                        style={{ flex: 1, color: theme.textStrong, fontSize: 13, fontWeight: "500", lineHeight: 18, paddingBottom: isLast ? 0 : 10 }}
-                        numberOfLines={2}
-                      >
-                        {ev.label}
-                        {ev.type === "mood" && ev.entry_type === "period" && ev.period
-                          ? " · " + BUCKET_LABEL[ev.period as Bucket]
-                          : ""}
-                      </Text>
-                    </View>
-                  );
-                })}
-                {patternEvents.length > 8 ? (
-                  <Pressable onPress={() => setShowAllEvents(!showAllEvents)} style={{ paddingTop: 6 }}>
-                    <Text style={{ color: theme.teal.fg, fontSize: 12, fontWeight: "700" }}>
-                      {showAllEvents ? "Show less" : "Show all " + patternEvents.length + " events"}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </>
-            )}
-          </ShadowCard>
-          </View>
+          <TimelineCard
+            loading={loading}
+            dayGlucose={dayGlucose}
+            yesterdayGlucose={yesterdayGlucose}
+            dayEvents={dayEvents}
+            patternEvents={patternEvents}
+            showAllEvents={showAllEvents}
+            setShowAllEvents={setShowAllEvents}
+            glucoseOutOfRange={glucoseOutOfRange}
+            lastGlucoseVal={lastGlucoseVal}
+            lastGlucoseReading={lastGlucoseReading}
+            minVal={minVal}
+            maxVal={maxVal}
+            windowStart={windowStart}
+            windowEnd={windowEnd}
+            glucosePoints={glucosePoints}
+            yesterdayPoints={yesterdayPoints}
+            highBandY={highBandY}
+            lowBandY={lowBandY}
+            usableH={usableH}
+            scrub={scrub}
+            panResponder={panResponder}
+            timelinePanResponder={timelinePanResponder}
+            timelineScrubberX={timelineScrubberX}
+            timelineScrubberTime={timelineScrubberTime}
+            tourTimelineRef={tourTimelineRef}
+            eventX={eventX}
+            glucoseY={glucoseY}
+            interpolateGlucose={interpolateGlucose}
+          />
         );
 
       case "insights":
@@ -1801,349 +1298,42 @@ export function OverviewScreen() {
 
       case "weekly_review":
         return (
-          <>
-            {showRecap && digest ? (
-              <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <Text style={[styles.cardTitle, { color: theme.teal.fg }]}>Your week</Text>
-                  <Pressable onPress={() => setRecapDismissed(true)} accessibilityLabel="Dismiss weekly recap">
-                    <Ionicons name="close" size={16} color={theme.teal.fg} />
-                  </Pressable>
-                </View>
-                {digest.steps.this_week > 0 ? (
-                  <Text style={{ color: theme.teal.fg, fontSize: 13 }}>
-                    {digest.steps.this_week.toLocaleString()} steps
-                    {digest.steps.last_week > 0 ? (digest.steps.this_week >= digest.steps.last_week ? " · up from last week" : " · fewer than last week") : ""}
-                  </Text>
-                ) : null}
-                {digest.hobbies.this_week_sessions > 0 ? (
-                  <Text style={{ color: theme.teal.fg, fontSize: 13, marginTop: 3 }}>
-                    {digest.hobbies.this_week_sessions} hobby session{digest.hobbies.this_week_sessions === 1 ? "" : "s"}
-                  </Text>
-                ) : null}
-              </ShadowCard>
-            ) : null}
-            <ShadowCard size="card" accent={theme.teal.solid} cardId="seven_day_review">
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                <Text style={[styles.cardTitle, { color: theme.textStrong }]}>7-day review</Text>
-                {digest && (
-                  <Pressable onPress={() => setShowDigest(true)} hitSlop={8}>
-                    <Text style={{ color: theme.teal.fg, fontSize: 12, fontWeight: "700" }}>View summary →</Text>
-                  </Pressable>
-                )}
-              </View>
-              {loading ? (
-                <View style={{ gap: 8, marginTop: 10 }}>
-                  <SkeletonBox style={{ height: 72, marginBottom: 4 }} />
-                  <SkeletonBox style={{ height: 14, width: "60%" }} />
-                </View>
-              ) : digest ? (
-                <>
-                  <View style={styles.summaryBlocksRow}>
-                    <View style={[styles.summaryBlock, { backgroundColor: theme.teal.solid }]}>
-                      <Text style={[styles.summaryBlockLabel, { color: onSolid(theme.teal.solid) }]}>STEPS</Text>
-                      <Text style={[styles.summaryBlockValue, { color: onSolid(theme.teal.solid) }]}>{digest.steps.this_week.toLocaleString()}</Text>
-                    </View>
-                    <View style={[styles.summaryBlock, { backgroundColor: theme.berry.solid }]}>
-                      <Text style={[styles.summaryBlockLabel, { color: onSolid(theme.berry.solid) }]}>GLUCOSE</Text>
-                      <Text style={[styles.summaryBlockValue, { color: onSolid(theme.berry.solid) }]}>{glucoseAvg !== null ? glucoseAvg + " avg" : "--"}</Text>
-                    </View>
-                    <View style={[styles.summaryBlock, { backgroundColor: theme.purple.solid }]}>
-                      <Text style={[styles.summaryBlockLabel, { color: onSolid(theme.purple.solid) }]}>HOBBIES</Text>
-                      <Text style={[styles.summaryBlockValue, { color: onSolid(theme.purple.solid) }]}>{digest.hobbies.this_week_sessions} sess.</Text>
-                    </View>
-                    <View style={[styles.summaryBlock, { backgroundColor: theme.coral.solid }]}>
-                      <Text style={[styles.summaryBlockLabel, { color: onSolid(theme.coral.solid) }]}>MEAL NOTES</Text>
-                      <Text style={[styles.summaryBlockValue, { color: onSolid(theme.coral.solid) }]}>{digest.meal_flags.length === 0 ? "All clear" : digest.meal_flags.length + " flagged"}</Text>
-                    </View>
-                  </View>
-                  {(digest.exercise || digest.books || digest.mood) ? (
-                    <View style={styles.summaryBlocksRow}>
-                      {digest.exercise && digest.exercise.sessions_this_week > 0 ? (
-                        <View style={[styles.summaryBlock, { backgroundColor: theme.coral.solid }]}>
-                          <Text style={[styles.summaryBlockLabel, { color: onSolid(theme.coral.solid) }]}>WORKOUTS</Text>
-                          <Text style={[styles.summaryBlockValue, { color: onSolid(theme.coral.solid) }]}>{digest.exercise.sessions_this_week} sess.</Text>
-                        </View>
-                      ) : null}
-                      {digest.books && digest.books.finished_this_month > 0 ? (
-                        <View style={[styles.summaryBlock, { backgroundColor: theme.amber.solid }]}>
-                          <Text style={[styles.summaryBlockLabel, { color: onSolid(theme.amber.solid) }]}>BOOKS</Text>
-                          <Text style={[styles.summaryBlockValue, { color: onSolid(theme.amber.solid) }]}>{digest.books.finished_this_month} done</Text>
-                        </View>
-                      ) : null}
-                      {digest.mood?.avg_this_week != null ? (
-                        <View style={[styles.summaryBlock, { backgroundColor: theme.violet?.solid ?? theme.purple.solid }]}>
-                          <Text style={[styles.summaryBlockLabel, { color: onSolid(theme.violet?.solid ?? theme.purple.solid) }]}>MOOD AVG</Text>
-                          <Text style={[styles.summaryBlockValue, { color: onSolid(theme.violet?.solid ?? theme.purple.solid) }]}>{digest.mood.avg_this_week.toFixed(1)} / 5</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  ) : null}
-                  {digest.heart_rate.has_data ? (
-                    <>
-                      <Text style={[styles.digestLabel, { color: theme.textSoft }]}>Heart rate</Text>
-                      <Text style={{ color: theme.textStrong, fontSize: 13, marginBottom: 4, fontWeight: "600" }}>
-                        Resting {digest.heart_rate.resting} · Peak {digest.heart_rate.peak} bpm
-                      </Text>
-                    </>
-                  ) : null}
-                  {(digest.meal_flags.length > 0 || digest.spending_spikes.length > 0) ? (
-                    <View style={[styles.calloutStrip, { backgroundColor: theme.coral.tint, borderColor: ink }]}>
-                      {digest.meal_flags.map((f, i) => <Text key={"mf" + i} style={{ color: theme.coral.fg, fontSize: 12 }}>🍽 {f.label}</Text>)}
-                      {digest.spending_spikes.map((s, i) => <Text key={"ss" + i} style={{ color: theme.purple.fg, fontSize: 12 }}>$ {s.label}</Text>)}
-                    </View>
-                  ) : null}
-                </>
-              ) : (
-                <View style={[styles.emptyState, { borderColor: ink, marginTop: 8 }]}>
-                  <Text style={[styles.emptyText, { color: theme.textSoft }]}>Keep logging meals, steps, and mood — your weekly recap appears here after a few days</Text>
-                </View>
-              )}
-            </ShadowCard>
-          </>
+          <WeeklyReviewCard
+            loading={loading}
+            showRecap={showRecap}
+            recapDismissed={recapDismissed}
+            setRecapDismissed={setRecapDismissed}
+            digest={digest}
+            glucoseAvg={glucoseAvg}
+            onShowDigest={() => setShowDigest(true)}
+          />
         );
 
-      case "mood_pattern": {
-        // Mood sparkline — build polyline points from weeklyData avg_mood values
-        const sparkPoints = weeklyData
-          .map((d, i) => d.avg_mood !== null ? d.avg_mood : null)
-          .filter((v): v is number => v !== null);
-        const sparkW = 80;
-        const sparkH = 24;
-        const sparkPad = 2;
-        const sparkPolyline = sparkPoints.length >= 2
-          ? weeklyData
-              .map((d, i) => {
-                if (d.avg_mood === null) return null;
-                const x = sparkPad + (i / (weeklyData.length - 1)) * (sparkW - sparkPad * 2);
-                // mood 1–5, invert so 5 is top
-                const y = sparkPad + ((5 - d.avg_mood) / 4) * (sparkH - sparkPad * 2);
-                return x.toFixed(1) + "," + y.toFixed(1);
-              })
-              .filter(Boolean)
-              .join(" ")
-          : null;
-
-        return weeklyData.length > 0 ? (
-          <ShadowCard size="card" cardId="mood_pattern">
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-              <Text style={[styles.cardTitle, { color: theme.textStrong }]}>7-day mood pattern</Text>
-              {sparkPolyline ? (
-                <Svg width={sparkW} height={sparkH}>
-                  <Polyline
-                    points={sparkPolyline}
-                    fill="none"
-                    stroke={theme.violet.solid}
-                    strokeWidth={1.5}
-                  />
-                </Svg>
-              ) : null}
-            </View>
-            <Text style={{ color: theme.textSoft, fontSize: 11, marginBottom: 8 }}>
-              Same days side by side — draw your own conclusions.
-            </Text>
-            <View style={styles.legendRow}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: theme.violet.solid }]} />
-                <Text style={{ color: theme.textSoft, fontSize: 11 }}>Mood (1–5)</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: correlation === "sleep" ? theme.amber.solid : theme.purple.solid }]} />
-                <Text style={{ color: theme.textSoft, fontSize: 11 }}>{correlation === "sleep" ? "Sleep (hrs)" : "Spending ($)"}</Text>
-              </View>
-              <View style={{ flex: 1 }} />
-              <Pressable
-                onPress={() => setCorrelation(correlation === "sleep" ? "spend" : "sleep")}
-                style={[styles.toggleChip, { backgroundColor: card }]}
-                accessibilityRole="button"
-                accessibilityLabel={"Switch to compare with " + (correlation === "sleep" ? "spending" : "sleep")}
-              >
-                <Text style={{ color: ink, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 }}>
-                  VS {correlation === "sleep" ? "SPENDING" : "SLEEP"}
-                </Text>
-              </Pressable>
-            </View>
-            <Svg width={CORR_W} height={CORR_H + 20} style={{ marginTop: 8 }}>
-              {weeklyData.map(function (d, i) {
-                const scale = corrBarScales[i] ?? 1;
-                const mH = moodBarH(d.avg_mood) * scale;
-                const cH = compBarH(d) * scale;
-                const groupX = i * STEP;
-                const moodX = groupX + STEP / 2 - BAR_W - 1;
-                const compX = groupX + STEP / 2 + 1;
-                const compColor = correlation === "sleep" ? theme.amber.solid : theme.purple.solid;
-                return (
-                  <React.Fragment key={d.date}>
-                    {mH > 0 ? <Rect x={moodX} y={CORR_H - mH} width={BAR_W} height={mH} fill={theme.violet.solid} rx={3} /> : <Rect x={moodX} y={CORR_H - 2} width={BAR_W} height={2} fill={theme.cardBorder} rx={1} />}
-                    {cH > 0 ? <Rect x={compX} y={CORR_H - cH} width={BAR_W} height={cH} fill={compColor} rx={3} /> : <Rect x={compX} y={CORR_H - 2} width={BAR_W} height={2} fill={theme.cardBorder} rx={1} />}
-                    <SvgText x={groupX + STEP / 2} y={CORR_H + 14} fontSize={10} fill={theme.textSoft} textAnchor="middle">{fmtDayLabel(d.date)}</SvgText>
-                  </React.Fragment>
-                );
-              })}
-            </Svg>
-          </ShadowCard>
-        ) : null;
-      }
-
-      case "cross_metric": {
-        if (!crossMetricData) return null;
-        const { exercise: ex, sleep: sl } = crossMetricData;
-        const hasExercise = ex.with_count >= 3 && ex.without_count >= 3 && ex.with_avg !== null && ex.without_avg !== null;
-        const hasSleep    = sl.good_count >= 3 && sl.poor_count >= 3 && sl.good_avg !== null && sl.poor_avg !== null;
-        if (!hasExercise && !hasSleep) return null;
+      case "mood_pattern":
         return (
-          <ShadowCard size="card" accent={theme.teal.solid} rotate={-0.3} cardId="cross_metric">
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-              <Ionicons name="git-compare-outline" size={18} color={theme.teal.solid} />
-              <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>Cross-metric insights</Text>
-            </View>
-            {hasExercise && (function () {
-              const diff = Math.abs(ex.with_avg! - ex.without_avg!);
-              const lower = Math.min(ex.with_avg!, ex.without_avg!);
-              const withIsLower = ex.with_avg! < ex.without_avg!;
-              return (
-                <View style={{ marginBottom: hasSleep ? 16 : 0 }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5, marginBottom: 6 }}>EXERCISE DAYS VS REST DAYS</Text>
-                  <View style={{ flexDirection: "row", gap: 8 }}>
-                    <View style={{ flex: 1, backgroundColor: theme.teal.tint, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.teal.solid }}>
-                      <Text style={{ color: theme.teal.fg, fontSize: 20, fontWeight: "900" }}>{ex.with_avg}</Text>
-                      <Text style={{ color: theme.teal.sub, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
-                      <Text style={{ color: theme.teal.sub, fontSize: 10 }}>exercise days</Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
-                      <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>{ex.without_avg}</Text>
-                      <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
-                      <Text style={{ color: theme.textSoft, fontSize: 10 }}>rest days</Text>
-                    </View>
-                  </View>
-                  {diff >= 3 && (
-                    <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 8, lineHeight: 16 }}>
-                      Glucose averaged {diff} mg/dL {withIsLower ? "lower" : "higher"} on exercise days ({ex.with_count} days). Observation only — not a finding.
-                    </Text>
-                  )}
-                </View>
-              );
-            })()}
-            {hasSleep && (function () {
-              const diff = Math.abs(sl.good_avg! - sl.poor_avg!);
-              const goodIsLower = sl.good_avg! < sl.poor_avg!;
-              return (
-                <View>
-                  <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5, marginBottom: 6 }}>7+ HOURS SLEEP VS LESS</Text>
-                  <View style={{ flexDirection: "row", gap: 8 }}>
-                    <View style={{ flex: 1, backgroundColor: theme.amber.tint, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
-                      <Text style={{ color: theme.amber.fg, fontSize: 20, fontWeight: "900" }}>{sl.good_avg}</Text>
-                      <Text style={{ color: theme.amber.sub, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
-                      <Text style={{ color: theme.amber.sub, fontSize: 10 }}>7+ h nights</Text>
-                    </View>
-                    <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
-                      <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>{sl.poor_avg}</Text>
-                      <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
-                      <Text style={{ color: theme.textSoft, fontSize: 10 }}>{"<"}7 h nights</Text>
-                    </View>
-                  </View>
-                  {diff >= 3 && (
-                    <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 8, lineHeight: 16 }}>
-                      Glucose averaged {diff} mg/dL {goodIsLower ? "lower" : "higher"} after 7+ hour nights ({sl.good_count} nights). Observation only — not a finding.
-                    </Text>
-                  )}
-                </View>
-              );
-            })()}
-          </ShadowCard>
+          <MoodPatternCard
+            weeklyData={weeklyData}
+            correlation={correlation}
+            setCorrelation={setCorrelation}
+            corrBarScales={corrBarScales}
+          />
         );
-      }
 
-      case "monthly_review": {
-        if (!isFirstWeekOfMonth || monthlyReviewDismissed || !monthlyReview) return null;
-        const { month, steps: mrSteps, spending, observation } = monthlyReview;
-        const monthLabel = (function () {
-          const [y, m] = month.split("-").map(Number);
-          return new Date(y, m - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
-        })();
-        const spendDiff = (spending.total !== null && spending.prev_total !== null)
-          ? spending.total - spending.prev_total : null;
-        const spendUp = spendDiff !== null && spendDiff > 0;
+      case "cross_metric":
         return (
-          <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} rotate={-0.3} cardId="monthly_review">
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Ionicons name="calendar-outline" size={18} color={theme.teal.fg} />
-                <Text style={[styles.cardTitle, { color: theme.teal.fg, marginBottom: 0 }]}>{monthLabel} review</Text>
-              </View>
-              <Pressable
-                onPress={async () => {
-                  const key = `ripple.monthlyReview.dismissed`;
-                  await AsyncStorage.setItem(key, month).catch(() => {});
-                  setMonthlyReviewDismissed(true);
-                }}
-                accessibilityLabel="Dismiss monthly review"
-                hitSlop={8}
-              >
-                <Ionicons name="close" size={16} color={theme.teal.fg} />
-              </Pressable>
-            </View>
-
-            {mrSteps.best_week ? (
-              <View style={{ marginBottom: 6 }}>
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: theme.cardBorder }}>
-                    <Text style={{ fontSize: 10, fontWeight: "700", color: theme.textSoft, letterSpacing: 0.5, marginBottom: 2 }}>BEST WEEK</Text>
-                    <Text style={{ fontSize: 18, fontWeight: "900", color: theme.teal.solid }}>{mrSteps.best_week.total.toLocaleString()}</Text>
-                    <Text style={{ fontSize: 10, color: theme.textSoft }}>steps · wk of {mrSteps.best_week.start.slice(5)}</Text>
-                  </View>
-                  {mrSteps.worst_week ? (
-                    <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: theme.cardBorder }}>
-                      <Text style={{ fontSize: 10, fontWeight: "700", color: theme.textSoft, letterSpacing: 0.5, marginBottom: 2 }}>SLOWEST WEEK</Text>
-                      <Text style={{ fontSize: 18, fontWeight: "900", color: theme.textStrong }}>{mrSteps.worst_week.total.toLocaleString()}</Text>
-                      <Text style={{ fontSize: 10, color: theme.textSoft }}>steps · wk of {mrSteps.worst_week.start.slice(5)}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-            ) : null}
-
-            {spending.total !== null ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Ionicons
-                  name={spendUp ? "arrow-up" : "arrow-down"}
-                  size={14}
-                  color={spendUp ? theme.danger : theme.success}
-                />
-                <Text style={{ fontSize: 13, color: theme.textStrong, fontWeight: "700" }}>
-                  ${spending.total.toLocaleString(undefined, { maximumFractionDigits: 0 })} spent
-                </Text>
-                {spendDiff !== null && spending.prev_total !== null && spending.prev_total > 0 ? (
-                  <Text style={{ fontSize: 12, color: spendUp ? theme.danger : theme.success, fontWeight: "600" }}>
-                    {spendUp ? "+" : ""}{spendDiff.toLocaleString(undefined, { maximumFractionDigits: 0 })} vs prior month
-                  </Text>
-                ) : null}
-              </View>
-            ) : null}
-
-            {observation ? (
-              <Text style={{ fontSize: 12, color: theme.teal.fg, lineHeight: 17, marginTop: 2 }}>{observation}</Text>
-            ) : null}
-
-            <Pressable
-              onPress={() => navigation.navigate("MonthlyRecap")}
-              style={({ pressed }) => ({
-                marginTop: 8,
-                paddingVertical: 8,
-                borderRadius: 10,
-                borderWidth: 1.5,
-                borderColor: theme.teal.solid,
-                alignItems: "center",
-                opacity: pressed ? 0.7 : 1,
-              })}
-              accessibilityRole="button"
-              accessibilityLabel="View full monthly recap"
-            >
-              <Text style={{ fontSize: 12, fontWeight: "800", color: theme.teal.solid }}>View Full Recap ›</Text>
-            </Pressable>
-          </ShadowCard>
+          <CrossMetricCard crossMetricData={crossMetricData} />
         );
-      }
+
+      case "monthly_review":
+        return (
+          <MonthlyReviewCard
+            isFirstWeekOfMonth={isFirstWeekOfMonth}
+            monthlyReviewDismissed={monthlyReviewDismissed}
+            setMonthlyReviewDismissed={setMonthlyReviewDismissed}
+            monthlyReview={monthlyReview}
+            navigation={navigation}
+          />
+        );
 
       default:
         return null;
@@ -2573,25 +1763,6 @@ function makeStyles(ink: string, card: string, border: string, teal: string = "#
     },
     streakPillText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
 
-    metricChip: {
-      borderRadius: 22,
-      borderWidth: 2,
-      padding: 10,
-      backgroundColor: card,
-      ...coloredShadow(teal, 0.8),
-    },
-    chipIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: 11,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 6,
-    },
-    chipValue: { fontSize: 20, fontWeight: "900", lineHeight: 24, marginBottom: 1 },
-    chipSub: { fontSize: 10, lineHeight: 14, fontWeight: "600" },
-    chipLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginTop: 4, textTransform: "uppercase" },
-
     card: {
       borderRadius: 22,
       borderWidth: 2,
@@ -2716,20 +1887,6 @@ function makeStyles(ink: string, card: string, border: string, teal: string = "#
     },
     logBtnText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.4 },
 
-    // Timeline
-    tlTime: { fontSize: 11, width: 42, paddingTop: 3 },
-    tlIconDot: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
-      borderWidth: 1.5,
-      borderColor: ink,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 2,
-    },
-    tlLine: { flex: 1, width: 2, marginTop: 2 },
-
     // Insights
     insightIcon: {
       width: 26,
@@ -2748,51 +1905,5 @@ function makeStyles(ink: string, card: string, border: string, teal: string = "#
     insightRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 5 },
     insightDot: { width: 7, height: 7, borderRadius: 4, marginTop: 6, flexShrink: 0 },
 
-    // Empty state
-    emptyState: {
-      borderWidth: 2,
-      borderRadius: 16,
-      borderStyle: "dashed",
-      paddingVertical: 18,
-      alignItems: "center",
-      gap: 6,
-      marginBottom: 4,
-    },
-    emptyText: { fontSize: 13, fontWeight: "500" },
-
-    // 7-day blocks
-    summaryBlocksRow: { flexDirection: "row", gap: 6, marginTop: 10, marginBottom: 4 },
-    summaryBlock: {
-      flex: 1,
-      borderRadius: 16,
-      borderWidth: 2,
-      borderColor: ink,
-      padding: 8,
-      shadowColor: "rgba(60,40,20,0.1)",
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      elevation: 2,
-    },
-    summaryBlockLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5, marginBottom: 4 },
-    summaryBlockValue: { fontSize: 13, fontWeight: "800" },
-    digestLabel: { fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.7 },
-    calloutStrip: { borderWidth: 2, borderRadius: 16, padding: 10, marginTop: 10, gap: 4 },
-
-    legendRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-    legendDot: { width: 8, height: 8, borderRadius: 4 },
-    toggleChip: {
-      borderWidth: 2,
-      borderColor: ink,
-      borderRadius: 20,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      shadowColor: "rgba(60,40,20,0.1)",
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.08,
-      shadowRadius: 10,
-      elevation: 2,
-    },
   });
 }

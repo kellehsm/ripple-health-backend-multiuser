@@ -31,7 +31,7 @@
 | `lib/` | Stateful platform helpers: `auth.ts`, `biometricLock.ts`, `fastingTimer.ts`, `foregroundService.ts`, `healthConnect.ts`, `insightAlerts.ts`, `notifeeSafe.ts`, `smartNotifications.ts`, `timezone.ts`, `toast.ts`, etc. |
 | `navigation/` | `RootTabs.tsx` (NavigationContainer + stack + tab navigator), `navigationRef.ts` |
 | `onboarding/` | `featureIntros.ts`, `useFeatureIntro.ts` — per-feature first-time flows |
-| `screens/` | ~45 screens; settings sub-screens live in `screens/settings/` |
+| `screens/` | ~45 screens; sub-components of large screens live in `screens/settings/`, `screens/health/`, `screens/overview/`, `screens/meals/`, `screens/mindfulness/` (extracted-section pattern; see `docs/REFACTOR_SCREEN_SPLIT.md` for remaining split work) |
 | `strings/` | `StringsContext.tsx` + `defaults.ts` — i18n-ready string overrides |
 | `theme/` | Design system (see §3) |
 | `types/` | `substances.ts`, `tabPreferences.ts` |

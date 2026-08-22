@@ -319,5 +319,6 @@ All vars from `backend/.env.example`:
 - **Admin routes rate-limit failed secret attempts.** `routes/admin.ts` enforces a maximum of 5 failed `x-admin-secret` attempts per IP per 15 minutes (in-memory bucket).
 - **Search input length capped at 200 chars.** `routes/search.ts` rejects `q` or `category` values longer than 200 characters with HTTP 400.
 - **`/export/all` uses explicit column lists.** The full-data export avoids `SELECT *` — each table is queried with an explicit column list to prevent accidental credential leakage if schema changes.
+- **`/export/all` streams.** Tables are queried sequentially and written incrementally to `reply.raw` (same JSON shape) instead of buffering the whole export in memory. `routes/sync.ts` no longer runs startup DDL — `sync_log` schema is fully owned by migrations 003 + 036.
 - **No per-item secrets in responses.** Encrypted credentials (`enc:v1:*`) must never be returned in API responses. Decrypt server-side only when needed for outbound calls.
 - **On startup, a credential sweep runs automatically.** Any plaintext Dexcom passwords, Hardcover tokens, or Plaid access tokens found in the DB are encrypted in place. This is idempotent and fast once everything is encrypted.
