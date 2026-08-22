@@ -59,13 +59,17 @@ export default async function syncRoutes(app: FastifyInstance) {
     try {
       await client.query("BEGIN");
 
+      // Batch idempotency check: one query for all sync_ids instead of N queries.
+      const syncIds = items.map((i) => i.sync_id);
+      const { rows: alreadyProcessed } = await client.query<{ sync_id: string }>(
+        "SELECT sync_id FROM sync_log WHERE sync_id = ANY($1) AND user_id = $2",
+        [syncIds, req.user_id]
+      );
+      const processedSet = new Set(alreadyProcessed.map((r) => r.sync_id));
+
       for (const item of items) {
         // Idempotency: skip if we already processed this sync_id for THIS user
-        const { rows: logged } = await client.query(
-          "SELECT 1 FROM sync_log WHERE sync_id = $1 AND user_id = $2",
-          [item.sync_id, req.user_id]
-        );
-        if (logged.length > 0) {
+        if (processedSet.has(item.sync_id)) {
           results.push({ sync_id: item.sync_id, status: "already_processed" });
           continue;
         }

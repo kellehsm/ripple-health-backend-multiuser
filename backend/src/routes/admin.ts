@@ -1,17 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { timingSafeEqual } from "crypto";
 import { query } from "../db.js";
-
-const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
-
-/** Constant-time admin-secret compare, same helper style as routes/auth.ts. */
-function adminSecretMatches(supplied: string | undefined): boolean {
-  if (!ADMIN_SECRET || !supplied) return false;
-  const a = Buffer.from(supplied);
-  const b = Buffer.from(ADMIN_SECRET);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
+import { adminSecretMatches } from "../lib/adminSecret.js";
 
 // In-memory rate limit: max 5 failed secret attempts per IP per 15 minutes.
 const ADMIN_RATE_WINDOW_MS = 15 * 60 * 1000;

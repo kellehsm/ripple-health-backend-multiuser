@@ -64,11 +64,19 @@ async function runInsightsJobBody(): Promise<void> {
 
   const users = await query<{ id: string }>("SELECT id FROM users");
 
-  const results = await Promise.allSettled(users.map(({ id }) => runInsightsForUser(id)));
+  // Process users in chunks of 5 to avoid spiking DB connections when the
+  // user count is large. No external dependency — tiny inline helper.
+  const CHUNK_SIZE = 5;
+  const allResults: Array<{ id: string; result: PromiseSettledResult<any> }> = [];
+  for (let start = 0; start < users.length; start += CHUNK_SIZE) {
+    const chunk = users.slice(start, start + CHUNK_SIZE);
+    const settled = await Promise.allSettled(chunk.map(({ id }) => runInsightsForUser(id)));
+    for (let j = 0; j < chunk.length; j++) {
+      allResults.push({ id: chunk[j].id, result: settled[j] });
+    }
+  }
 
-  for (let i = 0; i < users.length; i++) {
-    const { id } = users[i];
-    const result = results[i];
+  for (const { id, result } of allResults) {
     if (result.status === "fulfilled") {
       if (result.value.errors.length > 0) {
         ierror(`user ${id} rule errors`, { errors: result.value.errors });

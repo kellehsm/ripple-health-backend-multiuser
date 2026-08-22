@@ -19,12 +19,12 @@ export function formatDateLocal(date: Date): string {
 
 /**
  * Adds `n` days to a YYYY-MM-DD string and returns the resulting YYYY-MM-DD string.
- * Uses ISO math (UTC) — safe for arithmetic where local-midnight drift doesn't matter.
+ * Parses at local noon to avoid UTC-midnight drift for users west of UTC.
  */
 export function addDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr);
+  const d = new Date(dateStr + "T12:00:00");
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return formatDateLocal(d);
 }
 
 /**

@@ -77,6 +77,42 @@ export default async function metricsRoutes(app: FastifyInstance) {
     return rows[0];
   });
 
+  // Batch-log multiple values for a metric in one round-trip (cap 100 entries).
+  // POST /api/metrics/:metricId/logs/batch
+  // Body: { entries: [{ value: number, logged_at?: string }] }
+  app.post("/:metricId/logs/batch", async (req, reply) => {
+    const { metricId } = req.params as any;
+    if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
+    const { entries } = req.body as any;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return reply.status(400).send({ error: "entries must be a non-empty array" });
+    }
+    if (entries.length > 100) {
+      return reply.status(400).send({ error: "Too many entries (max 100)" });
+    }
+    for (const e of entries) {
+      if (!Number.isFinite(Number(e.value))) {
+        return reply.status(400).send({ error: "each entry.value must be a finite number" });
+      }
+      if (e.logged_at != null && Number.isNaN(Date.parse(e.logged_at))) {
+        return reply.status(400).send({ error: "each entry.logged_at must be a valid date string" });
+      }
+    }
+    const rows = await query(
+      `INSERT INTO metric_logs (metric_id, value, note, logged_at)
+       SELECT $1, u.value, u.note, COALESCE(u.logged_at, now())
+       FROM unnest($2::float8[], $3::text[], $4::timestamptz[]) AS u(value, note, logged_at)
+       RETURNING *`,
+      [
+        metricId,
+        entries.map((e: any) => Number(e.value)),
+        entries.map((e: any) => e.note ?? null),
+        entries.map((e: any) => e.logged_at ?? null),
+      ]
+    );
+    return rows;
+  });
+
   // Get recent logs for one metric
   app.get("/:metricId/logs", async (req, reply) => {
     const { metricId } = req.params as any;
