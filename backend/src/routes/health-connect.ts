@@ -19,7 +19,8 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
     const user_id = req.user_id;
     const { date } = req.query as any;
     const rows = await query<any>(
-      `SELECT * FROM sleep_sessions
+      `SELECT id, user_id, start_time, end_time, quality_score, deep_ms, rem_ms, light_ms, awake_ms
+       FROM sleep_sessions
        WHERE user_id = $1 AND end_time >= $2::date AND end_time < $2::date + interval '1 day'
        ORDER BY end_time DESC LIMIT 1`,
       [user_id, date]

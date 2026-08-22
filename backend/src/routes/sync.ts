@@ -15,35 +15,7 @@ type ItemResult = {
 };
 
 export default async function syncRoutes(app: FastifyInstance) {
-  // sync_log is also created in the migration script; this is a safety net for
-  // environments where the migration hasn't been run yet.
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS sync_log (
-      sync_id     TEXT        NOT NULL,
-      user_id     UUID,
-      processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `);
-  // Idempotency must be scoped per user: a global sync_id key lets one user's
-  // (or attacker's) sync_id collide with another user's and silently drop writes.
-  // Mirrors migration 036_sync_log_user_scope.sql for environments that haven't
-  // run it. Checked first because the app's DB user doesn't own the table —
-  // a blind ALTER fails on ownership even when it would be a no-op.
-  const { rows: userIdCol } = await pool.query(
-    `SELECT 1 FROM information_schema.columns WHERE table_name = 'sync_log' AND column_name = 'user_id'`
-  );
-  if (userIdCol.length === 0) {
-    await pool.query(`ALTER TABLE sync_log ADD COLUMN IF NOT EXISTS user_id UUID`);
-    await pool.query(`ALTER TABLE sync_log DROP CONSTRAINT IF EXISTS sync_log_pkey`);
-  }
-  const { rows: idx } = await pool.query(
-    `SELECT 1 FROM pg_indexes WHERE indexname = 'sync_log_user_sync_idx'`
-  );
-  if (idx.length === 0) {
-    await pool.query(
-      `CREATE UNIQUE INDEX sync_log_user_sync_idx ON sync_log (user_id, sync_id)`
-    );
-  }
+  // sync_log DDL is fully covered by migrations 003 and 036 — no startup DDL needed.
 
   app.post<{ Body: { items: BatchItem[] } }>("/batch", async (req, reply) => {
     const { items } = req.body;
@@ -59,13 +31,17 @@ export default async function syncRoutes(app: FastifyInstance) {
     try {
       await client.query("BEGIN");
 
+      // Batch idempotency check: one query for all sync_ids instead of N queries.
+      const syncIds = items.map((i) => i.sync_id);
+      const { rows: alreadyProcessed } = await client.query<{ sync_id: string }>(
+        "SELECT sync_id FROM sync_log WHERE sync_id = ANY($1) AND user_id = $2",
+        [syncIds, req.user_id]
+      );
+      const processedSet = new Set(alreadyProcessed.map((r) => r.sync_id));
+
       for (const item of items) {
         // Idempotency: skip if we already processed this sync_id for THIS user
-        const { rows: logged } = await client.query(
-          "SELECT 1 FROM sync_log WHERE sync_id = $1 AND user_id = $2",
-          [item.sync_id, req.user_id]
-        );
-        if (logged.length > 0) {
+        if (processedSet.has(item.sync_id)) {
           results.push({ sync_id: item.sync_id, status: "already_processed" });
           continue;
         }

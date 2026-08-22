@@ -31,7 +31,7 @@
 | `lib/` | Stateful platform helpers: `auth.ts`, `biometricLock.ts`, `fastingTimer.ts`, `foregroundService.ts`, `healthConnect.ts`, `insightAlerts.ts`, `notifeeSafe.ts`, `smartNotifications.ts`, `timezone.ts`, `toast.ts`, etc. |
 | `navigation/` | `RootTabs.tsx` (NavigationContainer + stack + tab navigator), `navigationRef.ts` |
 | `onboarding/` | `featureIntros.ts`, `useFeatureIntro.ts` — per-feature first-time flows |
-| `screens/` | ~45 screens; settings sub-screens live in `screens/settings/` |
+| `screens/` | ~45 screens; sub-components of large screens live in `screens/settings/`, `screens/health/`, `screens/overview/`, `screens/meals/`, `screens/mindfulness/` (extracted-section pattern: typed props, parent owns cross-section state, styles move with the component; Overview also has a `useOverviewData` data-loading hook) |
 | `strings/` | `StringsContext.tsx` + `defaults.ts` — i18n-ready string overrides |
 | `theme/` | Design system (see §3) |
 | `types/` | `substances.ts`, `tabPreferences.ts` |
@@ -119,7 +119,7 @@ Greeting updates: `greeting.evening` → 🌆; `greeting.night` added → 🌙.
 
 **Policy:** No icon-like emoji may be hardcoded directly in screens or components. Every icon-like emoji must render via `<ThemedIcon slot="..." />` so that `theme.iconOverrides` applies consistently. If no existing slot fits, add one. Exempt from this rule: inline sentence/copy emoji (e.g. "Great job 🎉") and user-generated data.
 
-**Image asset `scale`:** `ImageAsset`/`UriAsset` accept an optional `scale` multiplier applied to the slot's requested size, for illustration icons that read too small at emoji-equivalent sizes. Cozy Cat uses 1.35 for content icons and 2.6 for tab-bar slots (`tab.home`, `tab.hobbies`).
+**Image asset `scale`:** `ImageAsset`/`UriAsset` accept an optional `scale` multiplier applied to the slot's requested size, for illustration icons that read too small at emoji-equivalent sizes. Cozy Cat uses 1.35 for content icons and 2.6 for tab-bar slots (`tab.home`, `tab.meals`, `tab.exercise`, `tab.wellness`, `tab.hobbies`). The greeting cat renders to the **right** of the greeting text at 128px in `HeaderCard` when an image override exists for the slot.
 
 **`EmptyState` component** (`src/components/EmptyState.tsx`) accepts a `slot` prop that resolves the icon through `iconRegistry`, taking precedence over a raw `icon`/`emoji` prop.
 
@@ -129,6 +129,20 @@ Greeting updates: `greeting.evening` → 🌆; `greeting.night` added → 🌙.
 - `syncHealthData` returns a graceful errors array (instead of throwing) when Health Connect is unavailable or permissions have been revoked — callers inspect `errors[]` rather than catching.
 - HR sync window: **30 days** (rolling, picks up Samsung Health's delayed backfill).
 
+### Theme Studio preview (`src/screens/settings/ThemePreviewFrame.tsx`)
+
+The "LIVE PREVIEW" panel in `AppearanceSettingsScreen` renders the **actual screen components** inside a scaled 320×560 phone frame (scale 0.52).
+
+**Architecture:**
+- `src/theme/ThemeEditContext.tsx` — `{ editMode, selectedId, selectElement }` context. Default value has `editMode: false` so the rest of the app is unaffected.
+- `ShadowCard` consumes `ThemeEditContext`. When `editMode=true` and the card has a `cardId`/`tileId`, taps call `selectElement(objectId, kind)` instead of `onPress`; a primary-colored highlight glow renders when `selectedId === objectId`.
+- `ThemePreviewFrame` wraps the frame content in `ThemeEditContext.Provider` with `editMode=true`. It uses **`NavigationIndependentTree`** (from `@react-navigation/core`, v7 API) + `NavigationContainer` to host a minimal `createNativeStackNavigator` containing just the selected page's real screen component. The screens fetch live API data — real user data appears in the preview.
+- Page chips map keys to actual screen components: overview→OverviewScreen, wellness→HealthScreen, meals→MealsScreen, life→LifeScreen, finance→FinanceScreen, health_tab→HealthTabScreen, exercise→ExerciseScreen, mindfulness→MindfulnessScreen, insights→InsightsScreen.
+- An `ScreenErrorBoundary` (local class component) catches screen render errors and shows a caption fallback instead of crashing.
+- Scale/touch math: the phone-outer View is rendered at full size with `transform:[{scale:0.52}]`. Because scale is center-origin, layout collapse uses **symmetric** negative margins — `marginHorizontal`/`marginVertical` of `−(full_dim × (1 − 0.52)) / 2` per axis — so the frame stays centered. Touch coordinates align automatically because RN hit-testing follows the scaled visual bounds.
+- Page background editing: a small "Edit page background" button above the frame opens the same `ElementEditor` modal with `kind:"page"` and a per-page element ID.
+- Tap-to-edit flow: ShadowCard tap → `selectElement` → sets `selected` state in `ThemePreviewFrame` → `ElementEditor` modal opens bound to `AppSettingsContext` setters (opacity, glass blur, background image).
+
 ### Tokens (`src/theme/tokens.ts`)
 
 Shared numeric constants: `FONT_SIZES` (micro 9 → display 28), `SPACING` (xs 4 → xxl 32), `RADIUS` (sm 8 → card 18, pill 100).
@@ -136,6 +150,10 @@ Shared numeric constants: `FONT_SIZES` (micro 9 → display 28), `SPACING` (xs 4
 ### Palettes and ThemeContext
 
 `src/theme/palettes.ts` defines named `Theme` objects (light and dark variants). The active palette is persisted to SecureStore under `ripple_palette_id`. Default is `"morning-mist"` (cream light theme).
+
+**Top/bottom bar colors:** `Theme` has optional `topBar` and `bottomBar` tokens. `RootTabs` uses `theme.topBar ?? theme.teal.tint` for the Home tab header (other tabs keep their per-tab family tints). `BottomNav` uses `theme.bottomBar ?? theme.topBar ?? theme.page`, so the bottom tab bar can stand apart from the page background.
+
+**Web target — "Ripple Preview":** the dev web build served at http://app.kels.gg:8090 (http://129.121.125.214:8090) is called **Ripple Preview**. The app runs on react-native-web via `npx expo start --web`. `metro.config.js` adds wasm asset support, COOP/COEP headers, and web-only resolver aliases (expo-secure-store → localStorage shim, react-native-svg `resolve` → style-flattening shim). Platform files `localDb.web.ts` (no-op SQLite) and `plaidLink.web.ts` (stub) exclude native-only modules from the web bundle. `globalFont.ts` must flatten styles (`StyleSheet.flatten`) before cloning — style arrays crash React DOM.
 
 `ThemeContext` (from `src/theme/ThemeContext.tsx`) exposes:
 - `theme` — the active `Theme` object with color tokens (`page`, `card`, `ink`, `textStrong`, `textSoft`, `teal`, `coral`, `amber`, `berry`, `violet`, etc.)
@@ -298,6 +316,18 @@ Add new native-touching work here as it lands.
 - **Expo Go** (dev): works for JS-only changes; cannot run `@notifee/react-native` or native modules that require a custom dev client build.
 - **Dev client** (`development` profile): required when native modules are added or changed.
 - Dev metro port: **8082**; production: **8081**.
+- Web dev server (expo start --web): port **8090** (`screen -S wellness-web`).
+
+### Web platform metro aliases (`metro.config.js`)
+
+Two packages need web shims registered in `config.resolver.resolveRequest`:
+
+| Package | Issue | Shim |
+|---|---|---|
+| `expo-secure-store` | No web implementation | `src/lib/secureStore.web.stub.ts` |
+| `react-native-svg` — `lib/resolve.js` | Returns style arrays (`[styleProp, cleanedProps]`) that crash React DOM on native SVG elements (`CSSStyleProperties indexed property setter` error) | `src/lib/rn-svg-resolve.web.stub.js` (flattens via `StyleSheet.flatten`) |
+
+The react-native-svg shim is matched by `moduleName === "../../lib/resolve"` with `context.originModulePath.includes("react-native-svg")` to avoid false positives.
 
 ### Dev login shortcut
 

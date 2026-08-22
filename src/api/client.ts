@@ -35,6 +35,12 @@ let spo2MetricCache: any = null;
 export function clearWaterMetricCache(): void {
   waterMetricCache = null;
 }
+export function clearMetricCaches(): void {
+  waterMetricCache = null;
+  weightMetricCache = null;
+  activeMinutesMetricCache = null;
+  spo2MetricCache = null;
+}
 
 export async function request(path: string, options: RequestInit = {}): Promise<any> {
   const method = (options.method ?? "GET").toUpperCase();
@@ -456,6 +462,15 @@ export const api = {
     return request("/metrics/" + metricId + "/logs", {
       method: "POST",
       body: JSON.stringify({ value, logged_at }),
+    });
+  },
+  logMetricValuesBatch: function (
+    metricId: string,
+    entries: Array<{ value: number; logged_at?: string; note?: string }>
+  ) {
+    return request("/metrics/" + metricId + "/logs/batch", {
+      method: "POST",
+      body: JSON.stringify({ entries }),
     });
   },
 

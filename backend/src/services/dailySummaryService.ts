@@ -384,7 +384,10 @@ function buildInsights(params: {
 
 export async function getDailySummary(userId: string, date: string): Promise<DailySummaryRow | null> {
   const rows = await query<DailySummaryRow>(
-    `SELECT * FROM daily_summaries WHERE user_id = $1 AND date = $2`,
+    `SELECT id, user_id, date, sleep_score, glucose_score, activity_score, hydration_score,
+            nutrition_score, mood_score, productivity_score, stress_score, overall_score,
+            summary_data, insights, created_at, updated_at
+     FROM daily_summaries WHERE user_id = $1 AND date = $2`,
     [userId, date]
   );
   return rows[0] ?? null;

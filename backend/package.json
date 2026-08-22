@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "TZ=America/New_York tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "TZ=America/New_York node dist/server.js",
     "migrate": "psql \"$DATABASE_URL\" -f schema.sql"
   },
   "dependencies": {

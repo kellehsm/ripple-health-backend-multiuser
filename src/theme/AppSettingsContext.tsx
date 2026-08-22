@@ -7,7 +7,7 @@ import {
   DEFAULT_FONT_SCALE,
   FONT_FAMILY_KEYS,
   FONT_SCALE_KEYS,
-} from "./fontSystem";
+} from "./fontFamilies";
 import { layeredShadow, ShadowSize } from "./styleUtils";
 import { useTheme } from "./ThemeContext";
 import { setGlobalFontFamily } from "./globalFont";

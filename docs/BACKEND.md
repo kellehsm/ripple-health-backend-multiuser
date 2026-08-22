@@ -21,7 +21,8 @@
 ### Auth model (`src/middleware/auth.ts`)
 
 - **Standard JWT** — 30-day expiry, signed with `JWT_SECRET`, payload `{ user_id, tv }`.
-- **Token revocation** — every request checks `users.token_version` against the `tv` claim. A mismatch (e.g. after password change) immediately rejects the token.
+- **Token revocation** — every request checks `users.token_version` against the `tv` claim. A mismatch (e.g. after password change) immediately rejects the token. The DB value is cached in-process for 30s (`middleware/auth.ts`); routes that bump `token_version` call `invalidateTokenVersionCache(userId)` so revocation is immediate on the same instance.
+- **Per-route rate limits** — expensive endpoints carry their own limits on top of the global bucket: export `/all`, `/doctor-report`, `/weekly-digest.pdf` and insights `/regenerate` at 2/min; insights `/impact/:rule_id` at 30/min.
 - **Widget tokens** — 7-day expiry, payload `{ user_id, scope: "widget" }`. Restricted to GET on a fixed set of read endpoints plus POST `/api/metrics` and `/api/metrics/:id/logs` (water logging from the Android home-screen widget, which cannot access SecureStore).
 - **Download tokens** — 5-minute, single-use, passed as `?dl=` query param for URL-based file downloads (keeps JWT out of logs and browser history).
 
@@ -52,7 +53,7 @@
 | `/auth/google` | routes/google-auth.ts | Google OAuth callback flow |
 | `/api/books-search` | routes/books-search.ts | Proxy search to Hardcover / external book APIs |
 | `/api/food` | routes/food.ts | Nutrition lookup via Passio / USDA FDC |
-| `/api/metrics` | routes/metrics.ts | Generic metric definitions and log entries; `GET /:id/weekly-total` returns `{ week_total, last_week_total, month_to_date_total }` (honors `week_start_day`) |
+| `/api/metrics` | routes/metrics.ts | Generic metric definitions and log entries; `GET /:id/weekly-total` returns `{ week_total, last_week_total, month_to_date_total }` (honors `week_start_day`); `POST /:id/logs/batch` inserts up to 100 `{ value, logged_at?, note? }` entries in one multi-row INSERT (used by Health Connect sync) |
 | `/api/books` | routes/books.ts | User book library and reading logs |
 | `/api/hobbies` | routes/hobbies.ts | Hobby definitions and session logs |
 | `/api/meals` | routes/meals.ts | Meal log (macros, calories, barcode lookup) |
@@ -99,6 +100,8 @@
 ## 3. Background Jobs / Schedulers
 
 All jobs are scheduled via `node-cron` in `server.ts` after the HTTP server starts.
+
+**Process timezone is EST**: the `dev`/`start` scripts in `backend/package.json` set `TZ=America/New_York`, so all JS-side `new Date()` day logic matches the DB session timezone (also America/New_York) and the cron schedules. The frontend buckets dates in the device's local timezone.
 
 | Job | Schedule | File | Notes |
 |-----|----------|------|-------|
@@ -318,5 +321,6 @@ All vars from `backend/.env.example`:
 - **Admin routes rate-limit failed secret attempts.** `routes/admin.ts` enforces a maximum of 5 failed `x-admin-secret` attempts per IP per 15 minutes (in-memory bucket).
 - **Search input length capped at 200 chars.** `routes/search.ts` rejects `q` or `category` values longer than 200 characters with HTTP 400.
 - **`/export/all` uses explicit column lists.** The full-data export avoids `SELECT *` — each table is queried with an explicit column list to prevent accidental credential leakage if schema changes.
+- **`/export/all` streams.** Tables are queried sequentially and written incrementally to `reply.raw` (same JSON shape) instead of buffering the whole export in memory. `routes/sync.ts` no longer runs startup DDL — `sync_log` schema is fully owned by migrations 003 + 036.
 - **No per-item secrets in responses.** Encrypted credentials (`enc:v1:*`) must never be returned in API responses. Decrypt server-side only when needed for outbound calls.
 - **On startup, a credential sweep runs automatically.** Any plaintext Dexcom passwords, Hardcover tokens, or Plaid access tokens found in the DB are encrypted in place. This is idempotent and fast once everything is encrypted.

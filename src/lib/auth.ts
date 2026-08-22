@@ -76,8 +76,8 @@ export async function logout(): Promise<void> {
   try { clearAllBarcodeCache(); } catch {}
   // Dynamic import: client.ts imports this module, so a static import would cycle
   try {
-    const { clearWaterMetricCache } = await import("../api/client");
-    clearWaterMetricCache();
+    const { clearMetricCaches } = await import("../api/client");
+    clearMetricCaches();
   } catch {}
   _logoutHandler?.();
 }

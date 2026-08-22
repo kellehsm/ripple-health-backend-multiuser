@@ -3,6 +3,7 @@ import { View, ViewStyle, StyleProp, Pressable, Animated, StyleSheet, Image } fr
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "../theme/ThemeContext";
 import { useAppSettings } from "../theme/AppSettingsContext";
+import { useThemeEdit } from "../theme/ThemeEditContext";
 import { hexWithAlpha } from "../theme/colorUtils";
 import { layeredShadow, hardOffset, ShadowSize } from "../theme/styleUtils";
 import { ThemedSurface, useCardBackground, useTileBackground } from "../theme/pageTemplates";
@@ -105,6 +106,7 @@ export function ShadowCard({
 }: ShadowCardProps) {
   const { theme } = useTheme();
   const { shadowsEnabled, cardOpacity, perObjectOpacity, perObjectGlassBlur, cardOutlineColor } = useAppSettings();
+  const { editMode, selectedId, selectElement } = useThemeEdit();
   const objectId = cardId ?? tileId;
   const effectiveOpacity = objectId && perObjectOpacity[objectId] !== undefined
     ? perObjectOpacity[objectId]
@@ -127,7 +129,9 @@ export function ShadowCard({
   // so it remains visible; in light mode it uses the ink color directly.
   const hardColor = isDark ? "rgba(0,0,0,0.75)" : ink;
 
-  const transform = rotate !== undefined ? [{ rotate: `${rotate}deg` }] : undefined;
+  // Tilt disabled by design decision (2026-08) — cards render straight; `rotate` prop is ignored.
+  void rotate;
+  const transform = undefined;
 
   // Press-scale animation
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -293,20 +297,48 @@ export function ShadowCard({
     </View>
   );
 
-  const innerContent = onPress ? (
+  const isSelected = editMode && objectId !== undefined && selectedId === objectId;
+
+  const editModePress = editMode && objectId
+    ? () => selectElement(objectId, cardId ? "card" : "tile")
+    : undefined;
+
+  const activeOnPress = editModePress ?? onPress;
+
+  const innerContent = activeOnPress ? (
     <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPress={activeOnPress}
+      onPressIn={editModePress ? undefined : handlePressIn}
+      onPressOut={editModePress ? undefined : handlePressOut}
       style={{ borderRadius: radius }}
     >
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Animated.View style={editModePress ? undefined : { transform: [{ scale: scaleAnim }] }}>
         {cardBody}
       </Animated.View>
     </Pressable>
   ) : (
     cardBody
   );
+
+  const selectionGlow = isSelected ? (
+    <View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: -2,
+        left: -2,
+        right: -2,
+        bottom: -2,
+        borderRadius: radius + 2,
+        borderWidth: 2,
+        borderColor: theme.primary ?? theme.teal.solid,
+        shadowColor: theme.primary ?? theme.teal.solid,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 6,
+      }}
+    />
+  ) : null;
 
   return (
     <View
@@ -337,6 +369,9 @@ export function ShadowCard({
 
       {/* Layer 2 + 3: Card body with soft atmospheric shadow + border */}
       {innerContent}
+
+      {/* Theme-edit selection highlight — only visible when editMode=true and this card is selected */}
+      {selectionGlow}
     </View>
   );
 }

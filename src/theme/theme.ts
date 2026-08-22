@@ -56,6 +56,11 @@ export type Theme = {
   textStrong: string;  // headings, primary values
   textSoft: string;    // labels, captions, placeholders
 
+  /** Navigation top-bar background. Falls back to teal.tint so every palette gets a distinct bar. */
+  topBar?: string;
+  /** Bottom tab-bar background. Falls back to topBar, then page. */
+  bottomBar?: string;
+
   primary: string;      // main CTA, active switches/chips
   success: string;      // positive / in-range state
   warning: string;      // caution / elevated values

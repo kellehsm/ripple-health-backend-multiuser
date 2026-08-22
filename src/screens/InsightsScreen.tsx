@@ -4,7 +4,7 @@ import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
 import { ScreenBackground } from "../components/ScreenBackground";
 import {
-  Animated, Easing, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
+  Animated, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
 } from "react-native";
 import { ShadowCard } from "../components/ShadowCard";
 import { todayStr } from "../utils/dateUtils";
@@ -22,6 +22,9 @@ import { TooltipBubble } from "../components/TooltipBubble";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 import { WeeklyDigestModal } from "../components/WeeklyDigestModal";
+import { SectionLabel } from "../components/SectionLabel";
+import { GhostRow } from "../components/GhostRow";
+import { FONT_SIZES } from "../theme/tokens";
 
 function SkeletonPulse({ style }: { style?: object }) {
   const opacity = useRef(new Animated.Value(0.4)).current;
@@ -54,38 +57,19 @@ function SkeletonCard() {
   );
 }
 
-function AnimatedCard({
-  insight,
-  onDismiss,
-  onSnooze,
-  onPin,
-  isPinned,
-  animValue,
-}: {
-  insight: Insight;
-  onDismiss?: (id: string) => void;
-  onSnooze?: (id: string, days: number) => void;
-  onPin?: (id: string, pinned: boolean) => void;
-  isPinned?: boolean;
-  animValue: Animated.Value;
-}) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const opacity = animValue.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
-  const translateY = animValue.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
-  return (
-    <Animated.View style={{ opacity, transform: [{ translateY }, { scale }] }}>
-      <InsightCard
-        insight={insight}
-        onDismiss={onDismiss}
-        onSnooze={onSnooze}
-        onPin={onPin}
-        isPinned={isPinned}
-        onPressIn={() => Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
-        onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 300, bounciness: 4 }).start()}
-      />
-    </Animated.View>
-  );
-}
+const CATEGORY_ORDER: { label: string; types: string[] }[] = [
+  { label: "Streaks",      types: ["streak"] },
+  { label: "Mood",         types: ["mood", "mindfulness"] },
+  { label: "Sleep",        types: ["sleep"] },
+  { label: "Glucose",      types: ["glucose"] },
+  { label: "Activity",     types: ["activity", "exercise", "steps"] },
+  { label: "Hydration",    types: ["water"] },
+  { label: "Nutrition",    types: ["hobbies", "books"] },
+  { label: "Medication",   types: ["medication"] },
+  { label: "Finance",      types: ["spending"] },
+  { label: "Cycle",        types: ["cycle"] },
+  { label: "Combined",     types: ["combined", "category_summary"] },
+];
 
 type WeeklyDayCorr = { date: string; avg_mood: number | null; sleep_hours: number; total_spent: number };
 
@@ -147,7 +131,6 @@ export function InsightsScreen() {
   const insightsIntro = findIntro("insights")!;
   const [introVisible, dismissIntro] = useFeatureIntro(insightsIntro.key);
   const ink = theme.ink;
-  const card = theme.card;
 
   const [showTooltip, setShowTooltip] = useState(false);
   const [insights, setInsights] = useState<Insight[]>([]);
@@ -161,7 +144,6 @@ export function InsightsScreen() {
   const [undoItem, setUndoItem] = useState<Insight | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
-  const [animationKey, setAnimationKey] = useState(0);
   const isFirstLoad = useRef(true);
   const loadCancelledRef = useRef(false);
 
@@ -169,9 +151,6 @@ export function InsightsScreen() {
   const [weeklyData, setWeeklyData] = useState<WeeklyDay[]>([]);
   const [digest, setDigest] = useState<any>(null);
   const [digestVisible, setDigestVisible] = useState(false);
-  // Per-card animation values for stagger entrance
-  const cardAnims = useRef<Animated.Value[]>([]);
-  const staggerRef = useRef<Animated.CompositeAnimation | null>(null);
 
   async function load(showRefresh = false) {
     if (!showRefresh) {
@@ -179,7 +158,6 @@ export function InsightsScreen() {
       if (cached) {
         setInsights(cached.active);
         setDismissed(cached.dismissed);
-        setAnimationKey(k => k + 1);
         isFirstLoad.current = false;
         setLoading(false);
         return;
@@ -203,7 +181,6 @@ export function InsightsScreen() {
       setCached('insights:list', { active: activeList, dismissed: dismissedList });
       setInsights(activeList);
       setDismissed(dismissedList);
-      setAnimationKey(k => k + 1);
       isFirstLoad.current = false;
       if (dash?.weekly_mood && Array.isArray(dash.weekly_mood)) {
         setWeeklyData(dash.weekly_mood);
@@ -298,32 +275,8 @@ export function InsightsScreen() {
     ? insights
     : insights.filter(i => group.types.includes(i.type));
 
-  const streaks   = filtered.filter(i => i.type === "streak");
-  const patterns  = filtered.filter(i => i.type !== "streak");
 
-  // Rebuild and fire stagger animation whenever filtered list or active group changes
-  useEffect(() => {
-    if (loading) return;
-    const count = filtered.length;
-    // Reset to correct length
-    cardAnims.current = Array.from({ length: count }, () => new Animated.Value(0));
-    if (staggerRef.current) staggerRef.current.stop();
-    if (count === 0) return;
-    const animations = cardAnims.current.map((val) =>
-      Animated.parallel([
-        Animated.timing(val, {
-          toValue: 1,
-          duration: 280,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    staggerRef.current = Animated.stagger(60, animations);
-    staggerRef.current.start();
-  }, [animationKey, activeGroup, loading]);
-
-  const styles = makeStyles(theme.page, ink, card);
+  const styles = makeStyles(theme.page, ink);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
@@ -409,7 +362,7 @@ export function InsightsScreen() {
       )}
 
       {!loading && !error && insights.length === 0 && (
-        <View style={[styles.emptyCard, { backgroundColor: card, borderColor: ink }]}>
+        <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: ink }]}>
           <ThemedIcon slot="ui.seedling" size={32} style={{ marginBottom: 12 } as any} />
           <Text style={[styles.emptyTitle, { color: theme.textStrong }]}>Building your profile</Text>
           <Text style={[styles.emptyText, { color: theme.textSoft }]}>
@@ -421,54 +374,67 @@ export function InsightsScreen() {
       {!loading && !error && filtered.length === 0 && insights.length > 0 && (
         <View style={{ alignItems: "center", paddingVertical: 48, gap: 12 }}>
           <ThemedIcon slot="ui.sparkle" size={32} />
-          <Text style={{ fontSize: 16, fontWeight: "600", color: theme.textStrong }}>No insights yet</Text>
-          <Text style={{ fontSize: 13, color: theme.textSoft, textAlign: "center", paddingHorizontal: 32 }}>
+          <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "600", color: theme.textStrong }}>No insights yet</Text>
+          <Text style={{ fontSize: FONT_SIZES.body, color: theme.textSoft, textAlign: "center", paddingHorizontal: 32 }}>
             Log a few days of meals, glucose, and mood and your first insights will appear here.
           </Text>
         </View>
       )}
 
-      {/* Streak badges */}
-      {streaks.length > 0 && (
-        <View style={{ marginBottom: 4 }}>
-          <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>STREAKS</Text>
-          <View style={{ gap: 10 }}>
-            {streaks.map((insight, i) => (
-              <AnimatedCard
-                key={`${animationKey}-${insight.id}`}
-                insight={insight}
-                onDismiss={handleDismiss}
-                onSnooze={handleSnooze}
-                onPin={handlePin}
-                isPinned={pinnedIds.has(insight.id)}
-                animValue={cardAnims.current[i] ?? new Animated.Value(1)}
-              />
-            ))}
-          </View>
-        </View>
-      )}
+      {/* Grouped compact insight feed */}
+      {!loading && !error && filtered.length > 0 && (() => {
+        const activeCategories = CATEGORY_ORDER
+          .map(cat => ({
+            ...cat,
+            items: filtered.filter(i => cat.types.includes(i.type)),
+          }))
+          .filter(cat => cat.items.length > 0);
 
-      {/* Pattern insights */}
-      {patterns.length > 0 && (
-        <View>
-          {streaks.length > 0 && (
-            <Text style={[styles.sectionLabel, { color: theme.textSoft, marginTop: 8 }]}>PATTERNS</Text>
-          )}
-          <View style={{ gap: 10 }}>
-            {patterns.map((insight, i) => (
-              <AnimatedCard
-                key={`${animationKey}-${insight.id}`}
-                insight={insight}
-                onDismiss={handleDismiss}
-                onSnooze={handleSnooze}
-                onPin={handlePin}
-                isPinned={pinnedIds.has(insight.id)}
-                animValue={cardAnims.current[streaks.length + i] ?? new Animated.Value(1)}
-              />
+        const uncategorised = filtered.filter(
+          i => !CATEGORY_ORDER.some(cat => cat.types.includes(i.type))
+        );
+
+        return (
+          <View style={{ gap: 16 }}>
+            {activeCategories.map(cat => (
+              <View key={cat.label}>
+                <SectionLabel text={cat.label} style={{ marginBottom: 6 }} />
+                <View style={{ gap: 6 }}>
+                  {cat.items.map(insight => (
+                    <InsightCard
+                      key={insight.id}
+                      insight={insight}
+                      compact
+                      onDismiss={handleDismiss}
+                      onSnooze={handleSnooze}
+                      onPin={handlePin}
+                      isPinned={pinnedIds.has(insight.id)}
+                    />
+                  ))}
+                </View>
+              </View>
             ))}
+            {uncategorised.length > 0 && (
+              <View>
+                <SectionLabel text="Other" style={{ marginBottom: 6 }} />
+                <View style={{ gap: 6 }}>
+                  {uncategorised.map(insight => (
+                    <InsightCard
+                      key={insight.id}
+                      insight={insight}
+                      compact
+                      onDismiss={handleDismiss}
+                      onSnooze={handleSnooze}
+                      onPin={handlePin}
+                      isPinned={pinnedIds.has(insight.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
-        </View>
-      )}
+        );
+      })()}
 
       {/* Dismissed section */}
       {dismissed.length > 0 && (
@@ -478,9 +444,7 @@ export function InsightsScreen() {
             style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4 }}
           >
             <Ionicons name={showDismissed ? "chevron-down" : "chevron-forward"} size={14} color={theme.textSoft} />
-            <Text style={[styles.sectionLabel, { color: theme.textSoft, marginBottom: 0 }]}>
-              DISMISSED ({dismissed.length})
-            </Text>
+            <SectionLabel text={`Dismissed (${dismissed.length})`} />
           </Pressable>
           {showDismissed && (
             <View style={{ gap: 8, marginTop: 6 }}>
@@ -509,7 +473,7 @@ export function InsightsScreen() {
         if (!sleepMood && !financeMood) return null;
         return (
           <View style={{ gap: 10, marginTop: 8 }}>
-            <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>CORRELATIONS</Text>
+            <SectionLabel text="Correlations" />
             {sleepMood ? (
               <ShadowCard size="card" accent={theme.violet?.solid ?? theme.purple.solid}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -655,12 +619,12 @@ export function InsightsScreen() {
   );
 }
 
-function makeStyles(page: string, ink: string, card: string) {
+function makeStyles(page: string, ink: string) {
   return StyleSheet.create({
     content: { padding: 16, gap: 12, paddingBottom: 32 },
     headerBlock: { gap: 4, marginBottom: 4 },
-    heading: { fontSize: 26, fontWeight: "900", letterSpacing: -0.8 },
-    subheading: { fontSize: 13, lineHeight: 18 },
+    heading: { fontSize: FONT_SIZES.title, fontWeight: "900", letterSpacing: -0.5 },
+    subheading: { fontSize: FONT_SIZES.body, lineHeight: 20 },
     regenBtn: {
       flexDirection: "row",
       alignItems: "center",
@@ -682,13 +646,6 @@ function makeStyles(page: string, ink: string, card: string) {
     },
     filterEmoji: { fontSize: 14 },
     filterText: { fontSize: 11, fontWeight: "700" },
-    sectionLabel: {
-      fontSize: 9,
-      fontWeight: "900",
-      letterSpacing: 0.6,
-      marginBottom: 6,
-      textTransform: "uppercase",
-    },
     emptyCard: {
       borderRadius: 22,
       borderWidth: 2,

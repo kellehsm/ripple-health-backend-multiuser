@@ -103,6 +103,12 @@ For Nunito, `fontWeight` is resolved to a separate weight file (the patch replac
 
 Use `useFontSizes()` (from `src/theme/fontSystem.ts`) to read scaled values — they multiply with the user's font-size preset and compound with OS accessibility scaling.
 
+**Primary ramp (2026-08 revamp).** New/revamped screens use only four steps plus the caps micro-label: `title` (22, screen title), `subheading` (16, card title), `body` (14), `caption` (11), and `micro` only via the `SectionLabel` component. `display`, `heading`, and `label` remain valid in legacy code but should not be introduced in new work; pick the nearest primary step. Never hardcode a font size.
+
+**Card language.** One card style: `ShadowCard` with its default border (theme ink / user outline color). Per-card colored borders are banned; the single sanctioned accent is `ShadowCard`'s `accent` prop (left edge gradient strip). Cards always render straight — `ShadowCard` ignores its legacy `rotate` prop (angled cards rejected 2026-08); don't add rotation transforms to cards or tiles.
+
+**No-junk-data rule.** Sections with empty/zero data never render full-size tiles showing "0 …" or "--" — use `GhostRow` (slim dashed placeholder with optional CTA) or `EmptyState` for whole-section emptiness.
+
 ---
 
 ## 4. Card & Surface Anatomy
@@ -299,6 +305,35 @@ Run through this before calling a screen done:
 - [ ] Border radii match the spec (cards 22+, chips 20+, inputs 16, pills 100)
 - [ ] No `fontFamily` set manually on `Text` nodes unless intentionally overriding the global patch
 - [ ] No emojis in new copy unless explicitly requested; no branching on `theme.isDark`
+
+---
+
+## 10. Shared Primitives — Mandatory Usage
+
+| Primitive | File | When to use |
+|---|---|---|
+| `ShadowCard` | `src/components/ShadowCard.tsx` | Every data card; default border; only accent via `accent` prop |
+| `SectionLabel` | `src/components/SectionLabel.tsx` | All caps micro-labels between sections; replaces inline `<Text>` with `fontSize: 9` and `textTransform: uppercase` |
+| `GhostRow` | `src/components/GhostRow.tsx` | Empty / zero-value placeholders; replaces junk rows such as "0 exercises · 0m" |
+| `EmptyState` | `src/components/EmptyState.tsx` | Full-section empty state with illustration |
+
+**Do not build raw `<Text>` section labels** — always use `<SectionLabel text="..." />`.
+
+**Do not render zero-value data rows** — use `<GhostRow>` instead (e.g., sessions with `entry_count === 0`).
+
+### InsightCard compact mode
+
+`InsightCard` has a `compact` prop (default `false`). When `compact=true` and the card is collapsed it renders a single-line row: small icon + title + confidence dot (color from theme token) + one-line summary (`numberOfLines={1}`) + chevron. Tapping expands the card in place to show full detail (description, supporting data, feedback, actions). The expanded state renders the same full-card layout plus a "Collapse" button. Memoization via `React.memo` is preserved in both modes. **InsightsScreen uses `compact` mode exclusively**, grouping insights by category under `SectionLabel` headers.
+
+### ToastHost positioning
+
+`ToastHost` renders at root level, outside the tab navigator. Its `bottom` offset is calculated as:
+
+```
+TAB_BAR_HEIGHT (56) + insets.bottom + 12
+```
+
+where `insets.bottom` comes from `useSafeAreaInsets()`. This ensures toasts clear the bottom nav bar on all device sizes including those with a home indicator.
 
 ---
 

@@ -22,6 +22,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemedIcon } from "../theme/iconRegistry";
 import { ShadowCard } from "../components/ShadowCard";
+import { SectionLabel } from "../components/SectionLabel";
+import { FONT_SIZES } from "../theme/tokens";
 import { toast } from "../lib/toast";
 import { FeatureTour, TourStep } from "../components/FeatureTour";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
@@ -419,7 +421,7 @@ export function FriendsScreen() {
       )}
 
       {/* My Username */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>MY USERNAME</Text>
+      <SectionLabel text="My Username" />
       <View ref={usernameRef}>
       <ShadowCard padding={14}>
         {username && !editingUsername ? (
@@ -487,7 +489,7 @@ export function FriendsScreen() {
       </View>
 
       {/* Add a Friend */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>ADD A FRIEND</Text>
+      <SectionLabel text="Add a Friend" />
       <View ref={addFriendRef}>
       <ShadowCard padding={14}>
         <View style={styles.inputRow}>
@@ -519,9 +521,7 @@ export function FriendsScreen() {
       {/* Friend Requests */}
       {requests.length > 0 && (
         <>
-          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>
-            FRIEND REQUESTS ({requests.length})
-          </Text>
+          <SectionLabel text={`Friend Requests (${requests.length})`} />
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             {requests.map((req, i) => (
               <View key={req.connection_id}>
@@ -560,7 +560,7 @@ export function FriendsScreen() {
       )}
 
       {/* My Friends */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>MY FRIENDS</Text>
+      <SectionLabel text="My Friends" />
       {loading ? (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 20 }]}>
           <ActivityIndicator color={theme.teal.bar} />
@@ -652,7 +652,7 @@ export function FriendsScreen() {
       )}
 
       {/* Friend Activity Feed */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>FRIEND ACTIVITY</Text>
+      <SectionLabel text="Friend Activity" />
       {activityFeed.length === 0 ? (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 12 }]}>
           <Text style={{ color: theme.textSoft, fontSize: 13 }}>Quiet week so far — no streaks to celebrate yet.</Text>
@@ -687,8 +687,8 @@ export function FriendsScreen() {
 
       {/* Leaderboards */}
       <View ref={leaderboardRef}>
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>LEADERBOARDS</Text>
-      <Text style={{ color: theme.textSoft, fontSize: 12, marginBottom: 8, lineHeight: 17 }}>
+      <SectionLabel text="Leaderboards" />
+      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginBottom: 8, lineHeight: 18 }}>
         Only steps, exercise, hobbies, and books are compared — all other data stays private.
       </Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -711,7 +711,7 @@ export function FriendsScreen() {
 
       {/* Challenges */}
       <View ref={challengesRef}>
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>CHALLENGES</Text>
+      <SectionLabel text="Challenges" />
       <Pressable
         onPress={() => navigation.navigate("Challenges")}
         style={[styles.challengeBtn, { backgroundColor: theme.purple.tint, borderColor: theme.ink }]}
@@ -742,7 +742,7 @@ export function FriendsScreen() {
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   groupLabel: {
-    fontSize: 9,
+    fontSize: FONT_SIZES.micro,
     fontWeight: "900",
     letterSpacing: 0.6,
     marginTop: 8,

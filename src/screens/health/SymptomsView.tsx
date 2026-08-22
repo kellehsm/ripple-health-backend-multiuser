@@ -6,6 +6,12 @@ import { CycleLog } from './shared';
 
 interface PhaseEntry { label: string; phase: string; cycles: number }
 
+function humanizeLabel(raw: string): string {
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function moodColor(label: string, theme: any): string | null {
   const l = label.toLowerCase();
   if (/great|amazing|happy|excited|energetic/.test(l)) return theme.green?.solid ?? '#3E8E5A';
@@ -108,7 +114,7 @@ export function SymptomsView({ theme }: { theme: any }) {
                   return (
                     <View key={label} style={{ paddingHorizontal: 14, paddingVertical: 11, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: theme.cardBorder }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: '500', textTransform: 'capitalize' }}>{label}</Text>
+                        <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: '500' }}>{humanizeLabel(label)}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <View style={{ height: 6, width: Math.max(20, Math.min(80, count * 8)), borderRadius: 3, backgroundColor: theme.berry?.solid ?? '#A62A50', opacity: 0.6 }} />
                           <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', minWidth: 28, textAlign: 'right' }}>{count}×</Text>
