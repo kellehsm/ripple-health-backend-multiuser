@@ -9,23 +9,26 @@ type ThemeLike = {
   berry: { solid: string; bg: string; sub: string };
   amber?: { solid: string; bg: string; sub: string };
   red?: { solid: string; bg: string; sub: string };
+  success?: string;
+  warning?: string;
+  danger?: string;
 };
-
-const GLUCOSE_IN_RANGE:  Palette = { fg: "#27AE60", bg: "#EAF7EE", border: "#27AE60" };
-const GLUCOSE_WARN:      Palette = { fg: "#E67E22", bg: "#FEF5E7", border: "#E67E22" };
-const GLUCOSE_ALERT:     Palette = { fg: "#C0392B", bg: "#FDEDEC", border: "#C0392B" };
 
 function glucosePalette(mgDl: number | null, theme: ThemeLike): Palette {
   if (mgDl === null) return { fg: theme.berry.solid, bg: theme.berry.bg, border: theme.berry.solid };
-  if (mgDl < 70 || mgDl > 180) return GLUCOSE_ALERT;
-  if (mgDl <= 140) return GLUCOSE_IN_RANGE;
-  return GLUCOSE_WARN;
+  const successColor = theme.success ?? "#1A9870";
+  const warningColor = theme.warning ?? "#B88820";
+  const dangerColor  = theme.danger  ?? "#C02840";
+  if (mgDl < 70 || mgDl > 180) return { fg: dangerColor,  bg: dangerColor  + "18", border: dangerColor  };
+  if (mgDl <= 140)              return { fg: successColor, bg: successColor + "18", border: successColor };
+  return                               { fg: warningColor, bg: warningColor + "18", border: warningColor };
 }
 
 // Heart rate coloring: neutral berry by default; if bpm > 180 or < 40 flag as alert.
 function heartRatePalette(bpm: number | null, theme: ThemeLike): Palette {
   if (bpm === null) return { fg: theme.berry.solid, bg: theme.berry.bg, border: theme.berry.solid };
-  if (bpm > 180 || bpm < 40) return GLUCOSE_ALERT;
+  const dangerColor = theme.danger ?? "#C02840";
+  if (bpm > 180 || bpm < 40) return { fg: dangerColor, bg: dangerColor + "18", border: dangerColor };
   return { fg: theme.berry.solid, bg: theme.berry.bg, border: theme.berry.sub };
 }
 

@@ -547,19 +547,18 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
       )}
     </Pressable>
     {burstPos && (
-      <Animated.Text
+      <Animated.View
         pointerEvents="none"
         style={{
           position: "absolute",
           left: burstPos.x - 16,
           top: burstPos.y - 20,
-          fontSize: 28,
           opacity: burstOpacity,
           transform: [{ scale: burstScale }],
         }}
       >
-        ❤️
-      </Animated.Text>
+        <Ionicons name="heart" size={32} color={theme.berry?.solid ?? theme.danger} />
+      </Animated.View>
     )}
     </ShadowCard>
 

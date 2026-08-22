@@ -199,6 +199,8 @@ export function FinanceScreen() {
   const [editCategory, setEditCategory] = useState("");
   const [moodSuggestion, setMoodSuggestion] = useState<{ spending_id: string; amount: number; merchant_name: string | null; mood_label: string } | null>(null);
   const [heatmapSelectedDay, setHeatmapSelectedDay] = useState<string | null>(null);
+  // Month navigation for heatmap (0 = current month, -1 = last month, etc.)
+  const [heatmapMonthOffset, setHeatmapMonthOffset] = useState(0);
   const [dailyBudget, setDailyBudget] = useState(100);
   const [editNotes, setEditNotes] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -330,14 +332,22 @@ export function FinanceScreen() {
     return { monthTotal, projected, budget, daysInMonth, dayOfMonth };
   }, [entries, dailyBudget]);
 
-  // Heatmap: per-day totals for the current calendar month
+  // Heatmap: per-day totals for the selected calendar month
   const heatmapData = useMemo(() => {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const baseYear = now.getFullYear();
+    const baseMonth = now.getMonth();
+    // Apply offset (heatmapMonthOffset = 0 is current, -1 is last month, etc.)
+    const targetDate = new Date(baseYear, baseMonth + heatmapMonthOffset, 1);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const monthStart = new Date(year, month, 1);
-    const monthEntries = entries.filter(e => new Date(e.logged_at) >= monthStart);
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    const monthEntries = entries.filter(e => {
+      const d = new Date(e.logged_at);
+      return d >= monthStart && d <= monthEnd;
+    });
     const dayTotals: Record<string, number> = {};
     for (const e of monthEntries) {
       const key = localDateStr(e.logged_at);
@@ -346,8 +356,9 @@ export function FinanceScreen() {
     const maxDay = Math.max(1, ...Object.values(dayTotals));
     // weekday of the 1st (0=Sun)
     const firstWeekday = new Date(year, month, 1).getDay();
-    return { year, month, daysInMonth, dayTotals, maxDay, firstWeekday };
-  }, [entries]);
+    const isCurrentMonth = heatmapMonthOffset === 0;
+    return { year, month, daysInMonth, dayTotals, maxDay, firstWeekday, isCurrentMonth };
+  }, [entries, heatmapMonthOffset]);
 
   // Stagger animation for category bars — reset to 0, then animate when filter changes
   useEffect(() => {
@@ -368,9 +379,9 @@ export function FinanceScreen() {
       })
     );
     Animated.parallel(animations).start();
-  // Re-run whenever the filtered set changes (view toggle or data refresh)
+  // Re-run whenever the filtered set changes (view toggle, data refresh, or month navigation)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered]);
+  }, [filtered, heatmapMonthOffset]);
 
   // Animated progress bar for the Month Forecast card
   const forecastBarAnim = useRef(new Animated.Value(0)).current;
@@ -695,9 +706,9 @@ export function FinanceScreen() {
           );
         })()}
 
-        {/* Spending heatmap — current month calendar grid */}
+        {/* Spending heatmap — navigable month calendar grid */}
         {entries.length > 0 && (function () {
-          const { year, month, daysInMonth, dayTotals, maxDay, firstWeekday } = heatmapData;
+          const { year, month, daysInMonth, dayTotals, maxDay, firstWeekday, isCurrentMonth } = heatmapData;
           const monthLabel = new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
           // Build flat array: leading empty slots + day numbers
           const cells: (number | null)[] = [
@@ -708,13 +719,44 @@ export function FinanceScreen() {
           while (cells.length % 7 !== 0) cells.push(null);
           const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
           const PURPLE = theme.purple.solid;
+          const PURPLE_TINT = theme.purple.tint;
           const PURPLE_SUB = theme.purple.sub ?? theme.purple.solid;
           const selectedDayTotal = heatmapSelectedDay ? (dayTotals[heatmapSelectedDay] ?? 0) : null;
+          // Legend steps: 5 cells from tint to solid
+          const LEGEND_STEPS = 5;
           return (
             <ShadowCard size="card" cardId="spending_heatmap">
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <Ionicons name="calendar-outline" size={17} color={PURPLE} />
-                <Text style={[s.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>{monthLabel}</Text>
+              {/* Header row with month navigation */}
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
+                <Ionicons name="calendar-outline" size={17} color={PURPLE} style={{ marginRight: 8 }} />
+                <Text style={[s.cardTitle, { color: theme.textStrong, marginBottom: 0, flex: 1 }]}>{monthLabel}</Text>
+                <Pressable
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setHeatmapSelectedDay(null);
+                    setHeatmapMonthOffset(prev => prev - 1);
+                  }}
+                  hitSlop={14}
+                  accessibilityLabel="Previous month"
+                  accessibilityRole="button"
+                  style={{ padding: 4 }}
+                >
+                  <Ionicons name="chevron-back" size={18} color={theme.textSoft} />
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setHeatmapSelectedDay(null);
+                    setHeatmapMonthOffset(prev => Math.min(0, prev + 1));
+                  }}
+                  hitSlop={14}
+                  accessibilityLabel="Next month"
+                  accessibilityRole="button"
+                  style={{ padding: 4, opacity: isCurrentMonth ? 0.3 : 1 }}
+                  disabled={isCurrentMonth}
+                >
+                  <Ionicons name="chevron-forward" size={18} color={theme.textSoft} />
+                </Pressable>
               </View>
               {/* Day-of-week header */}
               <View style={{ flexDirection: "row", marginBottom: 4 }}>
@@ -763,7 +805,7 @@ export function FinanceScreen() {
                   })}
                 </View>
               ))}
-              {/* Selected day total tooltip */}
+              {/* Selected day total label */}
               {heatmapSelectedDay && (
                 <View style={{ marginTop: 6, alignItems: "center" }}>
                   <Text style={{ fontSize: 13, fontWeight: "800", color: PURPLE_SUB }}>
@@ -773,6 +815,24 @@ export function FinanceScreen() {
                   </Text>
                 </View>
               )}
+              {/* Legend: less → more */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginTop: 10, gap: 4 }}>
+                <Text style={{ fontSize: 9, fontWeight: "600", color: theme.textSoft }}>Less</Text>
+                {Array.from({ length: LEGEND_STEPS }, (_, i) => {
+                  const stepAlpha = Math.round(0x14 + (i / (LEGEND_STEPS - 1)) * (0xFF - 0x14));
+                  const stepHex = stepAlpha.toString(16).padStart(2, "0");
+                  return (
+                    <View
+                      key={i}
+                      style={{
+                        width: 14, height: 14, borderRadius: 3,
+                        backgroundColor: i === 0 ? PURPLE_TINT : PURPLE + stepHex,
+                      }}
+                    />
+                  );
+                })}
+                <Text style={{ fontSize: 9, fontWeight: "600", color: theme.textSoft }}>More</Text>
+              </View>
             </ShadowCard>
           );
         })()}
