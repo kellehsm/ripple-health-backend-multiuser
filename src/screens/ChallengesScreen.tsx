@@ -160,7 +160,7 @@ export function ChallengesScreen() {
           </View>
         ) : challenges.length === 0 ? (
           <EmptyState
-            icon="🏆"
+            slot="ui.trophy"
             title="No challenges yet"
             subtitle="Create a challenge to compete with friends on steps, exercise, hobbies, or books."
             action={{ label: "Create challenge", onPress: () => navigation.navigate("NewChallenge") }}

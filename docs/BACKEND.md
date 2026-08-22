@@ -63,7 +63,7 @@
 | `/api/summary` | routes/summary.ts | Daily summary reads |
 | `/api/chat` | routes/chat.ts | Anthropic-backed wellness assistant (20 req/min) |
 | `/api/health-connect` | routes/health-connect.ts | Android Health Connect ingest (steps, sleep, HR, exercise, weight, SpO₂); `/sleep/stats` extended with `week_avg_seconds`, `last_week_avg_seconds`, `bedtime_spread_mins`; also in `WIDGET_GET_PREFIXES` |
-| `/api/heart-rate` | routes/heart-rate.ts | Heart rate history and stats; `GET /api/heart-rate/stats` returns 30-day resting trend, 7-day rolling avg, week comparison, time-in-zones |
+| `/api/heart-rate` | routes/heart-rate.ts | Heart rate history and stats; `GET /api/heart-rate/stats` returns 30-day resting trend, 7-day rolling avg, week comparison, time-in-zones; `GET /api/heart-rate/daily` returns the last N days that have data (not NOW-anchored) using `PERCENTILE_CONT(0.05)` for resting HR |
 | `/api/settings` | routes/settings.ts | User settings CRUD |
 | `/api/settings/google-drive` | routes/google-drive.ts | Google Drive backup enable/trigger |
 | `/api/export` | routes/export.ts | CSV/JSON health data export |

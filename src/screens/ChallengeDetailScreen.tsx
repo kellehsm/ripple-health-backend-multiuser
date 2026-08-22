@@ -12,6 +12,7 @@ import {
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { ShadowCard } from "../components/ShadowCard";
 import { toast } from "../lib/toast";
 import { RANK_COLORS } from "../constants";
@@ -209,7 +210,7 @@ export function ChallengeDetailScreen() {
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PARTICIPANTS</Text>
       {participants.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center" }]}>
-          <Text style={{ fontSize: 28 }}>🏅</Text>
+          <ThemedIcon slot="ui.medal" size={28} />
           <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No participants yet</Text>
           <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
             Be the first to join — invite friends to make it a race.

@@ -4,6 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Image,
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { ThemedIcon } from '../theme/iconRegistry';
 import { api } from '../api/client';
 import { LoadingIndicator } from './LoadingIndicator';
 
@@ -164,7 +165,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
                 <CyclingImage images={selected.images} style={styles.chipImage} />
               ) : (
                 <View style={[styles.chipImagePlaceholder, { backgroundColor: theme.teal.tint }]}>
-                  <Text style={{ fontSize: 40 }}>🏋️</Text>
+                  <ThemedIcon slot="ui.gym" size={40} />
                 </View>
               )}
               <View style={{ padding: 14 }}>
@@ -283,7 +284,7 @@ export function ExerciseSearchModal({ visible, onClose, onAdd, initialExercise }
           /* ── Search list ── */
           <>
             <View style={[styles.searchBar, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-              <Text style={{ fontSize: 16, marginRight: 8 }}>🔍</Text>
+              <ThemedIcon slot="ui.search" size={16} style={{ marginRight: 8 } as any} />
               <TextInput
                 style={[styles.searchInput, { color: theme.textStrong }]}
                 value={query}

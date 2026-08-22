@@ -101,6 +101,32 @@ Failed writes to queueable endpoints (`/meals`, `/journal`, `/spending`, `/metri
 
 ## 3. Theme system
 
+### Icon slot system (`src/theme/iconRegistry.tsx`)
+
+The registry maps named slots to emoji or Ionicons assets. As of the current dev branch it contains **126 slots**. Prefixes added in this pass:
+
+| Prefix | Example slots |
+|---|---|
+| `empty.*` | `empty.books`, `empty.heart`, `empty.trend`, `empty.glucose`, `empty.steps`, `empty.insights`, `empty.default`, … |
+| `medHistory.*` | `medHistory.added`, `medHistory.dose_changed`, `medHistory.stopped`, … |
+| `exerciseSuggestion.*` | `exerciseSuggestion.rest_day`, `exerciseSuggestion.neglected_muscle`, `exerciseSuggestion.program_gap`, … |
+| `mindfulness.*` | session types |
+| `milestone.*` | achievement tiers |
+| `social.*` | friend / challenge icons |
+| `health.*` | generic health metric icons |
+
+Greeting updates: `greeting.evening` → 🌆; `greeting.night` added → 🌙.
+
+**Policy:** No icon-like emoji may be hardcoded directly in screens or components. Every icon-like emoji must render via `<ThemedIcon slot="..." />` so that `theme.iconOverrides` applies consistently. If no existing slot fits, add one. Exempt from this rule: inline sentence/copy emoji (e.g. "Great job 🎉") and user-generated data.
+
+**`EmptyState` component** (`src/components/EmptyState.tsx`) accepts a `slot` prop that resolves the icon through `iconRegistry`, taking precedence over a raw `icon`/`emoji` prop.
+
+### Health Connect (`src/lib/healthConnect.ts`)
+
+- `ensureInitialized()` guard prevents stale-handle calls after permission revoke; `resetHCInitialized()` resets the flag so the next sync/permission call re-runs `initialize()`.
+- `syncHealthData` returns a graceful errors array (instead of throwing) when Health Connect is unavailable or permissions have been revoked — callers inspect `errors[]` rather than catching.
+- HR sync window: **30 days** (rolling, picks up Samsung Health's delayed backfill).
+
 ### Tokens (`src/theme/tokens.ts`)
 
 Shared numeric constants: `FONT_SIZES` (micro 9 → display 28), `SPACING` (xs 4 → xxl 32), `RADIUS` (sm 8 → card 18, pill 100).

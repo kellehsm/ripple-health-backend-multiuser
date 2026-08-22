@@ -2,15 +2,16 @@ import React from "react";
 import { Modal, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 
 export type QuickLogKind = "water" | "mood" | "steps" | "glucose" | "meals" | "sleep";
 
-const MOODS: Array<{ emoji: string; score: number; label: string }> = [
-  { emoji: "😢", score: 1, label: "Rough" },
-  { emoji: "😕", score: 2, label: "Low" },
-  { emoji: "😐", score: 3, label: "Okay" },
-  { emoji: "🙂", score: 4, label: "Good" },
-  { emoji: "😁", score: 5, label: "Great" },
+const MOODS: Array<{ slot: string; score: number; label: string }> = [
+  { slot: "mood.1", score: 1, label: "Rough" },
+  { slot: "mood.2", score: 2, label: "Low" },
+  { slot: "mood.3", score: 3, label: "Okay" },
+  { slot: "mood.4", score: 4, label: "Good" },
+  { slot: "mood.5", score: 5, label: "Great" },
 ];
 
 export function QuickLogSheet({ visible, kind, onClose, onLogWater, onLogMood, onOpenDetail }: {
@@ -49,7 +50,7 @@ export function QuickLogSheet({ visible, kind, onClose, onLogWater, onLogMood, o
                 accessibilityRole="button"
                 accessibilityLabel={`Log mood ${m.label}`}
               >
-                <Text style={{ fontSize: 26 }}>{m.emoji}</Text>
+                <ThemedIcon slot={m.slot} size={26} />
                 <Text style={[styles.moodLabel, { color: theme.textSoft }]}>{m.label}</Text>
               </Pressable>
             ))}

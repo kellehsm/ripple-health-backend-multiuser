@@ -13,6 +13,7 @@ import {
 import { LoadingIndicator } from "./LoadingIndicator";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
 
@@ -32,15 +33,16 @@ type JournalEntry = {
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
-const PERIOD_META: Record<MoodPeriod, { label: string; emoji: string }> = {
-  morning:   { label: "Morning",   emoji: "🌅" },
-  afternoon: { label: "Afternoon", emoji: "☀️" },
-  evening:   { label: "Evening",   emoji: "🌆" },
-  night:     { label: "Night",     emoji: "🌙" },
+const PERIOD_META: Record<MoodPeriod, { label: string; slot: string }> = {
+  morning:   { label: "Morning",   slot: "greeting.morning"   },
+  afternoon: { label: "Afternoon", slot: "greeting.afternoon" },
+  evening:   { label: "Evening",   slot: "greeting.evening"   },
+  night:     { label: "Night",     slot: "greeting.night"     },
 };
 
 const BUCKET_ORDER: MoodPeriod[] = MOOD_BUCKET_ORDER as MoodPeriod[];
 
+/** Raw strings still needed for accessibilityLabel. Keep in sync with mood.* slots. */
 const SCORE_EMOJI: Record<number, string> = { 5: "😃", 4: "🙂", 3: "😐", 2: "😕", 1: "😣" };
 
 import { MOOD_CATEGORIES } from "../constants/moodCategories";
@@ -189,7 +191,7 @@ export function MoodPageSheet({ visible, todayEntries, currentBucket, onDismiss,
                       accessibilityRole="button"
                       accessibilityLabel={meta.label + (entry ? ": " + (entry.mood_label ?? SCORE_EMOJI[entry.mood_score]) : ": not logged")}
                     >
-                      <Text style={styles.periodEmoji}>{meta.emoji}</Text>
+                      <ThemedIcon slot={meta.slot} size={22} style={styles.periodEmoji as any} />
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.periodName, { color: theme.textStrong }]}>{meta.label}</Text>
                         {entry ? (
@@ -203,7 +205,7 @@ export function MoodPageSheet({ visible, todayEntries, currentBucket, onDismiss,
                         )}
                       </View>
                       {entry ? (
-                        <Text style={styles.periodEmoji}>{SCORE_EMOJI[entry.mood_score] ?? "—"}</Text>
+                        <ThemedIcon slot={`mood.${entry.mood_score}`} size={22} style={styles.periodEmoji as any} />
                       ) : isCurrent ? (
                         <View style={[styles.nowBadge, { backgroundColor: (theme as any).violet?.solid ?? ink }]}>
                           <Text style={styles.nowBadgeText}>NOW</Text>
@@ -223,9 +225,12 @@ export function MoodPageSheet({ visible, todayEntries, currentBucket, onDismiss,
                   <Text style={{ color: ink, fontSize: 20, fontWeight: "800" }}>←</Text>
                 </Pressable>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.periodLabel, { color: theme.textSoft }]}>
-                    {PERIOD_META[activePeriod].emoji}  {PERIOD_META[activePeriod].label.toUpperCase()}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <ThemedIcon slot={PERIOD_META[activePeriod].slot} size={14} />
+                    <Text style={[styles.periodLabel, { color: theme.textSoft }]}>
+                      {PERIOD_META[activePeriod].label.toUpperCase()}
+                    </Text>
+                  </View>
                   <Text style={[styles.headerTitle, { color: theme.textStrong }]}>How are you feeling?</Text>
                 </View>
                 <Pressable onPress={handleDismiss} style={[styles.closeBtn, { borderColor: ink }]} accessibilityLabel="Close">

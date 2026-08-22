@@ -77,7 +77,7 @@ export function InsightsHistoryScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: theme.page, padding: 16 }}>
         <EmptyState
-          icon="⚠️"
+          slot="empty.warning"
           title="Couldn't load past insights"
           subtitle="Check your connection and try again."
           action={{ label: "Retry", onPress: () => setReloadKey((k) => k + 1) }}
@@ -90,7 +90,7 @@ export function InsightsHistoryScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: theme.page, padding: 16 }}>
         <EmptyState
-          icon="💡"
+          slot="empty.insights"
           title="No past insights yet"
           subtitle="As Ripple watches your patterns, older observations will collect here."
         />

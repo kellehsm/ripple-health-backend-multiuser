@@ -422,7 +422,7 @@ export function OverviewScreen() {
   const [yesterdayGlucose, setYesterdayGlucose] = useState<GlucoseReading[]>([]);
   const [dayEvents, setDayEvents] = useState<DayEvent[]>([]);
   const [streak, setStreak] = useState(0);
-  const [allStreaks, setAllStreaks] = useState<{ label: string; icon: string; count: number; color: (t: any) => string }[]>([]);
+  const [allStreaks, setAllStreaks] = useState<{ label: string; slot: string; count: number; color: (t: any) => string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recapDismissed, setRecapDismissed] = useState(false);
@@ -710,13 +710,13 @@ export function OverviewScreen() {
     }
     setStreak(data.mealStreak);
     setAllStreaks([
-      { label: "Meals",    icon: "🍽",  count: data.mealStreak,     color: (t: any) => t.teal.solid },
-      { label: "Mood",     icon: "😊",  count: data.moodStreak,     color: (t: any) => t.violet?.solid ?? t.purple.solid },
-      { label: "Steps",    icon: "👟",  count: data.stepsStreak,    color: (t: any) => t.teal.solid },
-      { label: "Exercise", icon: "🏋️", count: data.exerciseStreak, color: (t: any) => t.coral.solid },
-      { label: "Reading",  icon: "📚",  count: data.readingStreak,  color: (t: any) => t.amber.solid },
-      { label: "Water",    icon: "💧",  count: data.waterStreak,    color: (t: any) => (t as any).blue?.solid ?? t.teal.solid },
-      { label: "Hobbies",  icon: "🎨",  count: data.hobbyStreak,    color: (t: any) => t.coral.solid },
+      { label: "Meals",    slot: "screen.meals",          count: data.mealStreak,     color: (t: any) => t.teal.solid },
+      { label: "Mood",     slot: "metric.mood",           count: data.moodStreak,     color: (t: any) => t.violet?.solid ?? t.purple.solid },
+      { label: "Steps",    slot: "social.steps_streak",   count: data.stepsStreak,    color: (t: any) => t.teal.solid },
+      { label: "Exercise", slot: "ui.gym",                count: data.exerciseStreak, color: (t: any) => t.coral.solid },
+      { label: "Reading",  slot: "empty.books",           count: data.readingStreak,  color: (t: any) => t.amber.solid },
+      { label: "Water",    slot: "screen.water",          count: data.waterStreak,    color: (t: any) => (t as any).blue?.solid ?? t.teal.solid },
+      { label: "Hobbies",  slot: "screen.hobbies",        count: data.hobbyStreak,    color: (t: any) => t.coral.solid },
     ].filter(s => s.count >= 2));
     setGlucoseStatus(data.glucSt);
     setTodayMeals(data.meals);
@@ -2274,7 +2274,7 @@ export function OverviewScreen() {
                       accessibilityRole="button"
                       accessibilityLabel={`${s.count} day ${s.label} streak`}
                     >
-                      <Text style={{ fontSize: 11, marginRight: 4 }}>{s.icon}</Text>
+                      <ThemedIcon slot={s.slot} size={11} style={{ marginRight: 4 } as any} />
                       {counterAnim ? (
                         <AnimatedCounterText
                           animValue={counterAnim}
@@ -2288,7 +2288,7 @@ export function OverviewScreen() {
                         </Text>
                       )}
                       {isFreeze && (
-                        <Text style={{ fontSize: 10, position: "absolute", top: -4, right: -4 }}>❄️</Text>
+                        <ThemedIcon slot="ui.freeze" size={10} style={{ position: "absolute", top: -4, right: -4 } as any} />
                       )}
                     </Pressable>
                     <ConfettiBurst burstKey={confettiKeys[s.label] ?? 0} />
@@ -2446,7 +2446,10 @@ export function OverviewScreen() {
         {/* ── Pinned Insights ── */}
         {pinnedIds.size > 0 && allInsights.some(i => pinnedIds.has(i.id)) && (
           <View style={{ gap: 6, marginTop: 8 }}>
-            <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 0.8, color: theme.textSoft }}>📌 PINNED INSIGHTS</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <ThemedIcon slot="ui.pin" size={10} />
+              <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 0.8, color: theme.textSoft }}>PINNED INSIGHTS</Text>
+            </View>
             {allInsights.filter(i => pinnedIds.has(i.id)).map(insight => (
               <InsightCard key={insight.id} insight={insight} onPin={handlePin} isPinned compact />
             ))}

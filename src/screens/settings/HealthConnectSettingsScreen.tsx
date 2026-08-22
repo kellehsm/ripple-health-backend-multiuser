@@ -7,7 +7,7 @@ import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../../theme/ThemeContext";
 import { onSolid } from "../../theme/colorUtils";
 import { api } from "../../api/client";
-import { requestHealthPermissions, syncHealthData } from "../../lib/healthConnect";
+import { requestHealthPermissions, syncHealthData, resetHCInitialized } from "../../lib/healthConnect";
 import { startForegroundService, stopForegroundService, isForegroundServiceRunning } from "../../lib/foregroundService";
 
 type HCSettings = {
@@ -32,7 +32,7 @@ export function HealthConnectSettingsScreen() {
   const [backfillResult, setBackfillResult] = useState<string | null>(null);
   const [liveTracking, setLiveTracking] = useState(false);
 
-  const checkPermissions = useCallback(async () => {
+  const checkPermissions = useCallback(async (afterRevoke = false) => {
     if (Platform.OS !== "android") return;
     try {
       const running = await isForegroundServiceRunning();
@@ -44,7 +44,15 @@ export function HealthConnectSettingsScreen() {
       // the UI to "Not granted" and made permissions look like they were being
       // revoked on every focus.
       const ready = await initialize();
-      if (!ready) return; // keep prior known state instead of downgrading
+      if (!ready) {
+        // After revoke the client may briefly fail to initialize — treat that as
+        // "not connected" rather than keeping the prior stale "Connected" state.
+        if (afterRevoke) {
+          setHcGranted(false);
+          setGrantedRecords({ steps: false, sleep: false, heart: false, exercise: false, weight: false, spo2: false });
+        }
+        return;
+      }
       const granted = await getGrantedPermissions();
       const hasSteps = granted.some((p: any) => p.recordType === "Steps" && p.accessType === "read");
       const hasSleep = granted.some((p: any) => p.recordType === "SleepSession" && p.accessType === "read");
@@ -154,9 +162,16 @@ export function HealthConnectSettingsScreen() {
           onPress: async () => {
             try {
               await revokeAllPermissions();
+              // Reset client init flag so the next HC call re-initializes cleanly;
+              // also reset UI state immediately (don't wait for checkPermissions) so
+              // sync/live-tracking code doesn't race with the stale "Connected" state.
+              resetHCInitialized();
+              setHcGranted(false);
+              setGrantedRecords({ steps: false, sleep: false, heart: false, exercise: false, weight: false, spo2: false });
               await api.patchSettings({ health_connect: { ...hc, auto_sync_enabled: false } });
               setHc((prev) => ({ ...prev, auto_sync_enabled: false }));
-              await checkPermissions();
+              // Re-check from scratch to confirm revoke took effect.
+              await checkPermissions(true);
             } catch (e: any) {
               Alert.alert("Error", e?.message ?? "Failed to revoke permissions.");
             }
@@ -226,7 +241,9 @@ export function HealthConnectSettingsScreen() {
                 // Fallback: open Health Connect settings page directly
                 openHealthConnectSettings();
               }
-              checkPermissions();
+              // Must await so checkPermissions' initialize() call doesn't race
+              // with the still-open HC permissions dialog (concurrent init hangs the HC UI).
+              await checkPermissions();
             }}
             style={[styles.btn, { backgroundColor: theme.teal.solid, borderColor: theme.teal.sub }]}
           >

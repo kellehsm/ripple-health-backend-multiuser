@@ -7,6 +7,7 @@ import Svg, { Polyline, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { ThemedIcon } from '../theme/iconRegistry';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { ShadowCard } from '../components/ShadowCard';
@@ -445,7 +446,7 @@ export function ExerciseSessionScreen() {
   if (celebrating && celebStats) {
     return (
       <Animated.View style={[styles.celebContainer, { backgroundColor: theme.teal.tint, opacity: celebOpacity }]}>
-        <Text style={[styles.celebEmoji]}>🏋️</Text>
+        <ThemedIcon slot="ui.gym" size={64} style={styles.celebEmoji as any} />
         <Text style={[styles.celebTitle, { color: theme.teal.sub }]}>Workout complete!</Text>
         <View style={styles.celebStats}>
           <View style={styles.celebStat}>

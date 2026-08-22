@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 
 interface MilestoneBannerProps {
   message: string;
@@ -47,7 +48,7 @@ export function MilestoneBanner({ message, onDismiss }: MilestoneBannerProps) {
       pointerEvents="box-none"
     >
       <Pressable onPress={onDismiss} style={styles.inner}>
-        <Text style={styles.emoji}>🎉</Text>
+        <ThemedIcon slot="ui.celebrate" size={22} style={styles.emoji as any} />
         <Text style={[styles.text, { color: "#fff" }]}>{message}</Text>
       </Pressable>
     </Animated.View>

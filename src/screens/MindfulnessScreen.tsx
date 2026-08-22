@@ -432,7 +432,7 @@ export function MindfulnessScreen() {
               </View>
               {totalSessions === 0 ? (
                 <EmptyState
-                  icon="🧘"
+                  slot="screen.mindfulness"
                   title="Start your first session"
                   subtitle="Choose a practice below to begin. Your progress and streaks will appear here."
                 />
@@ -460,13 +460,13 @@ export function MindfulnessScreen() {
 // ─── Tile grid ────────────────────────────────────────────────────────────────
 
 function TileGrid({ theme, ink, onSelect, onQuickReset, todayDone }: { theme: any; ink: string; onSelect: (s: Section) => void; onQuickReset: () => void; todayDone: string[] }) {
-  const tiles: { section: Section; emoji: string; title: string; desc: string; colorKey: string }[] = [
-    { section: "breathing",  emoji: "🫁", title: "Breathing",  desc: "Box · 4-7-8 · coherent",  colorKey: "teal"   },
-    { section: "grounding",  emoji: "🌿", title: "Grounding",  desc: "5-4-3-2-1 · PMR · STOP",  colorKey: "coral"  },
-    { section: "meditation", emoji: "⏱",  title: "Meditation", desc: "Bells · chimes · ambient", colorKey: "purple" },
-    { section: "gratitude",  emoji: "📓", title: "Gratitude",  desc: "Prompts & journaling",     colorKey: "berry"  },
-    { section: "body_scan",  emoji: "🧘", title: "Body Scan",  desc: "Head-to-toe attention",    colorKey: "blue"   },
-    { section: "sounds",     emoji: "🎧", title: "Soundscapes", desc: "Ambient sound · sleep",   colorKey: "amber"  },
+  const tiles: { section: Section; slot: string; title: string; desc: string; colorKey: string }[] = [
+    { section: "breathing",  slot: "mindfulness.breathing",  title: "Breathing",  desc: "Box · 4-7-8 · coherent",  colorKey: "teal"   },
+    { section: "grounding",  slot: "mindfulness.grounding",  title: "Grounding",  desc: "5-4-3-2-1 · PMR · STOP",  colorKey: "coral"  },
+    { section: "meditation", slot: "mindfulness.meditation", title: "Meditation", desc: "Bells · chimes · ambient", colorKey: "purple" },
+    { section: "gratitude",  slot: "mindfulness.gratitude",  title: "Gratitude",  desc: "Prompts & journaling",     colorKey: "berry"  },
+    { section: "body_scan",  slot: "mindfulness.body_scan",  title: "Body Scan",  desc: "Head-to-toe attention",    colorKey: "blue"   },
+    { section: "sounds",     slot: "mindfulness.sounds",     title: "Soundscapes", desc: "Ambient sound · sleep",  colorKey: "amber"  },
   ];
 
   const tealSolid = (theme.teal as any)?.solid ?? ink;
@@ -480,7 +480,7 @@ function TileGrid({ theme, ink, onSelect, onQuickReset, todayDone }: { theme: an
       <Pressable onPress={onQuickReset} accessibilityRole="button" accessibilityLabel="Two minute reset">
         <ShadowCard size="card" bg={tealSolid} accent={tealSolid} rotate={-0.3} skipTransparency>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
-            <Text style={{ fontSize: 28 }}>⚡</Text>
+            <ThemedIcon slot="ui.lightning" size={28} />
             <View style={{ flex: 1 }}>
               <Text style={{ color: "#fff", fontSize: 16, fontWeight: "900" }}>2-Minute Reset</Text>
               <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>
@@ -506,7 +506,7 @@ function TileGrid({ theme, ink, onSelect, onQuickReset, todayDone }: { theme: an
             >
               <ShadowCard size="card" bg={c?.solid ?? ink} accent={c?.solid} rotate={rotation} padding={18} skipTransparency>
                 <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
-                  <Text style={{ fontSize: 32, marginBottom: 8 }}>{t.emoji}</Text>
+                  <ThemedIcon slot={t.slot} size={32} style={{ marginBottom: 8 } as any} />
                   {doneToday && (
                     <View style={{ backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, flexDirection: "row", alignItems: "center", gap: 3 }}>
                       <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#fff" }} />
@@ -848,7 +848,7 @@ function BreathingSection({ theme, ink, onBack, quickReset }: { theme: any; ink:
         <GraceCountdown count={graceCount} accentColor={tealSolid} theme={theme} ink={ink} />
       ) : summary ? (
         <View style={{ alignItems: "center", gap: 18, paddingVertical: 24 }}>
-          <Text style={{ fontSize: 48 }}>🌬️</Text>
+          <ThemedIcon slot="ui.breath" size={48} />
           <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>Session complete</Text>
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>
             {BREATH_PATTERNS[summary.pattern].label} · {summary.cycles} cycle{summary.cycles === 1 ? "" : "s"} · {Math.max(1, Math.round(summary.seconds / 60))} min
@@ -1656,7 +1656,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
                 backgroundColor: intervalBells ? purpleSolid + "1E" : theme.card,
               }}
             >
-              <Text style={{ fontSize: 20 }}>🔔</Text>
+              <ThemedIcon slot="ui.bell" size={20} />
               <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }}>
                 Interval bell every 5 minutes
               </Text>
@@ -1730,7 +1730,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
           >
             <ShadowCard size="card" bg={(theme.purple as any)?.tint} accent={(theme.purple as any)?.solid} rotate={-0.4}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                <Text style={{ fontSize: 32 }}>🎵</Text>
+                <ThemedIcon slot="ui.music" size={32} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: (theme.purple as any)?.fg, fontSize: 16, fontWeight: "900" }}>Guided</Text>
                   <Text style={{ color: (theme.purple as any)?.sub, fontSize: 12, marginTop: 2 }}>Music & voice prompts</Text>
@@ -1745,7 +1745,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
           >
             <ShadowCard size="card" bg={(theme.purple as any)?.tint} accent={(theme.purple as any)?.solid} rotate={0.4}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-                <Text style={{ fontSize: 32 }}>🔇</Text>
+                <ThemedIcon slot="ui.mute" size={32} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: (theme.purple as any)?.fg, fontSize: 16, fontWeight: "900" }}>Unguided</Text>
                   <Text style={{ color: (theme.purple as any)?.sub, fontSize: 12, marginTop: 2 }}>Quiet timed session</Text>
@@ -1791,7 +1791,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
         </>
       ) : done ? (
         <View style={{ alignItems: "center", gap: 16, paddingVertical: 24 }}>
-          <Text style={{ fontSize: 48 }}>🎉</Text>
+          <ThemedIcon slot="ui.celebrate" size={48} />
           <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>Session complete</Text>
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>{duration} min · {mode === "guided" ? "Guided" : "Unguided"}</Text>
           <MoodDeltaPicker
@@ -1847,7 +1847,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
                   borderColor: ink, borderRadius: 16, padding: 12,
                   alignItems: "center", backgroundColor: theme.card,
                 }}>
-                  <Text style={{ fontSize: 22 }}>🎧</Text>
+                  <ThemedIcon slot="ui.headphones" size={22} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: ink, fontSize: 14, fontWeight: "800" }}>
                       {ambients.find((a) => a.id === ambientId)?.title ?? "Ambient sound"}
@@ -1862,7 +1862,7 @@ function MeditationSection({ theme, ink, onBack }: { theme: any; ink: string; on
                   borderColor: ink, borderRadius: 16, padding: 12,
                   alignItems: "center", backgroundColor: theme.card,
                 }}>
-                  <Text style={{ fontSize: 22 }}>🔔</Text>
+                  <ThemedIcon slot="ui.bell" size={22} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: ink, fontSize: 14, fontWeight: "800" }}>Interval bell</Text>
                     <Text style={{ color: theme.textSoft, fontSize: 12 }}>A gentle chime every 5 minutes</Text>
@@ -1940,7 +1940,7 @@ function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onB
 
       {saved ? (
         <View style={{ alignItems: "center", gap: 16, paddingVertical: 24 }}>
-          <Text style={{ fontSize: 48 }}>🙏</Text>
+          <ThemedIcon slot="ui.gratitude" size={48} />
           <Text style={{ color: theme.textStrong, fontSize: 18, fontWeight: "800", textAlign: "center" }}>Saved to your journal</Text>
           <Pressable onPress={() => setSaved(false)} style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]}>
             <Text style={{ color: ink, fontSize: 13, fontWeight: "800" }}>WRITE ANOTHER</Text>
@@ -1964,7 +1964,7 @@ function GratitudeSection({ theme, ink, onBack }: { theme: any; ink: string; onB
                   backgroundColor: (theme.berry as any)?.solid + "22",
                 }}
               >
-                <Text style={{ fontSize: 14 }}>🔀</Text>
+                <ThemedIcon slot="ui.shuffle" size={14} />
               </Pressable>
             </View>
             <Text style={{ color: (theme.berry as any)?.fg, fontSize: 16, lineHeight: 24, fontWeight: "600" }}>

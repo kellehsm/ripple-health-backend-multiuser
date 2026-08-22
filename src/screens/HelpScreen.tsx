@@ -3,6 +3,7 @@ import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 
 type FaqItem = { q: string; a: string };
 type FaqSection = { title: string; items: FaqItem[] };
@@ -130,7 +131,7 @@ export function HelpScreen() {
         accessibilityRole="button"
         accessibilityLabel="Replay the app tour"
       >
-        <Text style={{ fontSize: 24 }}>🗺️</Text>
+        <ThemedIcon slot="ui.map" size={24} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.tourTitle, { color: theme.textStrong }]}>Replay app tour</Text>
           <Text style={[styles.tourSub, { color: theme.textSoft }]}>

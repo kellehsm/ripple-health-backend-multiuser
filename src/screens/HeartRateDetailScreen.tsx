@@ -377,7 +377,7 @@ export function HeartRateDetailScreen() {
           {loadingChart ? (
             <LoadingIndicator style={{ marginVertical: 30 }} color={theme.red.sub} />
           ) : readings.length === 0 ? (
-            <EmptyState icon="💓" title="No readings in this window" subtitle="Sync from Health Connect on the Health tab to see your heart rate here." />
+            <EmptyState slot="empty.heart" title="No readings in this window" subtitle="Sync from Health Connect on the Health tab to see your heart rate here." />
           ) : (
             <Svg width={CHART_W} height={CHART_H} style={{ marginTop: 10 }}>
               {gridVals.map((v) => {
@@ -438,7 +438,7 @@ export function HeartRateDetailScreen() {
           {loadingStats ? (
             <LoadingIndicator color={theme.red.sub} style={{ marginVertical: 20 }} />
           ) : trend.length === 0 ? (
-            <EmptyState icon="📈" title="No 30-day data yet" subtitle="Sync more readings to see your resting HR trend." />
+            <EmptyState slot="empty.trend" title="No 30-day data yet" subtitle="Sync more readings to see your resting HR trend." />
           ) : (
             <>
               <Svg width={CHART_W} height={TREND_H} style={{ marginTop: 4 }}>
@@ -511,7 +511,7 @@ export function HeartRateDetailScreen() {
           {loadingStats ? (
             <LoadingIndicator color={theme.red.sub} style={{ marginVertical: 16 }} />
           ) : !zones || zones.total === 0 ? (
-            <EmptyState icon="❤️" title="No readings today" subtitle="Zones appear once today's readings are synced." />
+            <EmptyState slot="empty.heart" title="No readings today" subtitle="Zones appear once today's readings are synced." />
           ) : (
             <View style={{ gap: 8, marginTop: 4 }}>
               {ZONE_CONFIG.map(({ key, label, color }) => {
@@ -555,7 +555,7 @@ export function HeartRateDetailScreen() {
           {loadingDaily ? (
             <LoadingIndicator color={theme.red.sub} style={{ marginVertical: 16 }} />
           ) : dailyRows.length === 0 ? (
-            <EmptyState icon="📈" title="No history yet" subtitle="Daily resting and average rates will appear here as you sync." />
+            <EmptyState slot="empty.trend" title="No history yet" subtitle="Daily resting and average rates will appear here as you sync." />
           ) : (
             <>
               <View style={[s.tableRow, { paddingBottom: 4 }]}>

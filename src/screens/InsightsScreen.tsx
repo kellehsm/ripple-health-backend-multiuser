@@ -14,6 +14,7 @@ import { LoadingIndicator } from "../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { ThemedIcon } from "../theme/iconRegistry";
 import { api } from "../api/client";
 import { InsightCard, Insight } from "../components/InsightCard";
 import { UndoBanner } from "../components/UndoBanner";
@@ -128,16 +129,16 @@ function computeFinanceMoodInsight(data: WeeklyDayCorr[]): string | null {
   }
 }
 
-const TYPE_GROUPS: { label: string; types: string[]; emoji: string }[] = [
-  { label: "All",          types: [],                                              emoji: "✨" },
-  { label: "Wellness",     types: ["glucose", "sleep", "activity", "water", "steps"], emoji: "❤️" },
-  { label: "Mindfulness",  types: ["mood"],                                        emoji: "🧠" },
-  { label: "Hobbies",      types: ["hobbies", "books"],                            emoji: "🎨" },
-  { label: "Medication",   types: ["medication"],                                  emoji: "💊" },
-  { label: "Exercise",     types: ["exercise"],                                    emoji: "🏋️" },
-  { label: "Finance",      types: ["spending", "streak"],                          emoji: "💰" },
-  { label: "Cycle",        types: ["cycle"],                                       emoji: "🌸" },
-  { label: "Combined",     types: ["combined"],                                    emoji: "🔗" },
+const TYPE_GROUPS: { label: string; types: string[]; slot: string }[] = [
+  { label: "All",          types: [],                                              slot: "insight.all" },
+  { label: "Wellness",     types: ["glucose", "sleep", "activity", "water", "steps"], slot: "insight.wellness" },
+  { label: "Mindfulness",  types: ["mood"],                                        slot: "insight.mindfulness" },
+  { label: "Hobbies",      types: ["hobbies", "books"],                            slot: "insight.hobbies" },
+  { label: "Medication",   types: ["medication"],                                  slot: "insight.medication" },
+  { label: "Exercise",     types: ["exercise"],                                    slot: "insight.exercise" },
+  { label: "Finance",      types: ["spending", "streak"],                          slot: "insight.finance" },
+  { label: "Cycle",        types: ["cycle"],                                       slot: "insight.cycle" },
+  { label: "Combined",     types: ["combined"],                                    slot: "insight.combined" },
 ];
 
 export function InsightsScreen() {
@@ -384,7 +385,7 @@ export function InsightsScreen() {
                     ]}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                      <Text style={styles.filterEmoji}>{g.emoji}</Text>
+                      <ThemedIcon slot={g.slot} size={13} color={active ? theme.page : theme.textSoft} />
                       <Text style={[styles.filterText, { color: active ? theme.page : theme.textSoft }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{g.label}</Text>
                     </View>
                   </Pressable>
@@ -409,7 +410,7 @@ export function InsightsScreen() {
 
       {!loading && !error && insights.length === 0 && (
         <View style={[styles.emptyCard, { backgroundColor: card, borderColor: ink }]}>
-          <Text style={{ fontSize: 32, marginBottom: 12 }}>🌱</Text>
+          <ThemedIcon slot="ui.seedling" size={32} style={{ marginBottom: 12 } as any} />
           <Text style={[styles.emptyTitle, { color: theme.textStrong }]}>Building your profile</Text>
           <Text style={[styles.emptyText, { color: theme.textSoft }]}>
             Keep logging meals, mood, and activity. Patterns start appearing after 2–3 weeks of data.
@@ -419,7 +420,7 @@ export function InsightsScreen() {
 
       {!loading && !error && filtered.length === 0 && insights.length > 0 && (
         <View style={{ alignItems: "center", paddingVertical: 48, gap: 12 }}>
-          <Text style={{ fontSize: 32 }}>✨</Text>
+          <ThemedIcon slot="ui.sparkle" size={32} />
           <Text style={{ fontSize: 16, fontWeight: "600", color: theme.textStrong }}>No insights yet</Text>
           <Text style={{ fontSize: 13, color: theme.textSoft, textAlign: "center", paddingHorizontal: 32 }}>
             Log a few days of meals, glucose, and mood and your first insights will appear here.
@@ -512,7 +513,7 @@ export function InsightsScreen() {
             {sleepMood ? (
               <ShadowCard size="card" accent={theme.violet?.solid ?? theme.purple.solid}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 20 }}>🌙</Text>
+                  <ThemedIcon slot="insight.sleep_corr" size={20} />
                   <Text style={{ fontSize: 13, fontWeight: "800", color: theme.textStrong }}>Sleep & mood</Text>
                 </View>
                 <Text style={{ fontSize: 13, color: theme.textSoft, lineHeight: 19 }}>{sleepMood}</Text>
@@ -521,7 +522,7 @@ export function InsightsScreen() {
             {financeMood ? (
               <ShadowCard size="card" accent={theme.purple.solid}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 20 }}>💰</Text>
+                  <ThemedIcon slot="insight.finance_corr" size={20} />
                   <Text style={{ fontSize: 13, fontWeight: "800", color: theme.textStrong }}>Spending & mood</Text>
                 </View>
                 <Text style={{ fontSize: 13, color: theme.textSoft, lineHeight: 19 }}>{financeMood}</Text>

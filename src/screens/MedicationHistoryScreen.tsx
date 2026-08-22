@@ -2,6 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { ThemedIcon, resolveIcon } from '../theme/iconRegistry';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { formatDateWithTime, addDays, todayStr } from '../utils/dateUtils';
@@ -32,13 +33,17 @@ interface HistoryEntry {
   changed_at: string;
 }
 
-const CHANGE_ICON: Record<string, string> = {
-  added: '✅',
-  dose_changed: '💊',
-  frequency_changed: '🕐',
-  prescriber_changed: '🩺',
-  stopped: '🛑',
-};
+/** Maps change_type to a medHistory.* icon slot. */
+function changeTypeSlot(type: string): string {
+  const map: Record<string, string> = {
+    added:              'medHistory.added',
+    dose_changed:       'medHistory.dose_changed',
+    frequency_changed:  'medHistory.frequency_changed',
+    prescriber_changed: 'medHistory.prescriber_changed',
+    stopped:            'medHistory.stopped',
+  };
+  return map[type] ?? 'medHistory.dose_changed';
+}
 
 const CHANGE_LABEL: Record<string, string> = {
   added: 'Added',
@@ -105,7 +110,7 @@ export function MedicationHistoryScreen() {
           <View style={styles.statsRow}>
             {stats.is_prn ? (
               <View style={styles.statTile}>
-                <Text style={[styles.statValue, { color: theme.teal.fg }]}>✋</Text>
+                <ThemedIcon slot="ui.hand" size={22} style={{ marginBottom: 2 } as any} />
                 <Text style={[styles.statLabel, { color: theme.textSoft }]}>As needed</Text>
               </View>
             ) : (
@@ -177,7 +182,7 @@ export function MedicationHistoryScreen() {
 
       {history.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={{ fontSize: 32 }}>📋</Text>
+          <ThemedIcon slot="medHistory.list" size={32} />
           <Text style={[styles.emptyText, { color: theme.textSoft }]}>No changes recorded yet.</Text>
         </View>
       ) : (
@@ -186,7 +191,7 @@ export function MedicationHistoryScreen() {
             <View key={entry.id} style={styles.entryRow}>
               {/* Connector line */}
               <View style={styles.connector}>
-                <Text style={styles.icon}>{CHANGE_ICON[entry.change_type] ?? '•'}</Text>
+                <ThemedIcon slot={changeTypeSlot(entry.change_type)} size={18} style={styles.icon as any} />
                 {i < history.length - 1 && (
                   <View style={[styles.line, { backgroundColor: theme.cardBorder }]} />
                 )}

@@ -3,6 +3,7 @@ import { View, Text, Pressable, LayoutAnimation, Platform, UIManager } from "rea
 import { useFocusEffect } from "@react-navigation/native";
 import { api } from "../../api/client";
 import { sharedStyles } from "./shared";
+import { ThemedIcon } from "../../theme/iconRegistry";
 
 type JournalEntry = { id: string; entry_text: string; logged_at: string };
 
@@ -78,7 +79,7 @@ export function GratitudeHistory({ theme, ink, refreshKey }: { theme: any; ink: 
         padding: 14,
         alignItems: "center",
       }}>
-        <Text style={{ fontSize: 22, marginBottom: 4 }}>💌</Text>
+        <ThemedIcon slot="ui.mail" size={22} style={{ marginBottom: 4 } as any} />
         <Text style={{ color: berry.fg ?? theme.textStrong, fontSize: 13, fontWeight: "800" }}>
           Nothing to look back on yet
         </Text>

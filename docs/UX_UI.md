@@ -261,6 +261,7 @@ Located at `templates/` — copy and rename; do not build from scratch:
 ## 7. Copy & Language Rules
 
 - **No emojis** in new screen copy unless explicitly requested. Existing emoji icon-maps (e.g. MedicationHistoryScreen `EMOJI_MAP`) are grandfathered; when adding to them use single-codepoint emoji only (avoid ZWJ sequences or variation selectors that may render inconsistently on Android).
+- **Never hardcode emoji as icons in screens or components.** Any icon-like emoji (metric indicators, state icons, category badges) must render via `<ThemedIcon slot="..." />` using a slot from `src/theme/iconRegistry.tsx`. If no slot fits, add one — do not inline the emoji. This ensures `theme.iconOverrides` applies everywhere. Exempt: inline sentence/copy emoji (e.g. "Nice work 🎉") and user-generated content.
 - **Metric icons in badges**: `ThemedIcon` / `iconRegistry` slots are the preferred pattern; fall back to Ionicons for purely functional UI (chevrons, gear, close).
 - **Capitalization**: sentence case for body text and labels; title case for screen headings and tab labels only.
 - **Tone**: descriptive, never diagnostic. Single-day observations use gentle language ("glucose climbed after lunch today"). Repeated patterns must cite the count ("4 of the last 5 days"). Never phrase a pattern as medical advice or a causal claim.

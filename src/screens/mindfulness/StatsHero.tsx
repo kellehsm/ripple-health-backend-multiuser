@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { ThemedIcon } from "../../theme/iconRegistry";
 import { useFocusEffect } from "@react-navigation/native";
 import { ShadowCard } from "../../components/ShadowCard";
 import { api } from "../../api/client";
@@ -19,12 +20,12 @@ export type MindfulnessBackendStats = {
 };
 
 const MILESTONES = [
-  { at: 1,   emoji: "🌱", label: "First session" },
-  { at: 5,   emoji: "🌿", label: "5 sessions" },
-  { at: 10,  emoji: "🌊", label: "10 sessions" },
-  { at: 20,  emoji: "🧘", label: "20 sessions" },
-  { at: 50,  emoji: "⭐", label: "50 sessions" },
-  { at: 100, emoji: "🏆", label: "100 sessions" },
+  { at: 1,   slot: "milestone.1",   label: "First session" },
+  { at: 5,   slot: "milestone.5",   label: "5 sessions" },
+  { at: 10,  slot: "milestone.10",  label: "10 sessions" },
+  { at: 20,  slot: "milestone.20",  label: "20 sessions" },
+  { at: 50,  slot: "milestone.50",  label: "50 sessions" },
+  { at: 100, slot: "milestone.100", label: "100 sessions" },
 ];
 
 function localDayString(d: Date): string {
@@ -104,7 +105,7 @@ export function StatsHero({ theme, ink, refreshKey }: { theme: any; ink: string;
     return (
       <ShadowCard size="card" bg={theme.card} accent={accent} rotate={-0.3}>
         <View style={{ alignItems: "center", paddingVertical: 8 }}>
-          <Text style={{ fontSize: 24, marginBottom: 4 }}>🧘</Text>
+          <ThemedIcon slot="screen.mindfulness" size={24} style={{ marginBottom: 4 } as any} />
           <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800" }}>Your stats will grow here</Text>
           <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
             Complete your first session to start a streak.
@@ -156,7 +157,7 @@ export function StatsHero({ theme, ink, refreshKey }: { theme: any; ink: string;
                 borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
                 backgroundColor: accent + "1E", borderWidth: 1, borderColor: accent + "55",
               }}>
-                <Text style={{ fontSize: 12 }}>{m.emoji}</Text>
+                <ThemedIcon slot={m.slot} size={12} />
                 <Text style={{ color: theme.textStrong, fontSize: 10, fontWeight: "800" }}>{m.label}</Text>
               </View>
             ))}
