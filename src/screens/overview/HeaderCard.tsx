@@ -15,6 +15,7 @@ import { ThemedIcon } from "../../theme/iconRegistry";
 import { ConfettiBurst } from "../../components/ConfettiBurst";
 import { scoreColor } from "../../components/DailySummaryCard";
 import { AnimatedCounterText, streakMotivationMessage, getGreeting } from "./shared";
+import { FONT_SIZES } from "../../theme/tokens";
 
 type StreakEntry = { label: string; slot: string; count: number; color: (t: any) => string };
 
@@ -136,7 +137,7 @@ export function HeaderCard({
             if (overall !== null) parts.push(`Score ${overall}`);
             if (topStreak >= 2) parts.push(`${topStreak}-day streak 🔥`);
             return (
-              <Text style={{ fontSize: 12, fontWeight: "700", color: scoreColor(overall, theme), marginTop: 2 }}>
+              <Text style={{ fontSize: FONT_SIZES.label, fontWeight: "700", color: scoreColor(overall, theme), marginTop: 2 }}>
                 {parts.join(" · ")}
               </Text>
             );
@@ -224,7 +225,7 @@ export function HeaderCard({
         if (activeDays === 0) return null;
         const topStreakEntry = allStreaks.length > 0 ? allStreaks.reduce((best, s) => s.count > best.count ? s : best) : null;
         return (
-          <Text style={{ fontSize: 11, color: theme.textSoft, marginTop: 8, fontWeight: "600" }}>
+          <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft, marginTop: 8, fontWeight: "600" }}>
             {moodDays > 0 ? `${moodDays}/${weeklyData.length} mood days` : `${activeDays}/${weeklyData.length} active days`}
             {topStreakEntry && topStreakEntry.count >= 2 ? ` · ${topStreakEntry.count}d ${topStreakEntry.label.toLowerCase()} streak 🔥` : ""}
           </Text>
@@ -236,7 +237,7 @@ export function HeaderCard({
         const msg = streakMotivationMessage(best);
         if (!msg) return null;
         return (
-          <Text style={{ fontSize: 12, color: theme.teal.solid, marginTop: 5, fontWeight: "700" }}>{msg}</Text>
+          <Text style={{ fontSize: FONT_SIZES.label, color: theme.teal.solid, marginTop: 5, fontWeight: "700" }}>{msg}</Text>
         );
       })()}
     </View>
@@ -245,8 +246,8 @@ export function HeaderCard({
 
 const styles = StyleSheet.create({
   headerBlock: { marginBottom: 4 },
-  greeting: { fontSize: 26, fontWeight: "900", letterSpacing: -0.8, marginBottom: 2 },
-  dateText: { fontSize: 13, marginBottom: 8, fontWeight: "600" },
+  greeting: { fontSize: FONT_SIZES.title, fontWeight: "900", letterSpacing: -0.8, marginBottom: 2 },
+  dateText: { fontSize: FONT_SIZES.body, marginBottom: 8, fontWeight: "600" },
   streakPill: {
     flexDirection: "row",
     alignSelf: "flex-start",
@@ -255,11 +256,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    shadowColor: "rgba(60,40,20,0.1)",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
     elevation: 2,
   },
-  streakPillText: { fontSize: 11, fontWeight: "800", letterSpacing: 0.5 },
+  streakPillText: { fontSize: FONT_SIZES.caption, fontWeight: "800", letterSpacing: 0.5 },
 });

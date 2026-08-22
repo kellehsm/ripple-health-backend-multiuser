@@ -10,10 +10,8 @@ import { adaptiveInsight, softenInsight } from "../lib/softenInsight";
 import { api } from "../api/client";
 import { Alert } from "react-native";
 import { isReducedMotion } from "../lib/motion";
+import { FONT_SIZES } from "../theme/tokens";
 
-// Rules that ship with an actionable experiment template (kept in sync with
-// backend/src/services/insightExperimentTemplates.ts). If the user's card is
-// one of these, we show a "Try this" button.
 const RULES_WITH_TEMPLATES = new Set([
   "sleep_vs_mood", "sleep_vs_glucose", "meal_size_vs_sleep",
   "screen_time_vs_sleep", "alcohol_quantity_vs_glucose",
@@ -73,9 +71,7 @@ function getConfidenceColor(confidence: Confidence, theme: any): string {
 interface KeyMeta { label: string; unit?: string }
 
 const DATA_KEY_META: Record<string, KeyMeta> = {
-  // Common
   days_analyzed:                   { label: "Days Analyzed" },
-  // Sleep
   high_sleep_days:                 { label: "Good Sleep Days" },
   low_sleep_days:                  { label: "Poor Sleep Days" },
   poor_sleep_days:                 { label: "Poor Sleep Days" },
@@ -93,7 +89,6 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   avg_quality:                     { label: "Avg Sleep Quality", unit: "/10" },
   bedtime_stddev_hours:            { label: "Bedtime Variation", unit: " hrs" },
   session_count:                   { label: "Sessions" },
-  // Mood
   mood_difference:                 { label: "Mood Difference", unit: " pts" },
   avg_mood:                        { label: "Avg Mood", unit: "/10" },
   stddev:                          { label: "Std Dev", unit: " pts" },
@@ -117,7 +112,6 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   avg_mood_non_adherent:           { label: "Mood (Non-Adherent)", unit: "/10" },
   avg_mood_low_meals:              { label: "Mood (Low Meals)", unit: "/10" },
   avg_mood_normal_meals:           { label: "Mood (Normal Meals)", unit: "/10" },
-  // Glucose
   avg_glucose_active:              { label: "Glucose (Active)", unit: " mg/dL" },
   avg_glucose_sedentary:           { label: "Glucose (Sedentary)", unit: " mg/dL" },
   avg_glucose_high_caffeine:       { label: "Glucose (High Caffeine)", unit: " mg/dL" },
@@ -141,7 +135,6 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   lowest_type:                     { label: "Lowest Glucose Meal" },
   highest_avg_mg_dl:               { label: "Glucose (Highest)", unit: " mg/dL" },
   lowest_avg_mg_dl:                { label: "Glucose (Lowest)", unit: " mg/dL" },
-  // Activity
   active_days:                     { label: "Active Days" },
   sedentary_days:                  { label: "Sedentary Days" },
   exercise_days:                   { label: "Exercise Days" },
@@ -162,7 +155,6 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   muscle_group:                    { label: "Muscle Group" },
   days_since_last:                 { label: "Days Since Trained" },
   last_trained:                    { label: "Last Trained" },
-  // Hydration
   high_hydration_days:             { label: "High Hydration Days" },
   low_hydration_days:              { label: "Low Hydration Days" },
   avg_glasses_high_group:          { label: "Avg Glasses (High)" },
@@ -170,7 +162,6 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   avg_glasses_weekend:             { label: "Glasses (Weekend)" },
   avg_glasses_weekday:             { label: "Glasses (Weekday)" },
   difference_glasses:              { label: "Difference", unit: " glasses" },
-  // Spending
   avg_spend_hobby_days:            { label: "Spend (Hobby Days)", unit: " $" },
   avg_spend_no_hobby_days:         { label: "Spend (Other Days)", unit: " $" },
   avg_spend_exercise:              { label: "Spend (Exercise Days)", unit: " $" },
@@ -188,7 +179,6 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   low_spend_days:                  { label: "Low Spend Days" },
   hobby_days_with_spend:           { label: "Hobby Days" },
   no_hobby_days_with_spend:        { label: "Non-Hobby Days" },
-  // Substances
   days_after_alcohol:              { label: "Days After Alcohol" },
   days_after_no_alcohol:           { label: "Days Without Alcohol" },
   alcohol_nights:                  { label: "Alcohol Nights" },
@@ -202,7 +192,6 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   low_caffeine_days:               { label: "Low Caffeine Days" },
   avg_caffeine_mg_high:            { label: "Avg Caffeine (High)", unit: " mg" },
   avg_caffeine_mg_low:             { label: "Avg Caffeine (Low)", unit: " mg" },
-  // Books / hobbies / meals
   reading_days:                    { label: "Reading Days" },
   non_reading_days:                { label: "Non-Reading Days" },
   avg_pages_on_reading_days:       { label: "Avg Pages Read" },
@@ -215,7 +204,6 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   avg_sleep_quality_early_meals:   { label: "Sleep Quality (Early Meals)", unit: "/10" },
   low_meal_days:                   { label: "Low Meal Days" },
   normal_meal_days:                { label: "Normal Meal Days" },
-  // Medication
   taken:                           { label: "Doses Taken" },
   scheduled:                       { label: "Doses Scheduled" },
   adherence_pct:                   { label: "Adherence", unit: "%" },
@@ -225,16 +213,12 @@ const DATA_KEY_META: Record<string, KeyMeta> = {
   non_adherent_days:               { label: "Non-Adherent Days" },
   slot:                            { label: "Missed Slot" },
   window_days:                     { label: "Window (Days)" },
-  // Cycle
   menstrual_days:                  { label: "Menstrual Days" },
   non_menstrual_days:              { label: "Non-Menstrual Days" },
   difference:                      { label: "Difference" },
-  // Streaks
   streak_days:                     { label: "Streak", unit: " days" },
-  // Weekend
   weekend_days:                    { label: "Weekend Days" },
   weekday_days:                    { label: "Weekday Days" },
-  // Mindfulness
   mindfulness_days:                { label: "Mindfulness Days" },
   no_mindfulness_days:             { label: "No Mindfulness Days" },
   avg_mood_mindfulness:            { label: "Mood (Mindfulness)", unit: "/5" },
@@ -307,7 +291,6 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
   const confColor = getConfidenceColor(insight.confidence, theme);
   const confLabel = CONFIDENCE_LABEL[insight.confidence];
   const ink = theme.ink;
-  const card = theme.card;
 
   const supportRows = expanded ? formatSupportingData(insight.supporting_data) : [];
   const age = Math.floor((Date.now() - new Date(insight.last_confirmed).getTime()) / 86400000);
@@ -315,7 +298,6 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
   const isNew = (Date.now() - new Date(insight.first_detected).getTime()) < 7 * 86400000;
   const tip = TYPE_TIP[insight.type];
 
-  // Double-tap to pin state
   const lastTapRef = useRef<number>(0);
   const burstScale = useRef(new Animated.Value(0)).current;
   const burstOpacity = useRef(new Animated.Value(0)).current;
@@ -344,14 +326,13 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
     ]).start(() => setBurstPos(null));
   }
 
-  // ── Explain modal state ─────────────────────────────────────────────────
   const [explainVisible, setExplainVisible] = useState(false);
   const [explainLoading, setExplainLoading] = useState(false);
   const [explainText, setExplainText] = useState<string | null>(null);
 
   async function handleExplain() {
     setExplainVisible(true);
-    if (explainText) return; // already loaded
+    if (explainText) return;
     setExplainLoading(true);
     try {
       const res = await api.insightExplain(insight.id);
@@ -363,7 +344,6 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
     }
   }
 
-  // ── Debug modal state (dev only) ────────────────────────────────────────
   const [debugVisible, setDebugVisible] = useState(false);
   const [debugLoading, setDebugLoading] = useState(false);
   const [debugData, setDebugData] = useState<string | null>(null);
@@ -404,6 +384,85 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
     },
   })).current;
 
+  if (compact && !expanded) {
+    return (
+      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+        <ShadowCard size="tile">
+          <Pressable
+            onPress={(e) => {
+              const now = Date.now();
+              if (now - lastTapRef.current < 300 && onPin) {
+                Haptics.selectionAsync();
+                onPin(insight.id, !isPinned);
+                fireBurst(e.nativeEvent.locationX, e.nativeEvent.locationY);
+              } else {
+                setExpanded(true);
+              }
+              lastTapRef.current = now;
+            }}
+            onPressIn={onPressIn}
+            onPressOut={onPressOut}
+            onLongPress={__DEV__ ? () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}); handleDebug(); } : undefined}
+            style={styles.compactRow}
+            accessibilityRole="button"
+            accessibilityLabel={insight.title}
+          >
+            <View style={[styles.compactIcon, { backgroundColor: confColor + "22" }]}>
+              <Ionicons name={icon as any} size={13} color={confColor} />
+            </View>
+            <Text style={[styles.compactTitle, { color: theme.textStrong }]} numberOfLines={1}>
+              {insight.title}
+            </Text>
+            <View style={[styles.confDot, { backgroundColor: confColor }]} />
+            <Text style={[styles.compactSummary, { color: theme.textSoft }]} numberOfLines={1}>
+              {adaptiveInsight(insight.description, insight.confidence as any)}
+            </Text>
+            <Ionicons name="chevron-forward" size={13} color={theme.textSoft} style={{ marginLeft: 2 }} />
+          </Pressable>
+          {burstPos && (
+            <Animated.View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                left: burstPos.x - 16,
+                top: burstPos.y - 20,
+                opacity: burstOpacity,
+                transform: [{ scale: burstScale }],
+              }}
+            >
+              <Ionicons name="heart" size={32} color={theme.berry?.solid ?? theme.danger} />
+            </Animated.View>
+          )}
+        </ShadowCard>
+        {__DEV__ && (
+          <Modal visible={debugVisible} transparent animationType="fade" onRequestClose={() => setDebugVisible(false)}>
+            <Pressable style={styles.modalOverlay} onPress={() => setDebugVisible(false)}>
+              <Pressable style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => {}}>
+                <View style={styles.modalHandle} />
+                <Text style={[styles.modalTitle, { color: theme.textStrong }]}>Debug — {insight.id.slice(0, 8)}</Text>
+                {debugLoading ? (
+                  <ActivityIndicator color={theme.teal.solid} style={{ marginVertical: 20 }} />
+                ) : (
+                  <ScrollView style={{ maxHeight: 340 }}>
+                    <Text style={[styles.modalBody, { color: theme.textStrong, fontFamily: "monospace", fontSize: 11 }]}>{debugData ?? ""}</Text>
+                  </ScrollView>
+                )}
+                <Pressable
+                  onPress={() => setDebugVisible(false)}
+                  style={[styles.modalClose, { borderColor: theme.cardBorder }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close debug"
+                >
+                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: "700" }}>Close</Text>
+                </Pressable>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        )}
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
     <ShadowCard size="tile">
@@ -413,7 +472,6 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
         const tapX = e.nativeEvent.locationX;
         const tapY = e.nativeEvent.locationY;
         if (now - lastTapRef.current < 300 && onPin) {
-          // Double-tap
           Haptics.selectionAsync();
           onPin(insight.id, !isPinned);
           fireBurst(tapX, tapY);
@@ -429,7 +487,6 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
       accessibilityRole="button"
       accessibilityLabel={insight.title}
     >
-      {/* Header row */}
       <View style={styles.headerRow}>
         <View style={[styles.iconBox, { backgroundColor: confColor }]}>
           <Ionicons name={icon as any} size={15} color={onSolid(confColor)} />
@@ -468,20 +525,10 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
         />
       </View>
 
-      {/* Description — always visible */}
-      {!compact && (
-        <Text style={[styles.description, { color: theme.textStrong }]}>{adaptiveInsight(insight.description, insight.confidence as any)}</Text>
-      )}
-      {compact && !expanded && (
-        <Text style={[styles.description, { color: theme.textStrong }]} numberOfLines={2}>
-          {adaptiveInsight(insight.description, insight.confidence as any)}
-        </Text>
-      )}
-      {compact && expanded && (
-        <Text style={[styles.description, { color: theme.textStrong }]}>{adaptiveInsight(insight.description, insight.confidence as any)}</Text>
-      )}
+      <Text style={[styles.description, { color: theme.textStrong }]}>
+        {adaptiveInsight(insight.description, insight.confidence as any)}
+      </Text>
 
-      {/* Expanded supporting data */}
       {expanded && (
         <View style={[styles.supportBox, { borderTopColor: ink + "33" }]}>
           <Text style={[styles.supportHeader, { color: theme.textSoft }]}>Why am I seeing this?</Text>
@@ -543,6 +590,16 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
               </Pressable>
             </View>
           )}
+          {compact && (
+            <Pressable
+              onPress={() => setExpanded(false)}
+              style={[styles.dismissBtn, { borderColor: ink + "44", alignSelf: "center", marginTop: 4 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Collapse insight"
+            >
+              <Text style={[styles.dismissText, { color: theme.textSoft }]}>Collapse</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </Pressable>
@@ -562,7 +619,6 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
     )}
     </ShadowCard>
 
-    {/* ── Explain modal ────────────────────────────────────────────── */}
     <Modal visible={explainVisible} transparent animationType="fade" onRequestClose={() => setExplainVisible(false)}>
       <Pressable style={styles.modalOverlay} onPress={() => setExplainVisible(false)}>
         <Pressable style={[styles.modalSheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => {}}>
@@ -587,7 +643,6 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
       </Pressable>
     </Modal>
 
-    {/* ── Debug modal (dev only) ───────────────────────────────────── */}
     {__DEV__ && (
       <Modal visible={debugVisible} transparent animationType="fade" onRequestClose={() => setDebugVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setDebugVisible(false)}>
@@ -618,6 +673,36 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
 });
 
 const styles = StyleSheet.create({
+  compactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minHeight: 40,
+  },
+  compactIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  compactTitle: {
+    fontSize: FONT_SIZES.body,
+    fontWeight: "700",
+    flexShrink: 0,
+    maxWidth: "40%",
+  },
+  confDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  compactSummary: {
+    fontSize: FONT_SIZES.caption,
+    flex: 1,
+  },
   headerRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -632,7 +717,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   title: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.body,
     fontWeight: "800",
     lineHeight: 19,
   },
@@ -648,7 +733,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   confText: {
-    fontSize: 10,
+    fontSize: FONT_SIZES.micro,
     fontWeight: "700",
     letterSpacing: 0.4,
   },
@@ -665,11 +750,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   ageText: {
-    fontSize: 11,
+    fontSize: FONT_SIZES.caption,
   },
   description: {
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: FONT_SIZES.body,
+    lineHeight: 20,
   },
   supportBox: {
     marginTop: 12,
@@ -677,13 +762,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   supportHeader: {
-    fontSize: 11,
+    fontSize: FONT_SIZES.caption,
     fontWeight: "800",
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   supportNote: {
-    fontSize: 11,
+    fontSize: FONT_SIZES.caption,
     lineHeight: 16,
     marginBottom: 10,
     fontStyle: "italic",
@@ -698,15 +783,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   dataLabel: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.label,
     flex: 1,
   },
   dataValue: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.label,
     fontWeight: "700",
   },
   tipText: {
-    fontSize: 11,
+    fontSize: FONT_SIZES.caption,
     lineHeight: 15,
     fontStyle: "italic",
     marginTop: 10,
@@ -721,7 +806,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   dismissText: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.label,
     fontWeight: "600",
   },
   modalOverlay: {
@@ -750,7 +835,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   modalBody: {
-    fontSize: 13,
+    fontSize: FONT_SIZES.body,
     lineHeight: 20,
   },
   modalClose: {
@@ -766,7 +851,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   feedbackLabel: {
-    fontSize: 11,
+    fontSize: FONT_SIZES.caption,
     fontWeight: "700",
     letterSpacing: 0.3,
     textTransform: "uppercase",
@@ -786,7 +871,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   feedbackBtnText: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.label,
     fontWeight: "700",
   },
   tryBtn: {
@@ -801,13 +886,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tryBtnText: {
-    fontSize: 13,
+    fontSize: FONT_SIZES.body,
     fontWeight: "800",
     letterSpacing: 0.3,
   },
 });
-
-// ── Feedback row inside the expanded panel ────────────────────────────────
 
 function FeedbackRow({ insightId, theme }: { insightId: string; theme: any }) {
   const [chosen, setChosen] = useState<FeedbackRating | null>(null);
@@ -828,7 +911,6 @@ function FeedbackRow({ insightId, theme }: { insightId: string; theme: any }) {
       setChosen(rating);
       Haptics.selectionAsync().catch(() => {});
     } catch {
-      // Silent — feedback is nice-to-have, not critical.
     } finally {
       setBusy(false);
     }
@@ -870,8 +952,6 @@ function FeedbackRow({ insightId, theme }: { insightId: string; theme: any }) {
     </View>
   );
 }
-
-// ── "Try this" experiment button ─────────────────────────────────────────
 
 function TryThisButton({ insightId, theme }: { insightId: string; theme: any }) {
   const [busy, setBusy] = useState(false);

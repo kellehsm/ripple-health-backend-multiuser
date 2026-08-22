@@ -1112,7 +1112,7 @@ function makeStyles(ink: string, card: string, border: string, coral: string = "
     padding: 14,
     ...coloredShadow(coral),
   },
-  cardTitle: { fontSize: 19, fontWeight: "900", letterSpacing: -0.5, marginBottom: 8 },
+  cardTitle: { fontSize: 16, fontWeight: "700", letterSpacing: -0.3, marginBottom: 8 },
 
   sectionLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.7, marginBottom: 6 },
 

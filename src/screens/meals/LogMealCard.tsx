@@ -298,7 +298,6 @@ export function LogMealCard({
                         onPress={function () { Haptics.selectionAsync(); onSelectFrequent(meal); }}
                         onLongPress={function () {
                           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                          // Alert inline to avoid passing Alert as a prop
                           const { Alert } = require("react-native");
                           Alert.alert(
                             meal.name,
@@ -322,21 +321,12 @@ export function LogMealCard({
                         accessibilityHint="Double tap to log. Long press to hide from your usuals."
                       >
                         <Text style={{ color: cc.fg, fontSize: 13, fontWeight: "700" }} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>{meal.name}</Text>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3, flexWrap: "wrap" }}>
-                          {spike != null && badgeBg != null && spike > 30 ? (
-                            <View
-                              style={{ backgroundColor: badgeBg, borderRadius: 10, paddingHorizontal: 5, paddingVertical: 2 }}
-                              accessibilityLabel={"averages a " + spike + " milligrams per deciliter glucose rise"}
-                            >
-                              <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>↑{spike} mg/dL</Text>
-                            </View>
-                          ) : null}
-                          {(meal.calories != null || meal.carbs_g != null) ? (
-                            <Text style={{ color: cc.sub, fontSize: 11 }} numberOfLines={1}>
-                              {meal.calories != null ? meal.calories + " cal" : meal.carbs_g + "g carbs"}
-                            </Text>
-                          ) : null}
-                        </View>
+                        <Text style={{ color: cc.sub, fontSize: 11, marginTop: 2 }} numberOfLines={1}>
+                          {[
+                            meal.calories != null ? meal.calories + " cal" : meal.carbs_g != null ? meal.carbs_g + "g carbs" : null,
+                            spike != null && spike > 30 ? "↑" + spike + " mg/dL" : null,
+                          ].filter(Boolean).join(" · ")}
+                        </Text>
                       </Pressable>
                     </Animated.View>
                   );

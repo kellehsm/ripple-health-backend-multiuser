@@ -10,6 +10,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../../theme/ThemeContext";
 import { getFastStatus, startFast, stopFast, formatElapsed, type FastStatus } from "../../lib/fastingTimer";
+import { onSolid } from "../../theme/colorUtils";
+import { FONT_SIZES } from "../../theme/tokens";
 
 export function FastingTimerCard() {
   const { theme } = useTheme();
@@ -116,13 +118,13 @@ export function FastingTimerCard() {
         <Text style={{ fontSize: 18 }}>⏱️</Text>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: fastStatus.active ? theme.teal.fg : theme.textStrong, fontWeight: "800", fontSize: 13 }}>
+        <Text style={{ color: fastStatus.active ? theme.teal.fg : theme.textStrong, fontWeight: "800", fontSize: FONT_SIZES.body }}>
           {fastStatus.active ? "Fasting · " + formatElapsed(fastStatus.elapsedMs) : "Start a Fast"}
         </Text>
         {fastStatus.active ? (
-          <Text style={{ color: theme.teal.sub, fontSize: 11, marginTop: 1 }}>Tap to end fast</Text>
+          <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.caption, marginTop: 1 }}>Tap to end fast</Text>
         ) : (
-          <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 1 }}>Notifications at 12h, 16h, 24h</Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginTop: 1 }}>Notifications at 12h, 16h, 24h</Text>
         )}
       </View>
       <View style={{
@@ -131,7 +133,7 @@ export function FastingTimerCard() {
         paddingHorizontal: 10,
         paddingVertical: 4,
       }}>
-        <Text style={{ color: fastStatus.active ? "#fff" : theme.teal.fg, fontWeight: "800", fontSize: 11 }}>
+        <Text style={{ color: fastStatus.active ? onSolid(theme.teal.solid) : theme.teal.fg, fontWeight: "800", fontSize: FONT_SIZES.caption }}>
           {fastStatus.active ? "STOP" : "START"}
         </Text>
       </View>

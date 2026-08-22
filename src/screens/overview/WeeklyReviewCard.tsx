@@ -23,6 +23,8 @@ import {
   type WeeklyDay,
   type WeeklyDigest,
 } from "./shared";
+import { FONT_SIZES } from "../../theme/tokens";
+import { GhostRow } from "../../components/GhostRow";
 
 type MonthlyReviewData = {
   month: string;
@@ -85,13 +87,13 @@ export function WeeklyReviewCard({
             </Pressable>
           </View>
           {digest.steps.this_week > 0 ? (
-            <Text style={{ color: theme.teal.fg, fontSize: 13 }}>
+            <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.body }}>
               {digest.steps.this_week.toLocaleString()} steps
               {digest.steps.last_week > 0 ? (digest.steps.this_week >= digest.steps.last_week ? " · up from last week" : " · fewer than last week") : ""}
             </Text>
           ) : null}
           {digest.hobbies.this_week_sessions > 0 ? (
-            <Text style={{ color: theme.teal.fg, fontSize: 13, marginTop: 3 }}>
+            <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.body, marginTop: 3 }}>
               {digest.hobbies.this_week_sessions} hobby session{digest.hobbies.this_week_sessions === 1 ? "" : "s"}
             </Text>
           ) : null}
@@ -102,7 +104,7 @@ export function WeeklyReviewCard({
           <Text style={[styles.cardTitle, { color: theme.textStrong }]}>7-day review</Text>
           {digest && (
             <Pressable onPress={onShowDigest} hitSlop={8}>
-              <Text style={{ color: theme.teal.fg, fontSize: 12, fontWeight: "700" }}>View summary →</Text>
+              <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.caption, fontWeight: "700" }}>View summary →</Text>
             </Pressable>
           )}
         </View>
@@ -156,7 +158,7 @@ export function WeeklyReviewCard({
             {digest.heart_rate.has_data ? (
               <>
                 <Text style={[styles.digestLabel, { color: theme.textSoft }]}>Heart rate</Text>
-                <Text style={{ color: theme.textStrong, fontSize: 13, marginBottom: 4, fontWeight: "600" }}>
+                <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, marginBottom: 4, fontWeight: "600" }}>
                   Resting {digest.heart_rate.resting} · Peak {digest.heart_rate.peak} bpm
                 </Text>
               </>
@@ -169,8 +171,8 @@ export function WeeklyReviewCard({
             ) : null}
           </>
         ) : (
-          <View style={[styles.emptyState, { borderColor: ink, marginTop: 8 }]}>
-            <Text style={[styles.emptyText, { color: theme.textSoft }]}>Keep logging meals, steps, and mood — your weekly recap appears here after a few days</Text>
+          <View style={{ marginTop: 8 }}>
+            <GhostRow icon="📅" label="Weekly recap appears after a few days of logging" />
           </View>
         )}
       </ShadowCard>
@@ -254,17 +256,17 @@ export function MoodPatternCard({ weeklyData, correlation, setCorrelation }: Moo
           </Svg>
         ) : null}
       </View>
-      <Text style={{ color: theme.textSoft, fontSize: 11, marginBottom: 8 }}>
+      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginBottom: 8 }}>
         Same days side by side — draw your own conclusions.
       </Text>
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: theme.violet.solid }]} />
-          <Text style={{ color: theme.textSoft, fontSize: 11 }}>Mood (1–5)</Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption }}>Mood (1–5)</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: correlation === "sleep" ? theme.amber.solid : theme.purple.solid }]} />
-          <Text style={{ color: theme.textSoft, fontSize: 11 }}>{correlation === "sleep" ? "Sleep (hrs)" : "Spending ($)"}</Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption }}>{correlation === "sleep" ? "Sleep (hrs)" : "Spending ($)"}</Text>
         </View>
         <View style={{ flex: 1 }} />
         <Pressable
@@ -273,7 +275,7 @@ export function MoodPatternCard({ weeklyData, correlation, setCorrelation }: Moo
           accessibilityRole="button"
           accessibilityLabel={"Switch to compare with " + (correlation === "sleep" ? "spending" : "sleep")}
         >
-          <Text style={{ color: ink, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 }}>
+          <Text style={{ color: ink, fontSize: FONT_SIZES.micro, fontWeight: "800", letterSpacing: 0.4 }}>
             VS {correlation === "sleep" ? "SPENDING" : "SLEEP"}
           </Text>
         </Pressable>
@@ -311,28 +313,28 @@ export function CrossMetricCard({ crossMetricData }: CrossMetricProps) {
     <ShadowCard size="card" accent={theme.teal.solid} rotate={-0.3} cardId="cross_metric">
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Ionicons name="git-compare-outline" size={18} color={theme.teal.solid} />
-        <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>Cross-metric insights</Text>
+        <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5, color: theme.textStrong }}>Cross-metric insights</Text>
       </View>
       {hasExercise && (function () {
         const diff = Math.abs(ex.with_avg! - ex.without_avg!);
         const withIsLower = ex.with_avg! < ex.without_avg!;
         return (
           <View style={{ marginBottom: hasSleep ? 16 : 0 }}>
-            <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5, marginBottom: 6 }}>EXERCISE DAYS VS REST DAYS</Text>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.micro, fontWeight: "800", letterSpacing: 0.5, marginBottom: 6 }}>EXERCISE DAYS VS REST DAYS</Text>
             <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={{ flex: 1, backgroundColor: theme.teal.tint, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.teal.solid }}>
-                <Text style={{ color: theme.teal.fg, fontSize: 20, fontWeight: "900" }}>{ex.with_avg}</Text>
-                <Text style={{ color: theme.teal.sub, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
-                <Text style={{ color: theme.teal.sub, fontSize: 10 }}>exercise days</Text>
+              <View style={{ flex: 1, backgroundColor: theme.teal.tint, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
+                <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.heading, fontWeight: "900" }}>{ex.with_avg}</Text>
+                <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.micro, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
+                <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.micro }}>exercise days</Text>
               </View>
               <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
-                <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>{ex.without_avg}</Text>
-                <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
-                <Text style={{ color: theme.textSoft, fontSize: 10 }}>rest days</Text>
+                <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.heading, fontWeight: "900" }}>{ex.without_avg}</Text>
+                <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.micro, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
+                <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.micro }}>rest days</Text>
               </View>
             </View>
             {diff >= 3 && (
-              <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 8, lineHeight: 16 }}>
+              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginTop: 8, lineHeight: 16 }}>
                 Glucose averaged {diff} mg/dL {withIsLower ? "lower" : "higher"} on exercise days ({ex.with_count} days). Observation only — not a finding.
               </Text>
             )}
@@ -344,21 +346,21 @@ export function CrossMetricCard({ crossMetricData }: CrossMetricProps) {
         const goodIsLower = sl.good_avg! < sl.poor_avg!;
         return (
           <View>
-            <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5, marginBottom: 6 }}>7+ HOURS SLEEP VS LESS</Text>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.micro, fontWeight: "800", letterSpacing: 0.5, marginBottom: 6 }}>7+ HOURS SLEEP VS LESS</Text>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <View style={{ flex: 1, backgroundColor: theme.amber.tint, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
-                <Text style={{ color: theme.amber.fg, fontSize: 20, fontWeight: "900" }}>{sl.good_avg}</Text>
-                <Text style={{ color: theme.amber.sub, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
-                <Text style={{ color: theme.amber.sub, fontSize: 10 }}>7+ h nights</Text>
+                <Text style={{ color: theme.amber.fg, fontSize: FONT_SIZES.heading, fontWeight: "900" }}>{sl.good_avg}</Text>
+                <Text style={{ color: theme.amber.sub, fontSize: FONT_SIZES.micro, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
+                <Text style={{ color: theme.amber.sub, fontSize: FONT_SIZES.micro }}>7+ h nights</Text>
               </View>
               <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, alignItems: "center", borderWidth: 1, borderColor: theme.cardBorder }}>
-                <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>{sl.poor_avg}</Text>
-                <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
-                <Text style={{ color: theme.textSoft, fontSize: 10 }}>{"<"}7 h nights</Text>
+                <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.heading, fontWeight: "900" }}>{sl.poor_avg}</Text>
+                <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.micro, fontWeight: "700", marginTop: 2 }}>mg/dL avg</Text>
+                <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.micro }}>{"<"}7 h nights</Text>
               </View>
             </View>
             {diff >= 3 && (
-              <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 8, lineHeight: 16 }}>
+              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginTop: 8, lineHeight: 16 }}>
                 Glucose averaged {diff} mg/dL {goodIsLower ? "lower" : "higher"} after 7+ hour nights ({sl.good_count} nights). Observation only — not a finding.
               </Text>
             )}
@@ -385,7 +387,7 @@ export function MonthlyReviewCard({ isFirstWeekOfMonth, monthlyReviewDismissed, 
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Ionicons name="calendar-outline" size={18} color={theme.teal.fg} />
-          <Text style={[styles.cardTitle, { color: theme.teal.fg, marginBottom: 0 }]}>{monthLabel} review</Text>
+          <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5, color: theme.teal.fg }}>{monthLabel} review</Text>
         </View>
         <Pressable
           onPress={async () => {
@@ -404,15 +406,15 @@ export function MonthlyReviewCard({ isFirstWeekOfMonth, monthlyReviewDismissed, 
         <View style={{ marginBottom: 6 }}>
           <View style={{ flexDirection: "row", gap: 10 }}>
             <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: theme.cardBorder }}>
-              <Text style={{ fontSize: 10, fontWeight: "700", color: theme.textSoft, letterSpacing: 0.5, marginBottom: 2 }}>BEST WEEK</Text>
-              <Text style={{ fontSize: 18, fontWeight: "900", color: theme.teal.solid }}>{mrSteps.best_week.total.toLocaleString()}</Text>
-              <Text style={{ fontSize: 10, color: theme.textSoft }}>steps · wk of {mrSteps.best_week.start.slice(5)}</Text>
+              <Text style={{ fontSize: FONT_SIZES.micro, fontWeight: "700", color: theme.textSoft, letterSpacing: 0.5, marginBottom: 2 }}>BEST WEEK</Text>
+              <Text style={{ fontSize: FONT_SIZES.heading, fontWeight: "900", color: theme.teal.solid }}>{mrSteps.best_week.total.toLocaleString()}</Text>
+              <Text style={{ fontSize: FONT_SIZES.micro, color: theme.textSoft }}>steps · wk of {mrSteps.best_week.start.slice(5)}</Text>
             </View>
             {mrSteps.worst_week ? (
               <View style={{ flex: 1, backgroundColor: theme.card, borderRadius: 10, padding: 10, borderWidth: 1, borderColor: theme.cardBorder }}>
-                <Text style={{ fontSize: 10, fontWeight: "700", color: theme.textSoft, letterSpacing: 0.5, marginBottom: 2 }}>SLOWEST WEEK</Text>
-                <Text style={{ fontSize: 18, fontWeight: "900", color: theme.textStrong }}>{mrSteps.worst_week.total.toLocaleString()}</Text>
-                <Text style={{ fontSize: 10, color: theme.textSoft }}>steps · wk of {mrSteps.worst_week.start.slice(5)}</Text>
+                <Text style={{ fontSize: FONT_SIZES.micro, fontWeight: "700", color: theme.textSoft, letterSpacing: 0.5, marginBottom: 2 }}>SLOWEST WEEK</Text>
+                <Text style={{ fontSize: FONT_SIZES.heading, fontWeight: "900", color: theme.textStrong }}>{mrSteps.worst_week.total.toLocaleString()}</Text>
+                <Text style={{ fontSize: FONT_SIZES.micro, color: theme.textSoft }}>steps · wk of {mrSteps.worst_week.start.slice(5)}</Text>
               </View>
             ) : null}
           </View>
@@ -426,11 +428,11 @@ export function MonthlyReviewCard({ isFirstWeekOfMonth, monthlyReviewDismissed, 
             size={14}
             color={spendUp ? theme.danger : theme.success}
           />
-          <Text style={{ fontSize: 13, color: theme.textStrong, fontWeight: "700" }}>
+          <Text style={{ fontSize: FONT_SIZES.body, color: theme.textStrong, fontWeight: "700" }}>
             ${spending.total.toLocaleString(undefined, { maximumFractionDigits: 0 })} spent
           </Text>
           {spendDiff !== null && spending.prev_total !== null && spending.prev_total > 0 ? (
-            <Text style={{ fontSize: 12, color: spendUp ? theme.danger : theme.success, fontWeight: "600" }}>
+            <Text style={{ fontSize: FONT_SIZES.caption, color: spendUp ? theme.danger : theme.success, fontWeight: "600" }}>
               {spendUp ? "+" : ""}{spendDiff.toLocaleString(undefined, { maximumFractionDigits: 0 })} vs prior month
             </Text>
           ) : null}
@@ -438,7 +440,7 @@ export function MonthlyReviewCard({ isFirstWeekOfMonth, monthlyReviewDismissed, 
       ) : null}
 
       {observation ? (
-        <Text style={{ fontSize: 12, color: theme.teal.fg, lineHeight: 17, marginTop: 2 }}>{observation}</Text>
+        <Text style={{ fontSize: FONT_SIZES.caption, color: theme.teal.fg, lineHeight: 17, marginTop: 2 }}>{observation}</Text>
       ) : null}
 
       <Pressable
@@ -455,14 +457,14 @@ export function MonthlyReviewCard({ isFirstWeekOfMonth, monthlyReviewDismissed, 
         accessibilityRole="button"
         accessibilityLabel="View full monthly recap"
       >
-        <Text style={{ fontSize: 12, fontWeight: "800", color: theme.teal.solid }}>View Full Recap ›</Text>
+        <Text style={{ fontSize: FONT_SIZES.caption, fontWeight: "800", color: theme.teal.solid }}>View Full Recap ›</Text>
       </Pressable>
     </ShadowCard>
   );
 }
 
 const styles = StyleSheet.create({
-  cardTitle: { fontSize: 19, fontWeight: "900", letterSpacing: -0.5, marginBottom: 4 },
+  cardTitle: { fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5, marginBottom: 4 },
   legendRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
@@ -479,9 +481,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     padding: 8,
   },
-  summaryBlockLabel: { fontSize: 9, fontWeight: "800", letterSpacing: 0.5, marginBottom: 4 },
-  summaryBlockValue: { fontSize: 13, fontWeight: "800" },
-  digestLabel: { fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.7 },
+  summaryBlockLabel: { fontSize: FONT_SIZES.micro, fontWeight: "800", letterSpacing: 0.5, marginBottom: 4 },
+  summaryBlockValue: { fontSize: FONT_SIZES.body, fontWeight: "800" },
+  digestLabel: { fontSize: FONT_SIZES.micro, fontWeight: "800", marginTop: 10, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.7 },
   calloutStrip: { borderWidth: 2, borderRadius: 16, padding: 10, marginTop: 10, gap: 4 },
   emptyState: {
     borderWidth: 2,

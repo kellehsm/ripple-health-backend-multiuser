@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../theme/ThemeContext";
 import { registerToastOverlay, type ToastAction } from "../lib/toast";
 
@@ -11,8 +12,11 @@ type ToastState = {
 
 // In-app toast pill rendered above the tab bar. Handles iOS toasts and any
 // toast carrying an action button (native Android toasts can't have buttons).
+const TAB_BAR_HEIGHT = 56;
+
 export function ToastHost() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [state, setState] = useState<ToastState | null>(null);
   const opacity = useRef(new Animated.Value(0)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,7 +48,7 @@ export function ToastHost() {
   return (
     <Animated.View
       pointerEvents="box-none"
-      style={{ position: "absolute", left: 16, right: 16, bottom: 96, opacity, alignItems: "center" }}
+      style={{ position: "absolute", left: 16, right: 16, bottom: TAB_BAR_HEIGHT + insets.bottom + 12, opacity, alignItems: "center" }}
     >
       <View
         style={{

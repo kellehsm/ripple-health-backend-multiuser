@@ -14,6 +14,9 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemedIcon } from '../theme/iconRegistry';
 import { ShadowCard } from '../components/ShadowCard';
+import { GhostRow } from '../components/GhostRow';
+import { SectionLabel } from '../components/SectionLabel';
+import { FONT_SIZES } from '../theme/tokens';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { WorkoutSetupWizard } from './WorkoutSetupWizard';
@@ -513,8 +516,8 @@ export function ExerciseScreen() {
         {/* Active workout program */}
         {activeProgram && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>YOUR PLAN</Text>
-            <View style={[styles.programCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+            <SectionLabel text="Your Plan" />
+            <ShadowCard padding={14}>
               <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
                 <View style={{ flex: 1 }}>
                   {renamingProgram ? (
@@ -539,7 +542,7 @@ export function ExerciseScreen() {
                   ) : (
                     <Text style={[styles.programName, { color: theme.textStrong }]}>{activeProgram.name}</Text>
                   )}
-                  <Text style={{ color: theme.textSoft, fontSize: 12, marginBottom: 8 }}>
+                  <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginBottom: 8 }}>
                     {activeProgram.preferred_minutes} min · {activeProgram.days_per_week} day{activeProgram.days_per_week !== 1 ? 's' : ''}/week
                   </Text>
                 </View>
@@ -553,7 +556,9 @@ export function ExerciseScreen() {
                   <Ionicons name="ellipsis-horizontal" size={20} color={theme.textSoft} />
                 </Pressable>
               </View>
-              {(activeProgram.days ?? []).map((day, i) => (
+              {(activeProgram.days ?? []).length === 0 ? (
+                <GhostRow label="No days in this plan yet" icon="📋" />
+              ) : (activeProgram.days ?? []).map((day, i) => (
                 <Pressable
                   key={day.id}
                   onPress={() => handleSelectDay(day)}
@@ -570,16 +575,16 @@ export function ExerciseScreen() {
                   <Text style={{ color: theme.textSoft, fontSize: 12, lineHeight: 17 }} numberOfLines={2}>
                     {(day.exercises ?? []).map((e) => e.name).join(' · ')}
                   </Text>
-                  <Text style={{ color: theme.teal.sub, fontSize: 11, fontWeight: '700', marginTop: 4 }}>Tap to preview ›</Text>
+                  <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.caption, fontWeight: '700', marginTop: 4 }}>Tap to preview ›</Text>
                 </Pressable>
               ))}
-            </View>
+            </ShadowCard>
           </>
         )}
 
         {/* Suggestion card */}
         {suggestion && (
-          <View style={[styles.suggestionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
+          <ShadowCard padding={14}>
             <View style={styles.suggestionHeader}>
               <ThemedIcon slot={suggestionSlot(suggestion.type)} size={22} style={styles.suggestionIcon as any} />
               <Text style={[styles.suggestionTitle, { color: theme.textStrong }]}>{suggestion.title}</Text>
@@ -593,7 +598,7 @@ export function ExerciseScreen() {
                 <Text style={[styles.suggestionCtaText, { color: ink }]}>{suggestion.cta}</Text>
               </Pressable>
             )}
-          </View>
+          </ShadowCard>
         )}
 
         {/* Sessions history */}
@@ -603,12 +608,34 @@ export function ExerciseScreen() {
           <ExerciseEmptyState onPress={() => { setPlannerInitialQueue([]); setPlannerVisible(true); }} />
         ) : (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>RECENT SESSIONS</Text>
-            {sessions.filter((s) => s.ended_at).map((session) => (
-              <View
-                key={session.id}
-                style={[styles.sessionCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-              >
+            <SectionLabel text="Recent Sessions" />
+            {sessions.filter((s) => s.ended_at).map((session) => {
+              const isEmpty = session.entry_count === 0 && session.duration_seconds < 30;
+              if (isEmpty) {
+                return (
+                  <GhostRow
+                    key={session.id}
+                    label={`${formatDate(session.started_at)} · empty session`}
+                    action={{
+                      label: "Delete",
+                      onPress: async () => {
+                        const prev = sessions;
+                        setSessions((cur) => cur.filter((s) => s.id !== session.id));
+                        try {
+                          await api.deleteExerciseSession(session.id);
+                          invalidateCache('exercise:main');
+                          toast("Session removed.");
+                        } catch {
+                          setSessions(prev);
+                          toast("Couldn't delete that session.", "error");
+                        }
+                      },
+                    }}
+                  />
+                );
+              }
+              return (
+              <ShadowCard key={session.id} padding={14}>
                 <Pressable
                   onPress={() => navigation.navigate('ExerciseDetail', { sessionId: session.id })}
                   style={{ flex: 1 }}
@@ -643,7 +670,6 @@ export function ExerciseScreen() {
                             {
                               text: "Delete", style: "destructive",
                               onPress: async () => {
-                                // Optimistic remove — reverts if the API rejects.
                                 const prev = sessions;
                                 setSessions((cur) => cur.filter((s) => s.id !== session.id));
                                 try {
@@ -668,8 +694,9 @@ export function ExerciseScreen() {
                     </Pressable>
                   </View>
                 </Pressable>
-              </View>
-            ))}
+              </ShadowCard>
+              );
+            })}
           </>
         )}
       </ScrollView>
@@ -842,7 +869,7 @@ const styles = StyleSheet.create({
   empty: { paddingTop: 48, alignItems: 'center', gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '800' },
   emptySub: { fontSize: 14, textAlign: 'center' },
-  sectionLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 0.6, marginTop: 4, textTransform: 'uppercase' },
+  sectionLabel: { fontSize: FONT_SIZES.micro, fontWeight: '900', letterSpacing: 0.6, marginTop: 4, textTransform: 'uppercase' },
   suggestionCard: {
     borderRadius: 26,
     borderWidth: 2,
@@ -855,8 +882,8 @@ const styles = StyleSheet.create({
   },
   suggestionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   suggestionIcon: { fontSize: 20 },
-  suggestionTitle: { fontSize: 14, fontWeight: '800', flex: 1 },
-  suggestionBody: { fontSize: 13, lineHeight: 19 },
+  suggestionTitle: { fontSize: FONT_SIZES.subheading, fontWeight: '800', flex: 1 },
+  suggestionBody: { fontSize: FONT_SIZES.body, lineHeight: 20 },
   suggestionCta: {
     alignSelf: 'flex-start',
     borderWidth: 1,
@@ -878,10 +905,10 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sessionCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sessionDate: { fontSize: 16, fontWeight: '800' },
-  sessionDuration: { fontSize: 13 },
-  sessionExercises: { fontSize: 13 },
-  sessionCount: { fontSize: 12, fontWeight: '700' },
+  sessionDate: { fontSize: FONT_SIZES.subheading, fontWeight: '800' },
+  sessionDuration: { fontSize: FONT_SIZES.body },
+  sessionExercises: { fontSize: FONT_SIZES.body },
+  sessionCount: { fontSize: FONT_SIZES.label, fontWeight: '700' },
   programCard: {
     borderRadius: 26,
     borderWidth: 2,
@@ -892,7 +919,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  programName: { fontSize: 15, fontWeight: '900', marginBottom: 2 },
+  programName: { fontSize: FONT_SIZES.subheading, fontWeight: '900', marginBottom: 2 },
   programDay: { paddingTop: 8, marginTop: 6 },
   dayBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
 });

@@ -3,6 +3,10 @@ import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from 'react-nati
 import { api } from '../../api/client';
 import { fmtDate, todayStr } from '../../utils/dateUtils';
 import { CycleLog, Prediction, getPhaseLabel } from './shared';
+
+function humanizeLabel(raw: string): string {
+  return raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 import { MonthCalendar } from './MonthCalendar';
 import { CycleDayLogModal } from './CycleDayLogModal';
 import { CycleHero, PhaseGuideCard } from './CycleHero';
@@ -192,7 +196,7 @@ export function CycleView({ theme }: { theme: any }) {
               </View>
               {(selectedLog.symptoms ?? []).length > 0 && (
                 <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 4 }}>
-                  Symptoms: {selectedLog.symptoms!.join(', ')}
+                  Symptoms: {selectedLog.symptoms!.map(humanizeLabel).join(', ')}
                 </Text>
               )}
               {selectedLog.notes ? (
@@ -242,7 +246,7 @@ export function CycleView({ theme }: { theme: any }) {
             )}
             {topSymptoms.length > 0 && (
               <Text style={{ color: theme.textSoft, fontSize: 13 }}>
-                Top symptoms: <Text style={{ color: theme.textStrong, fontWeight: '700' }}>{topSymptoms.join(', ')}</Text>
+                Top symptoms: <Text style={{ color: theme.textStrong, fontWeight: '700' }}>{topSymptoms.map(humanizeLabel).join(', ')}</Text>
               </Text>
             )}
             {prediction?.cycleLengthsUsed != null && (

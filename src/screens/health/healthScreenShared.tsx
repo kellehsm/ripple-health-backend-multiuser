@@ -263,7 +263,7 @@ export function StepsRing({ steps, goal, color, sub }: { steps: number | null; g
 // ─── PopText ──────────────────────────────────────────────────────────────────
 
 /** Chip value text that "pops" (scale pulse) whenever its value changes. */
-export function PopText({ value, style }: { value: string; style: any }) {
+export function PopText({ value, style, numberOfLines }: { value: string; style: any; numberOfLines?: number }) {
   const scale = useRef(new Animated.Value(1)).current;
   const prev = useRef(value);
   useEffect(() => {
@@ -280,6 +280,7 @@ export function PopText({ value, style }: { value: string; style: any }) {
       style={[style, { transform: [{ scale }] }]}
       allowFontScaling
       maxFontSizeMultiplier={1.3}
+      numberOfLines={numberOfLines}
     >
       {value}
     </Animated.Text>

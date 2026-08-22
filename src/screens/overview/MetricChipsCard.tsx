@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import { useTheme } from "../../theme/ThemeContext";
 import { onSolid } from "../../theme/colorUtils";
 import { coloredShadow } from "../../theme/styleUtils";
+import { FONT_SIZES } from "../../theme/tokens";
 import { ThemedIcon, moodScoreEmoji } from "../../theme/iconRegistry";
 import { ThemedSurface } from "../../theme/pageTemplates";
 import { Ionicons } from "@expo/vector-icons";
@@ -82,7 +83,7 @@ export function MetricChipsCard({
               onLongPress={chip.quickLog ? () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onQuickLog(chip.quickLog!); } : undefined}
               chipWidth={CHIP_W}
               dimmed={chip.empty}
-              style={[chipStyle(theme), { borderColor: chip.color, overflow: "hidden" }]}
+              style={[chipStyle(theme), { overflow: "hidden" }]}
               accessibilityLabel={chip.label + ": " + chip.value}
               accessibilityRole={chip.onPress ? "button" : undefined}
             >
@@ -148,7 +149,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 6,
   },
-  chipValue: { fontSize: 20, fontWeight: "900", lineHeight: 24, marginBottom: 1 },
-  chipSub: { fontSize: 10, lineHeight: 14, fontWeight: "600" },
-  chipLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginTop: 4, textTransform: "uppercase" },
+  chipValue: { fontSize: FONT_SIZES.heading, fontWeight: "900", lineHeight: 24, marginBottom: 1 },
+  chipSub: { fontSize: FONT_SIZES.micro, lineHeight: 14, fontWeight: "600" },
+  chipLabel: { fontSize: FONT_SIZES.micro, fontWeight: "900", letterSpacing: 0.6, marginTop: 4, textTransform: "uppercase" },
 });

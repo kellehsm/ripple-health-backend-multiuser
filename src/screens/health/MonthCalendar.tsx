@@ -176,9 +176,9 @@ export function MonthCalendar({
         })}
       </View>
 
-      {/* Legend */}
-      <View style={calStyles.legend}>
-        <View style={calStyles.legendItem}>
+      {/* Legend — 2-column grid so items never wrap mid-row */}
+      <View style={[calStyles.legend, { flexDirection: 'row', flexWrap: 'wrap' }]}>
+        <View style={[calStyles.legendItem, { width: '50%' }]}>
           <View style={{ flexDirection: 'row', gap: 2 }}>
             {(['spotting', 'light', 'medium', 'heavy'] as const).map((f) => (
               <View key={f} style={[calStyles.legendSwatch, { backgroundColor: FLOW_COLORS[f] }]} />
@@ -186,19 +186,19 @@ export function MonthCalendar({
           </View>
           <Text style={[calStyles.legendText, { color: theme.textSoft }]}>Period</Text>
         </View>
-        <View style={calStyles.legendItem}>
+        <View style={[calStyles.legendItem, { width: '50%' }]}>
           <View style={[calStyles.legendDot, { backgroundColor: theme.cycle.predicted }]} />
           <Text style={[calStyles.legendText, { color: theme.textSoft }]}>Next period</Text>
         </View>
-        <View style={calStyles.legendItem}>
+        <View style={[calStyles.legendItem, { width: '50%' }]}>
           <View style={[calStyles.legendDot, { backgroundColor: theme.cycle.fertile, borderWidth: 1.5, borderColor: theme.cycle.ovulation, borderStyle: 'dashed' }]} />
           <Text style={[calStyles.legendText, { color: theme.textSoft }]}>Fertile window</Text>
         </View>
-        <View style={calStyles.legendItem}>
+        <View style={[calStyles.legendItem, { width: '50%' }]}>
           <View style={[calStyles.legendDot, { backgroundColor: theme.cycle.symptom }]} />
           <Text style={[calStyles.legendText, { color: theme.textSoft }]}>Symptoms</Text>
         </View>
-        <View style={calStyles.legendItem}>
+        <View style={[calStyles.legendItem, { width: '50%' }]}>
           <View style={[calStyles.legendDot, { backgroundColor: theme.cycle.mood }]} />
           <Text style={[calStyles.legendText, { color: theme.textSoft }]}>Mood</Text>
         </View>

@@ -10,6 +10,7 @@ import { useTheme } from "../../theme/ThemeContext";
 import { onSolid } from "../../theme/colorUtils";
 import { ShadowCard } from "../../components/ShadowCard";
 import { SkeletonBox } from "./shared";
+import { FONT_SIZES } from "../../theme/tokens";
 
 interface Props {
   loading: boolean;
@@ -40,17 +41,15 @@ export function InsightsPreviewCard({ loading, insights, tourInsightsRef }: Prop
             width: 26, height: 26, borderRadius: 12, borderWidth: 2,
             borderColor: theme.ink, alignItems: "center", justifyContent: "center",
             backgroundColor: theme.violet.solid,
-            shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.08, shadowRadius: 10, elevation: 2,
           }}>
             <Ionicons name="bulb-outline" size={14} color={onSolid(theme.violet.solid)} />
           </View>
-          <Text style={{ fontSize: 19, fontWeight: "900", letterSpacing: -0.5, color: theme.textStrong }}>Insights</Text>
+          <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5, color: theme.textStrong }}>Insights</Text>
         </View>
         {insights.map((obs, i) => (
           <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 5 }}>
             <View style={{ width: 7, height: 7, borderRadius: 4, marginTop: 6, flexShrink: 0, backgroundColor: theme.violet.solid }} />
-            <Text style={{ color: theme.textStrong, fontSize: 13, lineHeight: 18, flex: 1, fontWeight: "600" }}>{obs}</Text>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, lineHeight: 20, flex: 1, fontWeight: "600" }}>{obs}</Text>
           </View>
         ))}
       </ShadowCard>
