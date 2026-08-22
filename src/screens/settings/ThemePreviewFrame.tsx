@@ -327,12 +327,9 @@ export function ThemePreviewFrame() {
 
       {/*
         Scale math: transform:scale keeps the View's layout size at full (FRAME_W+22)×(FRAME_H+22)
-        even though the visual output shrinks by PREVIEW_SCALE. We clip the outer container to
-        the scaled dimensions. Negative right/bottom margins on the inner View remove the excess
-        layout space so the container height collapses correctly.
-        scaled_dim = full_dim * PREVIEW_SCALE
-        excess = full_dim - scaled_dim = full_dim * (1 - PREVIEW_SCALE)
-        → marginRight = marginBottom = -full_dim * (1 - PREVIEW_SCALE)
+        while shrinking the visual output around the CENTER, so the excess layout space is split
+        evenly on all four sides. Symmetric negative margins collapse it:
+        per-side excess = full_dim * (1 - PREVIEW_SCALE) / 2
       */}
       <View style={[frameStyles.scaleContainer, { alignSelf: "center" }]}>
         <View
@@ -341,8 +338,8 @@ export function ThemePreviewFrame() {
             { borderColor: theme.ink, backgroundColor: theme.ink },
             {
               transform: [{ scale: PREVIEW_SCALE }],
-              marginRight: -(FRAME_W + 22) * (1 - PREVIEW_SCALE),
-              marginBottom: -(FRAME_H + 22) * (1 - PREVIEW_SCALE),
+              marginHorizontal: -((FRAME_W + 22) * (1 - PREVIEW_SCALE)) / 2,
+              marginVertical: -((FRAME_H + 22) * (1 - PREVIEW_SCALE)) / 2,
             },
           ]}
         >

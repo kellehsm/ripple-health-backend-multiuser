@@ -121,10 +121,10 @@ export function HeaderCard({
               const hasImgOverride = !!(theme as any).iconOverrides?.[g.emojiSlot];
               return (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: hasImgOverride ? 10 : 6 }}>
-                  <ThemedIcon slot={g.emojiSlot} size={hasImgOverride ? 56 : 24} />
                   <Text style={[styles.greeting, { color: theme.textStrong }]} accessibilityRole="header">
                     {g.text}{userName ? `, ${userName}` : ""}
                   </Text>
+                  <ThemedIcon slot={g.emojiSlot} size={hasImgOverride ? 96 : 24} />
                 </View>
               );
             })()}

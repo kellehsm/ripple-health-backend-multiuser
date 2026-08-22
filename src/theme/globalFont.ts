@@ -15,7 +15,7 @@ import {
   type FontFamilyKey,
   DEFAULT_FONT_FAMILY,
   resolveFontForWeight,
-} from "./fontSystem";
+} from "./fontFamilies";
 
 let currentFamily: FontFamilyKey = DEFAULT_FONT_FAMILY;
 
@@ -36,8 +36,10 @@ function injectFont(origin: React.ReactElement<{ style?: any }>) {
     currentFamily === "Nunito"
       ? { fontFamily: family, fontWeight: "normal" }
       : { fontFamily: family };
+  // Flattened (not an array): on react-native-web the patched element is the
+  // raw DOM span whose style must be a plain object, or React DOM crashes.
   return React.cloneElement(origin, {
-    style: [origin.props.style, patch],
+    style: StyleSheet.flatten([origin.props.style, patch]),
   } as any);
 }
 

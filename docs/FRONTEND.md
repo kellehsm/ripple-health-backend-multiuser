@@ -249,6 +249,18 @@ Shipped in git (1.5.0 / vc 22) but require a native rebuild to reach devices:
 - **Expo Go** (dev): works for JS-only changes; cannot run `@notifee/react-native` or native modules that require a custom dev client build.
 - **Dev client** (`development` profile): required when native modules are added or changed.
 - Dev metro port: **8082**; production: **8081**.
+- Web dev server (expo start --web): port **8090** (`screen -S wellness-web`).
+
+### Web platform metro aliases (`metro.config.js`)
+
+Two packages need web shims registered in `config.resolver.resolveRequest`:
+
+| Package | Issue | Shim |
+|---|---|---|
+| `expo-secure-store` | No web implementation | `src/lib/secureStore.web.stub.ts` |
+| `react-native-svg` — `lib/resolve.js` | Returns style arrays (`[styleProp, cleanedProps]`) that crash React DOM on native SVG elements (`CSSStyleProperties indexed property setter` error) | `src/lib/rn-svg-resolve.web.stub.js` (flattens via `StyleSheet.flatten`) |
+
+The react-native-svg shim is matched by `moduleName === "../../lib/resolve"` with `context.originModulePath.includes("react-native-svg")` to avoid false positives.
 
 ### Dev login shortcut
 
