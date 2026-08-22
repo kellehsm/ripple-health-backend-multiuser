@@ -124,7 +124,7 @@ export function HeaderCard({
                   <Text style={[styles.greeting, { color: theme.textStrong }]} accessibilityRole="header">
                     {g.text}{userName ? `, ${userName}` : ""}
                   </Text>
-                  <ThemedIcon slot={g.emojiSlot} size={hasImgOverride ? 96 : 24} />
+                  <ThemedIcon slot={g.emojiSlot} size={hasImgOverride ? 128 : 24} />
                 </View>
               );
             })()}
