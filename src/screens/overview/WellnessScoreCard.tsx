@@ -12,6 +12,7 @@ import { DailySummaryData, scoreColor, scoreLabel } from "../../components/Daily
 import { CountUpText } from "../../components/CountUpText";
 import { AnimatedProgressRing } from "../../components/AnimatedProgressRing";
 import { todayStr } from "../../utils/dateUtils";
+import { FONT_SIZES } from "../../theme/tokens";
 
 interface Props {
   dailySummary: DailySummaryData | null;
@@ -46,8 +47,8 @@ export function WellnessScoreCard({ dailySummary, wellnessHistory, onPress }: Pr
               <CountUpText value={wsOverall} duration={450} fallback="--" style={{ fontSize: 22, fontWeight: "800", color: wsColor }} />
             </AnimatedProgressRing>
             <View>
-              <Text style={{ fontSize: 19, fontWeight: "900", letterSpacing: -0.5, color: theme.textStrong, marginBottom: 2 }}>Wellness score</Text>
-              <Text style={{ fontSize: 12, color: theme.textSoft }}>
+              <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5, color: theme.textStrong, marginBottom: 2 }}>Wellness score</Text>
+              <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft }}>
                 {wsOverall !== null ? scoreLabel(wsOverall) + " · tap for breakdown" : "No data yet today"}
               </Text>
             </View>

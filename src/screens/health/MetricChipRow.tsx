@@ -135,10 +135,10 @@ export function MetricChipRow({
           }}
         >
           <StepsRing steps={stepsCount} goal={stepGoal} color={theme.teal.solid} sub={theme.teal.sub} />
-          <PopText value={stepsLabel} style={[chipStyles.val, { color: theme.teal.fg }]} />
-          <Text style={[chipStyles.sub, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>of {goalLabel}</Text>
+          <PopText value={stepsLabel} style={[chipStyles.val, { color: theme.teal.fg }]} numberOfLines={1} />
+          <Text style={[chipStyles.sub, { color: theme.teal.sub }]} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>of {goalLabel}</Text>
           {stepsWeekTotal !== null && (
-            <Text style={[chipStyles.sub, { color: theme.teal.sub, marginTop: 2 }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+            <Text style={[chipStyles.sub, { color: theme.teal.sub, marginTop: 2 }]} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>
               {stepsWeekTotal >= 1000
                 ? (stepsWeekTotal / 1000).toFixed(1) + "k wk"
                 : stepsWeekTotal + " wk"}

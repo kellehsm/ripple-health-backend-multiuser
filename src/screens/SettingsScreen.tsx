@@ -54,8 +54,8 @@ function StatusRow({ label, detail, tone, theme }: {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 7 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: dot, marginRight: 10 }} />
-      <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", flex: 1 }}>{label}</Text>
-      <Text style={{ color: theme.textSoft, fontSize: 12 }}>{detail}</Text>
+      <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: "700", flex: 1 }}>{label}</Text>
+      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label }}>{detail}</Text>
     </View>
   );
 }
@@ -66,8 +66,8 @@ function MenuRow({ title, subtitle, onPress, theme, accent }: {
   return (
     <Pressable onPress={onPress} style={[styles.row, { borderColor: theme.cardBorder }]}>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: accent ?? theme.textStrong, fontSize: 15, fontWeight: "600" }}>{title}</Text>
-        {subtitle ? <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>{subtitle}</Text> : null}
+        <Text style={{ color: accent ?? theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: "600" }}>{title}</Text>
+        {subtitle ? <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }}>{subtitle}</Text> : null}
       </View>
       <Ionicons name="chevron-forward" size={18} color={theme.textSoft} />
     </Pressable>
@@ -565,7 +565,7 @@ export function SettingsScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
-  groupLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginTop: 4, marginBottom: -4, textTransform: "uppercase" },
+  groupLabel: { fontSize: FONT_SIZES.micro, fontWeight: "900", letterSpacing: 0.6, marginTop: 4, marginBottom: -4, textTransform: "uppercase" },
   card: {
     borderRadius: 26,
     borderWidth: 2,

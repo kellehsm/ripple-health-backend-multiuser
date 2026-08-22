@@ -16,6 +16,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES } from "../theme/tokens";
 import { ShadowCard } from "../components/ShadowCard";
 import { api } from "../api/client";
 import { DailySummaryCard } from "../components/DailySummaryCard";
@@ -523,8 +524,8 @@ export function OverviewScreen() {
             <ShadowCard size="card" bg={theme.violet.tint} accent={theme.violet.solid} rotate={0.5}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 19, fontWeight: "900", letterSpacing: -0.5, color: theme.violet.fg }}>Trends & Insights</Text>
-                  <Text style={{ color: theme.violet.sub, fontSize: 12, lineHeight: 17, marginTop: 4, fontWeight: "600" }}>
+                  <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5, color: theme.violet.fg }}>Trends & Insights</Text>
+                  <Text style={{ color: theme.violet.sub, fontSize: FONT_SIZES.caption, lineHeight: 17, marginTop: 4, fontWeight: "600" }}>
                     See how sleep, spending & glucose relate to your mood
                   </Text>
                 </View>
@@ -537,7 +538,6 @@ export function OverviewScreen() {
       case "daily_summary":
         return (
           <View style={{ gap: 12 }}>
-            {dailySummary ? <DailySummaryCard data={dailySummary} /> : null}
             <WhatChangedCard />
             <WhyMightThatBeCard />
           </View>
@@ -547,9 +547,9 @@ export function OverviewScreen() {
         return topInsight ? (
           <View>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 0.8, color: theme.textSoft }}>TOP INSIGHT</Text>
+              <Text style={{ fontSize: FONT_SIZES.micro, fontWeight: "800", letterSpacing: 0.8, color: theme.textSoft }}>TOP INSIGHT</Text>
               <Pressable onPress={() => navigation.getParent()?.navigate("Insights")} accessibilityRole="button">
-                <Text style={{ fontSize: 11, color: theme.teal.solid, fontWeight: "700" }}>See all →</Text>
+                <Text style={{ fontSize: FONT_SIZES.caption, color: theme.teal.solid, fontWeight: "700" }}>See all →</Text>
               </Pressable>
             </View>
             <InsightCard
@@ -739,14 +739,10 @@ export function OverviewScreen() {
         </View>
       )}
 
-      {/* ── Today's Snapshot label + content ── */}
+      {/* ── Today section ── */}
       <Animated.View style={{ opacity: contentOpacity }}>
         {!loading && (
-          <>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textSoft, marginBottom: 2 }}>{dashboardGreeting}</Text>
-            <Text style={{ fontSize: 28, fontWeight: "900", letterSpacing: 0.4, color: theme.textStrong }}>Today's Snapshot</Text>
-            <View style={{ height: 1, backgroundColor: theme.cardBorder, marginTop: 10, marginBottom: 2 }} />
-          </>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textSoft, marginBottom: 8 }}>{dashboardGreeting}</Text>
         )}
 
         {/* ── Pinned Insights ── */}
@@ -754,7 +750,7 @@ export function OverviewScreen() {
           <View style={{ gap: 6, marginTop: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <ThemedIcon slot="ui.pin" size={10} />
-              <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 0.8, color: theme.textSoft }}>PINNED INSIGHTS</Text>
+              <Text style={{ fontSize: FONT_SIZES.micro, fontWeight: "800", letterSpacing: 0.8, color: theme.textSoft }}>PINNED INSIGHTS</Text>
             </View>
             {allInsights.filter(i => pinnedIds.has(i.id)).map(insight => (
               <InsightCard key={insight.id} insight={insight} onPin={handlePin} isPinned compact />

@@ -9,6 +9,10 @@ interface EnergyPoint { cycle_day: number; avg_energy: number; n: number }
 
 const PHASE_EMOJI: Record<string, string> = { menstrual: '🌙', follicular: '🌱', ovulatory: '☀️', luteal: '🍂' };
 
+function humanizeLabel(raw: string): string {
+  return raw.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function CycleInsights({
   theme,
   prediction,
@@ -105,7 +109,7 @@ export function CycleInsights({
               <View key={`s-${s.label}-${s.phase}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={{ fontSize: 14 }}>{PHASE_EMOJI[s.phase] ?? '•'}</Text>
                 <Text style={{ color: theme.textStrong, fontSize: 13, flex: 1 }} allowFontScaling maxFontSizeMultiplier={1.3}>
-                  <Text style={{ fontWeight: '700', textTransform: 'capitalize' }}>{s.label}</Text>
+                  <Text style={{ fontWeight: '700' }}>{humanizeLabel(s.label)}</Text>
                   {' '}showed up in the {s.phase} phase in {s.cycles} of {patterns!.totalCycles} cycles
                 </Text>
               </View>

@@ -31,6 +31,8 @@ import {
   type DayEvent,
   type Bucket,
 } from "./shared";
+import { FONT_SIZES } from "../../theme/tokens";
+import { GhostRow } from "../../components/GhostRow";
 
 interface Props {
   loading: boolean;
@@ -229,10 +231,7 @@ export function TimelineCard({
           </View>
         </>
       ) : (
-        <View style={[styles.emptyState, { borderColor: ink }]}>
-          <Ionicons name="pulse-outline" size={24} color={theme.textSoft} />
-          <Text style={[styles.emptyText, { color: theme.textSoft }]}>No glucose readings yet — connect Dexcom in Settings to see your chart here</Text>
-        </View>
+        <GhostRow icon="📈" label="No glucose readings yet — connect Dexcom in Settings" />
       )}
       {loading ? (
         <View style={{ gap: 12 }}>
@@ -241,10 +240,7 @@ export function TimelineCard({
           <SkeletonBox style={{ height: 18, width: "80%" }} />
         </View>
       ) : patternEvents.length === 0 ? (
-        <View style={[styles.emptyState, { borderColor: ink }]}>
-          <Ionicons name="calendar-outline" size={24} color={theme.textSoft} />
-          <Text style={[styles.emptyText, { color: theme.textSoft }]}>Log a meal, mood, or spend to start your day's timeline</Text>
-        </View>
+        <GhostRow icon="🗓️" label="Log a meal, mood, or spend to start your timeline" />
       ) : (
         <>
           {patternEvents.length > 0 && (() => {
@@ -321,13 +317,13 @@ export function TimelineCard({
               <View key={i} style={{ flexDirection: "row", minHeight: 36 }}>
                 <Text style={[styles.tlTime, { color: theme.textSoft }]}>{fmtTime(ev.time)}</Text>
                 <View style={{ width: 20, alignItems: "center", marginRight: 10 }}>
-                  <View style={[styles.tlIconDot, { backgroundColor: dotColor }]}>
+                  <View style={[styles.tlIconDot, { backgroundColor: dotColor, borderColor: theme.cardBorder }]}>
                     <Ionicons name={icon as any} size={9} color={onSolid(dotColor)} />
                   </View>
                   {!isLast && <View style={[styles.tlLine, { backgroundColor: theme.cardBorder }]} />}
                 </View>
                 <Text
-                  style={{ flex: 1, color: theme.textStrong, fontSize: 13, fontWeight: "500", lineHeight: 18, paddingBottom: isLast ? 0 : 10 }}
+                  style={{ flex: 1, color: theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: "500", lineHeight: 20, paddingBottom: isLast ? 0 : 10 }}
                   numberOfLines={2}
                 >
                   {ev.label}
@@ -340,7 +336,7 @@ export function TimelineCard({
           })}
           {patternEvents.length > 8 ? (
             <Pressable onPress={() => setShowAllEvents(!showAllEvents)} style={{ paddingTop: 6 }}>
-              <Text style={{ color: theme.teal.fg, fontSize: 12, fontWeight: "700" }}>
+              <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.caption, fontWeight: "700" }}>
                 {showAllEvents ? "Show less" : "Show all " + patternEvents.length + " events"}
               </Text>
             </Pressable>
@@ -353,7 +349,7 @@ export function TimelineCard({
 }
 
 const styles = StyleSheet.create({
-  cardTitle: { fontSize: 19, fontWeight: "900", letterSpacing: -0.5 },
+  cardTitle: { fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5 },
   legendRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
@@ -366,14 +362,13 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 4,
   },
-  emptyText: { fontSize: 13, fontWeight: "500" },
-  tlTime: { fontSize: 11, width: 42, paddingTop: 3 },
+  emptyText: { fontSize: FONT_SIZES.body, fontWeight: "500" },
+  tlTime: { fontSize: FONT_SIZES.caption, width: 42, paddingTop: 3 },
   tlIconDot: {
     width: 18,
     height: 18,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: "rgba(0,0,0,0.2)",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,

@@ -4,6 +4,7 @@ import { coloredShadow } from '../../theme/styleUtils';
 import { fmtDate, todayStr } from '../../utils/dateUtils';
 import { Prediction, getPhaseLabel, PHASE_GUIDE } from './shared';
 import { ProgressRing } from './AdherenceHero';
+import { FONT_SIZES } from '../../theme/tokens';
 
 export function CycleHero({ theme, prediction }: { theme: any; prediction: Prediction | null }) {
   if (!prediction?.lastPeriodStart || prediction.currentCycleDay == null) return null;
@@ -73,41 +74,79 @@ export function CycleHero({ theme, prediction }: { theme: any; prediction: Predi
   );
 }
 
+const PHASE_COLORS: Record<string, (theme: any) => string> = {
+  Menstrual:  (t) => t.cycle?.period    ?? '#D96C57',
+  Follicular: (t) => t.cycle?.fertile   ?? '#6BBFB5',
+  Ovulatory:  (t) => t.cycle?.ovulation ?? '#7B9FBF',
+  Luteal:     (t) => t.cycle?.mood      ?? '#C9A0C0',
+};
+
+const PHASE_LENGTHS: Record<string, number> = {
+  Menstrual: 5, Follicular: 6, Ovulatory: 5, Luteal: 12,
+};
+const TOTAL_PHASE_DAYS = Object.values(PHASE_LENGTHS).reduce((a, b) => a + b, 0);
+
 export function PhaseGuideCard({ theme, currentPhase }: { theme: any; currentPhase: string }) {
   const [selected, setSelected] = React.useState(currentPhase);
   const guide = PHASE_GUIDE[selected];
   if (!guide) return null;
-  const berry = theme.berry ?? { solid: '#A62A50', tint: '#F6E3E9', fg: '#7A1F3C' };
+  const phases = Object.keys(PHASE_GUIDE);
 
   return (
     <View style={[chStyles.guideCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
       <Text style={[chStyles.guideTitle, { color: theme.textStrong }]}>Phase Guide</Text>
-      <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-        {Object.keys(PHASE_GUIDE).map((p) => {
-          const active = p === selected;
+
+      {/* Segmented phase bar */}
+      <View style={{ flexDirection: 'row', borderRadius: 8, overflow: 'hidden', marginTop: 10, height: 20 }}>
+        {phases.map((p) => {
+          const pct = PHASE_LENGTHS[p] / TOTAL_PHASE_DAYS;
+          const color = PHASE_COLORS[p](theme);
+          const isActive = p === selected;
           return (
-            <Text
+            <View
               key={p}
-              onPress={() => setSelected(p)}
-              style={[
-                chStyles.phaseChip,
-                {
-                  backgroundColor: active ? berry.solid : (berry.tint ?? theme.cycle.mood),
-                  color: active ? '#fff' : berry.fg,
-                  borderColor: active ? theme.ink : 'transparent',
-                },
-              ]}
+              onTouchEnd={() => setSelected(p)}
+              style={{
+                flex: pct,
+                backgroundColor: color,
+                opacity: isActive ? 1 : 0.45,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              {PHASE_GUIDE[p].icon} {p}{p === currentPhase ? ' •' : ''}
-            </Text>
+              {p === currentPhase && (
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff', opacity: 0.9 }} />
+              )}
+            </View>
           );
         })}
       </View>
-      <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, marginTop: 10, textTransform: 'uppercase' }}>
+
+      {/* 2-column legend */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 0 }}>
+        {phases.map((p, i) => {
+          const color = PHASE_COLORS[p](theme);
+          const isActive = p === selected;
+          return (
+            <View
+              key={p}
+              onTouchEnd={() => setSelected(p)}
+              style={{ width: '50%', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 }}
+            >
+              <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: color, opacity: isActive ? 1 : 0.55 }} />
+              <Text style={{ color: isActive ? theme.textStrong : theme.textSoft, fontSize: FONT_SIZES.caption, fontWeight: isActive ? '800' : '500' }}>
+                {PHASE_GUIDE[p].icon} {p}{p === currentPhase ? ' ←' : ''}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontWeight: '800', letterSpacing: 0.5, marginTop: 10, textTransform: 'uppercase' }}>
         {guide.days}{selected === currentPhase ? ' · You are here' : ''}
       </Text>
-      <Text style={{ color: theme.textSoft, fontSize: 13, lineHeight: 19, marginTop: 4 }}>{guide.body}</Text>
-      <Text style={{ color: theme.textSoft, fontSize: 10, marginTop: 8, fontStyle: 'italic' }}>
+      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.body, lineHeight: 20, marginTop: 4 }}>{guide.body}</Text>
+      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption - 1, marginTop: 8, fontStyle: 'italic' }}>
         General information — every cycle is different.
       </Text>
     </View>

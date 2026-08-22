@@ -30,7 +30,7 @@ import { ScreenBackground } from "../components/ScreenBackground";
 import { formatDayHeader, formatTime, todayStr } from "../utils/dateUtils";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 import { isReducedMotion } from "../lib/motion";
-import { CountUpText } from "../components/CountUpText";
+import { FONT_SIZES } from "../theme/tokens";
 
 const FINANCE_SECTIONS: SectionDef[] = [
   { id: 'totals',       label: 'Total spent',              description: 'Spending total card with add button' },
@@ -388,7 +388,7 @@ export function FinanceScreen() {
   const forecastBarAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const target = Math.min(100, Math.round((monthForecast.projected / (monthForecast.budget || 1)) * 100));
+    const target = Math.min(100, Math.round((monthForecast.monthTotal / (monthForecast.budget || 1)) * 100));
     if (isReducedMotion()) {
       forecastBarAnim.setValue(target);
       return;
@@ -399,7 +399,7 @@ export function FinanceScreen() {
       tension: 60,
       friction: 10,
     }).start();
-  }, [monthForecast.projected]);
+  }, [monthForecast.monthTotal]);
 
   useEffect(() => {
     if (monthForecast.dayOfMonth < 3 || monthForecast.budget <= 0) return;
@@ -661,53 +661,50 @@ export function FinanceScreen() {
           </View>
         )}
 
-        {/* Month forecast card */}
         {entries.length > 0 && monthForecast.dayOfMonth >= 3 && (function () {
-          const overBudget = monthForecast.projected > monthForecast.budget;
-          const pct = Math.min(100, Math.round((monthForecast.projected / monthForecast.budget) * 100));
-          const barColor = pct > 110 ? theme.red?.solid ?? "#C0392B" : pct > 90 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
-          const remaining = monthForecast.budget - monthForecast.projected;
+          const { monthTotal, projected, budget, daysInMonth, dayOfMonth } = monthForecast;
+          const projPct  = Math.min(1, budget > 0 ? projected / budget : 0);
+          const barColor = projPct > 1.1 ? theme.red?.solid ?? "#C0392B" : projPct > 0.9 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
           return (
-            <ShadowCard size="card" accent={theme.purple.solid} rotate={-0.3}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <Ionicons name="trending-up-outline" size={18} color={theme.purple.solid} />
-                <Text style={[s.cardTitle, { color: theme.textStrong, marginBottom: 0 }]}>Month forecast</Text>
+            <ShadowCard size="card" rotate={-0.3}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <Ionicons name="trending-up-outline" size={16} color={theme.purple.solid} />
+                <Text style={[s.cardTitle, { color: theme.textStrong }]}>Month forecast</Text>
               </View>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-                <View>
-                  <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>PROJECTED</Text>
-                  <CountUpText
-                    value={monthForecast.projected}
-                    format={(v) => formatAmount(v)}
-                    duration={400}
-                    style={{ color: overBudget ? (theme.red?.solid ?? "#C0392B") : theme.textStrong, fontSize: 26, fontWeight: "900", letterSpacing: -0.5 }}
-                  />
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>BUDGET</Text>
-                  <CountUpText
-                    value={monthForecast.budget}
-                    format={(v) => formatAmount(v)}
-                    duration={400}
-                    style={{ color: theme.textSoft, fontSize: 26, fontWeight: "900", letterSpacing: -0.5 }}
-                  />
-                </View>
-              </View>
-              <View style={{ height: 8, backgroundColor: theme.cardBorder, borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
+              <View style={{ position: "relative", height: 10, backgroundColor: theme.cardBorder, borderRadius: 5, overflow: "visible", marginBottom: 6 }}>
                 <Animated.View style={{
-                  height: 8,
+                  position: "absolute", left: 0, top: 0, bottom: 0,
                   width: forecastBarAnim.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }),
+                  backgroundColor: theme.purple.solid + "99",
+                  borderRadius: 5,
+                }} />
+                <View style={{
+                  position: "absolute",
+                  left: `${Math.round(projPct * 100)}%` as any,
+                  top: -3, width: 2, height: 16,
                   backgroundColor: barColor,
-                  borderRadius: 4,
+                  borderRadius: 1,
+                  marginLeft: -1,
                 }} />
               </View>
-              <Text style={{ color: overBudget ? (theme.red?.solid ?? "#C0392B") : theme.teal.solid, fontSize: 13, fontWeight: "800" }}>
-                {overBudget
-                  ? formatAmount(Math.abs(remaining)) + " over budget at this pace"
-                  : formatAmount(remaining) + " under budget at this pace"}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 2 }}>
+                <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft }}>
+                  <Text style={{ fontWeight: "700", color: theme.textStrong }}>{formatAmount(monthTotal)}</Text>
+                  {" spent"}
+                </Text>
+                <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft }}>
+                  {"budget "}
+                  <Text style={{ fontWeight: "700", color: theme.textSoft }}>{formatAmount(budget)}</Text>
+                </Text>
+              </View>
+              <Text style={{ fontSize: FONT_SIZES.caption, color: barColor, fontWeight: "600", marginTop: 2 }}>
+                {"Projected "}{formatAmount(projected)}
+                {projected > budget
+                  ? ` · ${formatAmount(projected - budget)} over pace`
+                  : ` · ${formatAmount(budget - projected)} under pace`}
               </Text>
-              <Text style={{ color: theme.textSoft, fontSize: 10, marginTop: 4 }}>
-                Based on {monthForecast.dayOfMonth} days of spending · day {monthForecast.dayOfMonth} of {monthForecast.daysInMonth}
+              <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft, marginTop: 2 }}>
+                Day {dayOfMonth} of {daysInMonth}
               </Text>
             </ShadowCard>
           );
@@ -902,32 +899,26 @@ export function FinanceScreen() {
                       ]}
                       accessibilityRole="button"
                     >
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-                        <IconBadge name="card-outline" color={color} bgColor={color + "20"} size={16} containerSize={32} borderRadius={8} />
-                        <View style={{ flex: 1, gap: 3 }}>
-                        <Text style={[s.merchant, { color: theme.textStrong }]} numberOfLines={1}>
-                          {e.merchant_name ?? cat}
-                        </Text>
-                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <View style={[s.catBadge, { backgroundColor: color + "20" }]}>
-                            <Text style={[s.catBadgeText, { color }]}>{cat}</Text>
-                          </View>
-                          {e.source === "plaid" && (
-                            <Ionicons name="card-outline" size={11} color={theme.textSoft} />
-                          )}
-                          {e.tag === "emotional_spend" && (
-                            <View style={{ borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, backgroundColor: theme.berry.tint ?? theme.purple.tint }}>
-                              <Text style={{ fontSize: 10, fontWeight: "700", color: theme.berry?.solid ?? theme.purple.solid }}>emotional</Text>
-                            </View>
-                          )}
-                          <Text style={[s.txTime, { color: theme.textSoft }]}>{formatTime(e.logged_at)}</Text>
+                      <IconBadge name="card-outline" color={color} bgColor={color + "20"} size={14} containerSize={28} borderRadius={7} />
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <Text style={[s.merchant, { color: theme.textStrong }]} numberOfLines={1}>
+                            {e.merchant_name ?? cat}
+                          </Text>
+                          <Text style={[s.txAmt, { color: theme.purple.sub }]}>{formatAmount(Number(e.amount))}</Text>
                         </View>
-                        {e.notes ? (
-                          <Text style={[s.txNotes, { color: theme.textSoft }]} numberOfLines={1}>{e.notes}</Text>
-                        ) : null}
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 }}>
+                          <Text style={[s.txMeta, { color }]}>{cat}</Text>
+                          <Text style={[s.txMeta, { color: theme.textSoft }]}>·</Text>
+                          <Text style={[s.txMeta, { color: theme.textSoft }]}>{formatTime(e.logged_at)}</Text>
+                          {e.tag === "emotional_spend" && (
+                            <>
+                              <Text style={[s.txMeta, { color: theme.textSoft }]}>·</Text>
+                              <Text style={[s.txMeta, { color: theme.berry?.solid ?? theme.purple.solid }]}>emotional</Text>
+                            </>
+                          )}
                         </View>
                       </View>
-                      <Text style={[s.txAmt, { color: theme.purple.sub }]}>{formatAmount(Number(e.amount))}</Text>
                     </Pressable>
                   );
                 })}
@@ -1145,28 +1136,25 @@ function makeStyles(ink: string, card: string, border: string, purple: string = 
     toggleBtn:   { flex: 1, paddingVertical: 10, alignItems: "center" },
     toggleText:  { fontSize: 13, fontWeight: "700" },
     card:        { borderRadius: 26, borderWidth: 2, padding: 16, backgroundColor: card, ...shadowCard, gap: 4 },
-    cardTitle:   { fontSize: 17, fontWeight: "900", letterSpacing: -0.5, marginBottom: 2 },
-    label:       { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginBottom: 2, textTransform: "uppercase" },
+    cardTitle:   { fontSize: FONT_SIZES.subheading, fontWeight: "800", letterSpacing: -0.3, marginBottom: 2 },
+    label:       { fontSize: FONT_SIZES.micro, fontWeight: "900", letterSpacing: 0.6, marginBottom: 2, textTransform: "uppercase" },
     totalAmt:    { fontSize: 44, fontWeight: "900", lineHeight: 52, letterSpacing: -1 },
-    sublabel:    { fontSize: 12, marginTop: 2 },
+    sublabel:    { fontSize: FONT_SIZES.label, marginTop: 2 },
     addBtn: {
       width: 38, height: 38, borderRadius: 19, borderWidth: 2,
       alignItems: "center", justifyContent: "center",
       ...layeredShadow('tile'),
     },
     chartRow:    { flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-    chartCat:    { fontSize: 13, fontWeight: "600" },
-    chartAmt:    { fontSize: 13, fontWeight: "700" },
+    chartCat:    { fontSize: FONT_SIZES.body, fontWeight: "600" },
+    chartAmt:    { fontSize: FONT_SIZES.body, fontWeight: "700" },
     barTrack:    { height: 7, borderRadius: 4, overflow: "hidden" },
     barFill:     { height: "100%", borderRadius: 4 },
-    dayHeader:   { fontSize: 11, fontWeight: "800", letterSpacing: 0.6, marginBottom: -4, marginLeft: 4 },
-    txRow:       { flexDirection: "row", alignItems: "center", paddingVertical: 12, gap: 12 },
-    merchant:    { fontSize: 14, fontWeight: "700" },
-    catBadge:    { borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
-    catBadgeText:{ fontSize: 10, fontWeight: "700" },
-    txTime:      { fontSize: 11 },
-    txNotes:     { fontSize: 11, fontStyle: "italic" },
-    txAmt:       { fontSize: 15, fontWeight: "800", minWidth: 64, textAlign: "right" },
+    dayHeader:   { fontSize: FONT_SIZES.caption, fontWeight: "800", letterSpacing: 0.6, marginBottom: -4, marginLeft: 4 },
+    txRow:       { flexDirection: "row", alignItems: "center", paddingVertical: 8, gap: 10 },
+    merchant:    { fontSize: FONT_SIZES.body, fontWeight: "700", flex: 1, marginRight: 8 },
+    txMeta:      { fontSize: FONT_SIZES.caption, fontWeight: "600" },
+    txAmt:       { fontSize: FONT_SIZES.body, fontWeight: "800", textAlign: "right" },
     modalContent:{ padding: 20, gap: 10, paddingBottom: 40 },
     modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
     modalTitle:  { fontSize: 20, fontWeight: "800" },

@@ -943,17 +943,22 @@ export function HealthScreen() {
 
       <View onLayout={(e) => { sectionYRef.current.sleep = e.nativeEvent.layout.y; }} />
 
-      {/* Glucose alert banner */}
+      {/* Glucose alert banner — deduplicated so each unique alert shows once */}
       {status && status.alerts && status.alerts.length > 0 ? (
-        <View style={[styles.alertCard, { backgroundColor: theme.red.tint, borderColor: theme.red.sub }]}>
-          {status.alerts.map(function (alert: string, i: number) {
-            return (
-              <Text key={i} style={{ color: theme.red.fg, fontSize: 13, fontWeight: "700" }}>
-                ⚠ {alert}
-              </Text>
-            );
-          })}
-        </View>
+        (() => {
+          const uniqueAlerts = Array.from(new Set(status.alerts));
+          return (
+            <View style={[styles.alertCard, { backgroundColor: theme.red.tint, borderColor: theme.red.sub }]}>
+              {uniqueAlerts.map(function (alert: string, i: number) {
+                return (
+                  <Text key={i} style={{ color: theme.red.fg, fontSize: 13, fontWeight: "700" }}>
+                    ⚠ {alert}
+                  </Text>
+                );
+              })}
+            </View>
+          );
+        })()
       ) : null}
 
       <View onLayout={(e) => { sectionYRef.current.glucose = e.nativeEvent.layout.y; }}>

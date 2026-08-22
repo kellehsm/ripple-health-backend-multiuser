@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert, Animated, Easing } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert, Animated, Easing, LayoutAnimation, Platform, UIManager } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import Svg, { Circle } from 'react-native-svg';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -63,6 +67,7 @@ export function AdherenceHero({
 }) {
   const [data, setData] = useState<AdherenceData | null>(null);
   const [missedDismissed, setMissedDismissed] = useState(false);
+  const [missedExpanded, setMissedExpanded] = useState(false);
   const [marking, setMarking] = useState(false);
 
   useEffect(() => {
@@ -110,20 +115,41 @@ export function AdherenceHero({
 
   return (
     <View style={{ gap: 12 }}>
-      {/* Missed-dose banner */}
+      {/* Missed-dose banner — slim row with expandable detail sheet */}
       {showMissedBanner && (
-        <View style={[heroStyles.missedBanner, { backgroundColor: theme.amber?.bg ?? '#FEF3E2', borderColor: theme.amber?.solid ?? '#D97706' }]}>
-          <Text style={{ fontSize: 15 }}>⏳</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.amber?.fg ?? '#92400E', fontSize: 13, fontWeight: '800' }} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {missed.length === 1 ? "Yesterday's dose wasn't marked" : `${missed.length} doses from yesterday weren't marked`}
+        <View style={[heroStyles.missedBanner, { backgroundColor: theme.amber?.bg ?? '#FEF3E2', borderColor: theme.amber?.solid ?? '#D97706', padding: 0, overflow: 'hidden' }]}>
+          {/* Slim header row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 9, gap: 8 }}>
+            <Text style={{ fontSize: 13 }}>⏳</Text>
+            <Text style={{ color: theme.amber?.fg ?? '#92400E', fontSize: 13, fontWeight: '800', flex: 1 }} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>
+              {missed.length} missed {missed.length === 1 ? 'dose' : 'doses'} from yesterday
             </Text>
-            <Text style={{ color: theme.amber?.fg ?? '#92400E', fontSize: 12, marginTop: 1 }} numberOfLines={2} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {missed.map((m) => `${m.name} (${m.time_of_day})`).join(', ')}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+            <Pressable
+              onPress={() => {
+                LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                setMissedExpanded((v) => !v);
+              }}
+              hitSlop={8}
+              style={[heroStyles.missedBtn, { backgroundColor: theme.amber?.solid ?? '#D97706', borderColor: 'transparent', paddingVertical: 4, paddingHorizontal: 10 }]}
+              accessibilityRole="button"
+              accessibilityLabel={missedExpanded ? 'Collapse missed dose details' : 'Review missed doses'}
+            >
+              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>{missedExpanded ? 'Close' : 'Review'}</Text>
+            </Pressable>
+            <Pressable onPress={() => setMissedDismissed(true)} hitSlop={8} accessibilityLabel="Dismiss missed dose alert">
+              <Text style={{ color: theme.amber?.fg ?? '#92400E', fontWeight: '700', fontSize: 18, lineHeight: 20 }}>×</Text>
+            </Pressable>
+          </View>
+          {/* Expanded detail */}
+          {missedExpanded && (
+            <View style={{ borderTopWidth: 1, borderTopColor: theme.amber?.solid ?? '#D97706', paddingHorizontal: 12, paddingBottom: 10, gap: 6, paddingTop: 8 }}>
+              {missed.map((m) => (
+                <Text key={m.slot_id} style={{ color: theme.amber?.fg ?? '#92400E', fontSize: 12 }}>
+                  • {m.name}{m.dosage ? ` ${m.dosage}` : ''} ({m.time_of_day})
+                </Text>
+              ))}
               <Pressable
-                style={[heroStyles.missedBtn, { backgroundColor: theme.amber?.solid ?? '#D97706', borderColor: theme.ink }]}
+                style={[heroStyles.missedBtn, { backgroundColor: theme.amber?.solid ?? '#D97706', borderColor: 'transparent', alignSelf: 'flex-start', marginTop: 4 }]}
                 disabled={marking}
                 onPress={() => markYesterdayTaken(missed)}
                 accessibilityRole="button"
@@ -131,11 +157,8 @@ export function AdherenceHero({
               >
                 <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>{marking ? 'Marking…' : 'I took them'}</Text>
               </Pressable>
-              <Pressable style={{ justifyContent: 'center' }} onPress={() => setMissedDismissed(true)} hitSlop={8}>
-                <Text style={{ color: theme.amber?.fg ?? '#92400E', fontWeight: '700', fontSize: 12 }}>Dismiss</Text>
-              </Pressable>
             </View>
-          </View>
+          )}
         </View>
       )}
 
@@ -183,20 +206,31 @@ export function AdherenceHero({
           </View>
         </View>
 
-        {/* 12-week heatmap */}
+        {/* 12-week heatmap with day-of-week axis labels */}
         {anyExpected && (
           <View style={{ marginTop: 12 }}>
-            <View style={{ flexDirection: 'row', gap: 3, justifyContent: 'space-between' }}>
-              {weeks.map((week, wi) => (
-                <View key={wi} style={{ gap: 3, flex: 1 }}>
-                  {week.map((d) => {
-                    const { bg, opacity } = cellColor(d);
-                    return (
-                      <View key={d.day} style={{ aspectRatio: 1, borderRadius: 3, backgroundColor: bg, opacity }} />
-                    );
-                  })}
-                </View>
-              ))}
+            <View style={{ flexDirection: 'row', gap: 3 }}>
+              {/* Day-of-week labels column */}
+              <View style={{ gap: 3, width: 14 }}>
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                  <View key={i} style={{ aspectRatio: 1, width: 14, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.textSoft, fontSize: 7, fontWeight: '700' }}>{d}</Text>
+                  </View>
+                ))}
+              </View>
+              {/* Week columns */}
+              <View style={{ flexDirection: 'row', gap: 3, flex: 1, justifyContent: 'space-between' }}>
+                {weeks.map((week, wi) => (
+                  <View key={wi} style={{ gap: 3, flex: 1 }}>
+                    {week.map((d) => {
+                      const { bg, opacity } = cellColor(d);
+                      return (
+                        <View key={d.day} style={{ aspectRatio: 1, borderRadius: 3, backgroundColor: bg, opacity }} />
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5, alignItems: 'center' }}>
               <Text style={{ color: theme.textSoft, fontSize: 9, fontWeight: '800', letterSpacing: 0.6 }}>LAST 12 WEEKS</Text>
