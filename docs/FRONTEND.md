@@ -210,25 +210,84 @@ Convention for async errors: screens use `try/catch` + local state for user-visi
 
 Builds run **locally on the user's machine**, not on EAS servers — but Claude may run them **when the user asks**. `eas.json` still exists (profiles: development/preview/production, autoIncrement on preview+production); since builds are local, `app.json android.versionCode` is authoritative.
 
-Current: `app.json version: "1.5.0"`, `versionCode: 22`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
+Current: `app.json version: "1.5.0"`, `versionCode: 28`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
+
+Note: every *attempted* local build increments `versionCode`, including ones that fail. A run that dies in setup still burns a number, so gaps in the sequence are expected and not a sign of a lost build.
 
 ### Build policy (enforce strictly)
 
 - **Never start a build unprompted; always run one when asked.** "do a build" / "build now" / "local build" authorizes a local build — no further confirmation needed.
-- **Local build command:** `eas build --platform android --profile preview --local`. Run it with `TMPDIR` and `EAS_LOCAL_BUILD_WORKINGDIR` pointed at a directory on a real disk (e.g. `~/.cache/eas-local-build`) — the default `/tmp` is a ~7.5 GB tmpfs and the ~6 GB workdir exhausts it, which kills the build mid-gradle with confusing "Disk quota exceeded" / truncated-log symptoms. Takes ~15 min; APK lands in the project root as `build-<timestamp>.apk` with the wear app embedded as a micro-APK.
+- **Local build command:** `eas build --platform android --profile preview --local`, but it needs specific environment setup and must not run in a bare terminal — see "Local build environment" below for the full invocation. Takes ~18 min; APK lands in the project root as `build-<timestamp>.apk` with the wear app embedded as a micro-APK at `res/q-.apk`.
 - **Remote EAS builds stay off-limits** (limited credits) unless the user explicitly asks for a remote build.
 - When native changes are ready but no build was requested, bump `app.json version` + `android.versionCode` + `package.json version`, merge `dev`→`master` and push both remotes, then tell the user it's ready to build.
 - JS-only changes (screens, styles, navigation, API calls) need no build — test in Expo Go or dev client.
 - Batch all native-touching changes (new packages with native modules, permissions, icon assets, plugin config, Kotlin in `plugins/`) into the running "pending native changes" list below.
 
+### Local build environment (required setup)
+
+The build compiles native C++ for all four ABIs (`reactNativeArchitectures` in `android/gradle.properties`) and peaks at **6–9 GB RSS**. On a 14 GB machine that is enough to get the build killed unless the host is set up for it. Three things matter:
+
+**1. Directories — `TMPDIR` and `EAS_LOCAL_BUILD_WORKINGDIR` are not the same path.**
+
+| Variable | Value | Why |
+|---|---|---|
+| `TMPDIR` | `~/.cache/eas-local-build` | Default `/tmp` is a ~7.5 GB tmpfs; the ~6 GB workdir exhausts it and the build dies mid-gradle with misleading "Disk quota exceeded" / truncated-log symptoms. |
+| `EAS_LOCAL_BUILD_WORKINGDIR` | `~/.cache/eas-local-build/work` | Must be **its own directory and empty at start**. Pointing it at the `TMPDIR` parent fails instantly with `Error: Workingdir is not empty.`, since that parent holds `metro-cache` and per-run hash dirs. Always `rm -rf` it before starting, so a crashed build cannot wedge the next one. |
+
+**2. Swap must be ≥ 16 GB.** Builds have been observed using 6+ GB of swap. The original 4 GB swapfile was already ~65% consumed at desktop idle, so a build would push past `systemd-oomd`'s default `SwapUsedLimit=90%` and get killed. `/swap.img` (4 GB) plus `/swap2.img` (12 GB) are both in `/etc/fstab`.
+
+**3. Run under a systemd unit exempt from `systemd-oomd`.** `user@1000.service` sets `ManagedOOMMemoryPressure=kill` with a 20s window, and oomd kills the **entire cgroup scope** — so a build run in a terminal takes the whole terminal (and any Claude session in it) down with it, leaving a log that just stops with no error. Launch instead as:
+
+```bash
+# Run from an interactive shell, so JAVA_HOME/ANDROID_HOME from ~/.bashrc are
+# in scope and get captured into the unit's environment.
+systemd-run --user --unit=ripple-build --same-dir \
+  -p ManagedOOMPreference=omit \
+  -p ManagedOOMMemoryPressure=auto -p ManagedOOMSwap=auto \
+  -p StandardOutput=append:$PWD/local-build.log \
+  -p StandardError=append:$PWD/local-build.log \
+  /usr/bin/env \
+    JAVA_HOME="$JAVA_HOME" ANDROID_HOME="$ANDROID_HOME" \
+    PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$(dirname "$(command -v node)"):/usr/bin:/bin" \
+    TMPDIR="$HOME/.cache/eas-local-build" \
+    EAS_LOCAL_BUILD_WORKINGDIR="$HOME/.cache/eas-local-build/work" \
+    bash -c 'rm -rf "$EAS_LOCAL_BUILD_WORKINGDIR"
+             eas build --platform android --profile preview --local'
+```
+
+Verify the exemption actually took by reading the cgroup xattr, not the unit property:
+
+```bash
+python3 -c "import os;p='/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/ripple-build.service';print(os.listxattr(p))"
+# expect: ['user.oomd_omit']
+```
+
+Watch progress with `tail -f local-build.log`; `systemctl --user show ripple-build -p Result -p ExecMainStatus` gives the verdict. Note the tradeoff: with oomd told to skip the build, a genuine OOM is handled by the kernel killer instead, which may pick a desktop process.
+
+**Systemd units do not source `~/.bashrc`.** `JAVA_HOME`, `ANDROID_HOME`, and the node/nvm bin dir come from `.bashrc` in an interactive shell and are absent under systemd — gradle then fails ~30s in with `JAVA_HOME is not set and no 'java' command could be found`. That is why the invocation above passes them through `env` explicitly. Worth preflighting `java`, `node`, `npm`, and `eas` before launching, so a missing toolchain fails in one second rather than after a full setup phase:
+
+```bash
+env -i PATH="$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$(dirname "$(command -v node)"):/usr/bin:/bin" \
+  bash -c 'for c in java node npm eas; do printf "%-5s %s\n" "$c" "$(command -v $c || echo MISSING)"; done'
+```
+
+### Installing a build to devices
+
+The APK embeds the wear app as `res/q-.apk`, but that legacy auto-delivery only works on Wear OS 1.x — a modern watch needs its own ADB install:
+
+```bash
+unzip -o -q build-<ts>.apk "res/q-.apk" -d /tmp/w && adb -s <watch> install -r /tmp/w/res/q-.apk
+adb -s <phone> install -r build-<ts>.apk
+```
+
+- **Watch (Wi-Fi):** wireless debugging **rotates its port**, so a saved `ip:port` goes stale. Use `adb mdns services` to find the current one; if the watch has been paired before it advertises `_adb-tls-connect._tcp` and adb auto-connects without a pairing code.
+- **Phone (USB):** while the phone is in **MTP / File transfer** mode, `gvfsd-mtp` grabs the USB device and adb cannot claim the interface — `adb devices` shows nothing at all (not "unauthorized"), and `ADB_TRACE=usb` reveals `USBDEVFS_CLAIMINTERFACE failed: Device or resource busy`. Killing the daemon leaves a stale `usbfs` claim behind; clear it with a `USBDEVFS_RESET` ioctl (`fcntl.ioctl(fd, 0x5514, 0)` on `/dev/bus/usb/BBB/DDD`) then restart the adb server. **Permanent fix: set the phone's USB mode to "No data transfer"** so gvfs never claims it.
+
 ### Pending native changes (batched for next local build)
 
-Shipped in git (1.5.0 / vc 22) but require a native rebuild to reach devices:
+None — cleared in 1.5.0 / vc 28, which shipped the previously-batched watch breathing activity redesign, the `RippleWidgetProvider.kt` sleep-path fix, the added Health Connect permissions (`READ_EXERCISE`, `READ_BODY_MEASUREMENTS`, `READ_OXYGEN_SATURATION`), and `expo-image-picker`. Both phone (SM-A326U) and watch (SM-L330) are on vc 28.
 
-- **Watch breathing activity** — redesigned layout + BoxAnimView + ripple animations (`RippleWearBreathingActivity.kt`, `RippleWearBreatheTileService.kt`, `RippleWearLogTileService.kt`, `RippleWearMainActivity.kt`).
-- **Widget sleep path fix** — `RippleWidgetProvider.kt` corrected to call `/api/health-connect/sleep/stats` (was 404ing on wrong path).
-- **New Android Health Connect permissions** in `app.json`: `READ_EXERCISE`, `READ_BODY_MEASUREMENTS`, `READ_OXYGEN_SATURATION` (enables `sync_exercise` / `sync_weight` / `sync_spo2` toggles in Health Connect settings).
-- **expo-image-picker** (new native module) — gallery photo selection for the meal photo scanner (`PhotoScannerModal`, "Pick from photos" in the add-food sheet).
+Add new native-touching work here as it lands.
 
 ### Dev client vs Expo Go
 
