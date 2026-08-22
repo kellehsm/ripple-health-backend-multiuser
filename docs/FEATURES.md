@@ -211,6 +211,8 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **Samsung Health:** supported via Health Connect — Samsung Health syncs steps/sleep/HR into Health Connect (user enables it in Samsung Health → Settings → Connected services). The Health Connect settings screen has a Samsung Health setup card. No direct Samsung API integration. Disconnect controls added: `revokeAllPermissions` + Samsung Health guidance.
 
+**Steps counting:** raw step records are summed per data source per local day and the highest single source wins (`src/lib/healthConnect.ts`) — favors watch data over the phone pedometer without double-counting, sidestepping HC's app-priority aggregate. Sync triggers: manual (Health screen / HC settings) plus silent auto-sync on app launch/foreground, throttled to once per 15 min (`maybeAutoSync`). The app can only ever match what Samsung Health actually writes into Health Connect, which can trail Samsung Health's in-app total.
+
 **Status:** Shipped
 
 ---

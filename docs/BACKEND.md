@@ -101,6 +101,8 @@
 
 All jobs are scheduled via `node-cron` in `server.ts` after the HTTP server starts.
 
+**Process timezone is EST**: the `dev`/`start` scripts in `backend/package.json` set `TZ=America/New_York`, so all JS-side `new Date()` day logic matches the DB session timezone (also America/New_York) and the cron schedules. The frontend buckets dates in the device's local timezone.
+
 | Job | Schedule | File | Notes |
 |-----|----------|------|-------|
 | Daily Summary Engine (refresh today) | Every 30 min + startup | `jobs/dailySummaryJob.ts` | Seeds `daily_summaries` for today; **pg advisory lock** prevents overlap |

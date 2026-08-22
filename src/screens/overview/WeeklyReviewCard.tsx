@@ -4,8 +4,8 @@
  * and monthly review card.
  * Extracted from OverviewScreen.tsx — no logic changes.
  */
-import React from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import React, { useRef, useEffect, useState } from "react";
+import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
 import Svg, { Rect, Text as SvgText, Polyline } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -45,7 +45,6 @@ interface MoodPatternProps {
   weeklyData: WeeklyDay[];
   correlation: "sleep" | "spend";
   setCorrelation: (v: "sleep" | "spend") => void;
-  corrBarScales: number[];
 }
 
 interface CrossMetricProps {
@@ -179,10 +178,46 @@ export function WeeklyReviewCard({
   );
 }
 
-export function MoodPatternCard({ weeklyData, correlation, setCorrelation, corrBarScales }: MoodPatternProps) {
+export function MoodPatternCard({ weeklyData, correlation, setCorrelation }: MoodPatternProps) {
   const { theme } = useTheme();
   const ink = theme.ink;
   const card = theme.card;
+
+  // Correlation bar grow-on-mount animation — owned locally (section-local)
+  const corrBarAnims = useRef<Animated.Value[]>([]);
+  const [corrBarScales, setCorrBarScales] = useState<number[]>([]);
+  useEffect(function () {
+    const n = weeklyData.length;
+    if (n === 0) return;
+    if (corrBarAnims.current.length !== n) {
+      corrBarAnims.current = Array.from({ length: n }, () => new Animated.Value(0));
+    } else {
+      corrBarAnims.current.forEach(v => v.setValue(0));
+    }
+    setCorrBarScales(new Array(n).fill(0));
+    const listeners: string[] = [];
+    corrBarAnims.current.forEach((anim, i) => {
+      const id = anim.addListener(({ value }) => {
+        setCorrBarScales(prev => {
+          const next = [...prev];
+          next[i] = value;
+          return next;
+        });
+      });
+      listeners.push(id);
+    });
+    Animated.stagger(
+      35,
+      corrBarAnims.current.map(v =>
+        Animated.timing(v, { toValue: 1, duration: 320, useNativeDriver: false })
+      )
+    ).start(() => {
+      corrBarAnims.current.forEach((anim, i) => anim.removeListener(listeners[i]));
+    });
+    return () => {
+      corrBarAnims.current.forEach((anim, i) => anim.removeListener(listeners[i]));
+    };
+  }, [weeklyData, correlation]);
 
   const sparkPoints = weeklyData
     .map((d) => d.avg_mood !== null ? d.avg_mood : null)

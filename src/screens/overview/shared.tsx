@@ -21,6 +21,7 @@ import { onSolid } from "../../theme/colorUtils";
 import { ThemedIcon } from "../../theme/iconRegistry";
 import { BUCKET_ORDER, BUCKET_LABEL, type MoodBucket } from "../../constants";
 import { type QuickLogKind } from "../../components/QuickLogSheet";
+import { weekGlucoseAvg } from "../../utils/glucoseMetrics";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -278,4 +279,168 @@ export function AnimatedChip({
       </Animated.View>
     </View>
   );
+}
+
+// ─── computeInsights ─────────────────────────────────────────────────────────
+
+export function computeInsights(params: {
+  dayGlucose: GlucoseReading[];
+  weeklyData: WeeklyDay[];
+  patternEvents: PatternEvent[];
+  streak: number;
+  stepsCount: number | null;
+  sleepStats: SleepStats | null;
+  digest: WeeklyDigest | null;
+}): string[] {
+  const { dayGlucose, weeklyData, patternEvents, streak, stepsCount, sleepStats, digest } = params;
+  const insights: string[] = [];
+  const hour = new Date().getHours();
+
+  if (dayGlucose.length >= 6 && digest) {
+    const todayValues = dayGlucose.map(r => Number(r.mg_dl));
+    const todayAvg = todayValues.reduce((s, v) => s + v, 0) / todayValues.length;
+    const weeklyAvg = weekGlucoseAvg(digest.glucose_by_tod);
+    if (weeklyAvg !== null) {
+      const diff = todayAvg - weeklyAvg;
+      if (Math.abs(diff) >= 12) {
+        if (diff < 0) {
+          insights.push(`Glucose is running ${Math.abs(Math.round(diff))} mg/dL lower than your weekly average today.`);
+        } else {
+          insights.push(`Glucose is running ${Math.round(diff)} mg/dL higher than your weekly average today.`);
+        }
+      } else {
+        const variance = todayValues.reduce((s, v) => s + (v - todayAvg) ** 2, 0) / todayValues.length;
+        if (Math.sqrt(variance) < 18) {
+          insights.push("Your glucose has been steady today — smaller swings than usual.");
+        }
+      }
+    }
+  }
+
+  if (sleepStats && sleepStats.yesterday_seconds > 0 && sleepStats.seven_day_average_seconds > 0) {
+    const diffSecs = sleepStats.yesterday_seconds - sleepStats.seven_day_average_seconds;
+    const diffMins = Math.abs(Math.round(diffSecs / 60));
+    if (diffMins >= 20) {
+      if (diffSecs > 0) {
+        insights.push(`You slept ${diffMins} min more than your recent average last night.`);
+      } else {
+        insights.push(`You got ${diffMins} min less sleep than your recent average last night.`);
+      }
+    }
+  }
+
+  if (hour >= 13 && hour < 16) {
+    const hasMiddayMeal = patternEvents.some(e => {
+      if (e.type !== "meal") return false;
+      const h = new Date(e.time).getHours();
+      return h >= 11 && h < 15;
+    });
+    if (!hasMiddayMeal) {
+      insights.push("No midday meal logged yet today.");
+    }
+  }
+
+  if (streak >= 3) {
+    insights.push(`${streak}-day logging streak — great consistency!`);
+  }
+
+  if (stepsCount !== null && stepsCount > 0 && digest && digest.steps.last_week > 0) {
+    const dailyAvg = Math.round(digest.steps.last_week / 7);
+    if (dailyAvg > 0) {
+      const pct = Math.round((stepsCount / dailyAvg) * 100);
+      if (pct >= 70) {
+        insights.push(`${stepsCount.toLocaleString()} steps so far — on pace with your weekly average.`);
+      }
+    }
+  }
+
+  return insights.slice(0, 4);
+}
+
+// ─── buildChips ───────────────────────────────────────────────────────────────
+
+import { getMetricPalette } from "../../lib/metricColors";
+import { fmtSleep } from "../../utils/dateUtils";
+import { moodScoreEmoji } from "../../theme/iconRegistry";
+
+export function buildChips(params: {
+  theme: any;
+  glucoseStatus: GlucoseStatus | null;
+  stepsCount: number | null;
+  sleepStats: SleepStats | null;
+  waterCount: number;
+  todayMeals: any[];
+  currentMoodEntry: { mood_score: number; mood_label: string | null } | undefined;
+  tir: number | null;
+  onPressMood: () => void;
+}): ChipData[] {
+  const { theme, glucoseStatus, stepsCount, sleepStats, waterCount, todayMeals, currentMoodEntry, tir, onPressMood } = params;
+  return [
+    {
+      label: "GLUCOSE",
+      value: glucoseStatus?.hasData && glucoseStatus.mg_dl != null
+        ? String(glucoseStatus.mg_dl) + (glucoseStatus.arrow ? " " + glucoseStatus.arrow : "")
+        : "--",
+      sub: tir !== null ? tir + "% in range" : "mg/dL",
+      color: getMetricPalette("glucose", glucoseStatus?.hasData ? glucoseStatus.mg_dl ?? null : null, theme).border,
+      icon: "pulse",
+      slot: "metric.glucose",
+      empty: !glucoseStatus?.hasData,
+      tileId: "overview_glucose",
+      quickLog: "glucose" as const,
+    },
+    {
+      label: "STEPS",
+      value: stepsCount != null ? stepsCount.toLocaleString() : "--",
+      sub: "today",
+      color: theme.teal.solid,
+      icon: "walk",
+      slot: "metric.steps",
+      empty: stepsCount === null,
+      tileId: "overview_steps",
+      quickLog: "steps" as const,
+    },
+    {
+      label: "SLEEP",
+      value: sleepStats && sleepStats.yesterday_seconds > 0 ? fmtSleep(sleepStats.yesterday_seconds) : "--",
+      sub: "last night",
+      color: theme.amber.solid,
+      icon: "moon-outline",
+      slot: "metric.sleep",
+      empty: !sleepStats || sleepStats.yesterday_seconds === 0,
+      tileId: "overview_sleep",
+      quickLog: "sleep" as const,
+    },
+    {
+      label: "WATER",
+      value: waterCount > 0 ? String(waterCount) : "--",
+      sub: "glasses",
+      color: theme.blue.solid,
+      icon: "water-outline",
+      slot: "metric.water",
+      empty: waterCount === 0,
+      tileId: "overview_water",
+      quickLog: "water" as const,
+    },
+    {
+      label: "MEALS",
+      value: todayMeals.length > 0 ? String(todayMeals.length) : "--",
+      sub: "logged",
+      color: theme.coral.solid,
+      icon: "restaurant",
+      empty: todayMeals.length === 0,
+      quickLog: "meals" as const,
+    },
+    {
+      label: "MOOD",
+      value: currentMoodEntry ? moodScoreEmoji(currentMoodEntry.mood_score) : "--",
+      sub: currentMoodEntry?.mood_label ?? "not logged",
+      color: theme.violet.solid,
+      icon: "happy-outline",
+      empty: !currentMoodEntry,
+      onPress: onPressMood,
+      tileId: "overview_mood",
+      quickLog: "mood" as const,
+    },
+  ];
 }
