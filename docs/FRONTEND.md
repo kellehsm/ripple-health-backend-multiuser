@@ -119,6 +119,8 @@ Greeting updates: `greeting.evening` → 🌆; `greeting.night` added → 🌙.
 
 **Policy:** No icon-like emoji may be hardcoded directly in screens or components. Every icon-like emoji must render via `<ThemedIcon slot="..." />` so that `theme.iconOverrides` applies consistently. If no existing slot fits, add one. Exempt from this rule: inline sentence/copy emoji (e.g. "Great job 🎉") and user-generated data.
 
+**Image asset `scale`:** `ImageAsset`/`UriAsset` accept an optional `scale` multiplier applied to the slot's requested size, for illustration icons that read too small at emoji-equivalent sizes. Cozy Cat uses 1.35 for content icons and 2.6 for tab-bar slots (`tab.home`, `tab.hobbies`).
+
 **`EmptyState` component** (`src/components/EmptyState.tsx`) accepts a `slot` prop that resolves the icon through `iconRegistry`, taking precedence over a raw `icon`/`emoji` prop.
 
 ### Health Connect (`src/lib/healthConnect.ts`)

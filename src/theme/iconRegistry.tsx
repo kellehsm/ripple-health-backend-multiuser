@@ -25,8 +25,10 @@ import { useTheme } from "./ThemeContext";
 
 export type EmojiAsset   = { type: "emoji";   value: string };
 export type IoniconAsset = { type: "ionicon"; name: string };
-export type ImageAsset   = { type: "image";   source: ImageSourcePropType };
-export type UriAsset     = { type: "uri";     uri: string };
+// scale: multiplier applied to the slot's requested size (illustration icons
+// like the Cozy Cat set read too small at emoji-equivalent sizes).
+export type ImageAsset   = { type: "image";   source: ImageSourcePropType; scale?: number };
+export type UriAsset     = { type: "uri";     uri: string; scale?: number };
 
 export type IconAsset = EmojiAsset | IoniconAsset | ImageAsset | UriAsset;
 
@@ -255,29 +257,33 @@ export function ThemedIcon({ slot, size = 22, color, style, inactive = false }: 
         />
       );
 
-    case "image":
+    case "image": {
+      const s = size * (asset.scale ?? 1);
       return (
         <Image
           source={asset.source}
           style={[
-            { width: size, height: size, resizeMode: "contain" },
+            { width: s, height: s, resizeMode: "contain" },
             opacityStyle,
             style as StyleProp<ImageStyle>,
           ]}
         />
       );
+    }
 
-    case "uri":
+    case "uri": {
+      const s = size * (asset.scale ?? 1);
       return (
         <Image
           source={{ uri: asset.uri }}
           style={[
-            { width: size, height: size, resizeMode: "contain" },
+            { width: s, height: s, resizeMode: "contain" },
             opacityStyle,
             style as StyleProp<ImageStyle>,
           ]}
         />
       );
+    }
   }
 }
 
