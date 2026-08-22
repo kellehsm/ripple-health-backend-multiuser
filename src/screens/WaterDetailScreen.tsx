@@ -116,7 +116,13 @@ function HeroDroplet({
 
   return (
     <View style={{ width: DROP_W, height: DROP_H, alignItems: "center", justifyContent: "center" }}>
-      <Svg width={DROP_W} height={DROP_H}>
+      <Svg
+        width={DROP_W}
+        height={DROP_H}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={`Water intake ${count} of ${goal} glasses`}
+      >
         <Defs>
           <ClipPath id="dropClip">
             <Path d={DROPLET_PATH} />

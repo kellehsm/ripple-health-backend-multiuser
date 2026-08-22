@@ -135,26 +135,26 @@ export function GlucoseDetailScreen() {
   const windowStart24 = now24 - 24 * 3600 * 1000;
   const windowMs24 = 24 * 3600 * 1000;
 
-  const chartPoints = readings24h
-    .map((r) => {
-      const t = new Date(r.recorded_at).getTime();
-      const x = PAD_L + ((t - windowStart24) / windowMs24) * usableW;
-      const y = PAD_T + usableH - ((Number(r.mg_dl) - chartMin) / chartRange) * usableH;
-      return x + "," + y;
-    })
-    .join(" ");
+  const { chartPoints, gridVals, lowY, highY } = useMemo(() => {
+    const pts = readings24h
+      .map((r) => {
+        const t = new Date(r.recorded_at).getTime();
+        const x = PAD_L + ((t - windowStart24) / windowMs24) * usableW;
+        const y = PAD_T + usableH - ((Number(r.mg_dl) - chartMin) / chartRange) * usableH;
+        return x + "," + y;
+      })
+      .join(" ");
 
-  const gridVals = (() => {
     const step = chartRange > 150 ? 50 : chartRange > 80 ? 30 : 20;
-    const start = Math.ceil(chartMin / step) * step;
-    const vals: number[] = [];
-    for (let v = start; v <= chartMax; v += step) vals.push(v);
-    return vals;
-  })();
+    const gStart = Math.ceil(chartMin / step) * step;
+    const gVals: number[] = [];
+    for (let v = gStart; v <= chartMax; v += step) gVals.push(v);
 
-  // Band lines for low/high
-  const lowY = PAD_T + usableH - ((LOW - chartMin) / chartRange) * usableH;
-  const highY = PAD_T + usableH - ((HIGH - chartMin) / chartRange) * usableH;
+    const lY = PAD_T + usableH - ((LOW - chartMin) / chartRange) * usableH;
+    const hY = PAD_T + usableH - ((HIGH - chartMin) / chartRange) * usableH;
+
+    return { chartPoints: pts, gridVals: gVals, lowY: lY, highY: hY };
+  }, [readings24h, windowStart24, windowMs24, usableW, usableH, chartMin, chartMax, chartRange]);
 
   // 24h stats
   const avg24 = vals24.length ? Math.round(vals24.reduce((a, b) => a + b, 0) / vals24.length) : null;
@@ -230,7 +230,14 @@ export function GlucoseDetailScreen() {
           ) : readings24h.length === 0 ? (
             <EmptyState slot="empty.glucose" title="No readings in the last 24h" subtitle="Connect Dexcom or add readings manually on the Health tab." />
           ) : (
-            <Svg width={CHART_W} height={CHART_H} style={{ marginTop: 10 }}>
+            <Svg
+              width={CHART_W}
+              height={CHART_H}
+              style={{ marginTop: 10 }}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={`Glucose line chart, last 24 hours. ${readings24h.length} readings. Latest ${fmtMg(vals24[vals24.length - 1])} mg/dL. Range ${fmtMg(min24)}–${fmtMg(max24)} mg/dL.`}
+            >
               {/* Grid lines */}
               {gridVals.map((v) => {
                 const gy = PAD_T + usableH - ((v - chartMin) / chartRange) * usableH;

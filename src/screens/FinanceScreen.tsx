@@ -313,6 +313,16 @@ export function FinanceScreen() {
   }, [filtered]);
 
   const maxCat = categoryTotals[0]?.[1] ?? 1;
+
+  // Hoist bar-width math so the render loop is pure display
+  const categoryBars = useMemo(() =>
+    categoryTotals.map(([cat, amt]) => ({
+      cat,
+      amt,
+      targetPct: Math.round((amt / (categoryTotals[0]?.[1] ?? 1)) * 100),
+    })),
+  [categoryTotals]);
+
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
 
   const monthHasEntries = useMemo(() => {
@@ -635,10 +645,13 @@ export function FinanceScreen() {
           <View ref={tourBreakdownRef}>
           <ShadowCard size="card" cardId="spending_breakdown">
             <Text style={[s.cardTitle, { color: theme.textStrong }]}>Where it went</Text>
-            <View style={{ gap: 11, marginTop: 6 }}>
-              {categoryTotals.map(([cat, amt], idx) => {
+            <View
+              style={{ gap: 11, marginTop: 6 }}
+              accessible
+              accessibilityLabel={`Spending by category bar chart, total ${formatAmount(total)}`}
+            >
+              {categoryBars.map(({ cat, amt, targetPct }, idx) => {
                 const color = getCategoryColor(cat);
-                const targetPct = Math.round((amt / maxCat) * 100);
                 const animVal = barAnims.current[idx] ?? new Animated.Value(1);
                 const animatedWidth = animVal.interpolate({
                   inputRange: [0, 1],

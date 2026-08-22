@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Dimensions } from "react-native";
 import { isReducedMotion } from "../lib/motion";
 import Svg, { G, Rect, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
@@ -24,13 +24,26 @@ const PLOT_H = 150;
 const LABEL_H = 20;
 const CHART_H = PLOT_H + LABEL_H;
 
-export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: Props) {
+export const WeekComparisonChart = React.memo(function WeekComparisonChart({ days, barColor, fadedColor, textColor }: Props) {
   const chartW = SCREEN_W - 32;
   const slotW = chartW / 7;
   const barW = Math.max(Math.floor(slotW * 0.33), 6);
   const gap = 3;
 
   const maxVal = Math.max(...days.map((d) => d.this_total), ...days.map((d) => d.last_total), 1);
+
+  // Per-bar geometry (slot positions and full heights) — stable across animation ticks
+  const barGeo = useMemo(() => days.map((day, i) => {
+    const slotX = i * slotW;
+    const barsW = barW * 2 + gap;
+    const startX = slotX + (slotW - barsW) / 2;
+    const lastX = startX;
+    const thisX = startX + barW + gap;
+    const centerX = slotX + slotW / 2;
+    const lastHFull = day.last_total > 0 ? Math.max((day.last_total / maxVal) * PLOT_H, 3) : 0;
+    const thisHFull = !day.is_future && day.this_total > 0 ? Math.max((day.this_total / maxVal) * PLOT_H, 3) : 0;
+    return { lastX, thisX, centerX, lastHFull, thisHFull };
+  }), [days, slotW, barW, gap, maxVal]);
 
   // One Animated.Value per bar (index 0..6), representing a 0→1 progress multiplier.
   const progRefs = useRef<Animated.Value[]>([]);
@@ -88,8 +101,17 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
     };
   }, [days.length]);
 
+  const thisWeekTotal = days.reduce((s, d) => s + (d.is_future ? 0 : d.this_total), 0);
+  const lastWeekTotal = days.reduce((s, d) => s + d.last_total, 0);
+
   return (
-    <Svg width={chartW} height={CHART_H}>
+    <Svg
+      width={chartW}
+      height={CHART_H}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={`Week comparison chart: this week ${thisWeekTotal}, last week ${lastWeekTotal}`}
+    >
       <Defs>
         <SvgLinearGradient id="wkBarThisFill" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={barColor} stopOpacity="1" />
@@ -101,21 +123,8 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
         </SvgLinearGradient>
       </Defs>
       {days.map((day, i) => {
-        const slotX = i * slotW;
-        const barsW = barW * 2 + gap;
-        const startX = slotX + (slotW - barsW) / 2;
-        const lastX = startX;
-        const thisX = startX + barW + gap;
-        const centerX = slotX + slotW / 2;
-
+        const { lastX, thisX, centerX, lastHFull, thisHFull } = barGeo[i] ?? { lastX: 0, thisX: 0, centerX: 0, lastHFull: 0, thisHFull: 0 };
         const prog = progValues[i] ?? 0;
-
-        const lastHFull = day.last_total > 0 ? Math.max((day.last_total / maxVal) * PLOT_H, 3) : 0;
-        const thisHFull =
-          !day.is_future && day.this_total > 0
-            ? Math.max((day.this_total / maxVal) * PLOT_H, 3)
-            : 0;
-
         const lastH = lastHFull * prog;
         const thisH = thisHFull * prog;
 
@@ -173,4 +182,4 @@ export function WeekComparisonChart({ days, barColor, fadedColor, textColor }: P
       })}
     </Svg>
   );
-}
+});

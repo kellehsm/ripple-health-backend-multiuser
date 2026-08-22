@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Animated, Dimensions,
   LayoutAnimation, Platform, UIManager,
@@ -114,24 +114,37 @@ function entryLabel(entry: LogEntry): string {
 const REST_OPTIONS = [30, 60, 90, 120];
 const SCREEN_W = Dimensions.get('window').width;
 
-function HRSparkline({ readings, color }: { readings: Array<{ bpm: number }>; color: string }) {
+const HRSparkline = React.memo(function HRSparkline({ readings, color }: { readings: Array<{ bpm: number }>; color: string }) {
   const W = SCREEN_W - 140;
   const H = 28;
-  const bpms = readings.map(r => r.bpm);
-  const min = Math.min(...bpms);
-  const max = Math.max(...bpms);
-  const range = max - min || 1;
-  const pts = bpms.map((b, i) => {
-    const x = (i / (bpms.length - 1)) * W;
-    const y = H - ((b - min) / range) * H;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(' ');
-  const ptArr = pts.split(' ');
-  const firstX = ptArr[0]?.split(',')[0];
-  const lastX = ptArr[ptArr.length - 1]?.split(',')[0];
+  const { pts, firstX, lastX, currentBpm } = useMemo(() => {
+    const bpms = readings.map(r => r.bpm);
+    const min = Math.min(...bpms);
+    const max = Math.max(...bpms);
+    const range = max - min || 1;
+    const ptsStr = bpms.map((b, i) => {
+      const x = (i / (bpms.length - 1)) * W;
+      const y = H - ((b - min) / range) * H;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    const ptArr = ptsStr.split(' ');
+    return {
+      pts: ptsStr,
+      firstX: ptArr[0]?.split(',')[0],
+      lastX: ptArr[ptArr.length - 1]?.split(',')[0],
+      currentBpm: bpms[bpms.length - 1] ?? 0,
+    };
+  }, [readings, W, H]);
   return (
-    <Svg width={W} height={H} style={{ marginTop: 6 }}>
-      {bpms.length >= 2 && (
+    <Svg
+      width={W}
+      height={H}
+      style={{ marginTop: 6 }}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={`Live heart rate chart, current ${currentBpm} bpm`}
+    >
+      {readings.length >= 2 && (
         <>
           <Defs>
             <SvgLinearGradient id="exSessionFill" x1="0" y1="0" x2="0" y2="1">
@@ -145,7 +158,7 @@ function HRSparkline({ readings, color }: { readings: Array<{ bpm: number }>; co
       <Polyline points={pts} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
     </Svg>
   );
-}
+});
 
 export function ExerciseSessionScreen() {
   const { theme } = useTheme();

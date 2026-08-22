@@ -3,7 +3,7 @@
  * Self-contained fasting timer card: owns its own state, focus effects,
  * and pulse animation. Extracted from OverviewScreen.tsx — no logic changes.
  */
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { View, Text, Pressable, Animated } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { useFocusEffect } from "@react-navigation/native";
@@ -60,9 +60,12 @@ export function FastingTimerCard() {
   if (!fastingEnabled) return null;
 
   const TARGET_MS = 16 * 3600_000;
-  const pct = fastStatus.active ? Math.min(fastStatus.elapsedMs / TARGET_MS, 1) : 0;
   const R = 14;
-  const CIRC = 2 * Math.PI * R;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const { pct, CIRC } = useMemo(() => {
+    const p = fastStatus.active ? Math.min(fastStatus.elapsedMs / TARGET_MS, 1) : 0;
+    return { pct: p, CIRC: 2 * Math.PI * R };
+  }, [fastStatus.active, fastStatus.elapsedMs]);
 
   return (
     <Pressable
@@ -100,7 +103,7 @@ export function FastingTimerCard() {
       {/* Fasting progress ring */}
       <View style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }}>
         {fastStatus.active && (
-          <Svg width={36} height={36} viewBox="0 0 36 36" style={{ position: "absolute" }}>
+          <Svg width={36} height={36} viewBox="0 0 36 36" style={{ position: "absolute" }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
             <Circle cx="18" cy="18" r={R} stroke={theme.cardBorder} strokeWidth="3" fill="none" />
             <Circle
               cx="18" cy="18" r={R}

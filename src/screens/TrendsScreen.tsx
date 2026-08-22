@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import * as Haptics from "expo-haptics";
 import {
   PanResponder,
   ScrollView,
@@ -81,16 +82,20 @@ function ScatterPlot({
   const lx1 = PAD, ly1 = clamp(py(slope * xMin + intercept));
   const lx2 = PAD + W, ly2 = clamp(py(slope * xMax + intercept));
 
+  // Memoize scatter point screen coords
+  const points = useMemo(() => xs.map((x, i) => ({ cx: px(x), cy: py(ys[i]) })), [xs, ys, xMin, xMax, yMin, yMax, W, H, PAD]);
+
   const [scrub, setScrub] = useState<{ cx: number; xv: number; yv: number } | null>(null);
   const viewRef = useRef<View>(null);
+  const lastScrubIdxRef = useRef<number | null>(null);
 
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (e) => handleScrub(e.nativeEvent.locationX),
     onPanResponderMove: (e) => handleScrub(e.nativeEvent.locationX),
-    onPanResponderRelease: () => setScrub(null),
-    onPanResponderTerminate: () => setScrub(null),
+    onPanResponderRelease: () => { setScrub(null); lastScrubIdxRef.current = null; },
+    onPanResponderTerminate: () => { setScrub(null); lastScrubIdxRef.current = null; },
   })).current;
 
   function handleScrub(touchX: number) {
@@ -102,23 +107,31 @@ function ScatterPlot({
       const d = Math.abs(xs[i] - xVal);
       if (d < minDist) { minDist = d; closest = i; }
     }
+    if (closest !== lastScrubIdxRef.current) {
+      lastScrubIdxRef.current = closest;
+      Haptics.selectionAsync().catch(() => {});
+    }
     setScrub({ cx: px(xs[closest]), xv: xs[closest], yv: ys[closest] });
   }
 
   const labelY = scrub ? Math.max(14, py(scrub.yv) - 6) : 0;
+
+  const accessLabel = xLabel && yLabel
+    ? `Scatter chart: ${xLabel} vs ${yLabel}, ${xs.length} data points.`
+    : `Scatter chart showing ${xs.length} data points.`;
 
   return (
     <View
       ref={viewRef}
       accessible={true}
       accessibilityRole="image"
-      accessibilityLabel={`Scatter chart showing ${xs.length} data points.`}
+      accessibilityLabel={accessLabel}
       {...panResponder.panHandlers}
     >
       <Svg width={CHART_W} height={CHART_H}>
         <Line x1={lx1} y1={ly1} x2={lx2} y2={ly2} stroke={lineColor} strokeWidth={1.5} strokeDasharray="5,4" opacity={0.45} />
-        {xs.map((x, i) => (
-          <Circle key={i} cx={px(x)} cy={py(ys[i])} r={4} fill={dotColor} opacity={0.72} />
+        {points.map((pt, i) => (
+          <Circle key={i} cx={pt.cx} cy={pt.cy} r={4} fill={dotColor} opacity={0.72} />
         ))}
         {scrub && (
           <>
