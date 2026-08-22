@@ -23,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
@@ -85,6 +86,8 @@ type Props = {
   onResults?: (foods: PhotoFoodResult[]) => void;
   /** Optional: user tapped "Add manually" — parent should open their macro form. */
   onManualAdd?: () => void;
+  /** Open the gallery picker immediately instead of showing the camera first. */
+  autoOpenGallery?: boolean;
 };
 
 // ── Module-level SDK key cache (avoid re-fetching across modal open/close) ────
@@ -137,7 +140,7 @@ function advisorInfoToFood(info: PassioAdvisorFoodInfo, index: number): PhotoFoo
 type SdkStatus = "idle" | "loading" | "ready" | "error";
 type ScanStatus = "camera" | "capturing" | "recognizing" | "results" | "error";
 
-export function PhotoScannerModal({ visible, onClose, onResult, onResults, onManualAdd }: Props) {
+export function PhotoScannerModal({ visible, onClose, onResult, onResults, onManualAdd, autoOpenGallery }: Props) {
   const { theme } = useTheme();
   const accent = theme.coral.solid;
   const [permission, requestPermission] = useCameraPermissions();
@@ -237,25 +240,10 @@ export function PhotoScannerModal({ visible, onClose, onResult, onResults, onMan
     }
   }, [visible]);
 
-  // ── Capture and recognize ────────────────────────────────────────────────────
+  // ── Recognize (shared by camera capture + gallery pick) ─────────────────────
 
-  const handleCapture = useCallback(async () => {
-    if (!cameraRef.current || !PassioSDK) return;
-    setScanStatus("capturing");
-
-    let uri: string;
-    try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: false,
-      });
-      uri = photo.uri;
-    } catch (e: any) {
-      setScanStatus("error");
-      setScanError("Could not take photo: " + (e?.message ?? "unknown error"));
-      return;
-    }
-
+  const recognizeUri = useCallback(async (uri: string) => {
+    if (!PassioSDK) return;
     setScanStatus("recognizing");
 
     // Passio's Android bridge calls `File(path)` directly and expects a plain
@@ -348,6 +336,55 @@ export function PhotoScannerModal({ visible, onClose, onResult, onResults, onMan
       );
     }
   }, []);
+
+  const handleCapture = useCallback(async () => {
+    if (!cameraRef.current || !PassioSDK) return;
+    setScanStatus("capturing");
+
+    let uri: string;
+    try {
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.8,
+        base64: false,
+      });
+      uri = photo.uri;
+    } catch (e: any) {
+      setScanStatus("error");
+      setScanError("Could not take photo: " + (e?.message ?? "unknown error"));
+      return;
+    }
+
+    await recognizeUri(uri);
+  }, [recognizeUri]);
+
+  const handlePickFromGallery = useCallback(async () => {
+    if (!PassioSDK) return;
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+        allowsMultipleSelection: false,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      await recognizeUri(result.assets[0].uri);
+    } catch (e: any) {
+      setScanStatus("error");
+      setScanError("Could not open photos: " + (e?.message ?? "unknown error"));
+    }
+  }, [recognizeUri]);
+
+  // Auto-launch the gallery when opened via "Pick from photos"
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      autoOpenedRef.current = false;
+      return;
+    }
+    if (autoOpenGallery && sdkStatus === "ready" && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      handlePickFromGallery();
+    }
+  }, [visible, autoOpenGallery, sdkStatus, handlePickFromGallery]);
 
   // ── Result selection ────────────────────────────────────────────────────────
 
@@ -571,17 +608,35 @@ export function PhotoScannerModal({ visible, onClose, onResult, onResults, onMan
                   <Text style={styles.captureBtnText}>Try again</Text>
                 </Pressable>
               ) : (
-                <Pressable
-                  style={[
-                    styles.captureBtn,
-                    scanStatus !== "camera" && styles.captureBtnDisabled,
-                  ]}
-                  onPress={handleCapture}
-                  disabled={scanStatus !== "camera"}
-                >
-                  <Ionicons name="camera" size={26} color="#fff" />
-                  <Text style={styles.captureBtnText}>Capture</Text>
-                </Pressable>
+                <View style={styles.captureRow}>
+                  <Pressable
+                    style={[
+                      styles.galleryBtn,
+                      scanStatus !== "camera" && styles.captureBtnDisabled,
+                    ]}
+                    onPress={handlePickFromGallery}
+                    disabled={scanStatus !== "camera"}
+                    accessibilityRole="button"
+                    accessibilityLabel="Choose a photo from your gallery"
+                  >
+                    <Ionicons name="images-outline" size={24} color="#fff" />
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.captureBtn,
+                      scanStatus !== "camera" && styles.captureBtnDisabled,
+                    ]}
+                    onPress={handleCapture}
+                    disabled={scanStatus !== "camera"}
+                    accessibilityRole="button"
+                    accessibilityLabel="Capture photo"
+                  >
+                    <Ionicons name="camera" size={26} color="#fff" />
+                    <Text style={styles.captureBtnText}>Capture</Text>
+                  </Pressable>
+                  {/* spacer keeps Capture centered */}
+                  <View style={{ width: 52 }} />
+                </View>
               )}
             </View>
           </>
@@ -640,6 +695,19 @@ const styles = StyleSheet.create({
   captureArea: {
     paddingVertical: 28,
     alignItems: "center",
+  },
+  captureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  galleryBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   captureBtn: {
     flexDirection: "row",

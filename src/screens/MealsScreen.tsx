@@ -485,6 +485,7 @@ export function MealsScreen() {
   const [scannerVisible, setScannerVisible] = useState(false);
   const [subScannerVisible, setSubScannerVisible] = useState(false);
   const [photoScannerVisible, setPhotoScannerVisible] = useState(false);
+  const [photoScannerFromGallery, setPhotoScannerFromGallery] = useState(false);
   const [pendingFood, setPendingFood] = useState<PendingFood | null>(null);
   const [mealTypePickerVisible, setMealTypePickerVisible] = useState(false);
   const [addSheetVisible, setAddSheetVisible] = useState(false);
@@ -1952,7 +1953,8 @@ export function MealsScreen() {
             <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 1, textAlign: "center", paddingVertical: 8 }}>ADD A FOOD</Text>
             {[
               { label: "Scan a barcode",   icon: "barcode-outline" as const, onPress: function () { setAddSheetVisible(false); setScannerVisible(true); } },
-              { label: "Snap a photo",     icon: "camera-outline"  as const, onPress: function () { setAddSheetVisible(false); setPhotoScannerVisible(true); } },
+              { label: "Snap a photo",     icon: "camera-outline"  as const, onPress: function () { setAddSheetVisible(false); setPhotoScannerFromGallery(false); setPhotoScannerVisible(true); } },
+              { label: "Pick from photos", icon: "images-outline"  as const, onPress: function () { setAddSheetVisible(false); setPhotoScannerFromGallery(true); setPhotoScannerVisible(true); } },
               { label: "Enter manually",   icon: "create-outline"  as const, onPress: function () {
                 setAddSheetVisible(false);
                 setPendingFood({ name: "", carbs_g: null, sugar_g: null, calories: null, caffeine_mg: null, sodium_mg: null, source_db: "manual" });
@@ -1995,6 +1997,7 @@ export function MealsScreen() {
       />
       <PhotoScannerModal
         visible={photoScannerVisible}
+        autoOpenGallery={photoScannerFromGallery}
         onClose={function () { setPhotoScannerVisible(false); }}
         onResult={function (food) { handleSelectFood(food); }}
         onResults={function (foods) { handleLogMultipleFoods(foods); }}
