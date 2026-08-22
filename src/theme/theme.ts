@@ -58,6 +58,8 @@ export type Theme = {
 
   /** Navigation top-bar background. Falls back to teal.tint so every palette gets a distinct bar. */
   topBar?: string;
+  /** Bottom tab-bar background. Falls back to topBar, then page. */
+  bottomBar?: string;
 
   primary: string;      // main CTA, active switches/chips
   success: string;      // positive / in-range state

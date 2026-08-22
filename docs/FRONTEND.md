@@ -151,7 +151,7 @@ Shared numeric constants: `FONT_SIZES` (micro 9 → display 28), `SPACING` (xs 4
 
 `src/theme/palettes.ts` defines named `Theme` objects (light and dark variants). The active palette is persisted to SecureStore under `ripple_palette_id`. Default is `"morning-mist"` (cream light theme).
 
-**Top bar color:** `Theme` has an optional `topBar` token for the navigation header background. `RootTabs` uses `theme.topBar ?? theme.teal.tint` for the Home tab header (other tabs keep their per-tab family tints), so every palette gets a distinct top bar rather than the cream page color.
+**Top/bottom bar colors:** `Theme` has optional `topBar` and `bottomBar` tokens. `RootTabs` uses `theme.topBar ?? theme.teal.tint` for the Home tab header (other tabs keep their per-tab family tints). `BottomNav` uses `theme.bottomBar ?? theme.topBar ?? theme.page`, so the bottom tab bar can stand apart from the page background.
 
 **Web target — "Ripple Preview":** the dev web build served at http://app.kels.gg:8090 (http://129.121.125.214:8090) is called **Ripple Preview**. The app runs on react-native-web via `npx expo start --web`. `metro.config.js` adds wasm asset support, COOP/COEP headers, and web-only resolver aliases (expo-secure-store → localStorage shim, react-native-svg `resolve` → style-flattening shim). Platform files `localDb.web.ts` (no-op SQLite) and `plaidLink.web.ts` (stub) exclude native-only modules from the web bundle. `globalFont.ts` must flatten styles (`StyleSheet.flatten`) before cloning — style arrays crash React DOM.
 

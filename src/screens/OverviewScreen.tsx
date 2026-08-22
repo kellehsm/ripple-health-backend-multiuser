@@ -521,7 +521,7 @@ export function OverviewScreen() {
             accessibilityRole="button"
             accessibilityLabel="View Trends and Insights"
           >
-            <ShadowCard size="card" bg={theme.violet.tint} accent={theme.violet.solid} rotate={0.5}>
+            <ShadowCard size="card" bg={theme.violet.tint} accent={theme.violet.solid}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5, color: theme.violet.fg }}>Trends & Insights</Text>

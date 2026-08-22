@@ -310,7 +310,7 @@ export function CrossMetricCard({ crossMetricData }: CrossMetricProps) {
   const hasSleep    = sl.good_count >= 3 && sl.poor_count >= 3 && sl.good_avg !== null && sl.poor_avg !== null;
   if (!hasExercise && !hasSleep) return null;
   return (
-    <ShadowCard size="card" accent={theme.teal.solid} rotate={-0.3} cardId="cross_metric">
+    <ShadowCard size="card" accent={theme.teal.solid} cardId="cross_metric">
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Ionicons name="git-compare-outline" size={18} color={theme.teal.solid} />
         <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", letterSpacing: -0.5, color: theme.textStrong }}>Cross-metric insights</Text>
@@ -383,7 +383,7 @@ export function MonthlyReviewCard({ isFirstWeekOfMonth, monthlyReviewDismissed, 
     ? spending.total - spending.prev_total : null;
   const spendUp = spendDiff !== null && spendDiff > 0;
   return (
-    <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} rotate={-0.3} cardId="monthly_review">
+    <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} cardId="monthly_review">
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Ionicons name="calendar-outline" size={18} color={theme.teal.fg} />

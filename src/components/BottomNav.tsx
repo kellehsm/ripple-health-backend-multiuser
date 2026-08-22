@@ -114,7 +114,7 @@ export function BottomNav({ preferences, activeRoute, onNavigate, medicationDue 
       style={[
         styles.bar,
         {
-          backgroundColor: theme.page,
+          backgroundColor: theme.bottomBar ?? theme.topBar ?? theme.page,
           borderTopColor: theme.ink,
           paddingBottom: Math.max(insets.bottom, 8),
         },
