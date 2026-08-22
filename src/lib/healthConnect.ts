@@ -105,14 +105,14 @@ export async function syncHealthData(opts?: {
     });
 
     const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    for (const bucket of buckets) {
+    await Promise.all(buckets.map(async (bucket) => {
       const count = (bucket.result as any).COUNT_TOTAL ?? 0;
-      if (count <= 0) continue;
+      if (count <= 0) return;
       const d = new Date(bucket.startTime);
       const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       await api.syncSteps(localDate, count);
       if (localDate === todayLocal) steps = count;
-    }
+    }));
   } catch (e: any) {
     errors.push("Steps: " + (e?.message ?? "unknown error"));
   }
@@ -235,9 +235,11 @@ export async function syncHealthData(opts?: {
           const durMin = Math.round((new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / 60000);
           byDate[localDate] = (byDate[localDate] ?? 0) + durMin;
         }
-        for (const [date, minutes] of Object.entries(byDate)) {
-          if (minutes <= 0) continue;
-          await api.logMetricValue(metric.id, minutes, date + "T23:59:00.000Z");
+        const activeEntries = Object.entries(byDate)
+          .filter(([, minutes]) => minutes > 0)
+          .map(([date, minutes]) => ({ value: minutes, logged_at: date + "T23:59:00.000Z" }));
+        for (let i = 0; i < activeEntries.length; i += 100) {
+          await api.logMetricValuesBatch(metric.id, activeEntries.slice(i, i + 100));
         }
         const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
         activeMinutes = byDate[todayLocal] ?? null;
@@ -262,10 +264,12 @@ export async function syncHealthData(opts?: {
       });
       if ((wResult.records as any[]).length > 0) {
         const metric = await api.getOrCreateWeightMetric();
-        for (const r of wResult.records as any[]) {
-          const kg = (r as any).weight?.inKilograms ?? null;
-          if (kg == null) continue;
-          await api.logMetricValue(metric.id, Math.round(kg * 10) / 10, (r as any).time ?? new Date().toISOString());
+        const weightEntries = (wResult.records as any[])
+          .map((r: any) => ({ value: Math.round((r.weight?.inKilograms ?? 0) * 10) / 10, logged_at: r.time ?? new Date().toISOString(), _valid: r.weight?.inKilograms != null }))
+          .filter((e) => e._valid)
+          .map(({ value, logged_at }) => ({ value, logged_at }));
+        for (let i = 0; i < weightEntries.length; i += 100) {
+          await api.logMetricValuesBatch(metric.id, weightEntries.slice(i, i + 100));
         }
         const last = wResult.records[wResult.records.length - 1] as any;
         weightKg = last?.weight?.inKilograms ?? null;
@@ -289,10 +293,12 @@ export async function syncHealthData(opts?: {
       });
       if ((spo2Result.records as any[]).length > 0) {
         const metric = await api.getOrCreateSpo2Metric();
-        for (const r of spo2Result.records as any[]) {
-          const pct = (r as any).percentage?.value ?? null;
-          if (pct == null) continue;
-          await api.logMetricValue(metric.id, Math.round(pct * 10) / 10, (r as any).time ?? new Date().toISOString());
+        const spo2Entries = (spo2Result.records as any[])
+          .map((r: any) => ({ value: Math.round((r.percentage?.value ?? 0) * 10) / 10, logged_at: r.time ?? new Date().toISOString(), _valid: r.percentage?.value != null }))
+          .filter((e) => e._valid)
+          .map(({ value, logged_at }) => ({ value, logged_at }));
+        for (let i = 0; i < spo2Entries.length; i += 100) {
+          await api.logMetricValuesBatch(metric.id, spo2Entries.slice(i, i + 100));
         }
         const last = spo2Result.records[spo2Result.records.length - 1] as any;
         spo2Pct = last?.percentage?.value ?? null;

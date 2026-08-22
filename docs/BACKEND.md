@@ -21,7 +21,8 @@
 ### Auth model (`src/middleware/auth.ts`)
 
 - **Standard JWT** — 30-day expiry, signed with `JWT_SECRET`, payload `{ user_id, tv }`.
-- **Token revocation** — every request checks `users.token_version` against the `tv` claim. A mismatch (e.g. after password change) immediately rejects the token.
+- **Token revocation** — every request checks `users.token_version` against the `tv` claim. A mismatch (e.g. after password change) immediately rejects the token. The DB value is cached in-process for 30s (`middleware/auth.ts`); routes that bump `token_version` call `invalidateTokenVersionCache(userId)` so revocation is immediate on the same instance.
+- **Per-route rate limits** — expensive endpoints carry their own limits on top of the global bucket: export `/all`, `/doctor-report`, `/weekly-digest.pdf` and insights `/regenerate` at 2/min; insights `/impact/:rule_id` at 30/min.
 - **Widget tokens** — 7-day expiry, payload `{ user_id, scope: "widget" }`. Restricted to GET on a fixed set of read endpoints plus POST `/api/metrics` and `/api/metrics/:id/logs` (water logging from the Android home-screen widget, which cannot access SecureStore).
 - **Download tokens** — 5-minute, single-use, passed as `?dl=` query param for URL-based file downloads (keeps JWT out of logs and browser history).
 
@@ -52,7 +53,7 @@
 | `/auth/google` | routes/google-auth.ts | Google OAuth callback flow |
 | `/api/books-search` | routes/books-search.ts | Proxy search to Hardcover / external book APIs |
 | `/api/food` | routes/food.ts | Nutrition lookup via Passio / USDA FDC |
-| `/api/metrics` | routes/metrics.ts | Generic metric definitions and log entries; `GET /:id/weekly-total` returns `{ week_total, last_week_total, month_to_date_total }` (honors `week_start_day`) |
+| `/api/metrics` | routes/metrics.ts | Generic metric definitions and log entries; `GET /:id/weekly-total` returns `{ week_total, last_week_total, month_to_date_total }` (honors `week_start_day`); `POST /:id/logs/batch` inserts up to 100 `{ value, logged_at?, note? }` entries in one multi-row INSERT (used by Health Connect sync) |
 | `/api/books` | routes/books.ts | User book library and reading logs |
 | `/api/hobbies` | routes/hobbies.ts | Hobby definitions and session logs |
 | `/api/meals` | routes/meals.ts | Meal log (macros, calories, barcode lookup) |

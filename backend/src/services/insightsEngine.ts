@@ -633,7 +633,10 @@ export async function getActiveInsights(userId: string): Promise<StoredInsight[]
 
 export async function getInsightHistory(userId: string): Promise<StoredInsight[]> {
   return query<StoredInsight>(
-    `SELECT * FROM user_insights
+    `SELECT id, user_id, rule_id, type, title, description, confidence, confidence_score,
+            supporting_data, first_detected, last_confirmed, times_observed, status,
+            dismissed, created_at, updated_at
+     FROM user_insights
      WHERE user_id = $1
      ORDER BY last_confirmed DESC
      LIMIT 100`,

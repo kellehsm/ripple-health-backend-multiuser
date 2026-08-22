@@ -69,7 +69,7 @@ function drawGlucoseChart(
 }
 
 export default async function exportRoutes(app: FastifyInstance) {
-  app.get("/doctor-report", async (req, reply: FastifyReply) => {
+  app.get("/doctor-report", { config: { rateLimit: { max: 2, timeWindow: "1 minute" } } }, async (req, reply: FastifyReply) => {
     const user_id = req.user_id;
     const { start, end } = req.query as any;
     const startDate = start ? new Date(start) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -273,7 +273,7 @@ export default async function exportRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get("/all", async (req, reply: FastifyReply) => {
+  app.get("/all", { config: { rateLimit: { max: 2, timeWindow: "1 minute" } } }, async (req, reply: FastifyReply) => {
     const user_id = req.user_id;
 
     const LIMIT = 10000;
@@ -318,7 +318,7 @@ export default async function exportRoutes(app: FastifyInstance) {
    * top insights + streaks + key metric shifts. Meant to be shared with a
    * doctor or saved as a personal record.
    */
-  app.get("/weekly-digest.pdf", async (req, reply: FastifyReply) => {
+  app.get("/weekly-digest.pdf", { config: { rateLimit: { max: 2, timeWindow: "1 minute" } } }, async (req, reply: FastifyReply) => {
     const user_id = req.user_id;
 
     try {

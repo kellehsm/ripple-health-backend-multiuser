@@ -1209,19 +1209,23 @@ export function OverviewScreen() {
   }), [dayGlucose, weeklyData, patternEvents, streak, stepsCount, sleepStats, digest]);
 
   // Glucose chart
-  const allGlucoseValues = [...dayGlucose, ...yesterdayGlucose].map((r) => Number(r.mg_dl));
-  const minVal = allGlucoseValues.length ? Math.min(...allGlucoseValues, 70) - 10 : 60;
-  const maxVal = allGlucoseValues.length ? Math.max(...allGlucoseValues, 140) + 10 : 200;
-  const dayTimes = dayGlucose.map((r) => new Date(r.recorded_at).getTime());
-  const windowStart = dayTimes.length ? Math.min(...dayTimes) : Date.now() - 8 * 3600000;
-  const windowEnd = dayTimes.length ? Math.max(Math.max(...dayTimes), Date.now()) : Date.now();
+  const glucoseChartData = useMemo(() => {
+    const allGlucoseValues = [...dayGlucose, ...yesterdayGlucose].map((r) => Number(r.mg_dl));
+    const minVal = allGlucoseValues.length ? Math.min(...allGlucoseValues, 70) - 10 : 60;
+    const maxVal = allGlucoseValues.length ? Math.max(...allGlucoseValues, 140) + 10 : 200;
+    const dayTimes = dayGlucose.map((r) => new Date(r.recorded_at).getTime());
+    const windowStart = dayTimes.length ? Math.min(...dayTimes) : Date.now() - 8 * 3600000;
+    const windowEnd = dayTimes.length ? Math.max(Math.max(...dayTimes), Date.now()) : Date.now();
+    const glucosePoints = dayGlucose
+      .map(r => eventX(new Date(r.recorded_at).getTime(), windowStart, windowEnd) + "," + glucoseY(Number(r.mg_dl), minVal, maxVal))
+      .join(" ");
+    const yesterdayPoints = yesterdayGlucose
+      .map(r => eventX(new Date(r.recorded_at).getTime(), windowStart, windowEnd) + "," + glucoseY(Number(r.mg_dl), minVal, maxVal))
+      .join(" ");
+    return { minVal, maxVal, dayTimes, windowStart, windowEnd, glucosePoints, yesterdayPoints };
+  }, [dayGlucose, yesterdayGlucose]);
+  const { minVal, maxVal, dayTimes, windowStart, windowEnd, glucosePoints, yesterdayPoints } = glucoseChartData;
   scrubData.current = { windowStart, windowEnd, minVal, maxVal, dayGlucose, yesterdayGlucose };
-  const glucosePoints = dayGlucose
-    .map(r => eventX(new Date(r.recorded_at).getTime(), windowStart, windowEnd) + "," + glucoseY(Number(r.mg_dl), minVal, maxVal))
-    .join(" ");
-  const yesterdayPoints = yesterdayGlucose
-    .map(r => eventX(new Date(r.recorded_at).getTime(), windowStart, windowEnd) + "," + glucoseY(Number(r.mg_dl), minVal, maxVal))
-    .join(" ");
   const highBandY = glucoseY(180, minVal, maxVal);
   const lowBandY = glucoseY(70, minVal, maxVal);
   const usableH = CHART_H - PAD_T - PAD_B;

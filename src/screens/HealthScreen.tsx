@@ -457,75 +457,89 @@ export function HealthScreen() {
     let sleepAvgSecsVal: number | null = null;
     let sleepWeekDaysVal: { date: string; seconds: number }[] = [];
 
-    try {
-      const s = await api.stepsToday(today);
-      stepsCountVal = s?.steps ?? null;
-      setStepsCount(stepsCountVal);
-      lastSyncTimeRef.current = Date.now();
-      setLastSyncMinutes(0);
-    } catch (e) {
-      if (__DEV__) console.error("Failed to load steps", e);
-    }
-    try {
-      const stepsList = await api.getStepsMetric();
-      if (stepsList && stepsList.length > 0) {
-        stepsMetricIdVal = stepsList[0].id;
-        setStepsMetricId(stepsMetricIdVal);
-        const settings = await api.getSettings().catch(() => null);
-        weekStepsStartVal = settings?.week_start?.steps ?? 1;
-        setWeekStepsStart(weekStepsStartVal);
-        const weekly = await api.stepsWeeklyTotal(stepsList[0].id, weekStepsStartVal);
-        stepsWeekTotalVal = weekly?.week_total ?? null;
-        setStepsWeekTotal(stepsWeekTotalVal);
-      }
-    } catch (_) {}
-    try {
-      const session = await api.sleepToday(today);
-      if (session?.start_time && session?.end_time) {
-        sleepDisplayVal = formatSleepDuration(session.start_time, session.end_time);
-        setSleepDisplay(sleepDisplayVal);
-      } else {
-        setSleepDisplay(null);
-      }
-    } catch (e) {
-      if (__DEV__) console.error("Failed to load sleep", e);
-    }
-    try {
-      const stats = await api.sleepStats();
-      const fmt = (s: number) => {
-        const h = Math.floor(s / 3600);
-        const m = Math.floor((s % 3600) / 60);
-        return m > 0 ? h + "h " + m + "m" : h + "h";
-      };
-      const yest = stats?.yesterday_seconds > 0 ? fmt(stats.yesterday_seconds) : "--";
-      const avg = stats?.seven_day_average_seconds > 0 ? fmt(stats.seven_day_average_seconds) : "--";
-      sleepStatLineVal = "Yesterday: " + yest + " · 7d avg: " + avg;
-      setSleepStatLine(sleepStatLineVal);
-      if (stats?.seven_day_average_seconds > 0) {
-        sleepAvgSecsVal = stats.seven_day_average_seconds;
-        setSleepAvgSecs(sleepAvgSecsVal);
-      }
-      if (Array.isArray(stats?.week_days)) {
-        sleepWeekDaysVal = stats.week_days;
-        setSleepWeekDays(sleepWeekDaysVal);
-      }
-    } catch (e) {
-      if (__DEV__) console.error("Failed to load sleep stats", e);
-    }
-    try {
-      const cachedStages = await AsyncStorage.getItem("ripple_sleep_stages");
-      if (cachedStages) setSleepStages(JSON.parse(cachedStages));
-    } catch (_) {}
-    try {
-      const saved = await AsyncStorage.getItem("ripple_step_goal");
-      if (saved) {
-        setStepGoal(Number(saved));
-        setShowGoalNudge(false);
-      } else {
-        const dismissed = await AsyncStorage.getItem("ripple_step_goal_nudge_dismissed");
-        setShowGoalNudge(dismissed !== "true");
-      }
-    } catch (_) {}
+    await Promise.all([
+      // Steps today — independent
+      api.stepsToday(today)
+        .then((s: any) => {
+          stepsCountVal = s?.steps ?? null;
+          setStepsCount(stepsCountVal);
+          lastSyncTimeRef.current = Date.now();
+          setLastSyncMinutes(0);
+        })
+        .catch((e: any) => { if (__DEV__) console.error("Failed to load steps", e); }),
+
+      // Steps metric chain — getStepsMetric → getSettings → stepsWeeklyTotal (sequential internally)
+      (async () => {
+        try {
+          const stepsList = await api.getStepsMetric();
+          if (stepsList && stepsList.length > 0) {
+            stepsMetricIdVal = stepsList[0].id;
+            setStepsMetricId(stepsMetricIdVal);
+            const settings = await api.getSettings().catch(() => null);
+            weekStepsStartVal = settings?.week_start?.steps ?? 1;
+            setWeekStepsStart(weekStepsStartVal);
+            const weekly = await api.stepsWeeklyTotal(stepsList[0].id, weekStepsStartVal);
+            stepsWeekTotalVal = weekly?.week_total ?? null;
+            setStepsWeekTotal(stepsWeekTotalVal);
+          }
+        } catch (_) {}
+      })(),
+
+      // Sleep today — independent
+      api.sleepToday(today)
+        .then((session: any) => {
+          if (session?.start_time && session?.end_time) {
+            sleepDisplayVal = formatSleepDuration(session.start_time, session.end_time);
+            setSleepDisplay(sleepDisplayVal);
+          } else {
+            setSleepDisplay(null);
+          }
+        })
+        .catch((e: any) => { if (__DEV__) console.error("Failed to load sleep", e); }),
+
+      // Sleep stats — independent
+      api.sleepStats()
+        .then((stats: any) => {
+          const fmt = (s: number) => {
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            return m > 0 ? h + "h " + m + "m" : h + "h";
+          };
+          const yest = stats?.yesterday_seconds > 0 ? fmt(stats.yesterday_seconds) : "--";
+          const avg = stats?.seven_day_average_seconds > 0 ? fmt(stats.seven_day_average_seconds) : "--";
+          sleepStatLineVal = "Yesterday: " + yest + " · 7d avg: " + avg;
+          setSleepStatLine(sleepStatLineVal);
+          if (stats?.seven_day_average_seconds > 0) {
+            sleepAvgSecsVal = stats.seven_day_average_seconds;
+            setSleepAvgSecs(sleepAvgSecsVal);
+          }
+          if (Array.isArray(stats?.week_days)) {
+            sleepWeekDaysVal = stats.week_days;
+            setSleepWeekDays(sleepWeekDaysVal);
+          }
+        })
+        .catch((e: any) => { if (__DEV__) console.error("Failed to load sleep stats", e); }),
+
+      // AsyncStorage reads — independent
+      (async () => {
+        try {
+          const cachedStages = await AsyncStorage.getItem("ripple_sleep_stages");
+          if (cachedStages) setSleepStages(JSON.parse(cachedStages));
+        } catch (_) {}
+      })(),
+      (async () => {
+        try {
+          const saved = await AsyncStorage.getItem("ripple_step_goal");
+          if (saved) {
+            setStepGoal(Number(saved));
+            setShowGoalNudge(false);
+          } else {
+            const dismissed = await AsyncStorage.getItem("ripple_step_goal_nudge_dismissed");
+            setShowGoalNudge(dismissed !== "true");
+          }
+        } catch (_) {}
+      })(),
+    ]);
 
     setCached(cacheKey, {
       stepsCount: stepsCountVal,
@@ -917,7 +931,7 @@ export function HealthScreen() {
       })
       .catch(function () {});
     return function () { cancelled = true; };
-  }, []));
+  }, [rangeHours]));
 
   useEffect(function () {
     load(rangeHours);

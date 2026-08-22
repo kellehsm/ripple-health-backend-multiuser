@@ -39,7 +39,7 @@ export default async function insightsRoutes(app: FastifyInstance) {
   // GET /insights/impact/:rule_id — cross-user average outcome so an insight
   // card can show "People who tried this saw ~X change".  Returns
   // { available: false } when the sample size is too small to be honest.
-  app.get("/impact/:rule_id", async (req) => {
+  app.get("/impact/:rule_id", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req) => {
     const { rule_id } = req.params as { rule_id: string };
     const [row] = await query<any>(
       `SELECT
@@ -103,7 +103,7 @@ export default async function insightsRoutes(app: FastifyInstance) {
   });
 
   // POST /insights/regenerate — force-run the engine for this user
-  app.post("/regenerate", async (req) => {
+  app.post("/regenerate", { config: { rateLimit: { max: 2, timeWindow: "1 minute" } } }, async (req) => {
     const user_id = req.user_id;
     const result = await runInsightsForUser(user_id, { force: true });
     return { ok: true, ...result };

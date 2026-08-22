@@ -4,7 +4,7 @@ import { query } from "../db.js";
 export default async function journalRoutes(app: FastifyInstance) {
   app.get("/", async (req) => {
     const user_id = req.user_id;
-    return query(`SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 50`, [user_id]);
+    return query(`SELECT id, user_id, mood_score, mood_label, entry_text, period, entry_type, context, logged_at, created_at FROM journal_entries WHERE user_id = $1 ORDER BY logged_at DESC LIMIT 50`, [user_id]);
   });
 
   // Upsert a period check-in (one per period per day) or insert an off-cycle moment.

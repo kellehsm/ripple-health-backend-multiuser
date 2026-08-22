@@ -597,8 +597,32 @@ export function MealsScreen() {
   const firstFocusRef = useRef(true);
   useFocusEffect(useCallback(function () {
     if (firstFocusRef.current) { firstFocusRef.current = false; return; }
-    loadMeals();
-    loadSubstances();
+    let cancelled = false;
+    const today = formatDateLocal(new Date());
+    api.meals(today)
+      .then(function (data: Meal[]) {
+        if (cancelled) return;
+        mealsLoadedRef.current = true;
+        setMeals(Array.isArray(data) ? data : []);
+      })
+      .catch(function (e: Error) { if (!cancelled) setMealsError(e.message || "Failed to load meals"); })
+      .finally(function () { if (!cancelled) setLoadingMeals(false); });
+    api.substancesToday(today)
+      .then(function (data: { entries: SubstanceEntry[]; totals: SubstanceTotals }) {
+        if (cancelled) return;
+        subsLoadedRef.current = true;
+        setSubEntries(Array.isArray(data?.entries) ? data.entries : []);
+        if (data?.totals) {
+          setSubTotals(data.totals);
+          if (Number(data.totals.standard_drinks) > 0 && !alcoholAutoExpandedRef.current) {
+            alcoholAutoExpandedRef.current = true;
+            setAlcoholCollapsed(false);
+          }
+        }
+      })
+      .catch(function () {})
+      .finally(function () { if (!cancelled) setSubLoading(false); });
+    return function () { cancelled = true; };
   }, [loadMeals, loadSubstances]));
 
   const foodDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

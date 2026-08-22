@@ -1,20 +1,8 @@
 import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
-import { timingSafeEqual } from "crypto";
 import { query, pool } from "../db.js";
-import { signToken, signWidgetToken } from "../middleware/auth.js";
-
-const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
-
-/** Constant-time comparison — plain !== leaks the shared secret via a remote
- *  timing oracle on the /api/auth/create-user endpoint. */
-function adminSecretMatches(supplied: string | undefined): boolean {
-  if (!ADMIN_SECRET || !supplied) return false;
-  const a = Buffer.from(supplied);
-  const b = Buffer.from(ADMIN_SECRET);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
+import { signToken, signWidgetToken, invalidateTokenVersionCache } from "../middleware/auth.js";
+import { adminSecretMatches } from "../lib/adminSecret.js";
 
 // Brute-force protection: applies per-IP to credential endpoints only.
 const LOGIN_RATE_LIMIT = { rateLimit: { max: 10, timeWindow: "15 minutes" } };
@@ -85,6 +73,7 @@ export default async function authRoutes(app: FastifyInstance) {
         "UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2 RETURNING token_version",
         [hash, req.user_id]
       );
+      invalidateTokenVersionCache(req.user_id);
       const token = signToken(req.user_id, updated[0].token_version);
       return { ok: true, token };
     }
@@ -212,6 +201,7 @@ export default async function authRoutes(app: FastifyInstance) {
         "UPDATE users SET token_version = token_version + 1 WHERE id = $1",
         [req.user_id]
       );
+      invalidateTokenVersionCache(req.user_id);
       return { ok: true };
     }
   );
