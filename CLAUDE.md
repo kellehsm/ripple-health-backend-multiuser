@@ -1,6 +1,9 @@
 # Ripple Wellness — CLAUDE.md
 
-Expo/React Native (TypeScript) + Fastify/Postgres wellness app. This is the **dev repo** (`dev` branch). Production runs from the `/root/wellness-app-multiuser` worktree (`master`).
+Expo/React Native (TypeScript) + Fastify/Postgres wellness app. This file is shared by both checkouts — **check your current directory to know where you are**:
+
+- `/root/wellness-app-multiuser-dev` — **dev repo** (`dev` branch). ALL development happens here.
+- `/root/wellness-app-multiuser` — **PRODUCTION worktree** (`master`). Never develop here; it only receives merges from dev (which deploys the files) and hosts the running prod backend.
 
 ## Master docs — read the right one before working
 

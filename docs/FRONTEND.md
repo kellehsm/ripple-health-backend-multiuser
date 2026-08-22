@@ -177,28 +177,21 @@ Convention for async errors: screens use `try/catch` + local state for user-visi
 
 ## 6. Build & release
 
-### EAS profiles (`eas.json`)
+### Builds are LOCAL (user-run)
 
-| Profile | Distribution | Build type | autoIncrement |
-|---|---|---|---|
-| `development` | internal | dev client | no |
-| `preview` | internal | APK | **yes** |
-| `production` | internal | APK | **yes** |
+The user builds APKs locally themselves — **Claude must never trigger any build (EAS or local)**. `eas.json` still exists (profiles: development/preview/production, autoIncrement on preview+production) but is not the active workflow; since builds are local, `app.json android.versionCode` is authoritative.
 
-`autoIncrement: true` on `preview` and `production` means **EAS owns the effective versionCode** — it increments past whatever is in `app.json`. Despite this, policy requires bumping `app.json version`, `android.versionCode`, and `package.json version` before every preview build so the human-readable version stays in sync.
-
-Current: `app.json version: "1.4.1"`, `versionCode: 20`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
+Current: `app.json version: "1.5.0"`, `versionCode: 21`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
 
 ### Build policy (enforce strictly)
 
-- **NEVER run `eas build` unless the user explicitly says "build now".**
+- **Never run any build command.** When native changes are ready, bump `app.json version` + `android.versionCode` + `package.json version`, merge `dev`→`master` and push both remotes, then tell the user it's ready for their local build.
 - JS-only changes (screens, styles, navigation, API calls) need no build — test in Expo Go or dev client.
-- Batch all native-touching changes (new packages with native modules, permissions, icon assets, plugin config) before triggering a single build.
-- Before any preview build: fast-forward `master` to `dev` and push both remotes (see git remote policy in memory).
+- Batch all native-touching changes (new packages with native modules, permissions, icon assets, plugin config, Kotlin in `plugins/`) into the running "pending native changes" list below.
 
-### Pending native changes (batched for next build)
+### Pending native changes (batched for next local build)
 
-These uncommitted changes touch native code and require an EAS build to take effect:
+Shipped in git (1.5.0 / vc 21) but require a native rebuild to reach devices:
 
 - **Watch breathing activity** — redesigned layout + BoxAnimView + ripple animations (`RippleWearBreathingActivity.kt`, `RippleWearBreatheTileService.kt`, `RippleWearLogTileService.kt`, `RippleWearMainActivity.kt`).
 - **Widget sleep path fix** — `RippleWidgetProvider.kt` corrected to call `/api/health-connect/sleep/stats` (was 404ing on wrong path).
