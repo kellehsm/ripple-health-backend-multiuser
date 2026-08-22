@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
+import { parseWeekStartDay } from "../lib/weekStartDay.js";
 
 export default async function healthConnectRoutes(app: FastifyInstance) {
   app.get("/steps", async (req) => {
@@ -115,6 +116,24 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
 
   app.get("/sleep/stats", async (req) => {
     const user_id = req.user_id;
+
+    // Read user's week_start setting (0=Sun … 6=Sat; default Monday=1)
+    const [settingsRow] = await query<any>(
+      "SELECT settings FROM user_settings WHERE user_id = $1",
+      [user_id]
+    );
+    const rawWeekStart = settingsRow?.settings?.week_start;
+    const weekStartDay = parseWeekStartDay(
+      rawWeekStart !== undefined && rawWeekStart !== null ? String(rawWeekStart) : "1"
+    );
+
+    // Compute this week's start date (SQL)
+    const [weekStartRow] = await query<any>(
+      `SELECT (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $1 + 7) % 7) * INTERVAL '1 day')::date AS ws`,
+      [weekStartDay]
+    );
+    const weekStart: string = weekStartRow.ws; // 'YYYY-MM-DD'
+
     const [yesterday] = await query<any>(
       `SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (end_time - start_time))), 0) as seconds
        FROM sleep_sessions
@@ -164,6 +183,56 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
        WHERE user_id = $1 AND start_time >= current_date - interval '30 days'`,
       [user_id]
     );
+
+    // Week avg and last-week avg using user's actual week_start setting.
+    const [thisWeekAvg] = await query<any>(
+      `SELECT COALESCE(AVG(daily_seconds), 0) AS avg_seconds FROM (
+         SELECT start_time::date AS day,
+                SUM(EXTRACT(EPOCH FROM (end_time - start_time))) AS daily_seconds
+         FROM sleep_sessions
+         WHERE user_id = $1 AND start_time::date >= $2::date
+         GROUP BY start_time::date
+       ) sub`,
+      [user_id, weekStart]
+    );
+    const [lastWeekAvg] = await query<any>(
+      `SELECT COALESCE(AVG(daily_seconds), 0) AS avg_seconds FROM (
+         SELECT start_time::date AS day,
+                SUM(EXTRACT(EPOCH FROM (end_time - start_time))) AS daily_seconds
+         FROM sleep_sessions
+         WHERE user_id = $1
+           AND start_time::date >= $2::date - INTERVAL '7 days'
+           AND start_time::date <  $2::date
+         GROUP BY start_time::date
+       ) sub`,
+      [user_id, weekStart]
+    );
+
+    // Bedtime spread this week — max-min of circular bedtime in minutes.
+    // To handle midnight wrap (e.g. 23:30 vs 00:45), we use 360-degree circular
+    // distance: shift times so they cluster around a reference, then take max-min.
+    const thisWeekBedtimes = await query<any>(
+      `SELECT EXTRACT(HOUR FROM start_time) * 60 + EXTRACT(MINUTE FROM start_time) AS mins
+       FROM sleep_sessions
+       WHERE user_id = $1 AND start_time::date >= $2::date`,
+      [user_id, weekStart]
+    );
+    let bedtimeSpreadMins: number | null = null;
+    if (thisWeekBedtimes.length >= 2) {
+      // Normalize all times to be within a 1440-minute window centered on the
+      // median, so midnight wraparound is handled correctly.
+      const rawMins = thisWeekBedtimes.map((r: any) => Number(r.mins));
+      // Shift any time that is "too far" from the first reading by ±1440
+      const ref = rawMins[0];
+      const normalized = rawMins.map((m: number) => {
+        let d = m - ref;
+        if (d > 720) d -= 1440;
+        if (d < -720) d += 1440;
+        return d;
+      });
+      bedtimeSpreadMins = Math.max(...normalized) - Math.min(...normalized);
+    }
+
     return {
       yesterday_seconds: Number(yesterday.seconds),
       seven_day_average_seconds: Number(weekAvg.avg_seconds),
@@ -179,6 +248,10 @@ export default async function healthConnectRoutes(app: FastifyInstance) {
         median_bedtime_mins:  times.median_bedtime_mins  != null ? Number(times.median_bedtime_mins)  : null,
         median_waketime_mins: times.median_waketime_mins != null ? Number(times.median_waketime_mins) : null,
       },
+      // New fields (additive — existing callers unaffected):
+      week_avg_seconds:      Number(thisWeekAvg.avg_seconds),
+      last_week_avg_seconds: Number(lastWeekAvg.avg_seconds),
+      bedtime_spread_mins:   bedtimeSpreadMins,
     };
   });
 

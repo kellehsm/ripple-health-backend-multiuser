@@ -51,6 +51,7 @@ import { NewChallengeScreen } from "../screens/NewChallengeScreen";
 import { SocialSettingsScreen } from "../screens/settings/SocialSettingsScreen";
 import { CardImageSplitterScreen } from "../screens/CardImageSplitterScreen";
 import { WatchTilesScreen } from "../screens/WatchTilesScreen";
+import { WaterDetailScreen } from "../screens/WaterDetailScreen";
 import { ChatScreen } from "../screens/ChatScreen";
 import { MonthlyRecapScreen } from "../screens/MonthlyRecapScreen";
 import { InsightsHistoryScreen } from "../screens/InsightsHistoryScreen";
@@ -224,6 +225,7 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         <Stack.Screen name="Tabs" component={TabNavigator} options={{ headerShown: false }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
         <Stack.Screen name="History" component={HistoryScreen} options={{ title: "History" }} />
+        <Stack.Screen name="WaterDetail" component={WaterDetailScreen} options={{ title: "Water Intake" }} />
         <Stack.Screen name="StepsDetail" component={StepsDetailScreen} options={{ title: "Steps" }} />
         <Stack.Screen name="HeartRateDetail" component={HeartRateDetailScreen} options={{ title: "Heart Rate" }} />
         <Stack.Screen name="SleepDetail" component={SleepDetailScreen} options={{ title: "Sleep" }} />

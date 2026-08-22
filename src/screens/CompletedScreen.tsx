@@ -373,7 +373,7 @@ export function CompletedScreen() {
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.bar} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.bar} colors={[theme.teal.bar]} />}
     >
       {loading ? (
         <View style={{ gap: 12 }}>

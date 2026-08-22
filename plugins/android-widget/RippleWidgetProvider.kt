@@ -728,7 +728,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
     private fun fetchSleep(token: String): String {
         // /sleep/stats returns yesterday_seconds — a single-number "last night" duration
         return try {
-            val (code, body) = get(token, "/sleep/stats")
+            val (code, body) = get(token, "/health-connect/sleep/stats")
             if (code == 200) {
                 val secs = JSONObject(body).optDouble("yesterday_seconds", 0.0).toLong()
                 if (secs <= 0) "--" else {

@@ -55,6 +55,8 @@ import { ThemedIcon, moodScoreEmoji } from '../theme/iconRegistry';
 import { ThemedSurface } from '../theme/pageTemplates';
 import { WeeklyDigestModal } from "../components/WeeklyDigestModal";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
+import { CountUpText } from "../components/CountUpText";
+import { AnimatedProgressRing } from "../components/AnimatedProgressRing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1455,13 +1457,20 @@ export function OverviewScreen() {
             <ShadowCard size="card" cardId="wellness_score">
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                  <View style={{
-                    width: 58, height: 58, borderRadius: 29, borderWidth: 2,
-                    borderColor: wsColor, backgroundColor: wsColor + "18",
-                    alignItems: "center", justifyContent: "center",
-                  }}>
-                    <Text style={{ fontSize: 22, fontWeight: "800", color: wsColor }}>{wsOverall !== null ? wsOverall : "--"}</Text>
-                  </View>
+                  <AnimatedProgressRing
+                    size={58}
+                    strokeWidth={4}
+                    progress={wsOverall !== null ? wsOverall / 100 : 0}
+                    color={wsColor}
+                    duration={500}
+                  >
+                    <CountUpText
+                      value={wsOverall}
+                      duration={450}
+                      fallback="--"
+                      style={{ fontSize: 22, fontWeight: "800", color: wsColor }}
+                    />
+                  </AnimatedProgressRing>
                   <View>
                     <Text style={[styles.cardTitle, { color: theme.textStrong, marginBottom: 2 }]}>Wellness score</Text>
                     <Text style={{ fontSize: 12, color: theme.textSoft }}>

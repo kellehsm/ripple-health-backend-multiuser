@@ -29,6 +29,9 @@ const inflightGets = new Map<string, Promise<any>>();
 // Water metric id never changes for a user — cache it for the session.
 // Cleared on logout (lib/auth) so a different account can't reuse it.
 let waterMetricCache: any = null;
+let weightMetricCache: any = null;
+let activeMinutesMetricCache: any = null;
+let spo2MetricCache: any = null;
 export function clearWaterMetricCache(): void {
   waterMetricCache = null;
 }
@@ -379,7 +382,7 @@ export const api = {
   waterStats: function (metricId: string) {
     return request("/metrics/" + metricId + "/stats");
   },
-  stepsWeeklyTotal: function (metricId: string, weekStartDay?: number) {
+  stepsWeeklyTotal: function (metricId: string, weekStartDay?: number): Promise<{ week_total: number; last_week_total: number; month_to_date_total: number }> {
     const qs = weekStartDay !== undefined ? "?week_start_day=" + weekStartDay : "";
     return request("/metrics/" + metricId + "/weekly-total" + qs);
   },
@@ -415,12 +418,56 @@ export const api = {
     return request("/metrics/" + metricId + "/logs");
   },
 
+  // ── Generic metric get-or-create helpers (HC sync) ─────────────────────
+  getOrCreateWeightMetric: async function () {
+    if (weightMetricCache) return weightMetricCache;
+    const list = await request("/metrics?name=weight_kg");
+    if (list && list.length > 0) { weightMetricCache = list[0]; return list[0]; }
+    const created = await request("/metrics", {
+      method: "POST",
+      body: JSON.stringify({ name: "weight_kg", value_type: "number", unit: "kg", icon: "scale", color_key: "teal" }),
+    });
+    weightMetricCache = created;
+    return created;
+  },
+  getOrCreateActiveMinutesMetric: async function () {
+    if (activeMinutesMetricCache) return activeMinutesMetricCache;
+    const list = await request("/metrics?name=active_minutes");
+    if (list && list.length > 0) { activeMinutesMetricCache = list[0]; return list[0]; }
+    const created = await request("/metrics", {
+      method: "POST",
+      body: JSON.stringify({ name: "active_minutes", value_type: "duration_minutes", unit: "minutes", icon: "activity", color_key: "green" }),
+    });
+    activeMinutesMetricCache = created;
+    return created;
+  },
+  getOrCreateSpo2Metric: async function () {
+    if (spo2MetricCache) return spo2MetricCache;
+    const list = await request("/metrics?name=spo2_pct");
+    if (list && list.length > 0) { spo2MetricCache = list[0]; return list[0]; }
+    const created = await request("/metrics", {
+      method: "POST",
+      body: JSON.stringify({ name: "spo2_pct", value_type: "number", unit: "%", icon: "lungs", color_key: "blue" }),
+    });
+    spo2MetricCache = created;
+    return created;
+  },
+  logMetricValue: function (metricId: string, value: number, logged_at: string) {
+    return request("/metrics/" + metricId + "/logs", {
+      method: "POST",
+      body: JSON.stringify({ value, logged_at }),
+    });
+  },
+
   // ── Heart Rate ────────────────────────────────────────────────────────────
   heartRateRange: function (start: string, end: string) {
     return request("/heart-rate?start=" + encodeURIComponent(start) + "&end=" + encodeURIComponent(end));
   },
   heartRateDaily: function (days: number = 7) {
     return request("/heart-rate/daily?days=" + days);
+  },
+  heartRateStats: function () {
+    return request("/heart-rate/stats");
   },
 
   // ── Search ────────────────────────────────────────────────────────────────

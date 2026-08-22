@@ -149,7 +149,7 @@ export function ChallengeDetailScreen() {
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
     >
       {/* Header */}
       <ShadowCard padding={16} bg={theme.purple.tint} accent={theme.purple.solid}>

@@ -41,6 +41,7 @@ import { type SleepStages } from "../lib/healthConnect";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 import { toast } from "../lib/toast";
 import { emojiForWaterCount } from "../lib/mealEmoji";
+import { AnimatedProgressRing } from "../components/AnimatedProgressRing";
 
 type GlucoseReading = {
   recorded_at: string;
@@ -357,6 +358,12 @@ export function HealthScreen() {
   const [staleBannerMessage, setStaleBannerMessage] = useState<string | null>(null);
   const [waterGoal, setWaterGoal] = useState(DEFAULT_WATER_GOAL);
   const [sleepStages, setSleepStages] = useState<SleepStages | null>(null);
+  const [sleepScore, setSleepScore] = useState<number | null>(null);
+  const [sleepWeekAvgSecs, setSleepWeekAvgSecs] = useState<number | null>(null);
+  const [sleepLastWeekAvgSecs, setSleepLastWeekAvgSecs] = useState<number | null>(null);
+  const [sleepBedtimeSpreadMins, setSleepBedtimeSpreadMins] = useState<number | null>(null);
+  const [sleepInsight, setSleepInsight] = useState<string | null>(null);
+  const [sleepExpanded, setSleepExpanded] = useState(false);
   const [stepGoal, setStepGoal] = useState(10000);
   const [showGoalNudge, setShowGoalNudge] = useState(false);
   const [mindStats, setMindStats] = useState<{ streak: number; week_minutes: number; total_sessions: number } | null>(null);
@@ -507,6 +514,9 @@ export function HealthScreen() {
         sleepWeekDaysVal = stats.week_days;
         setSleepWeekDays(sleepWeekDaysVal);
       }
+      if (stats?.week_avg_seconds > 0) setSleepWeekAvgSecs(stats.week_avg_seconds);
+      if (stats?.last_week_avg_seconds > 0) setSleepLastWeekAvgSecs(stats.last_week_avg_seconds);
+      if (stats?.bedtime_spread_mins != null) setSleepBedtimeSpreadMins(stats.bedtime_spread_mins);
     } catch (e) {
       if (__DEV__) console.error("Failed to load sleep stats", e);
     }
@@ -535,6 +545,24 @@ export function HealthScreen() {
       sleepAvgSecs: sleepAvgSecsVal,
       sleepWeekDays: sleepWeekDaysVal,
     });
+  }, []);
+
+  // Load sleep score (from daily summary) + sleep insights (from insights endpoint)
+  const loadSleepExtras = useCallback(async function () {
+    try {
+      const summary = await api.dailySummary();
+      if (summary?.scores?.sleep != null) setSleepScore(Number(summary.scores.sleep));
+    } catch (_) {}
+    try {
+      const insights: Array<{ title: string; rule_id?: string; description?: string }> = await api.getInsights();
+      if (Array.isArray(insights)) {
+        const sleepHit = insights.find((i) => {
+          const haystack = ((i.title ?? "") + " " + (i.description ?? "") + " " + (i.rule_id ?? "")).toLowerCase();
+          return haystack.includes("sleep");
+        });
+        setSleepInsight(sleepHit?.title ?? null);
+      }
+    } catch (_) {}
   }, []);
 
   const loadWater = useCallback(async function (forceRefresh = false) {
@@ -614,7 +642,7 @@ export function HealthScreen() {
       // wearable data — running them in parallel let the sync's internal cached
       // load race (and overwrite) the forced load's results.
       if (Platform.OS === "android") await handleHealthConnectSync();
-      await Promise.all([load(rangeHours), loadWater(true), loadStepsAndSleep(true), loadHeartRate(hrRangeHours)]);
+      await Promise.all([load(rangeHours), loadWater(true), loadStepsAndSleep(true), loadHeartRate(hrRangeHours), loadSleepExtras()]);
       setLastRefreshed(new Date());
     } finally {
       setRefreshing(false);
@@ -933,6 +961,7 @@ export function HealthScreen() {
   }, []);
   useEffect(function () { loadWater(); }, [loadWater]);
   useEffect(function () { loadStepsAndSleep(); }, [loadStepsAndSleep]);
+  useEffect(function () { loadSleepExtras(); }, [loadSleepExtras]);
 
   // Widget/notification deep links can request the screen scroll to a section.
   // Retry briefly so the scroll happens after layout has measured the anchor.
@@ -1238,73 +1267,84 @@ export function HealthScreen() {
               <StepsRing steps={stepsCount} goal={stepGoal} color={theme.teal.solid} sub={theme.teal.sub} />
               <PopText value={stepsLabel} style={[chipStyles.val, { color: theme.teal.fg }]} />
               <Text style={[chipStyles.sub, { color: theme.teal.sub }]} allowFontScaling maxFontSizeMultiplier={1.3}>of {goalLabel}</Text>
+              {stepsWeekTotal !== null && (
+                <Text style={[chipStyles.sub, { color: theme.teal.sub, marginTop: 2 }]} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {stepsWeekTotal >= 1000
+                    ? (stepsWeekTotal / 1000).toFixed(1) + "k wk"
+                    : stepsWeekTotal + " wk"}
+                </Text>
+              )}
             </MetricChip>
             )}
 
-            {/* SLEEP chip */}
-            <MetricChip
-              borderColor={amberSolid}
-              backgroundColor={amberBg}
-              label="SLEEP"
-              accessibilityLabel={sleepDisplay ? `Sleep ${sleepDisplay} last night. Double-tap for stage breakdown and 30-day trends.` : "Sleep, no data. Double-tap to open sleep details."}
-              onPress={() => navigation.getParent()?.navigate("SleepDetail")}
-            >
-              <ThemedIcon slot="metric.sleep" size={26} color={amberSub} />
-              {sleepDisplay ? (
-                <Text style={[chipStyles.val, { color: amberFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{sleepDisplay}</Text>
-              ) : (
-                <Svg width={28} height={34} viewBox="0 0 28 34" style={{ opacity: 0.25 }}>
-                  <Path d="M14,2 C10,7 3,16 3,24 C3,30 8,34 14,34 C20,34 25,30 25,24 C25,16 18,7 14,2Z" fill={amberSolid} />
-                </Svg>
-              )}
-              {/* 7-night sparkline */}
-              {sleepWeekDays.length > 0 && (() => {
-                const GOAL = 8 * 3600;
-                const BAR_W = 5, GAP = 2;
-                const MAX_H = 18;
-                const bars = Array.from({ length: 7 }, (_, i) => {
-                  const dayEntry = sleepWeekDays[i];
-                  return dayEntry ? Math.min(1, dayEntry.seconds / GOAL) : 0;
-                });
-                const totalW = 7 * BAR_W + 6 * GAP;
-                return (
-                  <Svg width={totalW} height={MAX_H + 2}>
-                    <Defs>
-                      <SvgLinearGradient id="sleepSparkFill" x1="0" y1="0" x2="0" y2="1">
-                        <Stop offset="0" stopColor={amberSolid} stopOpacity="1" />
-                        <Stop offset="1" stopColor={amberSolid} stopOpacity="0.55" />
-                      </SvgLinearGradient>
-                    </Defs>
-                    {bars.map((pct, i) => {
-                      const h = Math.max(2, Math.round(pct * MAX_H));
-                      return (
-                        <Rect key={i} x={i * (BAR_W + GAP)} y={MAX_H - h + 2} width={BAR_W} height={h}
-                          fill="url(#sleepSparkFill)" opacity={pct > 0 ? 0.75 : 0.32} rx={2} />
-                      );
-                    })}
-                  </Svg>
-                );
-              })()}
-              {/* 7-day sleep debt vs 8h goal (folded in from the old standalone card) */}
-              {sleepAvgSecs !== null && (() => {
-                const debtSecs = (8 * 3600 - sleepAvgSecs) * 7;
-                const isDebt = debtSecs > 0;
-                const absSecs = Math.abs(debtSecs);
-                const h = Math.floor(absSecs / 3600);
-                const m = Math.floor((absSecs % 3600) / 60);
-                const label = h > 0 ? h + "h" + (m > 0 ? " " + m + "m" : "") : m + "m";
-                return (
-                  <Text
-                    style={{ fontSize: 10, fontWeight: "800", color: isDebt ? (theme.red?.solid ?? "#ef4444") : theme.teal.solid }}
-                    allowFontScaling
-                    maxFontSizeMultiplier={1.3}
-                    accessibilityLabel={`Sleep ${isDebt ? "debt" : "surplus"} ${label} over the past 7 days versus an 8 hour goal`}
-                  >
-                    {isDebt ? "–" : "+"}{label} · 7d
-                  </Text>
-                );
-              })()}
-            </MetricChip>
+            {/* SLEEP chip — collapsed: duration + score ring + 7-night bars */}
+            {(function () {
+              const scoreColor = sleepScore === null
+                ? amberSolid
+                : sleepScore >= 75 ? theme.success
+                : sleepScore >= 50 ? theme.warning
+                : theme.danger;
+              const GOAL = 8 * 3600;
+              const BAR_W = 4, GAP = 2;
+              const MAX_H = 16;
+              const bars = Array.from({ length: 7 }, (_, i) => {
+                const dayEntry = sleepWeekDays[i];
+                return dayEntry ? Math.min(1, dayEntry.seconds / GOAL) : 0;
+              });
+              const totalW = 7 * BAR_W + 6 * GAP;
+              return (
+                <MetricChip
+                  borderColor={amberSolid}
+                  backgroundColor={amberBg}
+                  label="SLEEP"
+                  accessibilityLabel={sleepDisplay
+                    ? `Sleep ${sleepDisplay} last night${sleepScore !== null ? ", score " + sleepScore : ""}. Tap for breakdown.`
+                    : "Sleep, no data. Tap to expand."}
+                  onPress={() => setSleepExpanded(function (v) { return !v; })}
+                >
+                  {/* Score ring — shows when score available */}
+                  {sleepScore !== null ? (
+                    <AnimatedProgressRing
+                      size={36}
+                      strokeWidth={3}
+                      progress={sleepScore / 100}
+                      color={scoreColor}
+                      trackColor={amberBg}
+                      duration={600}
+                    >
+                      <Text style={{ fontSize: 9, fontWeight: "900", color: scoreColor }}>{sleepScore}</Text>
+                    </AnimatedProgressRing>
+                  ) : (
+                    <ThemedIcon slot="metric.sleep" size={26} color={amberSub} />
+                  )}
+                  {sleepDisplay ? (
+                    <Text style={[chipStyles.val, { color: amberFg }]} allowFontScaling maxFontSizeMultiplier={1.3}>{sleepDisplay}</Text>
+                  ) : (
+                    <Text style={[chipStyles.sub, { color: amberSub }]}>--</Text>
+                  )}
+                  {/* 7-night sparkline */}
+                  {sleepWeekDays.length > 0 && (
+                    <Svg width={totalW} height={MAX_H + 2}>
+                      {bars.map((pct, bi) => {
+                        const h = Math.max(2, Math.round(pct * MAX_H));
+                        const barColor = pct === 0 ? theme.cardBorder : amberSolid;
+                        return (
+                          <Rect key={bi} x={bi * (BAR_W + GAP)} y={MAX_H - h + 2} width={BAR_W} height={h}
+                            fill={barColor} opacity={pct > 0 ? 0.75 : 0.32} rx={1.5} />
+                        );
+                      })}
+                    </Svg>
+                  )}
+                  {/* Expand chevron */}
+                  <Ionicons
+                    name={sleepExpanded ? "chevron-up" : "chevron-down"}
+                    size={10}
+                    color={amberSub}
+                    style={{ opacity: 0.6 }}
+                  />
+                </MetricChip>
+              );
+            })()}
 
             {/* WATER chip — filling droplet shows progress, tap to log */}
             <MetricChip
@@ -1312,8 +1352,8 @@ export function HealthScreen() {
               backgroundColor={theme.blue.bg}
               label="WATER"
               overflow="hidden"
-              accessibilityLabel={`Water ${waterCount ?? 0} of ${waterGoal} glasses. Double-tap to log one glass.`}
-              onPress={handleLogWater}
+              accessibilityLabel={`Water ${waterCount ?? 0} of ${waterGoal} glasses. Tap to open water tracker.`}
+              onPress={() => navigation.getParent()?.navigate("WaterDetail")}
             >
               <Animated.View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.blue.solid, opacity: waterFlashAnim, borderRadius: 11 }} pointerEvents="none" />
               {(theme as any).iconOverrides?.["metric.water"] ? (
@@ -1324,7 +1364,7 @@ export function HealthScreen() {
               <Animated.Text style={[chipStyles.sub, { color: theme.blue.sub, transform: [{ scale: waterCountScaleAnim }] }]}>
                 {waterCount ?? 0}/{waterGoal}
               </Animated.Text>
-              <Text style={{ fontSize: 9, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap to log</Text>
+              <Text style={{ fontSize: 9, fontWeight: "800", color: theme.blue.sub, opacity: 0.7, letterSpacing: 0.3 }}>tap for details</Text>
               {/* Goal celebration overlay */}
               <Animated.View
                 pointerEvents="none"
@@ -1379,6 +1419,150 @@ export function HealthScreen() {
         );
       })()}
       </Animated.View>
+
+      {/* ── Sleep expanded panel ── */}
+      {sleepExpanded && (function () {
+        const amberFgE = (theme as any).amber?.fg ?? "#7A5600";
+        const amberSubE = (theme as any).amber?.sub ?? "#906808";
+        const amberSolidE = (theme as any).amber?.solid ?? "#B88820";
+        const amberBgE = (theme as any).amber?.bg ?? "#F8EEC8";
+        const scoreColorE = sleepScore === null
+          ? amberSolidE
+          : sleepScore >= 75 ? theme.success
+          : sleepScore >= 50 ? theme.warning
+          : theme.danger;
+
+        // Format seconds helper
+        const fmtSecs = (s: number) => {
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          return m > 0 ? h + "h " + m + "m" : h + "h";
+        };
+
+        // Week avg vs last week
+        const weekAvgLine = (() => {
+          if (!sleepWeekAvgSecs || sleepWeekAvgSecs === 0) return null;
+          const avg = fmtSecs(sleepWeekAvgSecs);
+          if (!sleepLastWeekAvgSecs || sleepLastWeekAvgSecs === 0) return "Avg " + avg + " this week";
+          const diff = sleepWeekAvgSecs - sleepLastWeekAvgSecs;
+          const absDiff = Math.abs(diff);
+          const diffLabel = fmtSecs(absDiff);
+          const arrow = diff >= 0 ? "+" : "−";
+          return "Avg " + avg + " · " + arrow + diffLabel + " vs last week";
+        })();
+
+        // Bedtime consistency
+        const consistencyLine = (() => {
+          if (sleepBedtimeSpreadMins === null) return null;
+          const h = Math.floor(sleepBedtimeSpreadMins / 60);
+          const m = Math.round(sleepBedtimeSpreadMins % 60);
+          const label = h > 0 ? (h + "h " + (m > 0 ? m + "m" : "")) : m + "m";
+          return "Bedtime varied by " + label.trim() + " this week";
+        })();
+
+        // Stage quality from last night's stages
+        const stageQuality = (() => {
+          if (!sleepStages) return null;
+          const total = (sleepStages.deepMs ?? 0) + (sleepStages.remMs ?? 0) + (sleepStages.lightMs ?? 0) + (sleepStages.awakeMs ?? 0);
+          if (total === 0) return null;
+          const deepPct = Math.round(((sleepStages.deepMs ?? 0) / total) * 100);
+          const remPct = Math.round(((sleepStages.remMs ?? 0) / total) * 100);
+          return { deepPct, remPct, lowDeep: deepPct < 15 };
+        })();
+
+        // Debt / recovery outlook
+        const debtLine = (() => {
+          if (sleepAvgSecs === null) return null;
+          const debtSecs = (8 * 3600 - sleepAvgSecs) * 7;
+          if (debtSecs <= 0) {
+            return { text: "You're all caught up", ok: true };
+          }
+          const h = Math.floor(debtSecs / 3600);
+          const m = Math.floor((debtSecs % 3600) / 60);
+          const debtLabel = h > 0 ? (h + "h " + (m > 0 ? m + "m" : "")).trim() : m + "m";
+          const msg = debtSecs <= 7200
+            ? "You're " + debtLabel + " behind — an early night tonight will clear it"
+            : "You're " + debtLabel + " behind — a couple of early nights will clear it";
+          return { text: msg, ok: false };
+        })();
+
+        return (
+          <View
+            style={{
+              marginTop: 6,
+              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: amberSolidE,
+              backgroundColor: amberBgE,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              gap: 8,
+              ...(() => {
+                const isDarkE = !!(theme as any).isDark;
+                return isDarkE
+                  ? { shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2 }
+                  : { shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 6, elevation: 2 };
+              })(),
+            }}
+          >
+            {/* Week avg vs last week */}
+            {weekAvgLine && (
+              <Text style={{ fontSize: 12, fontWeight: "700", color: amberFgE }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                {weekAvgLine}
+              </Text>
+            )}
+            {/* Bedtime consistency */}
+            {consistencyLine && (
+              <Text style={{ fontSize: 12, fontWeight: "600", color: amberSubE }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                {consistencyLine}
+              </Text>
+            )}
+            {/* Stage quality */}
+            {stageQuality && (
+              <Text style={{ fontSize: 12, fontWeight: "600", color: stageQuality.lowDeep ? theme.warning : amberSubE }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                {stageQuality.deepPct}% deep{stageQuality.lowDeep ? " (low)" : ""} · {stageQuality.remPct}% REM
+              </Text>
+            )}
+            {/* Smart insight */}
+            {sleepInsight && (
+              <Pressable
+                onPress={() => navigation.getParent()?.navigate("Insights")}
+                accessibilityRole="button"
+                accessibilityLabel={"Sleep insight: " + sleepInsight + ". Tap to open Insights."}
+                hitSlop={6}
+              >
+                <Text style={{ fontSize: 12, fontWeight: "600", color: theme.primary, textDecorationLine: "underline" }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                  {sleepInsight}
+                </Text>
+              </Pressable>
+            )}
+            {/* Debt / recovery */}
+            {debtLine && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                {debtLine.ok && <Ionicons name="checkmark-circle" size={13} color={theme.success} />}
+                <Text
+                  style={{ fontSize: 12, fontWeight: "700", color: debtLine.ok ? theme.success : theme.warning, flex: 1 }}
+                  allowFontScaling
+                  maxFontSizeMultiplier={1.3}
+                >
+                  {debtLine.text}
+                </Text>
+              </View>
+            )}
+            {/* Navigation link */}
+            <Pressable
+              onPress={() => navigation.getParent()?.navigate("SleepDetail")}
+              accessibilityRole="button"
+              accessibilityLabel="Open sleep detail screen"
+              hitSlop={6}
+              style={{ alignSelf: "flex-end", flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 }}
+            >
+              <Text style={{ fontSize: 11, fontWeight: "700", color: amberSubE }}>Details</Text>
+              <Ionicons name="chevron-forward" size={11} color={amberSubE} />
+            </Pressable>
+          </View>
+        );
+      })()}
 
       {lastRefreshed && (
         <Text style={{ fontSize: 9, lineHeight: 13, fontWeight: "700", color: theme.textSoft, textAlign: "right", opacity: 0.7, marginTop: 6 }}>

@@ -90,7 +90,9 @@ Ripple Wellness is an Expo React Native app (TypeScript) backed by a Fastify/Pos
 
 **What it does:** User-defined numeric metrics (water intake is a built-in example). Supports logs, daily/weekly/monthly breakdowns, and stats. Water goal is surfaced in the dashboard.
 
-**Screens:** `src/screens/HealthScreen.tsx`, `src/screens/HealthTabScreen.tsx`
+**Screens:** `src/screens/HealthScreen.tsx`, `src/screens/HealthTabScreen.tsx`, `src/screens/WaterDetailScreen.tsx`
+
+**Water detail screen** (`WaterDetailScreen.tsx`): dedicated screen reachable from the water chip on HealthScreen. Features a droplet-fill hero, ripple log button, today's intake timeline, 7-day droplet strip, streak stats, and an AsyncStorage-backed goal editor.
 
 **API:**
 | Method | Path | File |
@@ -103,7 +105,7 @@ Ripple Wellness is an Expo React Native app (TypeScript) backed by a Fastify/Pos
 | GET | `/api/metrics/:id/stats` | `metrics.ts` |
 | GET | `/api/metrics/:id/daily-breakdown` | `metrics.ts` |
 | GET | `/api/metrics/:id/monthly-breakdown` | `metrics.ts` |
-| GET | `/api/metrics/:id/weekly-total` | `metrics.ts` |
+| GET | `/api/metrics/:id/weekly-total` | `metrics.ts` — returns `{ week_total, last_week_total, month_to_date_total }`, honors `week_start_day` |
 
 **Data:** `metrics`, `metric_logs`
 
@@ -158,15 +160,16 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 ## 6. Heart Rate
 
-**What it does:** Ingest heart rate readings in bulk from Health Connect (Android). Provides daily summary and recent readings list. Used by the Insights Engine for recovery score computation.
+**What it does:** Ingest heart rate readings in bulk from Health Connect (Android). Provides daily summary, recent readings list, and advanced stats. Used by the Insights Engine for recovery score computation.
 
-**Screens:** `src/screens/HeartRateDetailScreen.tsx`
+**Screens:** `src/screens/HeartRateDetailScreen.tsx` — upgraded with: 30-day resting-HR trend chart with 7-day rolling average, week-vs-last-week comparison (honors `week_start`), time-in-zones (DOB-based max HR; falls back to 190 if DOB absent), today's min/max with timestamps, and an HR insight banner.
 
 **API:**
 | Method | Path | File |
 |--------|------|------|
 | GET | `/api/heart-rate` | `heart-rate.ts` |
 | GET | `/api/heart-rate/daily` | `heart-rate.ts` |
+| GET | `/api/heart-rate/stats` | `heart-rate.ts` — 30-day resting trend, rolling avg, zones, week comparison |
 | POST | `/api/health-connect/heart-rate` | `health-connect.ts` |
 
 **Data:** `heart_rate_readings`
@@ -181,7 +184,7 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **What it does:** Sleep sessions synced from Health Connect with optional sleep stages (REM, deep, light, awake). Exposes range queries, stats, and per-session detail. Sleep data feeds Insights Engine correlations.
 
-**Screens:** `src/screens/SleepDetailScreen.tsx`
+**Screens:** `src/screens/SleepDetailScreen.tsx`. HealthScreen sleep card upgraded with: score ring, 7-night bar strip, and an expanded panel showing week avg vs last week, bedtime consistency spread, stage-% line, sleep insight link, and a recovery-outlook debt line.
 
 **API:**
 | Method | Path | File |
@@ -189,11 +192,13 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 | POST | `/api/health-connect/sleep` | `health-connect.ts` |
 | GET | `/api/health-connect/sleep` | `health-connect.ts` |
 | GET | `/api/health-connect/sleep/range` | `health-connect.ts` |
-| GET | `/api/health-connect/sleep/stats` | `health-connect.ts` |
+| GET | `/api/health-connect/sleep/stats` | `health-connect.ts` — extended with `week_avg_seconds`, `last_week_avg_seconds`, `bedtime_spread_mins` (additive) |
 
 **Data:** `sleep_sessions` + `sleep_stages` (migration 030)
 
 **External deps:** Android Health Connect; `src/screens/settings/HealthConnectSettingsScreen.tsx`
+
+**Samsung Health:** supported via Health Connect — Samsung Health syncs steps/sleep/HR into Health Connect (user enables it in Samsung Health → Settings → Connected services). The Health Connect settings screen has a Samsung Health setup card. No direct Samsung API integration. Disconnect controls added: `revokeAllPermissions` + Samsung Health guidance.
 
 **Status:** Shipped
 
@@ -203,7 +208,7 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **What it does:** Step counts synced from Health Connect. Exercise library + session logging with set/rep/weight entries, progressive overload tracking, and a Workout Setup Wizard that generates a personalized program. Includes AI-suggested next workout.
 
-**Screens:** `src/screens/ExerciseScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/ExerciseSessionScreen.tsx`, `src/screens/WorkoutSetupWizard.tsx`, `src/screens/StepsDetailScreen.tsx`
+**Screens:** `src/screens/ExerciseScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/ExerciseSessionScreen.tsx`, `src/screens/WorkoutSetupWizard.tsx`, `src/screens/StepsDetailScreen.tsx` — steps detail now shows This week / Last week / Month-to-date / Daily avg panels. HealthScreen step chip shows the current week total.
 
 **API:** `exercise.ts` (12 routes), `programs.ts` (11 routes), `health-connect.ts` (`/steps` GET+POST)
 
@@ -437,7 +442,9 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 
 **Screens:** `src/screens/WatchTilesScreen.tsx`
 
-**API:** `GET /api/auth/widget-token` — issues restricted JWT. Widget-allowed endpoints enforced in `backend/src/middleware/auth.ts` (`isWidgetAllowed`).
+**API:** `GET /api/auth/widget-token` — issues restricted JWT. Widget-allowed endpoints enforced in `backend/src/middleware/auth.ts` (`isWidgetAllowed`). `WIDGET_GET_PREFIXES` now includes `/api/health-connect/sleep/stats`.
+
+**Watch breathing activity** (`plugins/wear-tile/RippleWearBreathingActivity.kt`): redesigned with full-face layout. BoxAnimView draws a square-perimeter animation for BOX pace. Ripple animations added: phase-transition rings, trail echo, ambient picker ripples, completion burst, box corner pulses. Tile text fixes applied. Widget sleep was 404ing on wrong path — fixed in `RippleWidgetProvider.kt`. **These are native changes; they take effect in the next build.**
 
 **Data:** No separate table — token carries `user_id`
 
@@ -512,9 +519,9 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 Items carried forward from `FEATURE_IDEAS.md` that are **not** yet shipped:
 
 ### Health Intelligence
-- **Sleep debt counter** — running tally of sleep hours owed vs. baseline
-- **Heart rate zones** — classify workout time in rest/fat-burn/cardio/peak zones
-- **Resting HR trend chart** — 30-day chart; flag fitness improvements or illness spikes
+- **Sleep debt counter** — running tally of sleep hours owed vs. baseline *(recovery-outlook debt line now on sleep card — full counter TBD)*
+- **Heart rate zones** — ✅ shipped (time-in-zones on HeartRateDetailScreen)
+- **Resting HR trend chart** — ✅ shipped (30-day trend + 7-day rolling avg on HeartRateDetailScreen)
 - **Glucose variability index** — coefficient of variation alongside average
 - **Menstrual cycle phase overlays** on glucose and mood charts
 - **Stress proxy** — HRV-estimated stress indicator (low/med/high)

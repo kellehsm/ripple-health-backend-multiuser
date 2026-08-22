@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ScrollView, View, Text, Switch, Pressable, StyleSheet, Alert, Platform } from "react-native";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { useFocusEffect } from "@react-navigation/core";
-import { getGrantedPermissions, initialize } from "react-native-health-connect";
+import { getGrantedPermissions, initialize, revokeAllPermissions } from "react-native-health-connect";
 import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../../theme/ThemeContext";
 import { onSolid } from "../../theme/colorUtils";
@@ -15,13 +15,16 @@ type HCSettings = {
   sync_steps?: boolean;
   sync_sleep?: boolean;
   sync_heart_rate?: boolean;
+  sync_exercise?: boolean;
+  sync_weight?: boolean;
+  sync_spo2?: boolean;
 };
 
 export function HealthConnectSettingsScreen() {
   const { theme } = useTheme();
   const [hc, setHc] = useState<HCSettings>({});
   const [hcGranted, setHcGranted] = useState<boolean | null>(null);
-  const [grantedRecords, setGrantedRecords] = useState<{ steps: boolean; sleep: boolean; heart: boolean }>({ steps: false, sleep: false, heart: false });
+  const [grantedRecords, setGrantedRecords] = useState<{ steps: boolean; sleep: boolean; heart: boolean; exercise: boolean; weight: boolean; spo2: boolean }>({ steps: false, sleep: false, heart: false, exercise: false, weight: false, spo2: false });
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
@@ -46,10 +49,13 @@ export function HealthConnectSettingsScreen() {
       const hasSteps = granted.some((p: any) => p.recordType === "Steps" && p.accessType === "read");
       const hasSleep = granted.some((p: any) => p.recordType === "SleepSession" && p.accessType === "read");
       const hasHR = granted.some((p: any) => p.recordType === "HeartRate" && p.accessType === "read");
-      setGrantedRecords({ steps: hasSteps, sleep: hasSleep, heart: hasHR });
+      const hasExercise = granted.some((p: any) => p.recordType === "ExerciseSession" && p.accessType === "read");
+      const hasWeight = granted.some((p: any) => p.recordType === "Weight" && p.accessType === "read");
+      const hasSpo2 = granted.some((p: any) => p.recordType === "OxygenSaturation" && p.accessType === "read");
+      setGrantedRecords({ steps: hasSteps, sleep: hasSleep, heart: hasHR, exercise: hasExercise, weight: hasWeight, spo2: hasSpo2 });
       // "Granted" = at least one record connected. Partial grants are valid;
       // the per-record chips below tell the user exactly what's on.
-      setHcGranted(hasSteps || hasSleep || hasHR);
+      setHcGranted(hasSteps || hasSleep || hasHR || hasExercise || hasWeight || hasSpo2);
     } catch (_) {
       // Transient IPC failure — keep the last known state rather than flipping
       // to "Not granted" and confusing the user.
@@ -82,11 +88,14 @@ export function HealthConnectSettingsScreen() {
     try {
       const granted = await requestHealthPermissions();
       if (!granted) { setSyncResult("Permission denied by Health Connect."); return; }
-      const result = await syncHealthData();
+      const result = await syncHealthData({ syncExercise: hc.sync_exercise !== false, syncWeight: hc.sync_weight !== false, syncSpo2: hc.sync_spo2 !== false });
       const parts: string[] = [];
       if (result.steps !== null) parts.push(result.steps.toLocaleString() + " steps");
       if (result.sleepHours !== null) parts.push(result.sleepHours + "h sleep");
       if (result.heartRate !== null) parts.push(result.heartRate + " bpm");
+      if (result.activeMinutes !== null) parts.push(result.activeMinutes + "min active");
+      if (result.weightKg !== null) parts.push(result.weightKg + "kg");
+      if (result.spo2Pct !== null) parts.push(result.spo2Pct + "% SpO2");
       if (result.errors.length > 0) parts.push("errors: " + result.errors.join(", "));
       setSyncResult(parts.length > 0 ? "Synced: " + parts.join(" · ") : "No new data found.");
     } catch (e: any) {
@@ -102,7 +111,7 @@ export function HealthConnectSettingsScreen() {
     try {
       const granted = await requestHealthPermissions();
       if (!granted) { setBackfillResult("Health Connect permission required."); return; }
-      const result = await syncHealthData();
+      const result = await syncHealthData({ syncExercise: hc.sync_exercise !== false, syncWeight: hc.sync_weight !== false, syncSpo2: hc.sync_spo2 !== false });
       const parts: string[] = [];
       if (result.steps !== null) parts.push(result.steps.toLocaleString() + " steps today");
       if (result.errors.length > 0) parts.push("errors: " + result.errors.join(", "));
@@ -133,6 +142,30 @@ export function HealthConnectSettingsScreen() {
     }
   }
 
+  async function handleDisconnectHC() {
+    Alert.alert(
+      "Disconnect Health Connect?",
+      "Ripple will lose access to all Health Connect data. You can reconnect at any time by granting permissions again.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Disconnect",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await revokeAllPermissions();
+              await api.patchSettings({ health_connect: { ...hc, auto_sync_enabled: false } });
+              setHc((prev) => ({ ...prev, auto_sync_enabled: false }));
+              await checkPermissions();
+            } catch (e: any) {
+              Alert.alert("Error", e?.message ?? "Failed to revoke permissions.");
+            }
+          },
+        },
+      ]
+    );
+  }
+
   if (Platform.OS !== "android") {
     return (
       <View style={{ flex: 1, backgroundColor: theme.page, alignItems: "center", justifyContent: "center" }}>
@@ -158,6 +191,9 @@ export function HealthConnectSettingsScreen() {
               { label: "Steps", on: grantedRecords.steps },
               { label: "Sleep", on: grantedRecords.sleep },
               { label: "Heart rate", on: grantedRecords.heart },
+              { label: "Exercise", on: grantedRecords.exercise },
+              { label: "Weight", on: grantedRecords.weight },
+              { label: "SpO2", on: grantedRecords.spo2 },
             ].map((chip) => (
               <View
                 key={chip.label}
@@ -177,7 +213,7 @@ export function HealthConnectSettingsScreen() {
             ))}
           </View>
         )}
-        {(hcGranted === false || (hcGranted && !(grantedRecords.steps && grantedRecords.sleep && grantedRecords.heart))) && (
+        {(hcGranted === false || (hcGranted && !(grantedRecords.steps && grantedRecords.sleep && grantedRecords.heart && grantedRecords.exercise && grantedRecords.weight && grantedRecords.spo2))) && (
           <Pressable
             onPress={async () => { await requestHealthPermissions().catch(() => false); checkPermissions(); }}
             style={[styles.btn, { backgroundColor: theme.teal.solid, borderColor: theme.teal.sub }]}
@@ -187,6 +223,44 @@ export function HealthConnectSettingsScreen() {
             </Text>
           </Pressable>
         )}
+        {hcGranted && (
+          <Pressable
+            onPress={handleDisconnectHC}
+            style={[styles.btn, { backgroundColor: theme.coral.tint, borderColor: theme.coral.sub }]}
+          >
+            <Text style={{ color: theme.coral.fg, fontWeight: "600" }}>Disconnect Health Connect</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>SAMSUNG HEALTH</Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Text style={[styles.desc, { color: theme.textSoft }]}>
+          Use Samsung Health? Your steps, sleep, and heart rate flow into Ripple automatically through Health Connect — no separate login needed.
+        </Text>
+        <Text style={[styles.desc, { color: theme.textSoft }]}>
+          One-time setup: open Samsung Health → Settings → Connected services → Health Connect, and turn on sharing for Steps, Sleep, and Heart rate. Then grant the permissions above.
+        </Text>
+        <Pressable
+          onPress={() => IntentLauncher.startActivityAsync("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS").catch(() => Alert.alert("Unavailable", "Could not open Health Connect settings."))}
+          style={[styles.btn, { backgroundColor: theme.blue.tint, borderColor: theme.blue.sub }]}
+        >
+          <Text style={{ color: theme.blue.fg, fontWeight: "600" }}>Open Health Connect settings</Text>
+        </Pressable>
+        <Text style={{ color: theme.textSoft, fontSize: 11 }}>
+          Tip: after enabling, use "Sync now" below — if numbers appear, Samsung Health is connected.
+        </Text>
+        <View style={{ borderTopWidth: 1, borderColor: theme.cardBorder, marginTop: 4, paddingTop: 8 }}>
+          <Text style={[styles.desc, { color: theme.textSoft }]}>
+            To disconnect Samsung Health: open Health Connect settings below → App permissions → Connected apps → Samsung Health → turn off all permissions.
+          </Text>
+          <Pressable
+            onPress={() => IntentLauncher.startActivityAsync("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS").catch(() => Alert.alert("Unavailable", "Could not open Health Connect settings."))}
+            style={[styles.btn, { backgroundColor: theme.coral.tint, borderColor: theme.coral.sub }]}
+          >
+            <Text style={{ color: theme.coral.fg, fontWeight: "600" }}>Disconnect Samsung Health</Text>
+          </Pressable>
+        </View>
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>AUTO-SYNC</Text>
@@ -196,6 +270,9 @@ export function HealthConnectSettingsScreen() {
         <ToggleRow label="Sync steps" value={hc.sync_steps !== false} onChange={(v) => setToggle("sync_steps", v)} theme={theme} />
         <ToggleRow label="Sync sleep" value={hc.sync_sleep !== false} onChange={(v) => setToggle("sync_sleep", v)} theme={theme} />
         <ToggleRow label="Sync heart rate" value={hc.sync_heart_rate !== false} onChange={(v) => setToggle("sync_heart_rate", v)} theme={theme} />
+        <ToggleRow label="Sync exercise (active minutes)" value={hc.sync_exercise !== false} onChange={(v) => setToggle("sync_exercise", v)} theme={theme} />
+        <ToggleRow label="Sync weight" value={hc.sync_weight !== false} onChange={(v) => setToggle("sync_weight", v)} theme={theme} />
+        <ToggleRow label="Sync blood oxygen (SpO2)" value={hc.sync_spo2 !== false} onChange={(v) => setToggle("sync_spo2", v)} theme={theme} />
       </View>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>MANUAL SYNC</Text>

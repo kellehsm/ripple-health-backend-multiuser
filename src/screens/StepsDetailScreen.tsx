@@ -72,6 +72,7 @@ export function StepsDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [monthlyData, setMonthlyData] = useState<MonthWeek[] | null>(null);
+  const [monthToDateTotal, setMonthToDateTotal] = useState<number | null>(null);
 
   // Widget deep links open this screen without route params — resolve the
   // steps metricId / week-start ourselves so the screen doesn't crash.
@@ -112,6 +113,10 @@ export function StepsDetailScreen() {
       .metricMonthlyBreakdown(metricId, weekStartDay)
       .then(setMonthlyData)
       .catch(() => {});
+    api
+      .stepsWeeklyTotal(metricId, weekStartDay)
+      .then((r) => setMonthToDateTotal(r.month_to_date_total))
+      .catch(() => {});
   }, [metricId, weekStartDay]);
 
   function handleRefresh() {
@@ -120,6 +125,7 @@ export function StepsDetailScreen() {
     Promise.all([
       api.metricDailyBreakdown(metricId, weekStartDay).then(setData).catch(() => {}),
       api.metricMonthlyBreakdown(metricId, weekStartDay).then(setMonthlyData).catch(() => {}),
+      api.stepsWeeklyTotal(metricId, weekStartDay).then((r) => setMonthToDateTotal(r.month_to_date_total)).catch(() => {}),
     ]).finally(() => setRefreshing(false));
   }
 
@@ -165,7 +171,7 @@ export function StepsDetailScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
     <ScreenBackground pageId="steps_detail" />
-    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}>
+    <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}>
       {/* Summary stats */}
       <View style={s.card}>
         <View style={s.statsRow}>
@@ -174,23 +180,19 @@ export function StepsDetailScreen() {
             <Text style={[s.statLbl, { color: theme.textSoft }]}>This week</Text>
           </View>
           <View style={s.stat}>
+            <Text style={[s.statVal, { color: theme.textStrong }]}>{fmt(last_week_total)}</Text>
+            <Text style={[s.statLbl, { color: theme.textSoft }]}>Last week</Text>
+          </View>
+          {monthToDateTotal !== null && (
+            <View style={s.stat}>
+              <Text style={[s.statVal, { color: theme.textStrong }]}>{fmtCompact(monthToDateTotal)}</Text>
+              <Text style={[s.statLbl, { color: theme.textSoft }]}>Month to date</Text>
+            </View>
+          )}
+          <View style={s.stat}>
             <Text style={[s.statVal, { color: theme.textStrong }]}>{fmt(this_week_average)}</Text>
             <Text style={[s.statLbl, { color: theme.textSoft }]}>Daily avg</Text>
           </View>
-          {bestDay && bestDay.total > 0 && (
-            <View style={s.stat}>
-              <Text style={[s.statVal, { color: theme.textStrong }]}>{fmtCompact(bestDay.total)}</Text>
-              <Text style={[s.statLbl, { color: theme.textSoft }]}>Best ({bestDay.day_label})</Text>
-            </View>
-          )}
-          {wowPct !== null && (
-            <View style={s.stat}>
-              <Text style={[s.statVal, { color: wowPct >= 0 ? theme.teal.bar : theme.coral.sub }]}>
-                {wowPct >= 0 ? "+" : ""}{wowPct}%
-              </Text>
-              <Text style={[s.statLbl, { color: theme.textSoft }]}>vs last week</Text>
-            </View>
-          )}
         </View>
       </View>
 

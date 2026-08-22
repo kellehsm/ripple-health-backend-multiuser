@@ -23,7 +23,7 @@ const WIDGET_GET_PREFIXES = [
   "/api/glucose/status",
   "/api/health-connect/steps",
   "/api/heart-rate",
-  "/api/sleep/stats",
+  "/api/health-connect/sleep/stats",
   "/api/metrics",
   "/api/insights",
   "/api/mindfulness/stats",

@@ -169,7 +169,7 @@ export function MonthlyRecapScreen() {
         </View>
       ) : (
         <ViewShot ref={viewShotRef} options={{ format: "png", quality: 0.95, result: "tmpfile" }}>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <View>
               <Text style={{ fontSize: 22, fontWeight: "900", color: theme.textStrong }}>{monthLabel(review.month)}</Text>

@@ -107,7 +107,7 @@ class RippleWearBreatheTileService : TileService() {
         col.addContent(Spacer.Builder().setHeight(dp(12f)).build())
         col.addContent(breathePill(context))
         col.addContent(Spacer.Builder().setHeight(dp(6f)).build())
-        col.addContent(text("HAPTIC-GUIDED · TWO PACES", 8, LABEL_GRAY.toInt(), bold = true))
+        col.addContent(text("HAPTIC-GUIDED · 5 PACES", 8, LABEL_GRAY.toInt(), bold = true))
         col.addContent(Spacer.Builder().setHeight(dp(2f)).build())
         val stamp = if (cache.updatedAt.isNotEmpty()) "Updated ${cache.updatedAt}" else "Open Ripple to sync"
         col.addContent(text(stamp, 7, LABEL_GRAY.toInt()))
