@@ -30,6 +30,7 @@ import { ScreenBackground } from "../components/ScreenBackground";
 import { formatDayHeader, formatTime, todayStr } from "../utils/dateUtils";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 import { isReducedMotion } from "../lib/motion";
+import { CountUpText } from "../components/CountUpText";
 
 const FINANCE_SECTIONS: SectionDef[] = [
   { id: 'totals',       label: 'Total spent',              description: 'Spending total card with add button' },
@@ -675,15 +676,21 @@ export function FinanceScreen() {
               <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
                 <View>
                   <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>PROJECTED</Text>
-                  <Text style={{ color: overBudget ? (theme.red?.solid ?? "#C0392B") : theme.textStrong, fontSize: 26, fontWeight: "900", letterSpacing: -0.5 }}>
-                    {formatAmount(monthForecast.projected)}
-                  </Text>
+                  <CountUpText
+                    value={monthForecast.projected}
+                    format={(v) => formatAmount(v)}
+                    duration={400}
+                    style={{ color: overBudget ? (theme.red?.solid ?? "#C0392B") : theme.textStrong, fontSize: 26, fontWeight: "900", letterSpacing: -0.5 }}
+                  />
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
                   <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "800", letterSpacing: 0.5 }}>BUDGET</Text>
-                  <Text style={{ color: theme.textSoft, fontSize: 26, fontWeight: "900", letterSpacing: -0.5 }}>
-                    {formatAmount(monthForecast.budget)}
-                  </Text>
+                  <CountUpText
+                    value={monthForecast.budget}
+                    format={(v) => formatAmount(v)}
+                    duration={400}
+                    style={{ color: theme.textSoft, fontSize: 26, fontWeight: "900", letterSpacing: -0.5 }}
+                  />
                 </View>
               </View>
               <View style={{ height: 8, backgroundColor: theme.cardBorder, borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>

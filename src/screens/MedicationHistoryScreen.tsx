@@ -96,7 +96,7 @@ export function MedicationHistoryScreen() {
     <ScrollView
       style={{ backgroundColor: theme.page }}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
     >
       <Text style={[styles.medName, { color: theme.textStrong }]}>{medicationName}</Text>
 

@@ -52,7 +52,7 @@
 | `/auth/google` | routes/google-auth.ts | Google OAuth callback flow |
 | `/api/books-search` | routes/books-search.ts | Proxy search to Hardcover / external book APIs |
 | `/api/food` | routes/food.ts | Nutrition lookup via Passio / USDA FDC |
-| `/api/metrics` | routes/metrics.ts | Generic metric definitions and log entries |
+| `/api/metrics` | routes/metrics.ts | Generic metric definitions and log entries; `GET /:id/weekly-total` returns `{ week_total, last_week_total, month_to_date_total }` (honors `week_start_day`) |
 | `/api/books` | routes/books.ts | User book library and reading logs |
 | `/api/hobbies` | routes/hobbies.ts | Hobby definitions and session logs |
 | `/api/meals` | routes/meals.ts | Meal log (macros, calories, barcode lookup) |
@@ -62,8 +62,8 @@
 | `/api/journal` | routes/journal.ts | Journal entries with mood scores |
 | `/api/summary` | routes/summary.ts | Daily summary reads |
 | `/api/chat` | routes/chat.ts | Anthropic-backed wellness assistant (20 req/min) |
-| `/api/health-connect` | routes/health-connect.ts | Android Health Connect ingest (steps, sleep, HR) |
-| `/api/heart-rate` | routes/heart-rate.ts | Heart rate history and stats |
+| `/api/health-connect` | routes/health-connect.ts | Android Health Connect ingest (steps, sleep, HR, exercise, weight, SpO₂); `/sleep/stats` extended with `week_avg_seconds`, `last_week_avg_seconds`, `bedtime_spread_mins`; also in `WIDGET_GET_PREFIXES` |
+| `/api/heart-rate` | routes/heart-rate.ts | Heart rate history and stats; `GET /api/heart-rate/stats` returns 30-day resting trend, 7-day rolling avg, week comparison, time-in-zones |
 | `/api/settings` | routes/settings.ts | User settings CRUD |
 | `/api/settings/google-drive` | routes/google-drive.ts | Google Drive backup enable/trigger |
 | `/api/export` | routes/export.ts | CSV/JSON health data export |

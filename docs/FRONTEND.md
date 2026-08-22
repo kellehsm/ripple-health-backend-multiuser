@@ -24,10 +24,10 @@
 | Directory | Purpose |
 |---|---|
 | `api/` | `baseUrl.ts` (URL resolution), `client.ts` (fetch wrapper, dedup, timeout), `config.ts`, `friends.ts` |
-| `components/` | ~55 shared UI components: cards, modals, sheets, banners, forms, loaders |
+| `components/` | ~55 shared UI components: cards, modals, sheets, banners, forms, loaders. Reusable animation components: `CountUpText.tsx` (animated number count-up), `AnimatedProgressRing.tsx` (SVG arc sweep on mount), `ConfettiBurst.tsx` (particle burst on milestone). |
 | `constants/` | `dashboardCards.ts`, `moodCategories.ts`, `index.ts` |
 | `context/` | `TabPreferencesContext.tsx` — tab ordering/visibility state |
-| `hooks/` | `useHaptic`, `useModals`, `usePressScale`, `useReduceMotion`, `useTabPreferences` |
+| `hooks/` | `useHaptic`, `useModals`, `usePressScale`, `useReduceMotion` (returns `boolean`; screens skip animations when true — use in all new animated screens), `useTabPreferences` |
 | `lib/` | Stateful platform helpers: `auth.ts`, `biometricLock.ts`, `fastingTimer.ts`, `foregroundService.ts`, `healthConnect.ts`, `insightAlerts.ts`, `notifeeSafe.ts`, `smartNotifications.ts`, `timezone.ts`, `toast.ts`, etc. |
 | `navigation/` | `RootTabs.tsx` (NavigationContainer + stack + tab navigator), `navigationRef.ts` |
 | `onboarding/` | `featureIntros.ts`, `useFeatureIntro.ts` — per-feature first-time flows |
@@ -41,7 +41,7 @@
 
 Two-level navigation inside `RootTabs.tsx`:
 
-**Root stack** (`createNativeStackNavigator`): `Tabs` (headerShown: false) + ~35 named screens pushed on top — Settings, History, all detail screens (Steps/HeartRate/Sleep), Insights, Mindfulness, Chat, ExerciseSession, Friends, Challenges, Leaderboard, Medication flows, Experiments, monthly recap, watch tiles, etc.
+**Root stack** (`createNativeStackNavigator`): `Tabs` (headerShown: false) + ~35 named screens pushed on top — Settings, History, all detail screens (Steps/HeartRate/Sleep), Insights, Mindfulness, Chat, ExerciseSession, Friends, Challenges, Leaderboard, Medication flows, Experiments, monthly recap, watch tiles, `WaterDetail` (navigated from the water chip on HealthScreen), etc.
 
 **Tab navigator** (inside `"Tabs"` screen): `createBottomTabNavigator` with a custom `BottomNav` tab bar. Seven routes, lazily mounted by default:
 
@@ -195,6 +195,14 @@ Current: `app.json version: "1.4.1"`, `versionCode: 20`. Bundle IDs: `com.kelleh
 - JS-only changes (screens, styles, navigation, API calls) need no build — test in Expo Go or dev client.
 - Batch all native-touching changes (new packages with native modules, permissions, icon assets, plugin config) before triggering a single build.
 - Before any preview build: fast-forward `master` to `dev` and push both remotes (see git remote policy in memory).
+
+### Pending native changes (batched for next build)
+
+These uncommitted changes touch native code and require an EAS build to take effect:
+
+- **Watch breathing activity** — redesigned layout + BoxAnimView + ripple animations (`RippleWearBreathingActivity.kt`, `RippleWearBreatheTileService.kt`, `RippleWearLogTileService.kt`, `RippleWearMainActivity.kt`).
+- **Widget sleep path fix** — `RippleWidgetProvider.kt` corrected to call `/api/health-connect/sleep/stats` (was 404ing on wrong path).
+- **New Android Health Connect permissions** in `app.json`: `READ_EXERCISE`, `READ_BODY_MEASUREMENTS`, `READ_OXYGEN_SATURATION` (enables `sync_exercise` / `sync_weight` / `sync_spo2` toggles in Health Connect settings).
 
 ### Dev client vs Expo Go
 

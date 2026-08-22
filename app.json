@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ripple Wellness",
     "slug": "ripple-health",
-    "version": "1.4.1",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ripple",
@@ -32,10 +32,13 @@
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_SLEEP",
         "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_EXERCISE",
+        "android.permission.health.READ_BODY_MEASUREMENTS",
+        "android.permission.health.READ_OXYGEN_SATURATION",
         "android.permission.FOREGROUND_SERVICE",
         "android.permission.FOREGROUND_SERVICE_HEALTH"
       ],
-      "versionCode": 20
+      "versionCode": 21
     },
     "plugins": [
       "expo-health-connect",

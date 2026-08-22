@@ -9,6 +9,9 @@ export async function requestHealthPermissions(): Promise<boolean> {
       { accessType: "read", recordType: "Steps" },
       { accessType: "read", recordType: "SleepSession" },
       { accessType: "read", recordType: "HeartRate" },
+      { accessType: "read", recordType: "ExerciseSession" },
+      { accessType: "read", recordType: "Weight" },
+      { accessType: "read", recordType: "OxygenSaturation" },
     ]);
     return granted.length > 0;
   } catch (e) {
@@ -29,10 +32,17 @@ export type SyncResult = {
   sleepHours: number | null;
   sleepStages: SleepStages | null;
   heartRate: number | null;
+  activeMinutes: number | null;
+  weightKg: number | null;
+  spo2Pct: number | null;
   errors: string[];
 };
 
-export async function syncHealthData(): Promise<SyncResult> {
+export async function syncHealthData(opts?: {
+  syncExercise?: boolean;
+  syncWeight?: boolean;
+  syncSpo2?: boolean;
+}): Promise<SyncResult> {
   await initialize();
 
   const now = new Date();
@@ -47,6 +57,13 @@ export async function syncHealthData(): Promise<SyncResult> {
   let sleepHours: number | null = null;
   let sleepStages: SleepStages | null = null;
   let heartRate: number | null = null;
+  let activeMinutes: number | null = null;
+  let weightKg: number | null = null;
+  let spo2Pct: number | null = null;
+
+  const syncExercise = opts?.syncExercise !== false;
+  const syncWeight = opts?.syncWeight !== false;
+  const syncSpo2 = opts?.syncSpo2 !== false;
 
   // Steps — use HC aggregation (deduplicates overlapping records across sources)
   try {
@@ -170,5 +187,97 @@ export async function syncHealthData(): Promise<SyncResult> {
     errors.push("Heart rate: " + (e?.message ?? "unknown error"));
   }
 
-  return { steps, sleepHours, sleepStages, heartRate, errors };
+  // ExerciseSession → active_minutes generic metric
+  // The backend exercise system is manual sets/reps only (no cardio session table),
+  // so we store total daily active minutes in the generic metrics engine.
+  if (syncExercise) {
+    try {
+      const exWindowStart = new Date(now);
+      exWindowStart.setDate(exWindowStart.getDate() - 30);
+      exWindowStart.setHours(0, 0, 0, 0);
+      const exResult = await readRecords("ExerciseSession", {
+        timeRangeFilter: {
+          operator: "between",
+          startTime: exWindowStart.toISOString(),
+          endTime: now.toISOString(),
+        },
+      });
+      if ((exResult.records as any[]).length > 0) {
+        const metric = await api.getOrCreateActiveMinutesMetric();
+        // Bucket by local date, sum duration per day
+        const byDate: Record<string, number> = {};
+        for (const r of exResult.records as any[]) {
+          const d = new Date(r.startTime);
+          const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          const durMin = Math.round((new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / 60000);
+          byDate[localDate] = (byDate[localDate] ?? 0) + durMin;
+        }
+        for (const [date, minutes] of Object.entries(byDate)) {
+          if (minutes <= 0) continue;
+          await api.logMetricValue(metric.id, minutes, date + "T23:59:00.000Z");
+        }
+        const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        activeMinutes = byDate[todayLocal] ?? null;
+      }
+    } catch (e: any) {
+      errors.push("Exercise: " + (e?.message ?? "unknown error"));
+    }
+  }
+
+  // Weight → weight_kg generic metric (latest reading per day over 30d)
+  if (syncWeight) {
+    try {
+      const wWindowStart = new Date(now);
+      wWindowStart.setDate(wWindowStart.getDate() - 30);
+      wWindowStart.setHours(0, 0, 0, 0);
+      const wResult = await readRecords("Weight", {
+        timeRangeFilter: {
+          operator: "between",
+          startTime: wWindowStart.toISOString(),
+          endTime: now.toISOString(),
+        },
+      });
+      if ((wResult.records as any[]).length > 0) {
+        const metric = await api.getOrCreateWeightMetric();
+        for (const r of wResult.records as any[]) {
+          const kg = (r as any).weight?.inKilograms ?? null;
+          if (kg == null) continue;
+          await api.logMetricValue(metric.id, Math.round(kg * 10) / 10, (r as any).time ?? new Date().toISOString());
+        }
+        const last = wResult.records[wResult.records.length - 1] as any;
+        weightKg = last?.weight?.inKilograms ?? null;
+      }
+    } catch (e: any) {
+      errors.push("Weight: " + (e?.message ?? "unknown error"));
+    }
+  }
+
+  // OxygenSaturation → spo2_pct generic metric
+  if (syncSpo2) {
+    try {
+      const spo2WindowStart = new Date(now);
+      spo2WindowStart.setDate(spo2WindowStart.getDate() - 7);
+      const spo2Result = await readRecords("OxygenSaturation", {
+        timeRangeFilter: {
+          operator: "between",
+          startTime: spo2WindowStart.toISOString(),
+          endTime: now.toISOString(),
+        },
+      });
+      if ((spo2Result.records as any[]).length > 0) {
+        const metric = await api.getOrCreateSpo2Metric();
+        for (const r of spo2Result.records as any[]) {
+          const pct = (r as any).percentage?.value ?? null;
+          if (pct == null) continue;
+          await api.logMetricValue(metric.id, Math.round(pct * 10) / 10, (r as any).time ?? new Date().toISOString());
+        }
+        const last = spo2Result.records[spo2Result.records.length - 1] as any;
+        spo2Pct = last?.percentage?.value ?? null;
+      }
+    } catch (e: any) {
+      errors.push("SpO2: " + (e?.message ?? "unknown error"));
+    }
+  }
+
+  return { steps, sleepHours, sleepStages, heartRate, activeMinutes, weightKg, spo2Pct, errors };
 }

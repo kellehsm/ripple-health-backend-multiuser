@@ -293,13 +293,16 @@ export default async function metricsRoutes(app: FastifyInstance) {
 
   // Weekly total, respecting a configurable week-start day (0=Sun, 1=Mon default).
   // Uses MAX per day then SUM — steps are stored as cumulative daily totals per sync.
+  // Returns: { week_total, last_week_total, month_to_date_total }
   app.get("/:metricId/weekly-total", async (req, reply) => {
     const { metricId } = req.params as any;
     if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const { week_start_day = "1", agg = "max" } = req.query as any;
     const startDay = parseWeekStartDay(week_start_day);
     const aggFn = agg === "sum" ? "SUM" : "MAX";
-    const [result] = await query<any>(
+
+    // Current week: from the most recent week-start day up to today (inclusive)
+    const [thisWeek] = await query<any>(
       `SELECT COALESCE(SUM(day_val), 0) as total FROM (
          SELECT ${aggFn}(value) AS day_val
          FROM metric_logs
@@ -309,6 +312,36 @@ export default async function metricsRoutes(app: FastifyInstance) {
        ) t`,
       [metricId, startDay]
     );
-    return { week_total: Number(result.total) };
+
+    // Last week: the 7-day window immediately before the current week start
+    const [lastWeek] = await query<any>(
+      `SELECT COALESCE(SUM(day_val), 0) as total FROM (
+         SELECT ${aggFn}(value) AS day_val
+         FROM metric_logs
+         WHERE metric_id = $1
+           AND logged_at::date >= (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $2 + 7) % 7) * INTERVAL '1 day')::date - INTERVAL '7 days'
+           AND logged_at::date <  (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $2 + 7) % 7) * INTERVAL '1 day')::date
+         GROUP BY logged_at::date
+       ) t`,
+      [metricId, startDay]
+    );
+
+    // Month-to-date: 1st of current calendar month → today (server local date)
+    const [monthToDate] = await query<any>(
+      `SELECT COALESCE(SUM(day_val), 0) as total FROM (
+         SELECT ${aggFn}(value) AS day_val
+         FROM metric_logs
+         WHERE metric_id = $1
+           AND logged_at::date >= date_trunc('month', now())::date
+         GROUP BY logged_at::date
+       ) t`,
+      [metricId]
+    );
+
+    return {
+      week_total: Number(thisWeek.total),
+      last_week_total: Number(lastWeek.total),
+      month_to_date_total: Number(monthToDate.total),
+    };
   });
 }

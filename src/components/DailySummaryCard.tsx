@@ -2,6 +2,8 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "./ShadowCard";
+import { CountUpText } from "./CountUpText";
+import { AnimatedProgressRing } from "./AnimatedProgressRing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,14 +83,25 @@ export function DailySummaryCard({ data }: { data: DailySummaryData }) {
 
       {/* Overall score */}
       <View style={styles.overallRow}>
-        <View style={[styles.overallBadge, { backgroundColor: overallColor + "18", borderColor: overallColor }]}>
-          <Text style={[styles.overallNumber, { color: overallColor }]}>
-            {overall !== null ? overall : "--"}
-          </Text>
-          <Text style={[styles.overallLabel, { color: overallColor }]}>
-            {scoreLabel(overall)}
-          </Text>
-        </View>
+        <AnimatedProgressRing
+          size={72}
+          strokeWidth={5}
+          progress={overall !== null ? overall / 100 : 0}
+          color={overallColor}
+          duration={500}
+        >
+          <View style={{ alignItems: "center" }}>
+            <CountUpText
+              value={overall}
+              duration={450}
+              fallback="--"
+              style={[styles.overallNumber, { color: overallColor }]}
+            />
+            <Text style={[styles.overallLabel, { color: overallColor }]}>
+              {scoreLabel(overall)}
+            </Text>
+          </View>
+        </AnimatedProgressRing>
         {scores && (
           <View style={styles.overallMeta}>
             {DOMAINS.filter(d => scores[d.key] !== null).length === 0 ? (

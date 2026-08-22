@@ -187,7 +187,7 @@ export function ExperimentScreen() {
       <ScrollView
         style={{ backgroundColor: theme.page }}
         contentContainerStyle={s.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <Text style={{ fontSize: 9, fontWeight: "900", letterSpacing: 0.6, color: theme.textSoft }}>YOUR EXPERIMENTS</Text>

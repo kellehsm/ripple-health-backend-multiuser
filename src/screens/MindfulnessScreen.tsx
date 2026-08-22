@@ -411,7 +411,7 @@ export function MindfulnessScreen() {
           api.mindfulnessStats().then((s: any) => setTotalSessions(s?.total_sessions ?? 0)).catch(() => {}),
           getTodayCompletedSections().then(setTodayDone).catch(() => {}),
         ]).finally(() => setRefreshing(false));
-      }} tintColor={theme.teal.solid} />}
+      }} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
     >
       {sectionLoading ? (
         <View style={{ alignItems: "center", paddingVertical: 80 }}>

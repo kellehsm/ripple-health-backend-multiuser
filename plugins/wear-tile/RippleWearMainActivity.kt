@@ -171,6 +171,8 @@ class RippleWearMainActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(glucoseColor)
             gravity = Gravity.CENTER
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
         }, centerLp())
 
         // Label (e.g. "IN RANGE", "ELEVATED")
@@ -234,6 +236,8 @@ class RippleWearMainActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(color)
             gravity = Gravity.CENTER_VERTICAL
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
         })
         return row
     }
