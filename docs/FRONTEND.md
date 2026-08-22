@@ -210,7 +210,7 @@ Convention for async errors: screens use `try/catch` + local state for user-visi
 
 Builds run **locally on the user's machine**, not on EAS servers — but Claude may run them **when the user asks**. `eas.json` still exists (profiles: development/preview/production, autoIncrement on preview+production); since builds are local, `app.json android.versionCode` is authoritative.
 
-Current: `app.json version: "1.5.0"`, `versionCode: 28`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
+Current: `app.json version: "1.5.0"`, `versionCode: 29`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
 
 Note: every *attempted* local build increments `versionCode`, including ones that fail. A run that dies in setup still burns a number, so gaps in the sequence are expected and not a sign of a lost build.
 
@@ -285,7 +285,11 @@ adb -s <phone> install -r build-<ts>.apk
 
 ### Pending native changes (batched for next local build)
 
-None — cleared in 1.5.0 / vc 28, which shipped the previously-batched watch breathing activity redesign, the `RippleWidgetProvider.kt` sleep-path fix, the added Health Connect permissions (`READ_EXERCISE`, `READ_BODY_MEASUREMENTS`, `READ_OXYGEN_SATURATION`), and `expo-image-picker`. Both phone (SM-A326U) and watch (SM-L330) are on vc 28.
+None — cleared in 1.5.0 / vc 29. Both phone (SM-A326U) and watch (SM-L330) are on vc 29.
+
+Shipped across vc 28–29: watch breathing activity redesign, the `RippleWidgetProvider.kt` sleep-path fix, `expo-image-picker`, the Health Connect permissions (`READ_EXERCISE`, `READ_WEIGHT`, `READ_OXYGEN_SATURATION`), and the themable icon expansion.
+
+Note on the weight permission: `READ_BODY_MEASUREMENTS` is **not** a valid Health Connect permission and made the permission screen hang. It shipped in vc 28 and was replaced by `READ_WEIGHT` in vc 29 — since it lives in the manifest, only a native rebuild could fix it.
 
 Add new native-touching work here as it lands.
 
