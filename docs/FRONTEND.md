@@ -221,6 +221,8 @@ Convention for async errors: screens use `try/catch` + local state for user-visi
 
 `plugins/withWearOsTile.js` — native Wear OS tile config plugin. `src/screens/WatchTilesScreen.tsx` provides the in-app management UI for tile data.
 
+`modules/ripple-widget-sync/` — local Expo module (autolinked from `modules/`) exposing `RippleWidgetSync.syncNow()`, which broadcasts `WIDGET_WEAR_SYNC` to the widget provider to refetch + push metrics to the watch (works with no widgets pinned). JS wrapper: `src/lib/widgetSync.ts` (`syncWidgetAndWatch()` — no-op off Android or when the module is absent, e.g. Expo Go).
+
 ### Foreground service
 
 `plugins/withForegroundServiceType.js` — sets `foregroundServiceType="health"` in the manifest, required for Health Connect background reads. `src/lib/foregroundService.ts` manages starting/stopping the service.
@@ -256,6 +258,9 @@ Shipped in git (1.5.0 / vc 22) but require a native rebuild to reach devices:
 - **Widget sleep path fix** — `RippleWidgetProvider.kt` corrected to call `/api/health-connect/sleep/stats` (was 404ing on wrong path).
 - **New Android Health Connect permissions** in `app.json`: `READ_EXERCISE`, `READ_BODY_MEASUREMENTS`, `READ_OXYGEN_SATURATION` (enables `sync_exercise` / `sync_weight` / `sync_spo2` toggles in Health Connect settings).
 - **expo-image-picker** (new native module) — gallery photo selection for the meal photo scanner (`PhotoScannerModal`, "Pick from photos" in the add-food sheet).
+- **Watch swipeable insights** — multi-insight ViewFlipper on the wear main activity (`RippleWidgetProvider.kt`, `WearDataBridge.kt.template`, `WearDataListenerService.kt`, `WearCache.kt`, `RippleWearMainActivity.kt`).
+- **ripple-widget-sync local Expo module** — app-triggered widget/watch refresh (`WIDGET_WEAR_SYNC` action in `RippleWidgetProvider.kt`); fixes watch never getting steps/sleep without a pinned widget and stale water counts after in-app logs.
+- **Round-screen padding fix** — `RippleWearMainActivity.kt` pads 48/52dp top/bottom on round faces so the title clears the bezel.
 
 ### Dev client vs Expo Go
 

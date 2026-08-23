@@ -37,6 +37,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         const val ACTION_LOG_WATER = "com.kellehs.wellness.WIDGET_LOG_WATER"
         const val ACTION_NEXT_INSIGHT = "com.kellehs.wellness.WIDGET_NEXT_INSIGHT"
         const val ACTION_LOG_MOOD = "com.kellehs.wellness.WIDGET_LOG_MOOD"
+        const val ACTION_WEAR_SYNC = "com.kellehs.wellness.WIDGET_WEAR_SYNC"
 
         // Default brand colors (fallback when theme file absent)
         const val DEFAULT_TEAL   = "#3FA0A6"
@@ -107,6 +108,16 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 val mgr = AppWidgetManager.getInstance(context)
                 val ids = mgr.getAppWidgetIds(ComponentName(context, javaClass))
                 if (ids.isNotEmpty()) onUpdate(context, mgr, ids)
+            }
+            ACTION_WEAR_SYNC -> {
+                // Sent by the app (via the RippleWidgetSync native module) after
+                // logging water / syncing health data. Runs even with zero pinned
+                // widgets — onUpdate's fetch thread pushes to the watch regardless.
+                if (javaClass == RippleWidgetProvider::class.java) {
+                    val mgr = AppWidgetManager.getInstance(context)
+                    val ids = mgr.getAppWidgetIds(ComponentName(context, javaClass))
+                    onUpdate(context, mgr, ids)
+                }
             }
             ACTION_LOG_WATER -> logWaterAndRefresh(context)
             ACTION_LOG_MOOD -> logMoodAndRefresh(context, intent)
@@ -187,6 +198,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         heart = data.heart,
                         sleep = data.sleep,
                         insight = data.insights.firstOrNull()?.title ?: "",
+                        insights = data.insights.take(5).joinToString("") { it.title },
                         glucoseArrow = gluInfo.arrow,
                         glucoseLabel = gluInfo.label(),
                         glucoseTrend = gluInfo.trend,
@@ -245,7 +257,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                             water = d.water,
                             heart = d.heart,
                             sleep = d.sleep,
-                            insight = d.insights.firstOrNull()?.title ?: ""
+                            insight = d.insights.firstOrNull()?.title ?: "",
+                            insights = d.insights.take(5).joinToString("") { it.title }
                         )
                     } catch (_: Throwable) {}
                 }

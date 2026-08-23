@@ -5,11 +5,15 @@ import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.GestureDetector
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.ViewFlipper
+import kotlin.math.abs
 
 /**
  * Ripple Wear home screen — scrollable dashboard showing today's cached data.
@@ -53,8 +57,9 @@ class RippleWearMainActivity : Activity() {
         col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            // 28dp top/bottom, 22dp sides — keeps content away from bezel
-            setPadding(px(22), px(28), px(22), px(28))
+            // Round faces clip the top/bottom arcs, so pad deeper there
+            val round = resources.configuration.isScreenRound
+            setPadding(px(22), px(if (round) 48 else 28), px(22), px(if (round) 52 else 28))
         }
 
         scroll.addView(col)
@@ -95,10 +100,21 @@ class RippleWearMainActivity : Activity() {
         col.addView(statRow(px, "❤️", "Heart",  s.heart,  BERRY))
         col.addView(statRow(px, "😴", "Sleep",  s.sleep,  INDIGO))
 
-        // 4. Insight (optional)
-        if (s.insight.isNotBlank()) {
+        // 4. Insights (optional, swipeable when multiple)
+        val insightTitles = if (s.insights.isNotBlank()) {
+            s.insights.split("").filter { it.isNotBlank() }
+        } else if (s.insight.isNotBlank()) {
+            listOf(s.insight)
+        } else {
+            emptyList()
+        }
+        if (insightTitles.isNotEmpty()) {
             col.addView(divider(px))
-            col.addView(insightView(px, s.insight))
+            if (insightTitles.size > 1) {
+                col.addView(insightFlipperView(px, insightTitles))
+            } else {
+                col.addView(insightView(px, insightTitles[0]))
+            }
         }
 
         col.addView(divider(px))
@@ -253,6 +269,73 @@ class RippleWearMainActivity : Activity() {
             maxLines = 3
             setPadding(0, px(4), 0, px(4))
         }
+    }
+
+    private fun insightFlipperView(px: (Int) -> Int, texts: List<String>): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+
+        val flipper = ViewFlipper(this).apply {
+            for (text in texts) {
+                addView(insightView(px, text))
+            }
+        }
+        container.addView(flipper, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+
+        // Counter label e.g. "1 / 3"
+        val counter = TextView(this).apply {
+            text = "1 / ${texts.size}"
+            textSize = 9f
+            setTextColor(GRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, px(2), 0, 0)
+        }
+        container.addView(counter, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+
+        // Fling left → next, fling right → previous
+        val gd = GestureDetector(this,
+            object : GestureDetector.SimpleOnGestureListener() {
+                private val SWIPE_MIN_DISTANCE = px(30)
+                private val SWIPE_MIN_VELOCITY = px(50)
+
+                override fun onFling(
+                    e1: MotionEvent?,
+                    e2: MotionEvent,
+                    velocityX: Float,
+                    velocityY: Float
+                ): Boolean {
+                    val dx = (e2.x - (e1?.x ?: e2.x))
+                    val dy = (e2.y - (e1?.y ?: e2.y))
+                    if (abs(dx) < SWIPE_MIN_DISTANCE) return false
+                    if (abs(velocityX) < SWIPE_MIN_VELOCITY) return false
+                    if (abs(dy) > abs(dx)) return false
+                    if (dx < 0) {
+                        // swipe left → show next
+                        flipper.showNext()
+                    } else {
+                        // swipe right → show previous
+                        flipper.showPrevious()
+                    }
+                    val idx = flipper.displayedChild
+                    counter.text = "${idx + 1} / ${texts.size}"
+                    return true
+                }
+            })
+
+        container.setOnTouchListener { _, event ->
+            gd.onTouchEvent(event)
+            true
+        }
+
+        return container
     }
 
     // --- Button row -------------------------------------------------------

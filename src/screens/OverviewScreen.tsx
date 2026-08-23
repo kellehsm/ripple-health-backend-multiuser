@@ -25,6 +25,7 @@ import { WhatChangedCard } from "../components/WhatChangedCard";
 import { WhyMightThatBeCard } from "../components/WhyMightThatBeCard";
 import { InsightCard } from "../components/InsightCard";
 import { toast } from "../lib/toast";
+import { syncWidgetAndWatch } from "../lib/widgetSync";
 import { MoodCheckInModal, type MoodPeriod } from "../components/MoodCheckInModal";
 import { MoodPageSheet } from "../components/MoodPageSheet";
 import { MilestoneBanner } from "../components/MilestoneBanner";
@@ -267,6 +268,7 @@ export function OverviewScreen() {
     try {
       const metric = await api.getOrCreateWaterMetric();
       await api.logWater(metric.id);
+      syncWidgetAndWatch();
       setWaterCount(c => c + 1);
       toast("Water logged 💧");
     } catch { toast("Couldn't log water", "error"); }
