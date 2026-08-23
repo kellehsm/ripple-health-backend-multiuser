@@ -463,6 +463,10 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 
 **Watch breathing activity** (`plugins/wear-tile/RippleWearBreathingActivity.kt`): redesigned with full-face layout. BoxAnimView draws a square-perimeter animation for BOX pace. Ripple animations added: phase-transition rings, trail echo, ambient picker ripples, completion burst, box corner pulses. Tile text fixes applied. Widget sleep was 404ing on wrong path — fixed in `RippleWidgetProvider.kt`. **These are native changes; they take effect in the next build.**
 
+**Watch swipeable insights** (2026-08): the wear main activity's insight section is a ViewFlipper — the phone pushes up to 5 insight titles joined by U+2063 in a new `insights` data-map field (`RippleWidgetProvider.kt` → `WearDataBridge.kt.template` → `WearDataListenerService.kt` → `WearCache.kt`; legacy single `insight` field kept for older watches). `RippleWearMainActivity.kt` renders them with horizontal fling gestures and a "1 / N" counter, falling back to the single insight when no separator is present. **Native change; effective in the next build.**
+
+**App→watch sync trigger** (2026-08): previously the watch only received data when a pinned home-screen widget refreshed — no widget meant no steps/sleep on the watch, and in-app water logs never reached it. Now a local Expo module (`modules/ripple-widget-sync/`, JS wrapper `src/lib/widgetSync.ts` → `syncWidgetAndWatch()`) broadcasts `WIDGET_WEAR_SYNC` to `RippleWidgetProvider`, which refetches metrics and pushes to the watch even with zero pinned widgets. Called after every water log (Health/Overview/WatchTiles screens) and at the end of `syncHealthData()`. `RippleWearMainActivity` also gained deeper top/bottom padding on round screens (`isScreenRound`) so the "Ripple" title isn't clipped by the bezel. **Native change; effective in the next build.**
+
 **Data:** No separate table — token carries `user_id`
 
 **Status:** Partial (Android widget shipped; WearOS complication planned)

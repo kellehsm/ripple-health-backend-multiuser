@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initialize, requestPermission, readRecords } from "react-native-health-connect";
 import { api } from "../api/client";
 import { getToken } from "./auth";
+import { syncWidgetAndWatch } from "./widgetSync";
 
 // Module-level init flag so we can force re-initialization after revokeAllPermissions().
 // The library's native client becomes stale after revoke; resetting this flag ensures
@@ -342,5 +343,6 @@ export async function syncHealthData(opts?: {
     }
   }
 
+  syncWidgetAndWatch();
   return { steps, sleepHours, sleepStages, heartRate, activeMinutes, weightKg, spo2Pct, errors };
 }

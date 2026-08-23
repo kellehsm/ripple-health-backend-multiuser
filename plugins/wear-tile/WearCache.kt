@@ -18,6 +18,7 @@ object WearCache {
         val heart: String,
         val sleep: String,
         val insight: String,
+        val insights: String,        // up to 5 titles joined with ""; empty = none
         val updatedAt: String,
         val mindStreak: Int,         // mindfulness day-streak — Breathe tile hero
         val lastLogStatus: String,   // "ok" | "fail" | "" — set by the phone after a
@@ -44,6 +45,7 @@ object WearCache {
             heart         = p.getString("heart", "--") ?: "--",
             sleep         = p.getString("sleep", "--") ?: "--",
             insight       = p.getString("insight", "") ?: "",
+            insights      = p.getString("insights", "") ?: "",
             updatedAt     = p.getString("updatedAt", "") ?: "",
             mindStreak    = p.getInt("mindStreak", 0),
             lastLogStatus = p.getString("lastLogStatus", "") ?: "",
@@ -67,6 +69,7 @@ object WearCache {
         heart: String?,
         sleep: String?,
         insight: String?,
+        insights: String? = null,
         updatedAt: String?,
         mindStreak: Int?,
         lastLogStatus: String?,
@@ -87,6 +90,7 @@ object WearCache {
         if (heart != null)        edit.putString("heart", heart)
         if (sleep != null)        edit.putString("sleep", sleep)
         if (insight != null)      edit.putString("insight", insight)
+        if (insights != null)     edit.putString("insights", insights)
         if (updatedAt != null)    edit.putString("updatedAt", updatedAt)
         if (mindStreak != null)   edit.putInt("mindStreak", mindStreak)
         if (lastLogStatus != null)   edit.putString("lastLogStatus", lastLogStatus)
