@@ -82,13 +82,18 @@ const ZONE_CONFIG = [
 ];
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
+// Accepts "YYYY-MM-DD" or a full ISO timestamp — normalize to local midnight.
+function parseDay(iso: string): Date {
+  return new Date(iso.slice(0, 10) + "T00:00:00");
+}
+
 function shortDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
+  const d = parseDay(iso);
   return (d.getMonth() + 1) + "/" + d.getDate();
 }
 
 function dayLabel(iso: string): string {
-  return DAY_LABELS[new Date(iso + "T00:00:00").getDay()];
+  return DAY_LABELS[parseDay(iso).getDay()];
 }
 
 function fmtTime(iso: string): string {

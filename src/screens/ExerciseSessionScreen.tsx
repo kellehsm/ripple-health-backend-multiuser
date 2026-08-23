@@ -419,7 +419,9 @@ export function ExerciseSessionScreen() {
         text: 'Finish', onPress: async () => {
           setFinishing(true);
           try {
-            await api.finishExerciseSession(sessionId);
+            // Retro-logged (detected-workout) sessions already have ended_at —
+            // the PATCH 404s in that case, which is fine.
+            await api.finishExerciseSession(sessionId).catch(() => {});
             if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
             if (hrPollRef.current) { clearInterval(hrPollRef.current); hrPollRef.current = null; }
             const uniqueExercises = new Set(entries.map(e => e.exercise.id)).size;

@@ -225,7 +225,9 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **API:** `exercise.ts` (12 routes), `programs.ts` (11 routes), `health-connect.ts` (`/steps` GET+POST)
 
-Key routes: `GET /api/exercise/library`, `POST /api/exercise/sessions`, `GET /api/exercise/suggestion`, `GET /api/exercise/progression/:id`, `GET /api/programs/wizard/status`, `POST /api/programs/wizard/generate`
+Key routes: `GET /api/exercise/library`, `POST /api/exercise/sessions` (accepts optional `started_at`/`ended_at` for retroactive logging), `GET /api/exercise/suggestion`, `GET /api/exercise/detected-workout`, `GET /api/exercise/progression/:id`, `GET /api/programs/wizard/status`, `POST /api/programs/wizard/generate`
+
+**Workout detection:** `GET /api/exercise/detected-workout` scans today's `heart_rate_readings` for a sustained elevated window (bpm ≥ max(resting+35, 100) where resting = 7-day 5th percentile; ≥15 min span, gaps ≤5 min allowed) that doesn't overlap any logged `exercise_sessions` row. ExerciseScreen shows a "Workout detected" card (time range, avg/peak bpm) with **Log workout** (creates a session with the detected start/end, opens ExerciseSessionScreen to add exercises) and **Dismiss** (window start persisted in AsyncStorage so it doesn't re-prompt).
 
 **Data:** `exercise_library`, `exercise_sessions`, `exercise_log_entries`, `workout_programs`, `workout_program_days`, `workout_program_exercises`
 

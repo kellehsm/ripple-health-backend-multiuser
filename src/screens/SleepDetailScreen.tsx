@@ -69,7 +69,7 @@ function fmtMinsAsTime(mins: number | null): string {
 }
 
 function dayLabel(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
+  const d = new Date(iso.slice(0, 10) + "T00:00:00");
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 }
 
