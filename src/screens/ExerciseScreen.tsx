@@ -25,6 +25,23 @@ import { TooltipBubble } from '../components/TooltipBubble';
 import { hasSeenTooltip, markTooltipSeen } from '../utils/tooltipSeen';
 import { WorkoutPlannerModal, PlanExercise } from '../components/WorkoutPlannerModal';
 import { getCached, setCached, invalidateCache } from '../utils/staleCache';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface DetectedWorkout {
+  start: string;
+  end: string;
+  duration_minutes: number;
+  avg_bpm: number;
+  peak_bpm: number;
+}
+
+const DETECTED_DISMISS_KEY = 'detected_workout_dismissed';
+
+function formatClock(iso: string): string {
+  const d = new Date(iso);
+  const h = d.getHours() % 12 || 12;
+  return `${h}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
+}
 
 interface WorkoutSuggestion {
   type: string;
@@ -163,6 +180,8 @@ export function ExerciseScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<WorkoutSuggestion | null>(null);
+  const [detected, setDetected] = useState<DetectedWorkout | null>(null);
+  const [loggingDetected, setLoggingDetected] = useState(false);
   const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(null);
   const [plannerVisible, setPlannerVisible] = useState(false);
   const [plannerInitialQueue, setPlannerInitialQueue] = useState<PlanExercise[]>([]);
@@ -252,6 +271,42 @@ export function ExerciseScreen() {
     }).finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
     return () => { cancelled = true; };
   }, [prefsLoading, preferences.selectedModules, reloadKey]));
+
+  // Detected-workout check — independent of the main cache since it's time-sensitive
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    api.getDetectedWorkout()
+      .then(async (res: { detected: DetectedWorkout | null }) => {
+        if (cancelled || !res?.detected) return;
+        const dismissed = await AsyncStorage.getItem(DETECTED_DISMISS_KEY);
+        if (cancelled || dismissed === res.detected.start) return;
+        setDetected(res.detected);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [reloadKey]));
+
+  async function handleLogDetected() {
+    if (!detected || loggingDetected) return;
+    setLoggingDetected(true);
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      const session = await api.startExerciseSession({ started_at: detected.start, ended_at: detected.end });
+      invalidateCache('exercise:main');
+      setDetected(null);
+      navigation.navigate('ExerciseSession', { sessionId: session.id });
+    } catch {
+      toast('Could not log workout');
+    } finally {
+      setLoggingDetected(false);
+    }
+  }
+
+  function handleDismissDetected() {
+    if (!detected) return;
+    AsyncStorage.setItem(DETECTED_DISMISS_KEY, detected.start).catch(() => {});
+    setDetected(null);
+  }
 
   function handleOpenProgramMenu() {
     Haptics.selectionAsync().catch(() => {});
@@ -580,6 +635,38 @@ export function ExerciseScreen() {
               ))}
             </ShadowCard>
           </>
+        )}
+
+        {/* Detected workout card — sustained elevated HR with no logged session */}
+        {detected && (
+          <ShadowCard padding={14} accent={theme.berry.solid}>
+            <View style={styles.suggestionHeader}>
+              <ThemedIcon slot="metric.heart" size={22} style={styles.suggestionIcon as any} />
+              <Text style={[styles.suggestionTitle, { color: theme.textStrong }]}>Workout detected</Text>
+            </View>
+            <Text style={[styles.suggestionBody, { color: theme.textSoft }]}>
+              Your heart rate was elevated {formatClock(detected.start)}–{formatClock(detected.end)} ({detected.duration_minutes} min, avg {detected.avg_bpm} bpm, peak {detected.peak_bpm}). Want to log what you did?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable
+                onPress={handleLogDetected}
+                disabled={loggingDetected}
+                style={[styles.suggestionCta, { borderColor: ink, opacity: loggingDetected ? 0.5 : 1 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Log detected workout"
+              >
+                <Text style={[styles.suggestionCtaText, { color: ink }]}>{loggingDetected ? 'Logging…' : 'Log workout'}</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleDismissDetected}
+                style={[styles.suggestionCta, { borderColor: theme.cardBorder }]}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss detected workout"
+              >
+                <Text style={[styles.suggestionCtaText, { color: theme.textSoft }]}>Dismiss</Text>
+              </Pressable>
+            </View>
+          </ShadowCard>
         )}
 
         {/* Suggestion card */}

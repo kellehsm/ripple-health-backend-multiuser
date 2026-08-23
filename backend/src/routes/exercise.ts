@@ -50,11 +50,91 @@ export default async function exerciseRoutes(app: FastifyInstance) {
   // ── Sessions ──────────────────────────────────────────────────────────────────
   app.post("/sessions", async (req) => {
     const user_id = req.user_id;
+    const { started_at, ended_at } = (req.body ?? {}) as { started_at?: string; ended_at?: string };
+    if (started_at) {
+      const rows = await query<any>(
+        `INSERT INTO exercise_sessions (user_id, started_at, ended_at) VALUES ($1, $2, $3)
+         RETURNING id, started_at, ended_at`,
+        [user_id, started_at, ended_at ?? null]
+      );
+      return rows[0];
+    }
     const rows = await query<any>(
       `INSERT INTO exercise_sessions (user_id) VALUES ($1) RETURNING id, started_at`,
       [user_id]
     );
     return rows[0];
+  });
+
+  // ── Detected workout (sustained elevated HR with no logged session) ──────────
+  app.get("/detected-workout", async (req) => {
+    const user_id = req.user_id;
+
+    const restingRows = await query<any>(
+      `SELECT PERCENTILE_CONT(0.05) WITHIN GROUP (ORDER BY bpm)::int AS resting
+       FROM heart_rate_readings
+       WHERE user_id = $1 AND recorded_at >= now() - interval '7 days'`,
+      [user_id]
+    );
+    const resting = restingRows[0]?.resting ?? null;
+    if (resting == null) return { detected: null };
+
+    const threshold = Math.max(resting + 35, 100);
+    const readings = await query<any>(
+      `SELECT recorded_at, bpm FROM heart_rate_readings
+       WHERE user_id = $1 AND recorded_at >= date_trunc('day', now())
+       ORDER BY recorded_at ASC`,
+      [user_id]
+    );
+    if (readings.length === 0) return { detected: null };
+
+    // Contiguous elevated windows: bpm >= threshold, gaps between elevated
+    // readings up to 5 min allowed, window must span >= 15 min.
+    const GAP_MS = 5 * 60 * 1000;
+    const MIN_SPAN_MS = 15 * 60 * 1000;
+    type Win = { start: number; end: number; sum: number; n: number; peak: number };
+    const windows: Win[] = [];
+    let cur: Win | null = null;
+    for (const r of readings) {
+      const t = new Date(r.recorded_at).getTime();
+      if (r.bpm >= threshold) {
+        if (cur && t - cur.end <= GAP_MS) {
+          cur.end = t; cur.sum += r.bpm; cur.n += 1; cur.peak = Math.max(cur.peak, r.bpm);
+        } else {
+          if (cur) windows.push(cur);
+          cur = { start: t, end: t, sum: r.bpm, n: 1, peak: r.bpm };
+        }
+      }
+    }
+    if (cur) windows.push(cur);
+
+    const candidates = windows.filter(w => w.end - w.start >= MIN_SPAN_MS);
+    if (candidates.length === 0) return { detected: null };
+
+    const sessions = await query<any>(
+      `SELECT started_at, ended_at FROM exercise_sessions
+       WHERE user_id = $1 AND started_at >= date_trunc('day', now())`,
+      [user_id]
+    );
+    const unlogged = candidates.filter(w =>
+      !sessions.some((s: any) => {
+        const ss = new Date(s.started_at).getTime();
+        const se = s.ended_at ? new Date(s.ended_at).getTime() : Date.now();
+        return w.start < se && w.end > ss;
+      })
+    );
+    if (unlogged.length === 0) return { detected: null };
+
+    const best = unlogged.reduce((a, b) => (b.end - b.start > a.end - a.start ? b : a));
+    return {
+      detected: {
+        start: new Date(best.start).toISOString(),
+        end: new Date(best.end).toISOString(),
+        duration_minutes: Math.round((best.end - best.start) / 60000),
+        avg_bpm: Math.round(best.sum / best.n),
+        peak_bpm: best.peak,
+      },
+    };
   });
 
   app.get("/sessions", async (req) => {

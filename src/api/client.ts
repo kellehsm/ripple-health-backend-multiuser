@@ -641,8 +641,11 @@ export const api = {
   getExerciseDetail: function (id: string) {
     return request('/exercise/library/' + id);
   },
-  startExerciseSession: function () {
-    return request('/exercise/sessions', { method: 'POST', body: '{}' });
+  startExerciseSession: function (times?: { started_at: string; ended_at?: string }) {
+    return request('/exercise/sessions', { method: 'POST', body: JSON.stringify(times ?? {}) });
+  },
+  getDetectedWorkout: function () {
+    return request('/exercise/detected-workout');
   },
   listExerciseSessions: function (limit = 20, offset = 0) {
     return request(`/exercise/sessions?limit=${limit}&offset=${offset}`);
