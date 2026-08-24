@@ -157,11 +157,15 @@ class RippleWearLogActivity : Activity() {
         col.addView(waterCountLabel)
 
         col.addView(pill("+ LOG GLASS", 0xFF0B1018.toInt(), BLUE, null) {
-            // Optimistic bump; the phone will authoritative-refresh via
-            // the data-layer push after its API call completes.
-            localWaterCount = (localWaterCount + 1).coerceAtMost(localGoal)
-            waterCountLabel?.text = "$localWaterCount / $localGoal"
-            sendMessage(PATH_LOG_WATER, ByteArray(0))
+            // Item 4: check connectivity before optimistic bump
+            sendMessageOrShowError(PATH_LOG_WATER, ByteArray(0)) { connected ->
+                if (connected) {
+                    localWaterCount = (localWaterCount + 1).coerceAtMost(localGoal)
+                    waterCountLabel?.text = "$localWaterCount / $localGoal"
+                } else {
+                    showPhoneUnreachable()
+                }
+            }
         }, rowLp().apply { topMargin = px(12) })
 
         col.addView(pill("LOG MOOD", 0xFF0B1018.toInt(), PURPLE, null) {
@@ -194,8 +198,13 @@ class RippleWearLogActivity : Activity() {
         c.moods.forEach { mood ->
             col.addView(pill(mood.uppercase(), WHITE, null, c.accent) {
                 // Payload: "score,label" UTF-8 — parsed by the phone listener.
-                sendMessage(PATH_LOG_MOOD, "${c.score},$mood".toByteArray(Charsets.UTF_8))
-                showMoodConfirmation(c, mood)
+                sendMessageOrShowError(PATH_LOG_MOOD, "${c.score},$mood".toByteArray(Charsets.UTF_8)) { connected ->
+                    if (connected) {
+                        showMoodConfirmation(c, mood)
+                    } else {
+                        showPhoneUnreachable()
+                    }
+                }
             }, rowLp())
         }
 
@@ -238,25 +247,53 @@ class RippleWearLogActivity : Activity() {
     }
 
     /**
-     * Broadcast a message to every connected phone-side node. The phone-side
-     * WearMessageListenerService (see WearMessageListener.kt.template) picks
-     * it up on the matching path and calls into the widget's water/mood
-     * helpers. Fire and forget — no auth state lives on the watch.
+     * Sends a message to all connected nodes. Calls onResult(true) when at least
+     * one node received the message, onResult(false) when no nodes are connected.
+     * Phone-unreachable case: skips the optimistic UI change and shows a brief toast.
      */
-    private fun sendMessage(path: String, payload: ByteArray) {
+    private fun sendMessageOrShowError(path: String, payload: ByteArray, onResult: (connected: Boolean) -> Unit) {
         try {
             Wearable.getNodeClient(applicationContext).connectedNodes
                 .addOnSuccessListener { nodes: List<Node> ->
+                    if (nodes.isEmpty()) {
+                        handler.post { onResult(false) }
+                        return@addOnSuccessListener
+                    }
+                    handler.post { onResult(true) }
                     for (n in nodes) {
                         Wearable.getMessageClient(applicationContext)
                             .sendMessage(n.id, path, payload)
                             .addOnFailureListener { e -> Log.w(TAG, "sendMessage($path) → ${n.displayName}: ${e.message}") }
                     }
                 }
-                .addOnFailureListener { e -> Log.w(TAG, "connectedNodes: ${e.message}") }
+                .addOnFailureListener { e ->
+                    Log.w(TAG, "connectedNodes: ${e.message}")
+                    handler.post { onResult(false) }
+                }
         } catch (e: Exception) {
             Log.w(TAG, "sendMessage($path) threw", e)
+            handler.post { onResult(false) }
         }
+    }
+
+    /** Item 4: brief "Phone not reachable" overlay, auto-dismisses after 1.8s. */
+    private fun showPhoneUnreachable() {
+        val (_, col) = scrollColumn()
+        col.addView(android.widget.TextView(this).apply {
+            text = "📵"
+            textSize = 32f
+            gravity = Gravity.CENTER
+            setPadding(0, px(24), 0, px(8))
+        })
+        col.addView(android.widget.TextView(this).apply {
+            text = "PHONE NOT REACHABLE"
+            textSize = 11f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(LABEL_GRAY)
+            gravity = Gravity.CENTER
+            letterSpacing = 0.12f
+        })
+        handler.postDelayed({ showLogHome() }, 1800L)
     }
 
     companion object {

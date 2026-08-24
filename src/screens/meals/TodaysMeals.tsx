@@ -208,7 +208,7 @@ export function TodaysMeals({
                           onPress={function () { onToggleGlucose(meal); }}
                           onPressIn={function () { Animated.spring(mealScale, { toValue: 0.98, useNativeDriver: true, speed: 300, bounciness: 4 }).start(); }}
                           onPressOut={function () { Animated.spring(mealScale, { toValue: 1, useNativeDriver: true, speed: 300, bounciness: 4 }).start(); }}
-                          accessibilityLabel={(isExpanded && !isEditing ? "Collapse" : "Expand") + " " + meal.name}
+                          accessibilityLabel={`${meal.name}${cals != null ? `, ${cals} calories` : ""}${nutrition ? `, ${nutrition}` : ""}. ${isExpanded && !isEditing ? "Collapse" : "Expand"} to see details.`}
                         >
                           <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: "600", flex: 1 }} numberOfLines={1}>{meal.name}</Text>
                           {cals != null ? (

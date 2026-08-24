@@ -356,7 +356,16 @@ Items not yet built. Add new ideas here as they arise; move items to §Shipped w
 - **Cohort benchmarking** — "Your average sleep duration is in the bottom 30% of
   Ripple users with similar logging patterns." Requires privacy-safe aggregation.
 - **Notification-delivered micro-insights** — push the top daily insight as a
-  notification instead of requiring the user to open the app.
+  notification instead of requiring the user to open the app. *Partially done
+  (2026-08): the nightly job now calls `pickNudgeForUser` + `recordNudgeSent`
+  per user (`insightsJob.ts`), so a nudge is selected and recorded every night;
+  actual push delivery is still unbuilt (no push mechanism in the backend).*
+
+> **Timezone note (2026-08):** `moodJournalingStreak`, `exerciseConsistency`,
+> `undertrainedMuscle`, and the three `streaks.ts` rules previously used
+> hard-coded EST date helpers; all now use `userToday()` / `userDaysAgo()` /
+> `getUserTz()` from `lib/userTz.ts`. New rules must use the per-user helpers,
+> never `estToday()`.
 
 ### Medium priority
 

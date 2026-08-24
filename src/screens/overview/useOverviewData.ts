@@ -36,6 +36,7 @@ type MonthlyReviewData = {
 };
 
 type StreakEntry = { label: string; slot: string; count: number; color: (t: any) => string };
+type MindfulnessStreakEntry = { streak: number };
 
 export type OverviewData = {
   // Data state
@@ -95,6 +96,7 @@ export function useOverviewData(): OverviewData {
   const [dayEvents, setDayEvents] = useState<DayEvent[]>([]);
   const [streak, setStreak] = useState(0);
   const [allStreaks, setAllStreaks] = useState<StreakEntry[]>([]);
+  const [mindfulnessStreak, setMindfulnessStreak] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recapDismissed, setRecapDismissed] = useState(false);
@@ -143,7 +145,7 @@ export function useOverviewData(): OverviewData {
     weeklyArr: WeeklyDay[];
     patternEvents: PatternEvent[];
     dig: WeeklyDigest | null;
-    mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number; waterStreak: number; hobbyStreak: number;
+    mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number; waterStreak: number; hobbyStreak: number; mindfulStreak: number;
     glucSt: GlucoseStatus | null;
     meals: any[];
     stepsVal: number | null;
@@ -168,15 +170,20 @@ export function useOverviewData(): OverviewData {
         .catch(() => {});
     }
     setStreak(data.mealStreak);
+    setMindfulnessStreak(data.mindfulStreak);
     setAllStreaks([
-      { label: "Meals",    slot: "screen.meals",          count: data.mealStreak,     color: (t: any) => t.teal.solid },
-      { label: "Mood",     slot: "metric.mood",           count: data.moodStreak,     color: (t: any) => t.violet?.solid ?? t.purple.solid },
-      { label: "Steps",    slot: "social.steps_streak",   count: data.stepsStreak,    color: (t: any) => t.teal.solid },
-      { label: "Exercise", slot: "ui.gym",                count: data.exerciseStreak, color: (t: any) => t.coral.solid },
-      { label: "Reading",  slot: "empty.books",           count: data.readingStreak,  color: (t: any) => t.amber.solid },
-      { label: "Water",    slot: "screen.water",          count: data.waterStreak,    color: (t: any) => (t as any).blue?.solid ?? t.teal.solid },
-      { label: "Hobbies",  slot: "screen.hobbies",        count: data.hobbyStreak,    color: (t: any) => t.coral.solid },
-    ].filter(s => s.count >= 2));
+      { label: "Meals",       slot: "screen.meals",          count: data.mealStreak,     color: (t: any) => t.teal.solid },
+      { label: "Mood",        slot: "metric.mood",           count: data.moodStreak,     color: (t: any) => t.violet?.solid ?? t.purple.solid },
+      { label: "Steps",       slot: "social.steps_streak",   count: data.stepsStreak,    color: (t: any) => t.teal.solid },
+      { label: "Exercise",    slot: "ui.gym",                count: data.exerciseStreak, color: (t: any) => t.coral.solid },
+      { label: "Reading",     slot: "empty.books",           count: data.readingStreak,  color: (t: any) => t.amber.solid },
+      { label: "Water",       slot: "screen.water",          count: data.waterStreak,    color: (t: any) => (t as any).blue?.solid ?? t.teal.solid },
+      { label: "Hobbies",     slot: "screen.hobbies",        count: data.hobbyStreak,    color: (t: any) => t.coral.solid },
+    ].filter(s => s.count >= 2).concat(
+      data.mindfulStreak >= 3
+        ? [{ label: "Mindfulness", slot: "screen.mindfulness", count: data.mindfulStreak, color: (t: any) => t.violet?.solid ?? t.purple.solid }]
+        : []
+    ));
     setGlucoseStatus(data.glucSt);
     setTodayMeals(data.meals);
     setStepsCount(data.stepsVal);
@@ -200,7 +207,7 @@ export function useOverviewData(): OverviewData {
       weeklyArr: WeeklyDay[];
       patternEvents: PatternEvent[];
       dig: WeeklyDigest | null;
-      mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number; waterStreak: number; hobbyStreak: number;
+      mealStreak: number; moodStreak: number; stepsStreak: number; exerciseStreak: number; readingStreak: number; waterStreak: number; hobbyStreak: number; mindfulStreak: number;
       glucSt: GlucoseStatus | null;
       meals: any[];
       stepsVal: number | null;
@@ -246,6 +253,8 @@ export function useOverviewData(): OverviewData {
       const readingStreak  = Number(streakData?.reading_streak  ?? 0);
       const waterStreak    = Number(streakData?.water_streak    ?? 0);
       const hobbyStreak    = Number(streakData?.hobby_streak    ?? 0);
+      const mindfulStats = await api.mindfulnessStats().catch(() => null) as MindfulnessStreakEntry | null;
+      const mindfulStreak  = Number(mindfulStats?.streak        ?? 0);
       const stepsVal = steps?.steps ?? null;
       const weeklyArr: WeeklyDay[] = Array.isArray(weekly) ? weekly : [];
       const activeInsights: Insight[] = Array.isArray(insightsList) ? insightsList : [];
@@ -260,7 +269,7 @@ export function useOverviewData(): OverviewData {
         weeklyArr,
         patternEvents: Array.isArray(pattern) ? pattern : [],
         dig: dig ?? null,
-        mealStreak, moodStreak, stepsStreak, exerciseStreak, readingStreak, waterStreak, hobbyStreak,
+        mealStreak, moodStreak, stepsStreak, exerciseStreak, readingStreak, waterStreak, hobbyStreak, mindfulStreak,
         glucSt,
         meals: Array.isArray(meals) ? meals : [],
         stepsVal,

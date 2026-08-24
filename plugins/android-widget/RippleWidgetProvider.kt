@@ -98,7 +98,9 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         /** Comma-joined mg_dl values (oldest→newest) for the mini trend sparkline; empty = no data */
         val glucoseTrendRaw: String = "",
         /** Latest mood score as emoji (e.g. "😊") or "--" */
-        val mood: String = "--"
+        val mood: String = "--",
+        /** Up to 5 mood scores today, oldest→newest, comma-joined e.g. "3,4,5"; empty = hide strip */
+        val moodTrendRaw: String = ""
     )
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -169,6 +171,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                     WidgetData("--", "--", "--", "--", "--", emptyList(), "Sign in to app")
                 } else {
                     val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
+                    val moodResult = fetchMoodWithTrend(token)
                     WidgetData(
                         gluInfo.display,
                         fetchSteps(token),
@@ -179,7 +182,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         "Updated $time",
                         fetchWellnessScore(token),
                         fetchGlucoseTrend(token),
-                        fetchMood(token)
+                        moodResult.first,
+                        moodResult.second
                     )
                 }
                 saveCache(context, data)
@@ -205,7 +209,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                         glucoseDelta = gluInfo.delta,
                         glucoseStale = gluInfo.isStale,
                         mindStreak = mindStreak,
-                        wellnessScore = data.wellnessScore
+                        wellnessScore = data.wellnessScore,
+                        mood = data.mood
                     )
                 } catch (_: Throwable) {}
             } catch (e: Exception) {
@@ -346,7 +351,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             status,
             p.getString("wellness", "--") ?: "--",
             p.getString("glucose_trend_raw", "") ?: "",
-            p.getString("mood", "--") ?: "--"
+            p.getString("mood", "--") ?: "--",
+            p.getString("mood_trend_raw", "") ?: ""
         )
     }
 
@@ -364,6 +370,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             .putString("wellness", d.wellnessScore)
             .putString("glucose_trend_raw", d.glucoseTrendRaw)
             .putString("mood", d.mood)
+            .putString("mood_trend_raw", d.moodTrendRaw)
             .putLong("cache_time", System.currentTimeMillis())
             .apply()
     }
@@ -492,6 +499,15 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_glucose_trend, View.GONE)
         }
 
+        // Mood trend dot strip
+        val moodTrendBitmap = buildMoodTrendBitmap(context, d.moodTrendRaw)
+        if (moodTrendBitmap != null) {
+            views.setImageViewBitmap(R.id.widget_mood_trend, moodTrendBitmap)
+            views.setViewVisibility(R.id.widget_mood_trend, View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_mood_trend, View.GONE)
+        }
+
         // Block taps → respective pages
         try { views.setOnClickPendingIntent(R.id.block_glucose, deeplink(context, 4, "glucose")) } catch (e: Exception) { Log.w(TAG, "glucose link failed", e) }
         try { views.setOnClickPendingIntent(R.id.block_steps, deeplink(context, 5, "steps")) } catch (e: Exception) { Log.w(TAG, "steps link failed", e) }
@@ -594,6 +610,37 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
         canvas.drawPath(path, paint)
+        return bmp
+    }
+
+    // ─── Mood trend dot strip ─────────────────────────────────────────────────
+
+    /**
+     * Builds a bitmap strip of colored dots for recent mood scores.
+     * Score 1→red, 2→orange-red, 3→amber, 4→yellow-green, 5→green.
+     * Returns null when raw has fewer than 2 values (strip hidden).
+     */
+    protected fun buildMoodTrendBitmap(context: Context, raw: String): Bitmap? {
+        val scores = raw.split(",").mapNotNull { it.trim().toIntOrNull()?.takeIf { s -> s in 1..5 } }
+        if (scores.size < 2) return null
+        val night = isNight(context)
+        val dotR = 27f   // ~9dp @ 3× density
+        val gap = 18f    // gap between dots
+        val w = (scores.size * (dotR * 2 + gap) - gap).toInt().coerceAtLeast(1)
+        val h = (dotR * 2).toInt()
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+        val colors = if (night) {
+            arrayOf("#FF6B6B", "#FF9A6B", "#F5B041", "#A8E06C", "#58D68D")
+        } else {
+            arrayOf("#C0392B", "#E67E22", "#D4AC0D", "#7DBA00", "#27AE60")
+        }
+        scores.forEachIndexed { i, score ->
+            val cx = i * (dotR * 2 + gap) + dotR
+            paint.color = android.graphics.Color.parseColor(colors[score - 1])
+            canvas.drawCircle(cx, dotR, dotR, paint)
+        }
         return bmp
     }
 
@@ -756,30 +803,36 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private fun fetchMood(token: String): String {
-        // Fetches today's latest mood entry and returns an emoji for the score.
+    /**
+     * Returns (moodEmoji, moodTrendRaw) for today's journal entries.
+     * moodEmoji: emoji for the latest score, or "--".
+     * moodTrendRaw: up to 5 mood scores oldest→newest, comma-joined e.g. "3,4,5";
+     *               empty string when fewer than 2 valid scores exist (strip hidden).
+     */
+    private fun fetchMoodWithTrend(token: String): Pair<String, String> {
         return try {
             val (code, body) = get(token, "/journal/today")
-            if (code == 200) {
-                val arr = JSONArray(body)
-                var latestScore = -1
-                for (i in 0 until arr.length()) {
-                    val obj = arr.optJSONObject(i) ?: continue
-                    val score = obj.optInt("mood_score", -1)
-                    if (score in 1..5) latestScore = score
-                }
-                when (latestScore) {
-                    5 -> "😃"
-                    4 -> "🙂"
-                    3 -> "😐"
-                    2 -> "😕"
-                    1 -> "😣"
-                    else -> "--"
-                }
-            } else "--"
+            if (code != 200) return Pair("--", "")
+            val arr = JSONArray(body)
+            val scores = mutableListOf<Int>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                val score = obj.optInt("mood_score", -1)
+                if (score in 1..5) scores.add(score)
+            }
+            val emoji = when (scores.lastOrNull() ?: -1) {
+                5 -> "😃"
+                4 -> "🙂"
+                3 -> "😐"
+                2 -> "😕"
+                1 -> "😣"
+                else -> "--"
+            }
+            val trend = if (scores.size >= 2) scores.takeLast(5).joinToString(",") else ""
+            Pair(emoji, trend)
         } catch (e: Exception) {
-            Log.w(TAG, "fetchMood: ${e.message}")
-            "--"
+            Log.w(TAG, "fetchMoodWithTrend: ${e.message}")
+            Pair("--", "")
         }
     }
 

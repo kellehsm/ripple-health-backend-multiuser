@@ -205,6 +205,8 @@ export function LogMealCard({
                     key={drink.name}
                     onPress={function () { onQuickDrink(drink); }}
                     style={[styles.frequentChip, { backgroundColor: theme.teal.tint }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Log ${drink.name}${drink.calories != null && drink.calories > 0 ? `, ${drink.calories} calories` : ""}${drink.caffeine_mg != null ? `, ${drink.caffeine_mg}mg caffeine` : ""}`}
                   >
                     <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700" }} numberOfLines={1}>{drink.name}</Text>
                     {(drink.calories != null && drink.calories > 0) || drink.caffeine_mg != null ? (

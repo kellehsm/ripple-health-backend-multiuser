@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Dimensions, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { ScreenBackground } from "../components/ScreenBackground";
 import Svg, { Line, Rect, Text as SvgText } from "react-native-svg";
 import { useTheme } from "../theme/ThemeContext";
@@ -258,7 +259,7 @@ export function SleepDetailScreen() {
       {/* Last-night score — tap to see the breakdown */}
       {scored && (
         <Pressable
-          onPress={() => setScoreExplainerVisible(true)}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setScoreExplainerVisible(true); }}
           accessibilityRole="button"
           accessibilityLabel={`Last night's sleep score ${scored.score} out of 100. Tap to see the breakdown.`}
         >
@@ -294,7 +295,7 @@ export function SleepDetailScreen() {
               This is a heuristic — not medical or diagnostic. If your device doesn't report sleep stages, that section falls back to a middle score.
             </Text>
             <Pressable
-              onPress={() => setScoreExplainerVisible(false)}
+              onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); setScoreExplainerVisible(false); }}
               style={{ marginTop: 8, borderWidth: 2, borderColor: theme.ink, borderRadius: 14, paddingVertical: 10, alignItems: "center", backgroundColor: theme.teal.solid }}
             >
               <Text style={{ color: "#fff", fontWeight: "900", letterSpacing: 0.5 }}>Got it</Text>
@@ -309,7 +310,7 @@ export function SleepDetailScreen() {
           <RangeSelector
             value={rangeDays}
             options={RANGE_OPTIONS as any}
-            onChange={(v) => setRangeDays(v as 7 | 30)}
+            onChange={(v) => { Haptics.selectionAsync(); setRangeDays(v as 7 | 30); }}
             suffix="d"
             label="Sleep range"
           />

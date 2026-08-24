@@ -345,7 +345,7 @@
         android:gravity="center_vertical"
         android:layout_marginTop="6dp">
 
-        <!-- Mood quick-log: two emoji tap targets -->
+        <!-- Mood quick-log: two emoji tap targets + mood trend dot strip -->
         <TextView
             android:id="@+id/btn_mood_good"
             android:layout_width="32dp"
@@ -363,6 +363,15 @@
             android:textSize="18sp"
             android:gravity="center"
             android:layout_marginRight="4dp" />
+
+        <ImageView
+            android:id="@+id/widget_mood_trend"
+            android:layout_width="wrap_content"
+            android:layout_height="18dp"
+            android:scaleType="fitStart"
+            android:layout_marginRight="4dp"
+            android:visibility="gone"
+            android:contentDescription="mood trend" />
 
         <!-- Insight carousel -->
         <LinearLayout

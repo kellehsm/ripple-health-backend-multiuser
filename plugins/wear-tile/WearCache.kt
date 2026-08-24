@@ -28,7 +28,8 @@ object WearCache {
                                      // the flash once it's older than ~10s
         val wellnessScore: String,   // overall wellness score, e.g. "78" or "--"
         val stepsGoal: Int,          // user's daily step goal; 10000 if not yet pushed
-        val defaultBreathPace: String // "" = ask each time; else pace id: box/relax/coherent/energize/sigh
+        val defaultBreathPace: String, // "" = ask each time; else pace id: box/relax/coherent/energize/sigh
+        val mood: String             // latest mood emoji e.g. "😊" or "--"
     )
 
     fun read(context: Context): Snapshot {
@@ -52,7 +53,8 @@ object WearCache {
             lastLogStatusAt = p.getLong("lastLogStatusAt", 0L),
             wellnessScore = p.getString("wellnessScore", "--") ?: "--",
             stepsGoal = p.getInt("stepsGoal", 10000),
-            defaultBreathPace = p.getString("defaultBreathPace", "") ?: ""
+            defaultBreathPace = p.getString("defaultBreathPace", "") ?: "",
+            mood = p.getString("mood", "--") ?: "--"
         )
     }
 
@@ -76,7 +78,8 @@ object WearCache {
         lastLogStatusAt: Long?,
         wellnessScore: String? = null,
         stepsGoal: Int? = null,
-        defaultBreathPace: String? = null
+        defaultBreathPace: String? = null,
+        mood: String? = null
     ) {
         val edit = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
         if (glucose != null)      edit.putString("glucose", glucose)
@@ -98,6 +101,7 @@ object WearCache {
         if (wellnessScore != null)   edit.putString("wellnessScore", wellnessScore)
         if (stepsGoal != null)       edit.putInt("stepsGoal", stepsGoal)
         if (defaultBreathPace != null) edit.putString("defaultBreathPace", defaultBreathPace)
+        if (mood != null)            edit.putString("mood", mood)
         edit.apply()
     }
 }
