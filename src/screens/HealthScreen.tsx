@@ -28,6 +28,7 @@ import { ScreenBackground } from "../components/ScreenBackground";
 import { type SleepStages } from "../lib/healthConnect";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 import { toast } from "../lib/toast";
+import { syncWidgetAndWatch } from "../lib/widgetSync";
 import { MetricChipRow } from "./health/MetricChipRow";
 import { GlucoseChartCard } from "./health/GlucoseChartCard";
 import { HeartRateCard } from "./health/HeartRateCard";
@@ -402,6 +403,7 @@ export function HealthScreen() {
     }
     try {
       await api.logWater(waterMetricId);
+      syncWidgetAndWatch();
       invalidateCache(`health:water:${new Date().toDateString()}`);
       const logs = await api.todaysWaterCount(waterMetricId);
       const newCount = sumTodayLogs(Array.isArray(logs) ? logs : []);
@@ -659,7 +661,8 @@ export function HealthScreen() {
     return function () { cancelled = true; };
   }, [rangeHours]));
 
-  useEffect(function () {
+  // Focus-scoped so the 5-minute refresh doesn't fire while other tabs are open.
+  useFocusEffect(useCallback(function () {
     load(rangeHours);
     const interval = setInterval(function () {
       load(rangeHours);
@@ -667,7 +670,7 @@ export function HealthScreen() {
     return function () {
       clearInterval(interval);
     };
-  }, [load, rangeHours]);
+  }, [load, rangeHours]));
 
   useEffect(function () {
     let cancelled = false;

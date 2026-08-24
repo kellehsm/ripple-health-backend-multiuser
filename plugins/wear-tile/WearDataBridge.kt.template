@@ -52,6 +52,7 @@ object WearDataBridge {
         heart: String = "--",
         sleep: String = "--",
         insight: String = "",
+        insights: String = "",
         glucoseArrow: String = "",
         glucoseLabel: String = "",
         glucoseTrend: String = "",
@@ -62,7 +63,8 @@ object WearDataBridge {
         lastLogStatusAt: Long = 0L,
         wellnessScore: String = "--",
         stepsGoal: Int = 10000,
-        defaultBreathPace: String = ""
+        defaultBreathPace: String = "",
+        mood: String = "--"
     ) {
         try {
             val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
@@ -81,9 +83,11 @@ object WearDataBridge {
                 dataMap.putString("heart", heart)
                 dataMap.putString("sleep", sleep)
                 dataMap.putString("insight", insight)
+                dataMap.putString("insights", insights)
                 dataMap.putString("wellnessScore", wellnessScore)
                 dataMap.putInt("stepsGoal", stepsGoal)
                 dataMap.putString("defaultBreathPace", defaultBreathPace)
+                dataMap.putString("mood", mood)
                 dataMap.putString("updatedAt", time)
                 // Include a nonce so DataItem changes even if values are unchanged,
                 // guaranteeing the watch listener fires and refreshes the tile timestamp

@@ -29,7 +29,7 @@ export const AlcoholVsSleepRule: InsightRule = {
            AND substance_type = 'alcohol'
            AND volume_ml > 0
            AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
-       ) a ON a.day = s.day
+       ) a ON a.day = s.day - 1  -- alcohol on day D → sleep ending morning of D+1
        ORDER BY s.day DESC`,
       [userId]
     );

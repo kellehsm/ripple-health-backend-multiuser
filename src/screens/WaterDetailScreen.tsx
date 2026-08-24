@@ -30,6 +30,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { CountUpText } from "../components/CountUpText";
 import { useReduceMotion } from "../hooks/useReduceMotion";
+import { UndoBanner } from "../components/UndoBanner";
 
 const WATER_GOAL_KEY = "ripple_water_goal";
 const DEFAULT_WATER_GOAL = 8;
@@ -116,7 +117,13 @@ function HeroDroplet({
 
   return (
     <View style={{ width: DROP_W, height: DROP_H, alignItems: "center", justifyContent: "center" }}>
-      <Svg width={DROP_W} height={DROP_H}>
+      <Svg
+        width={DROP_W}
+        height={DROP_H}
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={`Water intake ${count} of ${goal} glasses`}
+      >
         <Defs>
           <ClipPath id="dropClip">
             <Path d={DROPLET_PATH} />
@@ -253,6 +260,7 @@ export function WaterDetailScreen() {
   const [goalInputText, setGoalInputText] = useState("");
   const [streak, setStreak] = useState(0);
   const [bestDayMonth, setBestDayMonth] = useState(0);
+  const [undoRemove, setUndoRemove] = useState<{ timer: ReturnType<typeof setTimeout> } | null>(null);
 
   const count = todayLogs.reduce((s, l) => s + Number(l.value), 0);
 
@@ -339,40 +347,64 @@ export function WaterDetailScreen() {
 
   const logAmount = useCallback(async (delta: number) => {
     if (!metricId) return;
-    // Optimistic
-    const optimisticLog = { logged_at: new Date().toISOString(), value: delta };
-    if (delta > 0) {
-      setTodayLogs((prev) => [...prev, optimisticLog]);
-      setRippleTrigger((t) => t + 1);
-    } else {
-      // Remove the last log with matching negative delta
+    if (delta < 0) {
+      // Delayed-commit undo pattern for remove-one-glass
+      if (undoRemove) {
+        clearTimeout(undoRemove.timer);
+      }
+      // Optimistic UI update
       setTodayLogs((prev) => {
         const copy = [...prev];
-        const idx = copy.findLastIndex((l) => Number(l.value) + delta >= 0);
+        const idx = copy.findLastIndex((l) => Number(l.value) > 0);
         if (idx >= 0) copy.splice(idx, 1);
         return copy;
       });
+      const timer = setTimeout(async () => {
+        setUndoRemove(null);
+        try {
+          await api.logMetricValue(metricId, delta, new Date().toISOString());
+          const logs: Array<{ logged_at: string; value: number }> = await api.todaysWaterCount(metricId);
+          setTodayLogs(Array.isArray(logs) ? logs.filter((l) => isTodayLog(l.logged_at)) : []);
+        } catch (_) {
+          Alert.alert("Oops", "Couldn't update water log. Please try again.");
+          const logs: Array<{ logged_at: string; value: number }> = await api.todaysWaterCount(metricId).catch(() => []);
+          setTodayLogs(Array.isArray(logs) ? logs.filter((l) => isTodayLog(l.logged_at)) : []);
+        }
+      }, 4000);
+      setUndoRemove({ timer });
+      return;
     }
 
+    // Positive log
+    const optimisticLog = { logged_at: new Date().toISOString(), value: delta };
+    setTodayLogs((prev) => [...prev, optimisticLog]);
+    setRippleTrigger((t) => t + 1);
+
     try {
-      if (delta > 0) {
-        await api.logMetricValue(metricId, delta, new Date().toISOString());
-      } else {
-        // For negative delta, post a negative value (correction)
-        await api.logMetricValue(metricId, delta, new Date().toISOString());
-      }
+      await api.logMetricValue(metricId, delta, new Date().toISOString());
       // Refresh to get server-authoritative state
       const logs: Array<{ logged_at: string; value: number }> = await api.todaysWaterCount(metricId);
       setTodayLogs(Array.isArray(logs) ? logs.filter((l) => isTodayLog(l.logged_at)) : []);
     } catch (_) {
       // Rollback
-      setTodayLogs((prev) => {
-        if (delta > 0) return prev.filter((l) => l !== optimisticLog);
-        return prev;
-      });
+      setTodayLogs((prev) => prev.filter((l) => l !== optimisticLog));
       Alert.alert("Oops", "Couldn't update water log. Please try again.");
     }
-  }, [metricId]);
+  }, [metricId, undoRemove]);
+
+  const handleUndoRemove = useCallback(() => {
+    if (!undoRemove) return;
+    clearTimeout(undoRemove.timer);
+    setUndoRemove(null);
+    // Restore by re-fetching from server (the API call was never made)
+    if (metricId) {
+      api.todaysWaterCount(metricId)
+        .then((logs: Array<{ logged_at: string; value: number }>) => {
+          setTodayLogs(Array.isArray(logs) ? logs.filter((l) => isTodayLog(l.logged_at)) : []);
+        })
+        .catch(() => {});
+    }
+  }, [undoRemove, metricId]);
 
   const saveGoal = useCallback(() => {
     const n = parseInt(goalInputText, 10);
@@ -578,7 +610,7 @@ export function WaterDetailScreen() {
     .sort((a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime());
 
   return (
-    <View style={s.page}>
+    <View style={[s.page, { position: "relative" }]}>
       <ScrollView
         contentContainerStyle={s.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.blue.bar ?? theme.blue.solid} colors={[theme.blue.bar ?? theme.blue.solid]} />}
@@ -713,6 +745,14 @@ export function WaterDetailScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {undoRemove && (
+        <UndoBanner
+          message="Glass removed"
+          onUndo={handleUndoRemove}
+          theme={theme}
+        />
+      )}
 
       {/* Goal editor modal */}
       <Modal

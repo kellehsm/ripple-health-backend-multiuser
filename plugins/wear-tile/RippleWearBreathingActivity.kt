@@ -65,6 +65,11 @@ class RippleWearBreathingActivity : Activity() {
     // Tracks all active ripple/trail animators for lifecycle cleanup
     private val activeAnimators = mutableListOf<Animator>()
 
+    // Item 5: dim-after-60s fallback for long sessions
+    private var sessionStartMs = 0L
+    private val dimRunnable = Runnable { dimScreenForAmbient() }
+    private var isDimmed = false
+
     private var pace: Pace? = null
     private var started = false
     private var running = false
@@ -792,6 +797,9 @@ class RippleWearBreathingActivity : Activity() {
     private fun startCountdown() {
         started = true
         running = true
+        sessionStartMs = System.currentTimeMillis()
+        isDimmed = false
+        scheduleDim()
         idleAnimator?.cancel()
         idleAnimator = null
         phaseLabel?.text = "GET READY"
@@ -1025,6 +1033,8 @@ class RippleWearBreathingActivity : Activity() {
 
     private fun stopAndFinish() {
         running = false
+        handler.removeCallbacks(dimRunnable)
+        restoreScreenBrightness()
         handler.removeCallbacksAndMessages(null)
         animator?.cancel()
         idleAnimator?.cancel()
@@ -1068,8 +1078,41 @@ class RippleWearBreathingActivity : Activity() {
             .addOnFailureListener { e -> Log.w(TAG, "getConnectedNodes failed", e) }
     }
 
+    // ── Item 5: ambient brightness dim after 60s ────────────────────────────
+
+    private fun scheduleDim() {
+        handler.removeCallbacks(dimRunnable)
+        handler.postDelayed(dimRunnable, 60_000L)
+    }
+
+    private fun dimScreenForAmbient() {
+        isDimmed = true
+        try {
+            val lp = window.attributes
+            lp.screenBrightness = 0.01f
+            window.attributes = lp
+        } catch (_: Exception) {}
+    }
+
+    private fun restoreScreenBrightness() {
+        if (!isDimmed) return
+        isDimmed = false
+        try {
+            val lp = window.attributes
+            lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+            window.attributes = lp
+        } catch (_: Exception) {}
+        scheduleDim()
+    }
+
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        restoreScreenBrightness()
+    }
+
     override fun onPause() {
         super.onPause()
+        handler.removeCallbacks(dimRunnable)
         if (running) {
             running = false
             handler.removeCallbacksAndMessages(null)

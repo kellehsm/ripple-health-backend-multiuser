@@ -14,6 +14,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
+import { SectionLabel } from "../components/SectionLabel";
 import { toast } from "../lib/toast";
 import { createChallenge, getFriends, Friend, SocialCategory } from "../api/friends";
 import { formatDateLocal, addDaysToDate } from "../utils/dateUtils";
@@ -153,7 +154,7 @@ export function NewChallengeScreen() {
       </View>
 
       {/* Title */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>CHALLENGE TITLE</Text>
+      <SectionLabel text="Challenge title" style={{ marginTop: 4, marginBottom: -4 }} />
       <ShadowCard padding={14}>
         <TextInput
           value={title}
@@ -166,7 +167,7 @@ export function NewChallengeScreen() {
       </ShadowCard>
 
       {/* Category */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>CATEGORY</Text>
+      <SectionLabel text="Category" style={{ marginTop: 4, marginBottom: -4 }} />
       <ShadowCard padding={14}>
         <View style={styles.catRow}>
           {CATEGORIES.map((cat) => (
@@ -195,7 +196,7 @@ export function NewChallengeScreen() {
       </ShadowCard>
 
       {/* Goal description */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>GOAL DESCRIPTION</Text>
+      <SectionLabel text="Goal description" style={{ marginTop: 4, marginBottom: -4 }} />
       <ShadowCard padding={14}>
         <TextInput
           value={goalDescription}
@@ -209,7 +210,7 @@ export function NewChallengeScreen() {
       </ShadowCard>
 
       {/* Goal value (optional) */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>GOAL VALUE (OPTIONAL)</Text>
+      <SectionLabel text="Goal value (optional)" style={{ marginTop: 4, marginBottom: -4 }} />
       <ShadowCard padding={14}>
         <TextInput
           value={goalValue}
@@ -230,7 +231,7 @@ export function NewChallengeScreen() {
       </ShadowCard>
 
       {/* Dates */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>DATE RANGE</Text>
+      <SectionLabel text="Date range" style={{ marginTop: 4, marginBottom: -4 }} />
       <ShadowCard padding={14}>
         <View style={styles.dateRow}>
           <View style={{ flex: 1 }}>
@@ -285,7 +286,7 @@ export function NewChallengeScreen() {
       {/* Invite friends */}
       {friends.length > 0 && (
         <>
-          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>INVITE FRIENDS</Text>
+          <SectionLabel text="Invite friends" style={{ marginTop: 4, marginBottom: -4 }} />
           <ShadowCard padding={14}>
             <Text style={{ color: theme.textSoft, fontSize: 12, marginBottom: 8 }}>
               Select friends to invite. They can also join using the challenge link.
@@ -339,14 +340,6 @@ export function NewChallengeScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
-  groupLabel: {
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 0.6,
-    marginTop: 4,
-    marginBottom: -4,
-    textTransform: "uppercase",
-  },
   privacyNote: {
     flexDirection: "row",
     alignItems: "center",

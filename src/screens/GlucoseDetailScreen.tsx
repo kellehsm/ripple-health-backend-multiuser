@@ -135,26 +135,26 @@ export function GlucoseDetailScreen() {
   const windowStart24 = now24 - 24 * 3600 * 1000;
   const windowMs24 = 24 * 3600 * 1000;
 
-  const chartPoints = readings24h
-    .map((r) => {
-      const t = new Date(r.recorded_at).getTime();
-      const x = PAD_L + ((t - windowStart24) / windowMs24) * usableW;
-      const y = PAD_T + usableH - ((Number(r.mg_dl) - chartMin) / chartRange) * usableH;
-      return x + "," + y;
-    })
-    .join(" ");
+  const { chartPoints, gridVals, lowY, highY } = useMemo(() => {
+    const pts = readings24h
+      .map((r) => {
+        const t = new Date(r.recorded_at).getTime();
+        const x = PAD_L + ((t - windowStart24) / windowMs24) * usableW;
+        const y = PAD_T + usableH - ((Number(r.mg_dl) - chartMin) / chartRange) * usableH;
+        return x + "," + y;
+      })
+      .join(" ");
 
-  const gridVals = (() => {
     const step = chartRange > 150 ? 50 : chartRange > 80 ? 30 : 20;
-    const start = Math.ceil(chartMin / step) * step;
-    const vals: number[] = [];
-    for (let v = start; v <= chartMax; v += step) vals.push(v);
-    return vals;
-  })();
+    const gStart = Math.ceil(chartMin / step) * step;
+    const gVals: number[] = [];
+    for (let v = gStart; v <= chartMax; v += step) gVals.push(v);
 
-  // Band lines for low/high
-  const lowY = PAD_T + usableH - ((LOW - chartMin) / chartRange) * usableH;
-  const highY = PAD_T + usableH - ((HIGH - chartMin) / chartRange) * usableH;
+    const lY = PAD_T + usableH - ((LOW - chartMin) / chartRange) * usableH;
+    const hY = PAD_T + usableH - ((HIGH - chartMin) / chartRange) * usableH;
+
+    return { chartPoints: pts, gridVals: gVals, lowY: lY, highY: hY };
+  }, [readings24h, windowStart24, windowMs24, usableW, usableH, chartMin, chartMax, chartRange]);
 
   // 24h stats
   const avg24 = vals24.length ? Math.round(vals24.reduce((a, b) => a + b, 0) / vals24.length) : null;
@@ -211,7 +211,7 @@ export function GlucoseDetailScreen() {
               <Text style={[s.statLbl, { color: theme.textSoft }]}>High</Text>
             </View>
             <View style={s.stat}>
-              <Text style={[s.statVal, { color: tir24 !== null && tir24 >= 70 ? theme.teal?.solid ?? "#2E7A7F" : theme.textStrong }]}>
+              <Text style={[s.statVal, { color: tir24 !== null && tir24 >= 70 ? theme.teal.solid : theme.textStrong }]}>
                 {tir24 !== null ? tir24 + "%" : "--"}
               </Text>
               <Text style={[s.statLbl, { color: theme.textSoft }]}>TIR</Text>
@@ -230,7 +230,14 @@ export function GlucoseDetailScreen() {
           ) : readings24h.length === 0 ? (
             <EmptyState slot="empty.glucose" title="No readings in the last 24h" subtitle="Connect Dexcom or add readings manually on the Health tab." />
           ) : (
-            <Svg width={CHART_W} height={CHART_H} style={{ marginTop: 10 }}>
+            <Svg
+              width={CHART_W}
+              height={CHART_H}
+              style={{ marginTop: 10 }}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={`Glucose line chart, last 24 hours. ${readings24h.length} readings. Latest ${fmtMg(vals24[vals24.length - 1])} mg/dL. Range ${fmtMg(min24)}–${fmtMg(max24)} mg/dL.`}
+            >
               {/* Grid lines */}
               {gridVals.map((v) => {
                 const gy = PAD_T + usableH - ((v - chartMin) / chartRange) * usableH;
@@ -247,9 +254,9 @@ export function GlucoseDetailScreen() {
               {lowY > highY && (
                 <React.Fragment>
                   <Line x1={PAD_L} x2={CHART_W} y1={lowY} y2={lowY}
-                    stroke={theme.teal?.solid ?? "#2E7A7F"} strokeDasharray="3,3" strokeWidth={1} opacity={0.5} />
+                    stroke={theme.teal.solid} strokeDasharray="3,3" strokeWidth={1} opacity={0.5} />
                   <Line x1={PAD_L} x2={CHART_W} y1={highY} y2={highY}
-                    stroke={theme.teal?.solid ?? "#2E7A7F"} strokeDasharray="3,3" strokeWidth={1} opacity={0.5} />
+                    stroke={theme.teal.solid} strokeDasharray="3,3" strokeWidth={1} opacity={0.5} />
                 </React.Fragment>
               )}
               {/* Gradient fill */}
@@ -280,7 +287,7 @@ export function GlucoseDetailScreen() {
           {readings24h.length > 0 && (
             <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 16, height: 1.5, borderStyle: "dashed", borderWidth: 1, borderColor: theme.teal?.solid ?? "#2E7A7F", opacity: 0.7 }} />
+                <View style={{ width: 16, height: 1.5, borderStyle: "dashed", borderWidth: 1, borderColor: theme.teal.solid, opacity: 0.7 }} />
                 <Text style={{ color: theme.textSoft, fontSize: 10 }}>Target 70–180</Text>
               </View>
             </View>
@@ -303,7 +310,7 @@ export function GlucoseDetailScreen() {
                 const barColor = avg === null
                   ? theme.cardBorder
                   : inRange
-                    ? (theme.teal?.solid ?? "#2E7A7F")
+                    ? theme.teal.solid
                     : accent;
                 return (
                   <View key={key}>
@@ -358,7 +365,7 @@ export function GlucoseDetailScreen() {
                   <Text style={[s.statLbl, { color: theme.textSoft }]}>Avg mg/dL</Text>
                 </View>
                 <View style={s.stat}>
-                  <Text style={[s.statVal, { color: tir30 !== null && tir30 >= 70 ? (theme.teal?.solid ?? "#2E7A7F") : theme.textStrong }]}>
+                  <Text style={[s.statVal, { color: tir30 !== null && tir30 >= 70 ? theme.teal.solid : theme.textStrong }]}>
                     {tir30 !== null ? tir30 + "%" : "--"}
                   </Text>
                   <Text style={[s.statLbl, { color: theme.textSoft }]}>Time in Range</Text>
@@ -376,13 +383,13 @@ export function GlucoseDetailScreen() {
                 <View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
                     <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>Time in Range</Text>
-                    <Text style={{ color: tir30 >= 70 ? (theme.teal?.solid ?? "#2E7A7F") : accent, fontSize: 12, fontWeight: "700" }}>{tir30}%</Text>
+                    <Text style={{ color: tir30 >= 70 ? theme.teal.solid : accent, fontSize: 12, fontWeight: "700" }}>{tir30}%</Text>
                   </View>
                   <View style={{ height: 12, backgroundColor: theme.cardBorder, borderRadius: 6, overflow: "hidden" }}>
                     <View style={{
                       height: 12,
                       width: (`${tir30}%` as `${number}%`),
-                      backgroundColor: tir30 >= 70 ? (theme.teal?.solid ?? "#2E7A7F") : accent,
+                      backgroundColor: tir30 >= 70 ? theme.teal.solid : accent,
                       borderRadius: 6,
                     }} />
                   </View>

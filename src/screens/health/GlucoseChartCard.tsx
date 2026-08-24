@@ -3,7 +3,7 @@
  * Glucose chart card with scrubbing, annotations, TIR badge, and Dexcom sync.
  * Extracted from HealthScreen.tsx — no logic changes.
  */
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, Pressable, TextInput, Animated } from "react-native";
 import Svg, {
   Polyline, Line, Text as SvgText, Rect, Circle,
@@ -79,7 +79,7 @@ interface Props {
   styles: any;
 }
 
-export function GlucoseChartCard({
+export const GlucoseChartCard = React.memo(function GlucoseChartCard({
   glucoseEntranceAnim,
   chartFadeAnim,
   loading,
@@ -546,4 +546,4 @@ export function GlucoseChartCard({
     </ShadowCard>
     </Animated.View>
   );
-}
+});

@@ -313,6 +313,16 @@ export function FinanceScreen() {
   }, [filtered]);
 
   const maxCat = categoryTotals[0]?.[1] ?? 1;
+
+  // Hoist bar-width math so the render loop is pure display
+  const categoryBars = useMemo(() =>
+    categoryTotals.map(([cat, amt]) => ({
+      cat,
+      amt,
+      targetPct: Math.round((amt / (categoryTotals[0]?.[1] ?? 1)) * 100),
+    })),
+  [categoryTotals]);
+
   const grouped = useMemo(() => groupByDay(filtered), [filtered]);
 
   const monthHasEntries = useMemo(() => {
@@ -598,14 +608,14 @@ export function FinanceScreen() {
                 {syncing ? "  ·  syncing…" : ""}
               </Text>
               {view === "day" && (
-                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= dailyBudget ? (theme.teal?.solid ?? "#14b8a6") : (theme.red?.solid ?? "#C0392B") }}>
+                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= dailyBudget ? theme.teal.solid : theme.red.solid }}>
                   {total <= dailyBudget
                     ? "On track"
                     : `Over by $${(total - dailyBudget).toFixed(2)}`}
                 </Text>
               )}
               {view === "week" && lastWeekTotal > 0 && (
-                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= lastWeekTotal ? (theme.teal?.solid ?? "#14b8a6") : (theme.coral?.sub ?? "#f97316") }}>
+                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= lastWeekTotal ? theme.teal.solid : theme.coral.sub }}>
                   {total <= lastWeekTotal
                     ? `▼ ${formatAmount(lastWeekTotal - total)} less than last week`
                     : `▲ ${formatAmount(total - lastWeekTotal)} more than last week`}
@@ -635,10 +645,13 @@ export function FinanceScreen() {
           <View ref={tourBreakdownRef}>
           <ShadowCard size="card" cardId="spending_breakdown">
             <Text style={[s.cardTitle, { color: theme.textStrong }]}>Where it went</Text>
-            <View style={{ gap: 11, marginTop: 6 }}>
-              {categoryTotals.map(([cat, amt], idx) => {
+            <View
+              style={{ gap: 11, marginTop: 6 }}
+              accessible
+              accessibilityLabel={`Spending by category bar chart, total ${formatAmount(total)}`}
+            >
+              {categoryBars.map(({ cat, amt, targetPct }, idx) => {
                 const color = getCategoryColor(cat);
-                const targetPct = Math.round((amt / maxCat) * 100);
                 const animVal = barAnims.current[idx] ?? new Animated.Value(1);
                 const animatedWidth = animVal.interpolate({
                   inputRange: [0, 1],
@@ -664,7 +677,7 @@ export function FinanceScreen() {
         {entries.length > 0 && monthForecast.dayOfMonth >= 3 && (function () {
           const { monthTotal, projected, budget, daysInMonth, dayOfMonth } = monthForecast;
           const projPct  = Math.min(1, budget > 0 ? projected / budget : 0);
-          const barColor = projPct > 1.1 ? theme.red?.solid ?? "#C0392B" : projPct > 0.9 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
+          const barColor = projPct > 1.1 ? theme.red.solid : projPct > 0.9 ? theme.amber.solid : theme.teal.solid;
           return (
             <ShadowCard size="card" rotate={-0.3}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -1128,7 +1141,7 @@ export function FinanceScreen() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeStyles(ink: string, card: string, border: string, purple: string = "#7B3FBF") {
+function makeStyles(ink: string, card: string, border: string, purple: string) {
   const shadowCard = coloredShadow(purple);
   return StyleSheet.create({
     content:     { padding: 16, gap: 12, paddingBottom: 40 },

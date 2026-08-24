@@ -43,12 +43,30 @@
             android:padding="2dp" />
 
         <TextView
+            android:id="@+id/widget_streak"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔥"
+            android:textSize="11sp"
+            android:visibility="gone"
+            android:layout_marginRight="4dp" />
+
+        <TextView
             android:id="@+id/widget_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Tap ↻ to refresh"
-            android:textSize="9sp"
+            android:textSize="11sp"
             android:textColor="@color/widget_text_muted" />
+
+        <TextView
+            android:id="@+id/btn_breathe"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  🧘"
+            android:textSize="14sp"
+            android:contentDescription="Open mindfulness"
+            android:padding="4dp" />
 
         <TextView
             android:id="@+id/btn_refresh"
@@ -80,6 +98,7 @@
             android:layout_marginRight="5dp">
 
             <TextView
+                android:id="@+id/widget_glucose_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="GLUCOSE"
@@ -144,6 +163,7 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/widget_steps_sub"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="today"
@@ -223,7 +243,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="💧 WATER"
+                    android:text="WATER"
                     android:textSize="8sp"
                     android:textColor="@color/widget_blue_label"
                     android:textStyle="bold" />
@@ -274,7 +294,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🌙 SLEEP"
+                android:text="SLEEP"
                 android:textSize="8sp"
                 android:textColor="@color/widget_sleep_label"
                 android:textStyle="bold" />
@@ -311,12 +331,13 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🍜 MEALS"
+                android:text="MEALS"
                 android:textSize="8sp"
                 android:textColor="@color/widget_coral_label"
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/widget_meal_value"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Log"
@@ -326,6 +347,7 @@
                 android:layout_marginTop="2dp" />
 
             <TextView
+                android:id="@+id/widget_meal_sub"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="open →"
@@ -345,7 +367,7 @@
         android:gravity="center_vertical"
         android:layout_marginTop="6dp">
 
-        <!-- Mood quick-log: two emoji tap targets -->
+        <!-- Mood quick-log: two emoji tap targets + mood trend dot strip -->
         <TextView
             android:id="@+id/btn_mood_good"
             android:layout_width="32dp"
@@ -353,6 +375,7 @@
             android:text="🙂"
             android:textSize="18sp"
             android:gravity="center"
+            android:contentDescription="Log good mood"
             android:layout_marginRight="2dp" />
 
         <TextView
@@ -362,7 +385,17 @@
             android:text="😕"
             android:textSize="18sp"
             android:gravity="center"
+            android:contentDescription="Log low mood"
             android:layout_marginRight="4dp" />
+
+        <ImageView
+            android:id="@+id/widget_mood_trend"
+            android:layout_width="wrap_content"
+            android:layout_height="18dp"
+            android:scaleType="fitStart"
+            android:layout_marginRight="4dp"
+            android:visibility="gone"
+            android:contentDescription="mood trend" />
 
         <!-- Insight carousel -->
         <LinearLayout
@@ -384,7 +417,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:autoStart="true"
-                android:flipInterval="7000"
+                android:flipInterval="12000"
                 android:inAnimation="@android:anim/fade_in"
                 android:outAnimation="@android:anim/fade_out"
                 android:measureAllChildren="true" />

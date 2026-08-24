@@ -3,7 +3,7 @@
  * Heart rate chart card.
  * Extracted from HealthScreen.tsx — no logic changes.
  */
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, Pressable, Animated } from "react-native";
 import Svg, { Polyline } from "react-native-svg";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
@@ -27,7 +27,7 @@ interface Props {
   styles: any;
 }
 
-export function HeartRateCard({
+export const HeartRateCard = React.memo(function HeartRateCard({
   bottomCardsEntranceAnim,
   hrReadings,
   hr7DayReadings,
@@ -45,17 +45,21 @@ export function HeartRateCard({
   const hrMin = hrValues.length ? Math.min(...hrValues) - 5 : 40;
   const hrMax = hrValues.length ? Math.max(...hrValues) + 5 : 120;
   const hrRange = hrMax - hrMin || 1;
-  const hrNow = Date.now();
-  const hrWindowStart = hrNow - hrRangeHours * 60 * 60 * 1000;
-  const hrWindowMs = hrRangeHours * 60 * 60 * 1000;
   const usableW = CHART_WIDTH - PAD_LEFT;
   const usableH = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
-  const hrPoints = hrReadings.map(function (r) {
-    const t = new Date(r.recorded_at).getTime();
-    const x = PAD_LEFT + ((t - hrWindowStart) / hrWindowMs) * usableW;
-    const y = PAD_TOP + usableH - ((r.bpm - hrMin) / hrRange) * usableH;
-    return x + "," + y;
-  }).join(" ");
+
+  const hrPoints = useMemo(() => {
+    const hrNow = Date.now();
+    const hrWindowStart = hrNow - hrRangeHours * 60 * 60 * 1000;
+    const hrWindowMs = hrRangeHours * 60 * 60 * 1000;
+    return hrReadings.map(function (r) {
+      const t = new Date(r.recorded_at).getTime();
+      const x = PAD_LEFT + ((t - hrWindowStart) / hrWindowMs) * usableW;
+      const y = PAD_TOP + usableH - ((r.bpm - hrMin) / hrRange) * usableH;
+      return x + "," + y;
+    }).join(" ");
+  }, [hrReadings, hrRangeHours, usableW, usableH, hrMin, hrRange]);
+
   const restingBpm = hrValues.length ? Math.min(...hrValues) : null;
   const peakBpm = hrValues.length ? Math.max(...hrValues) : null;
   const hr7DayValues = hr7DayReadings.map(function (r) { return r.bpm; });
@@ -115,7 +119,14 @@ export function HeartRateCard({
             </Pressable>
           </View>
         ) : (
-          <Svg width={CHART_WIDTH} height={CHART_HEIGHT} style={{ marginTop: 12 }}>
+          <Svg
+            width={CHART_WIDTH}
+            height={CHART_HEIGHT}
+            style={{ marginTop: 12 }}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={`Heart rate sparkline, latest ${restingBpm !== null ? restingBpm : "--"} bpm`}
+          >
             <Polyline points={hrPoints} fill="none" stroke={ink} strokeWidth={3.5} />
             <Polyline points={hrPoints} fill="none" stroke={theme.berry.sub} strokeWidth={2} />
           </Svg>
@@ -124,4 +135,4 @@ export function HeartRateCard({
       </ShadowCard>
     </Animated.View>
   );
-}
+});

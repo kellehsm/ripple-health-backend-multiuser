@@ -143,6 +143,15 @@ The "LIVE PREVIEW" panel in `AppearanceSettingsScreen` renders the **actual scre
 - Page background editing: a small "Edit page background" button above the frame opens the same `ElementEditor` modal with `kind:"page"` and a per-page element ID.
 - Tap-to-edit flow: ShadowCard tap → `selectElement` → sets `selected` state in `ThemePreviewFrame` → `ElementEditor` modal opens bound to `AppSettingsContext` setters (opacity, glass blur, background image).
 
+### Chart performance & accessibility (2026-08 audit)
+
+All react-native-svg chart components follow three rules:
+1. **Geometry in `useMemo`** — point arrays, polyline/path strings, bar/tick coordinates are memoized on their data + dimension inputs; never recomputed inline per render. Leaf chart components are wrapped in `React.memo` where prop references are stable.
+2. **Scrub haptics** — pan-scrub charts (glucose in `HealthScreen` `onScrub`, trends scatter in `TrendsScreen` `handleScrub`) fire `Haptics.selectionAsync()` only when the snapped data point changes, guarded by a ref of the last index/timestamp.
+3. **Screen-reader traits** — data charts carry `accessible` + `accessibilityRole="image"` + a data-summarizing `accessibilityLabel` (latest value, range, count). Decorative rings sitting next to a visible value Text are hidden instead (`accessibilityElementsHidden` / `importantForAccessibility="no-hide-descendants"`).
+
+There is **no jest test suite** in this repo; chart refactors are validated by `npx tsc --noEmit` (26 known pre-existing errors) plus a web-bundle smoke test on Ripple Preview.
+
 ### Tokens (`src/theme/tokens.ts`)
 
 Shared numeric constants: `FONT_SIZES` (micro 9 → display 28), `SPACING` (xs 4 → xxl 32), `RADIUS` (sm 8 → card 18, pill 100).
@@ -211,6 +220,8 @@ Convention for async errors: screens use `try/catch` + local state for user-visi
 ### Wear OS tile
 
 `plugins/withWearOsTile.js` — native Wear OS tile config plugin. `src/screens/WatchTilesScreen.tsx` provides the in-app management UI for tile data.
+
+`modules/ripple-widget-sync/` — local Expo module (autolinked from `modules/`) exposing `RippleWidgetSync.syncNow()`, which broadcasts `WIDGET_WEAR_SYNC` to the widget provider to refetch + push metrics to the watch (works with no widgets pinned). JS wrapper: `src/lib/widgetSync.ts` (`syncWidgetAndWatch()` — no-op off Android or when the module is absent, e.g. Expo Go).
 
 ### Foreground service
 
@@ -303,13 +314,17 @@ adb -s <phone> install -r build-<ts>.apk
 
 ### Pending native changes (batched for next local build)
 
-None — cleared in 1.5.0 / vc 29. Both phone (SM-A326U) and watch (SM-L330) are on vc 29.
+Both phone (SM-A326U) and watch (SM-L330) are on vc 30. The items below landed after that build and still need a native rebuild to reach devices:
 
-Shipped across vc 28–29: watch breathing activity redesign, the `RippleWidgetProvider.kt` sleep-path fix, `expo-image-picker`, the Health Connect permissions (`READ_EXERCISE`, `READ_WEIGHT`, `READ_OXYGEN_SATURATION`), and the themable icon expansion.
-
-Note on the weight permission: `READ_BODY_MEASUREMENTS` is **not** a valid Health Connect permission and made the permission screen hang. It shipped in vc 28 and was replaced by `READ_WEIGHT` in vc 29 — since it lives in the manifest, only a native rebuild could fix it.
-
-Add new native-touching work here as it lands.
+- **Watch breathing activity** — redesigned layout + BoxAnimView + ripple animations (`RippleWearBreathingActivity.kt`, `RippleWearBreatheTileService.kt`, `RippleWearLogTileService.kt`, `RippleWearMainActivity.kt`).
+- **Widget sleep path fix** — `RippleWidgetProvider.kt` corrected to call `/api/health-connect/sleep/stats` (was 404ing on wrong path).
+- **New Android Health Connect permissions** in `app.json`: `READ_EXERCISE`, `READ_WEIGHT`, `READ_OXYGEN_SATURATION` (enables `sync_exercise` / `sync_weight` / `sync_spo2` toggles in Health Connect settings).
+- **expo-image-picker** (new native module) — gallery photo selection for the meal photo scanner (`PhotoScannerModal`, "Pick from photos" in the add-food sheet).
+- **Watch swipeable insights** — multi-insight ViewFlipper on the wear main activity (`RippleWidgetProvider.kt`, `WearDataBridge.kt.template`, `WearDataListenerService.kt`, `WearCache.kt`, `RippleWearMainActivity.kt`).
+- **ripple-widget-sync local Expo module** — app-triggered widget/watch refresh (`WIDGET_WEAR_SYNC` action in `RippleWidgetProvider.kt`); fixes watch never getting steps/sleep without a pinned widget and stale water counts after in-app logs.
+- **Round-screen padding fix** — `RippleWearMainActivity.kt` pads 48/52dp top/bottom on round faces so the title clears the bezel.
+- **Watch/widget polish wave (2026-08)** — urgent-glucose double-buzz haptic with 15-min debounce (`WearDataListenerService.kt`), "Updated X" timestamp + mood stat row + water progress arc on the watch home screen (`RippleWearMainActivity.kt`), mood pushed through the data bridge (`WearDataBridge.kt.template`, `WearCache.kt`), "phone not reachable" state instead of silent optimistic bumps in `RippleWearLogActivity.kt`, breathing screen dims to 1% brightness after 60 s (touch restores; `RippleWearBreathingActivity.kt`), widget mood-trend dot strip (`RippleWidgetProvider.kt`, `ripple_widget.xml`).
+- **Widget review wave (2026-08-24)** — robustness: 30-min backup refresh alarm (`onEnabled`/`onDisabled`), `runAsync` watchdog releases `goAsync()` within 9 s (ANR guard), per-widget-id PendingIntent request codes, single `/mindfulness/stats` fetch per refresh, `HttpsURLConnection.disconnect()` in `finally`, score-card rotation moved from onUpdate drift to tap-to-advance (`ACTION_NEXT_STAT`); `withAndroidWidget.js` now rewrites `ACTION_WEAR_SYNC`/`ACTION_NEXT_STAT` for non-default package names and `ripple-widget-sync` builds its action/class from `context.packageName`. Features: exercise minutes on the steps chip sub-label, meal kcal in the meal chip, 🔥 mindfulness-streak header badge, ⚠ urgent-glucose label, 🧘 breathe deeplink button, toast feedback on widget water/mood logs. Polish: status text 11sp, tokenized compact-widget colors (dark mode fix), status-color hexes aligned to app tokens, emoji dropped from chip labels, contentDescriptions on all tap targets, insight flipper 12 s, water chips deeplink to `ripple://water`. New deeplink actions in `App.tsx`: `water`, `exercise`, `mindfulness`.
 
 ### Dev client vs Expo Go
 

@@ -176,7 +176,7 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
 
   // ── HeartbeatLine ─────────────────────────────────────────────────────────
   function HeartbeatLine() {
-    const lineColor = theme.purple?.solid ?? "#7B3FBF";
+    const lineColor = theme.purple.solid;
     return (
       <View style={{ width: 88, height: 22, overflow: "hidden" }}>
         <Animated.View style={{ transform: [{ translateX: heartbeatReveal }] }}>
@@ -206,10 +206,10 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
       {/* Background blobs */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {[
-          { anim: blob1X, animY: blob1Y, size: 140, top: -30, left: -40, color: "#7B3FBF" },
-          { anim: blob2X, animY: blob2Y, size: 110, top: 160, right: -30, color: "#3FA0A6" },
-          { anim: blob3X, animY: blob3Y, size: 160, bottom: 100, left: -50, color: "#7B3FBF" },
-          { anim: blob4X, animY: blob4Y, size: 100, bottom: 120, right: 20, color: "#3FA0A6" },
+          { anim: blob1X, animY: blob1Y, size: 140, top: -30, left: -40, color: theme.purple.solid },
+          { anim: blob2X, animY: blob2Y, size: 110, top: 160, right: -30, color: theme.teal.solid },
+          { anim: blob3X, animY: blob3Y, size: 160, bottom: 100, left: -50, color: theme.purple.solid },
+          { anim: blob4X, animY: blob4Y, size: 100, bottom: 120, right: 20, color: theme.teal.solid },
         ].map((b, i) => (
           <Animated.View
             key={i}
@@ -264,7 +264,7 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
           <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
             {/* Name field */}
             <Animated.View style={{ marginBottom: 14, opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }] }}>
-              <Text style={[styles.label, { color: theme.ink ?? "#111" }]}>FULL NAME (OPTIONAL)</Text>
+              <Text style={[styles.label, { color: theme.ink ?? "#111" }]}>Full name (optional)</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink ?? "#111", color: theme.textStrong ?? "#111" }]}
                 value={name}
@@ -278,7 +278,7 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
 
             {/* Email field */}
             <Animated.View style={{ marginBottom: 14, opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }] }}>
-              <Text style={[styles.label, { color: theme.ink ?? "#111" }]}>EMAIL</Text>
+              <Text style={[styles.label, { color: theme.ink ?? "#111" }]}>Email</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink ?? "#111", color: theme.textStrong ?? "#111" }]}
                 value={email}
@@ -293,7 +293,7 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
 
             {/* Password field */}
             <Animated.View style={{ marginBottom: 14, opacity: fadeAnims[4], transform: [{ translateY: slideAnims[4] }] }}>
-              <Text style={[styles.label, { color: theme.ink ?? "#111" }]}>PASSWORD</Text>
+              <Text style={[styles.label, { color: theme.ink ?? "#111" }]}>Password</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink ?? "#111", color: theme.textStrong ?? "#111" }]}
                 value={password}
@@ -302,7 +302,7 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
                 placeholder="At least 8 characters"
                 placeholderTextColor={theme.textSoft ?? "#aaa"}
               />
-              <Text style={[styles.label, { color: theme.ink ?? "#111", marginTop: 14 }]}>CONFIRM PASSWORD</Text>
+              <Text style={[styles.label, { color: theme.ink ?? "#111", marginTop: 14 }]}>Confirm password</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink ?? "#111", color: theme.textStrong ?? "#111" }]}
                 value={confirmPassword}
@@ -353,11 +353,10 @@ export function SignupScreen({ onSignupSuccess, onBackToLogin }: Props) {
 
 const styles = StyleSheet.create({
   label: {
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 0.6,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
     marginBottom: 6,
-    textTransform: "uppercase",
   },
   input: {
     borderWidth: 2,
@@ -365,7 +364,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     fontSize: 16,
-    shadowColor: "#111",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -376,7 +375,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingVertical: 15,
     alignItems: "center",
-    shadowColor: "#111",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.12,
     shadowRadius: 14,

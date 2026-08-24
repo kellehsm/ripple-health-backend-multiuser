@@ -2,14 +2,22 @@ package com.kellehs.wellness.wear
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.GestureDetector
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.ViewFlipper
+import kotlin.math.abs
+import kotlin.math.min
 
 /**
  * Ripple Wear home screen — scrollable dashboard showing today's cached data.
@@ -53,8 +61,9 @@ class RippleWearMainActivity : Activity() {
         col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            // 28dp top/bottom, 22dp sides — keeps content away from bezel
-            setPadding(px(22), px(28), px(22), px(28))
+            // Round faces clip the top/bottom arcs, so pad deeper there
+            val round = resources.configuration.isScreenRound
+            setPadding(px(22), px(if (round) 48 else 28), px(22), px(if (round) 52 else 28))
         }
 
         scroll.addView(col)
@@ -81,6 +90,17 @@ class RippleWearMainActivity : Activity() {
         // 1. Header row: "Ripple" + wellness score badge
         col.addView(headerRow(px, s.wellnessScore))
 
+        // Item 2: dim "Updated X" timestamp under header
+        if (s.updatedAt.isNotBlank()) {
+            col.addView(TextView(this).apply {
+                text = "Updated ${s.updatedAt}"
+                textSize = 9f
+                setTextColor(LABEL_GRAY)
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(0, px(1), 0, px(3))
+            }, centerLp())
+        }
+
         // Divider
         col.addView(divider(px))
 
@@ -91,14 +111,29 @@ class RippleWearMainActivity : Activity() {
 
         // 3. Stat rows
         col.addView(statRow(px, "👟", "Steps",  s.steps,  TEAL))
-        col.addView(statRow(px, "💧", "Water",  s.water,  BLUE))
+        col.addView(waterStatRow(px, s))
         col.addView(statRow(px, "❤️", "Heart",  s.heart,  BERRY))
         col.addView(statRow(px, "😴", "Sleep",  s.sleep,  INDIGO))
+        // Item 3: mood row
+        if (s.mood != "--") {
+            col.addView(statRow(px, "💭", "Mood",  s.mood,  AMBER))
+        }
 
-        // 4. Insight (optional)
-        if (s.insight.isNotBlank()) {
+        // 4. Insights (optional, swipeable when multiple)
+        val insightTitles = if (s.insights.isNotBlank()) {
+            s.insights.split("").filter { it.isNotBlank() }
+        } else if (s.insight.isNotBlank()) {
+            listOf(s.insight)
+        } else {
+            emptyList()
+        }
+        if (insightTitles.isNotEmpty()) {
             col.addView(divider(px))
-            col.addView(insightView(px, s.insight))
+            if (insightTitles.size > 1) {
+                col.addView(insightFlipperView(px, insightTitles))
+            } else {
+                col.addView(insightView(px, insightTitles[0]))
+            }
         }
 
         col.addView(divider(px))
@@ -242,6 +277,81 @@ class RippleWearMainActivity : Activity() {
         return row
     }
 
+    // --- Water stat row with arc ring (Item 6) ----------------------------
+
+    /** Parses "count/goal" → sweep degrees [0,360]. */
+    private fun waterSweepDeg(water: String): Float {
+        val parts = water.split("/")
+        if (parts.size != 2) return 0f
+        val count = parts[0].trim().toFloatOrNull() ?: return 0f
+        val goal = parts[1].trim().toFloatOrNull() ?: return 0f
+        if (goal <= 0f) return 0f
+        return min(1f, count / goal) * 360f
+    }
+
+    /** Custom arc view (24×24dp) showing water fill as a blue ring on dark track. */
+    inner class WaterArcView(context: android.content.Context, private val sweep: Float) : View(context) {
+        private val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            color = 0x33000000 or (BLUE and 0x00FFFFFF)
+        }
+        private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            color = BLUE
+            strokeCap = Paint.Cap.ROUND
+        }
+        private val oval = RectF()
+        override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+            val stroke = w * 0.18f
+            trackPaint.strokeWidth = stroke
+            fillPaint.strokeWidth = stroke
+            val inset = stroke / 2f
+            oval.set(inset, inset, w - inset, h - inset)
+        }
+        override fun onDraw(canvas: Canvas) {
+            canvas.drawOval(oval, trackPaint)
+            if (sweep > 0f) canvas.drawArc(oval, -90f, sweep.coerceIn(0f, 360f), false, fillPaint)
+        }
+    }
+
+    private fun waterStatRow(px: (Int) -> Int, s: WearCache.Snapshot): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, px(5), 0, px(5))
+        }
+        row.addView(TextView(this).apply {
+            text = "💧"
+            textSize = 14f
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, px(8), 0)
+        })
+        row.addView(TextView(this).apply {
+            text = "Water"
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(LABEL_GRAY)
+            gravity = Gravity.CENTER_VERTICAL
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        // Arc ring
+        val arcSize = px(22)
+        val sweep = waterSweepDeg(s.water)
+        row.addView(WaterArcView(this, sweep), LinearLayout.LayoutParams(arcSize, arcSize).apply {
+            marginEnd = px(6)
+            gravity = Gravity.CENTER_VERTICAL
+        })
+        row.addView(TextView(this).apply {
+            text = s.water
+            textSize = 13f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(BLUE)
+            gravity = Gravity.CENTER_VERTICAL
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        return row
+    }
+
     // --- Insight ----------------------------------------------------------
 
     private fun insightView(px: (Int) -> Int, text: String): View {
@@ -253,6 +363,73 @@ class RippleWearMainActivity : Activity() {
             maxLines = 3
             setPadding(0, px(4), 0, px(4))
         }
+    }
+
+    private fun insightFlipperView(px: (Int) -> Int, texts: List<String>): View {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+
+        val flipper = ViewFlipper(this).apply {
+            for (text in texts) {
+                addView(insightView(px, text))
+            }
+        }
+        container.addView(flipper, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+
+        // Counter label e.g. "1 / 3"
+        val counter = TextView(this).apply {
+            text = "1 / ${texts.size}"
+            textSize = 9f
+            setTextColor(GRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, px(2), 0, 0)
+        }
+        container.addView(counter, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ))
+
+        // Fling left → next, fling right → previous
+        val gd = GestureDetector(this,
+            object : GestureDetector.SimpleOnGestureListener() {
+                private val SWIPE_MIN_DISTANCE = px(30)
+                private val SWIPE_MIN_VELOCITY = px(50)
+
+                override fun onFling(
+                    e1: MotionEvent?,
+                    e2: MotionEvent,
+                    velocityX: Float,
+                    velocityY: Float
+                ): Boolean {
+                    val dx = (e2.x - (e1?.x ?: e2.x))
+                    val dy = (e2.y - (e1?.y ?: e2.y))
+                    if (abs(dx) < SWIPE_MIN_DISTANCE) return false
+                    if (abs(velocityX) < SWIPE_MIN_VELOCITY) return false
+                    if (abs(dy) > abs(dx)) return false
+                    if (dx < 0) {
+                        // swipe left → show next
+                        flipper.showNext()
+                    } else {
+                        // swipe right → show previous
+                        flipper.showPrevious()
+                    }
+                    val idx = flipper.displayedChild
+                    counter.text = "${idx + 1} / ${texts.size}"
+                    return true
+                }
+            })
+
+        container.setOnTouchListener { _, event ->
+            gd.onTouchEvent(event)
+            true
+        }
+
+        return container
     }
 
     // --- Button row -------------------------------------------------------

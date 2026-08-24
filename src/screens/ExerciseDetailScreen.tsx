@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Image, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { toast } from '../lib/toast';
@@ -118,30 +118,42 @@ function HRChart({ samples, theme }: { samples: Array<{ recorded_at: string; bpm
 
   const W = 320, H = 80;
   const PAD = { top: 8, bottom: 16, left: 28, right: 8 };
-  const bpms = samples.map((s) => s.bpm);
-  const minBpm = Math.min(...bpms) - 5;
-  const maxBpm = Math.max(...bpms) + 5;
-  const times = samples.map((s) => new Date(s.recorded_at).getTime());
+
+  const { points, minBpm, maxBpm, toX, toY, latestBpm } = useMemo(() => {
+    const bpms = samples.map((s) => s.bpm);
+    const mn = Math.min(...bpms) - 5;
+    const mx = Math.max(...bpms) + 5;
+    const times = samples.map((s) => new Date(s.recorded_at).getTime());
+    const minT = times[0], maxT = times[times.length - 1];
+    const chartW = W - PAD.left - PAD.right;
+    const chartH = H - PAD.top - PAD.bottom;
+    const txFn = (t: number) => PAD.left + ((t - minT) / (maxT - minT || 1)) * chartW;
+    const tyFn = (bpm: number) => PAD.top + (1 - (bpm - mn) / (mx - mn || 1)) * chartH;
+    const pts = samples.map((s, i) => `${txFn(times[i])},${tyFn(s.bpm)}`).join(' ');
+    return { points: pts, minBpm: mn, maxBpm: mx, toX: txFn, toY: tyFn, latestBpm: bpms[bpms.length - 1] ?? 0 };
+  }, [samples]);
+
+  const ink = theme.ink;
+  const times = useMemo(() => samples.map((s) => new Date(s.recorded_at).getTime()), [samples]);
   const minT = times[0], maxT = times[times.length - 1];
 
-  const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
-
-  const toX = (t: number) => PAD.left + ((t - minT) / (maxT - minT || 1)) * chartW;
-  const toY = (bpm: number) => PAD.top + (1 - (bpm - minBpm) / (maxBpm - minBpm || 1)) * chartH;
-
-  const points = samples.map((s, i) => `${toX(times[i])},${toY(s.bpm)}`).join(' ');
-  const ink = theme.ink;
-
   return (
-    <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+    <Svg
+      width="100%"
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={`Heart rate chart, latest ${latestBpm} bpm`}
+    >
       <Defs>
         <SvgLinearGradient id="exDetailFill" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={ink} stopOpacity="0.30" />
           <Stop offset="1" stopColor={ink} stopOpacity="0.02" />
         </SvgLinearGradient>
       </Defs>
-      <Polygon points={`${points} ${toX(maxT)},${PAD.top + chartH} ${toX(minT)},${PAD.top + chartH}`} fill="url(#exDetailFill)" />
+      <Polygon points={`${points} ${toX(maxT)},${H - PAD.bottom} ${toX(minT)},${H - PAD.bottom}`} fill="url(#exDetailFill)" />
       <Polyline points={points} fill="none" stroke={ink} strokeWidth={2.5} />
       <SvgText x={PAD.left - 2} y={PAD.top + 4} fontSize={8} fill={theme.textSoft} textAnchor="end">
         {maxBpm}

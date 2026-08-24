@@ -25,6 +25,24 @@ import { TooltipBubble } from '../components/TooltipBubble';
 import { hasSeenTooltip, markTooltipSeen } from '../utils/tooltipSeen';
 import { WorkoutPlannerModal, PlanExercise } from '../components/WorkoutPlannerModal';
 import { getCached, setCached, invalidateCache } from '../utils/staleCache';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UndoBanner } from '../components/UndoBanner';
+
+interface DetectedWorkout {
+  start: string;
+  end: string;
+  duration_minutes: number;
+  avg_bpm: number;
+  peak_bpm: number;
+}
+
+const DETECTED_DISMISS_KEY = 'detected_workout_dismissed';
+
+function formatClock(iso: string): string {
+  const d = new Date(iso);
+  const h = d.getHours() % 12 || 12;
+  return `${h}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
+}
 
 interface WorkoutSuggestion {
   type: string;
@@ -163,11 +181,16 @@ export function ExerciseScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<WorkoutSuggestion | null>(null);
+  const [detected, setDetected] = useState<DetectedWorkout | null>(null);
+  const [loggingDetected, setLoggingDetected] = useState(false);
   const [activeProgram, setActiveProgram] = useState<ActiveProgram | null>(null);
   const [plannerVisible, setPlannerVisible] = useState(false);
   const [plannerInitialQueue, setPlannerInitialQueue] = useState<PlanExercise[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [undoSession, setUndoSession] = useState<{ session: ExerciseSession; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const undoSessionRef = React.useRef(undoSession);
+  React.useEffect(() => { undoSessionRef.current = undoSession; }, [undoSession]);
 
   // Wizard gate — null = loading, false = show wizard, true = show main screen
   const [wizardDone, setWizardDone] = useState<boolean | null>(null);
@@ -252,6 +275,42 @@ export function ExerciseScreen() {
     }).finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
     return () => { cancelled = true; };
   }, [prefsLoading, preferences.selectedModules, reloadKey]));
+
+  // Detected-workout check — independent of the main cache since it's time-sensitive
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    api.getDetectedWorkout()
+      .then(async (res: { detected: DetectedWorkout | null }) => {
+        if (cancelled || !res?.detected) return;
+        const dismissed = await AsyncStorage.getItem(DETECTED_DISMISS_KEY);
+        if (cancelled || dismissed === res.detected.start) return;
+        setDetected(res.detected);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [reloadKey]));
+
+  async function handleLogDetected() {
+    if (!detected || loggingDetected) return;
+    setLoggingDetected(true);
+    Haptics.selectionAsync().catch(() => {});
+    try {
+      const session = await api.startExerciseSession({ started_at: detected.start, ended_at: detected.end });
+      invalidateCache('exercise:main');
+      setDetected(null);
+      navigation.navigate('ExerciseSession', { sessionId: session.id });
+    } catch {
+      toast('Could not log workout');
+    } finally {
+      setLoggingDetected(false);
+    }
+  }
+
+  function handleDismissDetected() {
+    if (!detected) return;
+    AsyncStorage.setItem(DETECTED_DISMISS_KEY, detected.start).catch(() => {});
+    setDetected(null);
+  }
 
   function handleOpenProgramMenu() {
     Haptics.selectionAsync().catch(() => {});
@@ -582,6 +641,38 @@ export function ExerciseScreen() {
           </>
         )}
 
+        {/* Detected workout card — sustained elevated HR with no logged session */}
+        {detected && (
+          <ShadowCard padding={14} accent={theme.berry.solid}>
+            <View style={styles.suggestionHeader}>
+              <ThemedIcon slot="metric.heart" size={22} style={styles.suggestionIcon as any} />
+              <Text style={[styles.suggestionTitle, { color: theme.textStrong }]}>Workout detected</Text>
+            </View>
+            <Text style={[styles.suggestionBody, { color: theme.textSoft }]}>
+              Your heart rate was elevated {formatClock(detected.start)}–{formatClock(detected.end)} ({detected.duration_minutes} min, avg {detected.avg_bpm} bpm, peak {detected.peak_bpm}). Want to log what you did?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <Pressable
+                onPress={handleLogDetected}
+                disabled={loggingDetected}
+                style={[styles.suggestionCta, { borderColor: ink, opacity: loggingDetected ? 0.5 : 1 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Log detected workout"
+              >
+                <Text style={[styles.suggestionCtaText, { color: ink }]}>{loggingDetected ? 'Logging…' : 'Log workout'}</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleDismissDetected}
+                style={[styles.suggestionCta, { borderColor: theme.cardBorder }]}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss detected workout"
+              >
+                <Text style={[styles.suggestionCtaText, { color: theme.textSoft }]}>Dismiss</Text>
+              </Pressable>
+            </View>
+          </ShadowCard>
+        )}
+
         {/* Suggestion card */}
         {suggestion && (
           <ShadowCard padding={14}>
@@ -618,17 +709,25 @@ export function ExerciseScreen() {
                     label={`${formatDate(session.started_at)} · empty session`}
                     action={{
                       label: "Delete",
-                      onPress: async () => {
-                        const prev = sessions;
-                        setSessions((cur) => cur.filter((s) => s.id !== session.id));
-                        try {
-                          await api.deleteExerciseSession(session.id);
+                      onPress: () => {
+                        if (undoSessionRef.current) {
+                          clearTimeout(undoSessionRef.current.timer);
+                          const prev = undoSessionRef.current.session;
+                          api.deleteExerciseSession(prev.id).catch(() => {});
                           invalidateCache('exercise:main');
-                          toast("Session removed.");
-                        } catch {
-                          setSessions(prev);
-                          toast("Couldn't delete that session.", "error");
                         }
+                        setSessions((cur) => cur.filter((s) => s.id !== session.id));
+                        const timer = setTimeout(async () => {
+                          setUndoSession(null);
+                          try {
+                            await api.deleteExerciseSession(session.id);
+                            invalidateCache('exercise:main');
+                          } catch {
+                            setSessions((cur) => [...cur, session]);
+                            toast("Couldn't delete that session.", "error");
+                          }
+                        }, 4000);
+                        setUndoSession({ session, timer });
                       },
                     }}
                   />
@@ -662,28 +761,24 @@ export function ExerciseScreen() {
                     </Text>
                     <Pressable
                       onPress={() => {
-                        Alert.alert(
-                          "Delete this workout?",
-                          `${formatDate(session.started_at)} and all its logged sets will be removed.`,
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            {
-                              text: "Delete", style: "destructive",
-                              onPress: async () => {
-                                const prev = sessions;
-                                setSessions((cur) => cur.filter((s) => s.id !== session.id));
-                                try {
-                                  await api.deleteExerciseSession(session.id);
-                                  invalidateCache('exercise:main');
-                                  toast("Workout deleted.");
-                                } catch {
-                                  setSessions(prev);
-                                  toast("Couldn't delete that session.", "error");
-                                }
-                              },
-                            },
-                          ]
-                        );
+                        if (undoSessionRef.current) {
+                          clearTimeout(undoSessionRef.current.timer);
+                          const prev = undoSessionRef.current.session;
+                          api.deleteExerciseSession(prev.id).catch(() => {});
+                          invalidateCache('exercise:main');
+                        }
+                        setSessions((cur) => cur.filter((s) => s.id !== session.id));
+                        const timer = setTimeout(async () => {
+                          setUndoSession(null);
+                          try {
+                            await api.deleteExerciseSession(session.id);
+                            invalidateCache('exercise:main');
+                          } catch {
+                            setSessions((cur) => [...cur, session]);
+                            toast("Couldn't delete that session.", "error");
+                          }
+                        }, 4000);
+                        setUndoSession({ session, timer });
                       }}
                       hitSlop={12}
                       style={{ padding: 6 }}
@@ -823,6 +918,17 @@ export function ExerciseScreen() {
         </SafeAreaView>
       </Modal>
       <FeatureIntroSheet intro={exerciseIntro} visible={introVisible} onClose={dismissIntro} />
+      {undoSession && (
+        <UndoBanner
+          message={`${formatDate(undoSession.session.started_at)} workout removed`}
+          onUndo={() => {
+            clearTimeout(undoSession.timer);
+            setSessions((cur) => [...cur, undoSession.session]);
+            setUndoSession(null);
+          }}
+          theme={theme}
+        />
+      )}
     </View>
     </KeyboardAvoidingView>
   );

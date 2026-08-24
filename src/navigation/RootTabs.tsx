@@ -5,6 +5,8 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
+import { api } from "../api/client";
+
 import { OverviewScreen } from "../screens/OverviewScreen";
 import { HealthScreen } from "../screens/HealthScreen";
 import { MealsScreen } from "../screens/MealsScreen";
@@ -110,6 +112,27 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const { preferences } = useTabPreferences();
   const activeRouteName = state.routes[state.index]?.name ?? 'Home';
   const activeModule = ROUTE_TO_MODULE[activeRouteName] ?? 'home';
+  const [medicationDue, setMedicationDue] = React.useState(false);
+
+  // Health-tab badge: any dose scheduled for today that hasn't been taken yet.
+  // Refetched on mount and whenever the active tab changes (cheap endpoint;
+  // same due logic as OverviewBlocks/MedicationList).
+  React.useEffect(() => {
+    let cancelled = false;
+    api.getMedications()
+      .then((meds: any[]) => {
+        if (cancelled || !Array.isArray(meds)) return;
+        const todayDow = new Date().getDay();
+        const due = meds.some((m) => {
+          if (m.is_prn) return false;
+          if (m.frequency === 'weekly' && m.day_of_week !== todayDow) return false;
+          return (m.slots ?? []).some((s: any) => s.dose_log === null);
+        });
+        setMedicationDue(due);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [state.index]);
 
   return (
     <BottomNav
@@ -120,7 +143,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
         const routeName = MODULE_TO_ROUTE[module];
         navigation.navigate(routeName);
       }}
-      medicationDue={false}
+      medicationDue={medicationDue}
     />
   );
 }

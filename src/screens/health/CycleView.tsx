@@ -128,7 +128,7 @@ export function CycleView({ theme }: { theme: any }) {
 
       {/* Instruction card */}
       {instructionDismissed === false && (
-        <View style={[insStyles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, shadowColor: "#000" }]}>
+        <View style={[insStyles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, shadowColor: "rgba(60,40,20,0.1)" }]}>
           <Text style={[insStyles.cardTitle, { color: theme.teal.fg }]}>Getting started with Cycle Tracking</Text>
           <Text style={{ color: theme.teal.fg, fontSize: 13, lineHeight: 19, marginTop: 4 }}>
             Log your flow, symptoms, and mood each day to see predictions and patterns.
@@ -160,7 +160,7 @@ export function CycleView({ theme }: { theme: any }) {
 
       {/* Selected day detail panel */}
       {selectedDate && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
+        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>
             {selectedDateLabel}{selectedPhase ? ` · ${selectedPhase} phase` : ''}
           </Text>
@@ -223,7 +223,7 @@ export function CycleView({ theme }: { theme: any }) {
 
       {/* Cycle insights card */}
       {showInsightsCard && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
+        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>Cycle Insights</Text>
           <View style={{ gap: 6, marginTop: 6 }}>
             {prediction?.avgCycleLength != null && (
@@ -260,7 +260,7 @@ export function CycleView({ theme }: { theme: any }) {
 
       {/* Cycle history */}
       {history.length > 0 && (
-        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "#000" }]}>
+        <View style={[insStyles.panel, { backgroundColor: theme.card, borderColor: theme.cardBorder, shadowColor: "rgba(60,40,20,0.1)" }]}>
           <Text style={[insStyles.panelTitle, { color: theme.textStrong }]}>Cycle History</Text>
           {history.slice(0, 6).map((h, i) => (
             <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: 'rgba(0,0,0,0.06)' }}>
@@ -301,7 +301,7 @@ const insStyles = StyleSheet.create({
     borderRadius: 26,
     borderWidth: 2,
     padding: 16,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -319,7 +319,7 @@ const insStyles = StyleSheet.create({
     borderWidth: 2,
     padding: 14,
     gap: 4,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

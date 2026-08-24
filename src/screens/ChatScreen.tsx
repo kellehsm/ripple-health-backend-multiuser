@@ -25,6 +25,8 @@ export function ChatScreen() {
   const listRef = useRef<FlatList<Msg>>(null);
   const route = useRoute<any>();
   const [shownTs, setShownTs] = useState<number | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const lastFailed = useRef<string | null>(null);
   const askedInitial = useRef(false);
 
   useEffect(() => {
@@ -42,14 +44,18 @@ export function ChatScreen() {
     setMessages(next);
     setInput("");
     setSending(true);
+    setSendError(null);
     try {
       const res = await api.chat(next);
       setMessages([...next, { role: "assistant", content: res.reply, ts: Date.now() }]);
+      lastFailed.current = null;
     } catch (e: any) {
       const msg = e?.status === 503
         ? "Chat isn't set up on this server yet."
-        : "Couldn't get a response. Try again.";
-      setMessages([...next, { role: "assistant", content: msg }]);
+        : "Couldn't get a response.";
+      lastFailed.current = content;
+      setMessages(messages); // drop the unanswered message; retry re-sends it
+      setSendError(msg);
     } finally {
       setSending(false);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
@@ -126,6 +132,19 @@ export function ChatScreen() {
             ) : null
           }
         />
+        {sendError ? (
+          <View style={[styles.errorBanner, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <Text style={{ color: theme.danger, fontSize: 12, flex: 1 }}>{sendError}</Text>
+            <Pressable
+              onPress={() => { if (lastFailed.current) send(lastFailed.current); }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Retry sending message"
+            >
+              <Text style={{ color: theme.primary, fontSize: 12, fontWeight: "700" }}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <View style={[styles.inputRow, { backgroundColor: theme.card, borderTopColor: theme.cardBorder }]}>
           <TextInput
             style={[styles.input, { color: theme.textStrong, backgroundColor: theme.page, borderColor: theme.cardBorder }]}
@@ -140,9 +159,10 @@ export function ChatScreen() {
           <Pressable
             onPress={() => send()}
             disabled={sending || !input.trim()}
+            hitSlop={12}
             style={[styles.sendBtn, { backgroundColor: theme.teal.solid, opacity: sending || !input.trim() ? 0.4 : 1 }]}
             accessibilityRole="button"
-            accessibilityLabel="Send"
+            accessibilityLabel="Send message"
           >
             <Ionicons name="arrow-up" size={20} color="#fff" />
           </Pressable>
@@ -157,6 +177,7 @@ const styles = StyleSheet.create({
   avatarDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center", marginBottom: 2 },
   suggestion: { borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 14 },
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, borderTopWidth: 1 },
+  errorBanner: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 12, marginBottom: 6, borderWidth: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
   input: { flex: 1, borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, maxHeight: 110 },
   sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
 });

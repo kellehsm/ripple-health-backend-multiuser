@@ -1,6 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult, calcConfidence } from "./types.js";
-import { estToday, estYesterday } from "../lib/estDate.js";
+import { userToday, userDaysAgo } from "../lib/userTz.js";
 
 export const MoodJournalingStreakRule: InsightRule = {
   id: "mood_journaling_streak",
@@ -20,8 +20,8 @@ export const MoodJournalingStreakRule: InsightRule = {
 
     if (rows.length === 0) return null;
 
-    const today = estToday();
-    const yesterday = estYesterday();
+    const today = await userToday(userId);
+    const yesterday = await userDaysAgo(userId, 1);
 
     const days = rows.map(r => String(r.date).slice(0, 10));
 

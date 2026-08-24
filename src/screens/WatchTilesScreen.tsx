@@ -19,6 +19,7 @@ import { toast } from "../lib/toast";
 import { trackMindfulnessCompletion } from "../lib/mindfulnessTracker";
 import { todayStr } from "../utils/dateUtils";
 import { invalidateCachePrefix } from "../utils/staleCache";
+import { syncWidgetAndWatch } from "../lib/widgetSync";
 
 // Watch-face palette: hardcoded intentionally — watch preview uses a fixed dark bezel outside the app theme system.
 const W = {
@@ -367,6 +368,7 @@ export function WatchTilesScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     try {
       await api.logWater(waterMetricId);
+      syncWidgetAndWatch();
       invalidateCachePrefix("health:");
       invalidateCachePrefix("overview:");
       if (prev + 1 === waterGoal) {

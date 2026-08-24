@@ -4,6 +4,7 @@ import { refreshAllBaselines } from "../services/baselines.js";
 import { processEndedExperiments } from "../services/experimentOutcome.js";
 import { computeGlobalPriors } from "../services/globalPriors.js";
 import { sunsetLowHitRules } from "../services/ruleSunset.js";
+import { pickNudgeForUser, recordNudgeSent } from "../services/nudges.js";
 
 type StructuredLogger = { info: (obj: Record<string, unknown> | string, msg?: string) => void; warn: (obj: Record<string, unknown> | string, msg?: string) => void; error: (obj: Record<string, unknown> | string, msg?: string) => void };
 
@@ -84,6 +85,18 @@ async function runInsightsJobBody(): Promise<void> {
       ilog(`user ${id}: ${result.value.found}/${result.value.ran} rules fired in ${result.value.runMs}ms`);
     } else {
       ierror(`failed for user ${id}`, { error: (result.reason as any)?.message });
+    }
+
+    // Select and record a nudge for this user after each rule run.
+    // Failures are isolated per-user so one bad nudge pick doesn't abort the job.
+    try {
+      const nudge = await pickNudgeForUser(id);
+      if (nudge) {
+        await recordNudgeSent(nudge);
+        ilog(`user ${id}: nudge selected (rule=${nudge.rule_id}) — delivery is future work (no push mechanism in backend)`);
+      }
+    } catch (err: any) {
+      ierror(`user ${id}: nudge pick/record failed`, { error: err?.message });
     }
   }
 

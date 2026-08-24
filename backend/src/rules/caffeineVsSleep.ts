@@ -1,15 +1,19 @@
 import { query } from "../db.js";
-import { InsightRule, InsightResult, UserCapabilities, calcConfidence } from "./types.js";
+import { InsightRule, InsightResult, UserCapabilities } from "./types.js";
 import { LOOKBACK_DAYS, tertileSplit, avgOf } from "./ruleHelper.js";
+import { welchTTest, effectiveSampleSize, confidenceFromStats } from "./stats.js";
 
 export const CaffeineVsSleepRule: InsightRule = {
   id: "caffeine_vs_sleep",
   type: "combined",
   minDays: 21,
+  primaryMetric: "sleep_quality",
 
   async run(userId: string, capabilities?: UserCapabilities): Promise<InsightResult | null> {
     if (capabilities && !capabilities.has_substances) return null;
-    // Join daily caffeine totals with sleep quality (sleep ending on that calendar day)
+    // Join daily caffeine totals on day D with the FOLLOWING night's sleep —
+    // i.e. the session ending on day D+1. (Caffeine precedes the sleep it can
+    // affect; joining to the sleep that ended the same morning was reversed.)
     const rows = await query<{ day: string; total_caffeine: number; avg_sleep_quality: number }>(
       `SELECT
          c.day::text AS day,
@@ -33,7 +37,7 @@ export const CaffeineVsSleepRule: InsightRule = {
          WHERE user_id = $1
            AND end_time >= CURRENT_DATE - ${LOOKBACK_DAYS}
          GROUP BY DATE(end_time)
-       ) s ON s.day = c.day
+       ) s ON s.day = c.day + 1
        ORDER BY c.day DESC`,
       [userId]
     );
@@ -46,28 +50,37 @@ export const CaffeineVsSleepRule: InsightRule = {
 
     if (lowCaffeineDays.length < 5 || highCaffeineDays.length < 5) return null;
 
+    const highQuality = highCaffeineDays.map(r => Number(r.avg_sleep_quality));
+    const lowQuality  = lowCaffeineDays.map(r => Number(r.avg_sleep_quality));
+
     const avgSleepLow  = avgOf(lowCaffeineDays,  r => Number(r.avg_sleep_quality));
     const avgSleepHigh = avgOf(highCaffeineDays, r => Number(r.avg_sleep_quality));
 
     const diff = avgSleepHigh - avgSleepLow;
     if (Math.abs(diff) < 0.2) return null;
 
-    const effectRatio = Math.abs(diff) / 4; // sleep quality scale is 1-5
-    const sampleSize = Math.min(lowCaffeineDays.length, highCaffeineDays.length);
-    const { score, label } = calcConfidence(sampleSize, effectRatio);
+    // Welch's t-test with autocorrelation-adjusted effective N, so this rule
+    // carries a p-value and participates in FDR correction like modern rules.
+    const effN = effectiveSampleSize(highQuality);
+    const test = welchTTest(highQuality, lowQuality, effN);
+    const { score, label } = confidenceFromStats(test.pValue, Math.abs(test.effectSize));
 
     const avgCaffeineHigh = avgOf(highCaffeineDays, r => Number(r.total_caffeine));
     const avgCaffeineLow  = avgOf(lowCaffeineDays,  r => Number(r.total_caffeine));
 
-    // diff = high - low: if negative, sleep is lower on high-caffeine days
+    // diff = high - low: if negative, sleep is lower after high-caffeine days
     const direction = diff > 0 ? "higher" : "lower";
 
     return {
-      title: `Sleep quality tends to be ${direction} on high-caffeine days`,
-      description: `Over the last 60 days, on high-caffeine days (avg ${Math.round(avgCaffeineHigh)} mg) your average sleep quality was ${avgSleepHigh.toFixed(1)}/5, compared to ${avgSleepLow.toFixed(1)}/5 on low-caffeine days (avg ${Math.round(avgCaffeineLow)} mg) — a difference of ${Math.abs(diff).toFixed(2)} points.`,
+      title: `Sleep quality tends to be ${direction} on nights after high-caffeine days`,
+      description: `Over the last 60 days, after high-caffeine days (avg ${Math.round(avgCaffeineHigh)} mg) your average sleep quality was ${avgSleepHigh.toFixed(1)}/5, compared to ${avgSleepLow.toFixed(1)}/5 after low-caffeine days (avg ${Math.round(avgCaffeineLow)} mg) — a difference of ${Math.abs(diff).toFixed(2)} points.`,
       confidence: label,
       confidenceScore: score,
       timesObserved: rows.length,
+      pValue: test.pValue,
+      effectSize: test.effectSize,
+      ci95: test.ci95,
+      primaryMetric: "sleep_quality",
       supportingData: {
         days_analyzed: rows.length,
         high_caffeine_days: highCaffeineDays.length,

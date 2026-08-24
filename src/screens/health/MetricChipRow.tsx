@@ -4,9 +4,11 @@
  * Extracted from HealthScreen.tsx — no logic changes.
  */
 import React from "react";
-import { View, Text, Animated } from "react-native";
+import { View, Text, Animated, Pressable, Image } from "react-native";
 import Svg, { Polyline, Rect } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { onSolid } from "../../theme/colorUtils";
 import { useTheme } from "../../theme/ThemeContext";
 import { MetricChip, MetricChipSkeleton, chipStyles } from "../../components/MetricChip";
 import { getMetricPalette } from "../../lib/metricColors";
@@ -85,7 +87,46 @@ export function MetricChipRow({
 
   return (
     <Animated.View style={{ opacity: chipEntranceAnim }}>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: CHIP_GAP }}>
+      {/* Full-width Mindfulness bar (restored) */}
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          navigation.getParent()?.navigate("Mindfulness");
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Open Mindfulness hub"
+        style={{
+          borderRadius: 26,
+          borderWidth: 2,
+          borderColor: theme.cardBorder,
+          backgroundColor: theme.purple.solid,
+          paddingVertical: 11,
+          paddingHorizontal: 14,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          marginBottom: CHIP_GAP,
+          overflow: "hidden",
+        }}
+      >
+        <Image
+          source={require("../../../assets/themes/cat/greeting_morning.png")}
+          style={{ width: 40, height: 40 }}
+          resizeMode="contain"
+        />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: onSolid(theme.purple.solid), fontSize: 16, fontWeight: "900", marginBottom: 1 }}>Mindfulness</Text>
+          <Text style={{ color: onSolid(theme.purple.solid), fontSize: 12, opacity: 0.75 }}>
+            {mindStats && (mindStats.streak > 0 || mindStats.week_minutes > 0)
+              ? `${mindStats.streak} day streak · ${mindStats.week_minutes}m this week`
+              : "Breathing · grounding · gratitude"}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={onSolid(theme.purple.solid)} style={{ opacity: 0.85 }} />
+      </Pressable>
+
+      {/* Top row: 3 chips */}
+      <View style={{ flexDirection: "row", gap: CHIP_GAP }}>
 
         {/* GLUCOSE chip */}
         {!chipsHydrated && glucoseMgDl === null && !status?.hasData ? (
@@ -207,6 +248,11 @@ export function MetricChipRow({
           );
         })()}
 
+      </View>
+
+      {/* Bottom row: 2 chips, centered so each sits between the gaps of the top three */}
+      <View style={{ flexDirection: "row", justifyContent: "center", gap: CHIP_GAP, marginTop: CHIP_GAP }}>
+
         {/* WATER chip — filling droplet shows progress, tap to log */}
         <MetricChip
           borderColor={theme.blue.solid}
@@ -275,36 +321,6 @@ export function MetricChipRow({
           <Text style={[chipStyles.sub, { color: berrySub }]} allowFontScaling maxFontSizeMultiplier={1.3}>bpm</Text>
         </MetricChip>
         )}
-
-        {/* MINDFULNESS chip — 6th tile, completing 2×3 grid */}
-        <MetricChip
-          borderColor={theme.purple.solid}
-          backgroundColor={(theme.purple as any).bg ?? theme.purple.solid + "22"}
-          label="MIND"
-          accessibilityLabel={
-            mindStats && (mindStats.streak > 0 || mindStats.week_minutes > 0)
-              ? `Mindfulness, ${mindStats.streak} day streak, ${mindStats.week_minutes} minutes this week`
-              : "Mindfulness, tap to open"
-          }
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            navigation.getParent()?.navigate("Mindfulness");
-          }}
-        >
-          <ThemedIcon slot="screen.mindfulness" size={44} color={theme.purple.solid} />
-          {mindStats && mindStats.streak > 0 ? (
-            <Text style={[chipStyles.val, { color: theme.purple.solid }]} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {mindStats.streak}d
-            </Text>
-          ) : (
-            <Text style={[chipStyles.sub, { color: theme.purple.solid }]}>--</Text>
-          )}
-          {mindStats && mindStats.week_minutes > 0 && (
-            <Text style={[chipStyles.sub, { color: theme.purple.solid }]} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {mindStats.week_minutes}m wk
-            </Text>
-          )}
-        </MetricChip>
 
       </View>
     </Animated.View>

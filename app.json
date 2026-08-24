@@ -15,6 +15,7 @@
     },
     "android": {
       "package": "com.kellehs.wellness",
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#FBFAF7",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

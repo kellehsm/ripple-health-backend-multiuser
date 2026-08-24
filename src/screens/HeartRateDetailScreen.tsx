@@ -82,13 +82,18 @@ const ZONE_CONFIG = [
 ];
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
+// Accepts "YYYY-MM-DD" or a full ISO timestamp — normalize to local midnight.
+function parseDay(iso: string): Date {
+  return new Date(iso.slice(0, 10) + "T00:00:00");
+}
+
 function shortDate(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
+  const d = parseDay(iso);
   return (d.getMonth() + 1) + "/" + d.getDate();
 }
 
 function dayLabel(iso: string): string {
-  return DAY_LABELS[new Date(iso + "T00:00:00").getDay()];
+  return DAY_LABELS[parseDay(iso).getDay()];
 }
 
 function fmtTime(iso: string): string {
@@ -204,22 +209,23 @@ export function HeartRateDetailScreen() {
   const windowStart = now - rangeHours * 3600 * 1000;
   const windowMs = rangeHours * 3600 * 1000;
 
-  const chartPoints = readings
-    .map((r) => {
-      const t = new Date(r.recorded_at).getTime();
-      const x = PAD_L + ((t - windowStart) / windowMs) * usableW;
-      const y = PAD_T + usableH - ((r.bpm - chartMin) / chartRange) * usableH;
-      return x + "," + y;
-    })
-    .join(" ");
+  const { chartPoints, gridVals } = useMemo(() => {
+    const pts = readings
+      .map((r) => {
+        const t = new Date(r.recorded_at).getTime();
+        const x = PAD_L + ((t - windowStart) / windowMs) * usableW;
+        const y = PAD_T + usableH - ((r.bpm - chartMin) / chartRange) * usableH;
+        return x + "," + y;
+      })
+      .join(" ");
 
-  const gridVals = (() => {
     const step = chartRange > 80 ? 20 : chartRange > 40 ? 10 : 5;
     const start = Math.ceil(chartMin / step) * step;
     const vals: number[] = [];
     for (let v = start; v <= chartMax; v += step) vals.push(v);
-    return vals;
-  })();
+
+    return { chartPoints: pts, gridVals: vals };
+  }, [readings, windowStart, windowMs, usableW, usableH, chartMin, chartMax, chartRange]);
 
   const resting = bpms.length ? Math.min(...bpms) : null;
   const peak = bpms.length ? Math.max(...bpms) : null;
@@ -239,20 +245,24 @@ export function HeartRateDetailScreen() {
   const trendInnerH = TREND_H - TREND_PAD_T - TREND_PAD_B;
   const trendInnerW = CHART_W - TREND_PAD_L - 4;
 
-  const trendLinePoints = trend.map((r, i) => {
-    const x = TREND_PAD_L + (i / Math.max(trend.length - 1, 1)) * trendInnerW;
-    const y = TREND_PAD_T + trendInnerH - ((r.resting_bpm - trendMin) / trendRange) * trendInnerH;
-    return `${x},${y}`;
-  }).join(" ");
-
-  const rollingLinePoints = rollingAvgs
-    .map((v, i) => {
-      if (v == null) return null;
+  const { trendLinePoints, rollingLinePoints } = useMemo(() => {
+    const tlp = trend.map((r, i) => {
       const x = TREND_PAD_L + (i / Math.max(trend.length - 1, 1)) * trendInnerW;
-      const y = TREND_PAD_T + trendInnerH - ((v - trendMin) / trendRange) * trendInnerH;
+      const y = TREND_PAD_T + trendInnerH - ((r.resting_bpm - trendMin) / trendRange) * trendInnerH;
       return `${x},${y}`;
-    })
-    .filter(Boolean) as string[];
+    }).join(" ");
+
+    const rlp = rollingAvgs
+      .map((v, i) => {
+        if (v == null) return null;
+        const x = TREND_PAD_L + (i / Math.max(trend.length - 1, 1)) * trendInnerW;
+        const y = TREND_PAD_T + trendInnerH - ((v - trendMin) / trendRange) * trendInnerH;
+        return `${x},${y}`;
+      })
+      .filter(Boolean) as string[];
+
+    return { trendLinePoints: tlp, rollingLinePoints: rlp };
+  }, [trend, rollingAvgs, trendInnerW, trendInnerH, trendMin, trendRange]);
 
   // ── week-over-week callout ───────────────────────────────────────────────
   const thisWeekRest = hrStats?.this_week_avg_rest != null && Number.isFinite(hrStats.this_week_avg_rest) ? hrStats.this_week_avg_rest : null;
@@ -379,7 +389,14 @@ export function HeartRateDetailScreen() {
           ) : readings.length === 0 ? (
             <EmptyState slot="empty.heart" title="No readings in this window" subtitle="Sync from Health Connect on the Health tab to see your heart rate here." />
           ) : (
-            <Svg width={CHART_W} height={CHART_H} style={{ marginTop: 10 }}>
+            <Svg
+              width={CHART_W}
+              height={CHART_H}
+              style={{ marginTop: 10 }}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={`Heart rate chart, last ${rangeHours} hours. ${readings.length} readings. Latest ${fmtBpm(bpms[bpms.length - 1])} bpm. Range ${fmtBpm(resting)}–${fmtBpm(peak)} bpm.`}
+            >
               {gridVals.map((v) => {
                 const gy = PAD_T + usableH - ((v - chartMin) / chartRange) * usableH;
                 return (

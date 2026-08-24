@@ -225,7 +225,9 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **API:** `exercise.ts` (12 routes), `programs.ts` (11 routes), `health-connect.ts` (`/steps` GET+POST)
 
-Key routes: `GET /api/exercise/library`, `POST /api/exercise/sessions`, `GET /api/exercise/suggestion`, `GET /api/exercise/progression/:id`, `GET /api/programs/wizard/status`, `POST /api/programs/wizard/generate`
+Key routes: `GET /api/exercise/library`, `POST /api/exercise/sessions` (accepts optional `started_at`/`ended_at` for retroactive logging), `GET /api/exercise/suggestion`, `GET /api/exercise/detected-workout`, `GET /api/exercise/progression/:id`, `GET /api/programs/wizard/status`, `POST /api/programs/wizard/generate`
+
+**Workout detection:** `GET /api/exercise/detected-workout` scans today's `heart_rate_readings` for a sustained elevated window (bpm ≥ max(resting+35, 100) where resting = 7-day 5th percentile; ≥15 min span, gaps ≤5 min allowed) that doesn't overlap any logged `exercise_sessions` row. ExerciseScreen shows a "Workout detected" card (time range, avg/peak bpm) with **Log workout** (creates a session with the detected start/end, opens ExerciseSessionScreen to add exercises) and **Dismiss** (window start persisted in AsyncStorage so it doesn't re-prompt).
 
 **Data:** `exercise_library`, `exercise_sessions`, `exercise_log_entries`, `workout_programs`, `workout_program_days`, `workout_program_exercises`
 
@@ -302,7 +304,7 @@ Key routes: `POST /api/plaid/create-link-token`, `POST /api/plaid/exchange-token
 
 **Screens:** `src/screens/MindfulnessScreen.tsx`, `src/screens/mindfulness/BodyScanSection.tsx`, `src/screens/mindfulness/GratitudeHistory.tsx`, `src/screens/mindfulness/SoundscapesSection.tsx`, `src/screens/mindfulness/StatsHero.tsx`
 
-**HealthScreen entry point:** the top-of-page mindfulness bar has been replaced by a MIND MetricChip tile — the 6th tile completing the 2×3 metric chip grid. Pressing it navigates to `MindfulnessScreen`. All six MetricChip tile icons are normalized to size 44.
+**HealthScreen entry point:** the full-width mindfulness bar is back (restored 2026-08-24, above the chip grid) and the MIND chip is gone. The five remaining MetricChips are laid out 3-over-2: glucose/steps/sleep on top, water/heart centered beneath so each sits under a gap of the top row (`src/screens/health/MetricChipRow.tsx`).
 
 **API:**
 | Method | Path | File |
@@ -460,6 +462,14 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 **API:** `GET /api/auth/widget-token` — issues restricted JWT. Widget-allowed endpoints enforced in `backend/src/middleware/auth.ts` (`isWidgetAllowed`). `WIDGET_GET_PREFIXES` now includes `/api/health-connect/sleep/stats`.
 
 **Watch breathing activity** (`plugins/wear-tile/RippleWearBreathingActivity.kt`): redesigned with full-face layout. BoxAnimView draws a square-perimeter animation for BOX pace. Ripple animations added: phase-transition rings, trail echo, ambient picker ripples, completion burst, box corner pulses. Tile text fixes applied. Widget sleep was 404ing on wrong path — fixed in `RippleWidgetProvider.kt`. **These are native changes; they take effect in the next build.**
+
+**Watch swipeable insights** (2026-08): the wear main activity's insight section is a ViewFlipper — the phone pushes up to 5 insight titles joined by U+2063 in a new `insights` data-map field (`RippleWidgetProvider.kt` → `WearDataBridge.kt.template` → `WearDataListenerService.kt` → `WearCache.kt`; legacy single `insight` field kept for older watches). `RippleWearMainActivity.kt` renders them with horizontal fling gestures and a "1 / N" counter, falling back to the single insight when no separator is present. **Native change; effective in the next build.**
+
+**App→watch sync trigger** (2026-08): previously the watch only received data when a pinned home-screen widget refreshed — no widget meant no steps/sleep on the watch, and in-app water logs never reached it. Now a local Expo module (`modules/ripple-widget-sync/`, JS wrapper `src/lib/widgetSync.ts` → `syncWidgetAndWatch()`) broadcasts `WIDGET_WEAR_SYNC` to `RippleWidgetProvider`, which refetches metrics and pushes to the watch even with zero pinned widgets. Called after every water log (Health/Overview/WatchTiles screens) and at the end of `syncHealthData()`. `RippleWearMainActivity` also gained deeper top/bottom padding on round screens (`isScreenRound`) so the "Ripple" title isn't clipped by the bezel. **Native change; effective in the next build.**
+
+**Watch/widget polish wave** (2026-08): urgent-glucose wrist haptic (double buzz, 15-min debounce), "Updated X" timestamp + mood row + water progress arc on the watch home screen, mood field in the phone→watch push, "phone not reachable" feedback on watch logging (no more silent dropped logs), breathing screen auto-dims after 60 s, widget mood-trend dot strip. **Native; next build.**
+
+**Widget review wave** (2026-08-24): full widget audit fixes — backup refresh alarm, goAsync ANR guard, per-instance PendingIntents, deduped fetches, connection cleanup, score-card tap-to-advance; new: exercise minutes on steps chip, meal kcal in meal chip, mindfulness streak badge, urgent-glucose ⚠ label, breathe button, water/mood log toasts; a11y contentDescriptions throughout, dark-mode color fix on compact widget, water chips deeplink to the water screen. **Native; next build.**
 
 **Data:** No separate table — token carries `user_id`
 

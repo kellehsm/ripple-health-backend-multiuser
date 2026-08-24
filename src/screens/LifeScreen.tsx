@@ -1064,7 +1064,7 @@ function makeStyles(ink: string, card: string, border: string, blue: string = "#
     borderWidth: 2,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    shadowColor: "#000",
+    shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

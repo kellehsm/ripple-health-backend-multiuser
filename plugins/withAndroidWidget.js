@@ -38,6 +38,8 @@ function withAndroidWidget(config) {
       ktContent = ktContent.replace(/const val ACTION_LOG_WATER = "[^"]*"/, `const val ACTION_LOG_WATER = "${pkgName}.WIDGET_LOG_WATER"`);
       ktContent = ktContent.replace(/const val ACTION_NEXT_INSIGHT = "[^"]*"/, `const val ACTION_NEXT_INSIGHT = "${pkgName}.WIDGET_NEXT_INSIGHT"`);
       ktContent = ktContent.replace(/const val ACTION_LOG_MOOD = "[^"]*"/, `const val ACTION_LOG_MOOD = "${pkgName}.WIDGET_LOG_MOOD"`);
+      ktContent = ktContent.replace(/const val ACTION_WEAR_SYNC = "[^"]*"/, `const val ACTION_WEAR_SYNC = "${pkgName}.WIDGET_WEAR_SYNC"`);
+      ktContent = ktContent.replace(/const val ACTION_NEXT_STAT = "[^"]*"/, `const val ACTION_NEXT_STAT = "${pkgName}.WIDGET_NEXT_STAT"`);
       fs.writeFileSync(path.join(ktDir, 'RippleWidgetProvider.kt'), ktContent);
 
       let compactContent = fs.readFileSync(path.join(SRC, 'RippleCompactWidgetProvider.kt'), 'utf8');
@@ -142,7 +144,11 @@ function withAndroidWidget(config) {
       app.receiver.push({
         $: {
           'android:name': cls,
-          'android:exported': 'true',
+          // Not exported: system APPWIDGET_UPDATE broadcasts still deliver to
+          // non-exported receivers, and all in-app broadcasts (PendingIntents,
+          // RippleWidgetSyncModule) target the class explicitly. Keeping this
+          // false stops other apps from firing WIDGET_LOG_WATER/WIDGET_LOG_MOOD.
+          'android:exported': 'false',
           'android:label': label,
         },
         'intent-filter': [
@@ -153,6 +159,8 @@ function withAndroidWidget(config) {
               { $: { 'android:name': `${pkgName}.WIDGET_LOG_WATER` } },
               { $: { 'android:name': `${pkgName}.WIDGET_NEXT_INSIGHT` } },
               { $: { 'android:name': `${pkgName}.WIDGET_LOG_MOOD` } },
+              { $: { 'android:name': `${pkgName}.WIDGET_WEAR_SYNC` } },
+              { $: { 'android:name': `${pkgName}.WIDGET_NEXT_STAT` } },
             ],
           },
         ],

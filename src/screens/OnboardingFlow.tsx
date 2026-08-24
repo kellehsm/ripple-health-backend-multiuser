@@ -279,8 +279,8 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
         {/* Water + Sleep chips */}
         <View style={{ flexDirection: "row", gap: 8 }}>
           {[
-            { label: "Water", value: "6 / 8 glasses", color: theme.blue?.solid ?? "#3B82F6" },
-            { label: "Sleep", value: "7h 15m", color: theme.amber?.solid ?? "#F59E0B" },
+            { label: "Water", value: "6 / 8 glasses", color: theme.blue.solid },
+            { label: "Sleep", value: "7h 15m", color: theme.amber.solid },
           ].map((chip) => (
             <View key={chip.label} style={[styles.miniChip, { backgroundColor: theme.card, borderColor: chip.color }]}>
               <View style={[styles.miniChipDot, { backgroundColor: chip.color }]} />
@@ -297,7 +297,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     const chips = [
       { label: "Glucose", value: "118", unit: "mg/dL", sub: "stable", color: theme.berry.solid },
       { label: "Steps", value: "6,240", unit: "/ 8,000", sub: "today", color: theme.teal.solid },
-      { label: "Sleep", value: "7h 15m", unit: "", sub: "last night", color: theme.amber?.solid ?? "#F59E0B" },
+      { label: "Sleep", value: "7h 15m", unit: "", sub: "last night", color: theme.amber.solid },
       { label: "Heart Rate", value: "64", unit: "BPM", sub: "resting", color: theme.coral.solid },
     ];
     const bars = [
@@ -344,7 +344,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     const rows = [
       { name: "Greek yogurt + granola", type: "Breakfast", cal: "280 cal", color: theme.teal.solid },
       { name: "Salmon bowl", type: "Lunch", cal: "520 cal", color: theme.coral.solid },
-      { name: "Grilled chicken...", type: "Dinner", cal: "— cal", color: theme.amber?.solid ?? "#F59E0B" },
+      { name: "Grilled chicken...", type: "Dinner", cal: "— cal", color: theme.amber.solid },
     ];
     return (
       <View style={styles.preview}>
@@ -363,7 +363,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           {[
             { label: "Carbs", g: "94g", color: theme.coral.solid },
             { label: "Protein", g: "76g", color: theme.teal.solid },
-            { label: "Fat", g: "32g", color: theme.amber?.solid ?? "#F59E0B" },
+            { label: "Fat", g: "32g", color: theme.amber.solid },
           ].map((m) => (
             <View key={m.label} style={[styles.macroChip, { borderColor: m.color, backgroundColor: theme.card }]}>
               <Text style={{ fontSize: 14, fontWeight: "800", color: ink }}>{m.g}</Text>
@@ -392,13 +392,13 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             <Text style={{ fontSize: 22 }}>📖</Text>
           </View>
           <View style={[styles.progressTrack, { backgroundColor: theme.cardBorder }]}>
-            <View style={[styles.progressFill, { backgroundColor: theme.blue?.solid ?? "#3B82F6", width: "38%" }]} />
+            <View style={[styles.progressFill, { backgroundColor: theme.blue.solid, width: "38%" }]} />
           </View>
           <Text style={[styles.progressLabel, { color: theme.textSoft }]}>38% complete</Text>
         </View>
         {/* Guitar hobby row */}
         <View style={[styles.hobbyRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <View style={[styles.hobbyIcon, { backgroundColor: theme.blue?.bg ?? "#EFF6FF" }]}>
+          <View style={[styles.hobbyIcon, { backgroundColor: theme.blue.bg }]}>
             <Text style={{ fontSize: 20 }}>🎸</Text>
           </View>
           <View style={{ flex: 1 }}>
@@ -494,7 +494,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
         {[
           { cat: "Groceries", amt: "$340", color: theme.teal.solid },
           { cat: "Dining Out", amt: "$195", color: theme.coral.solid },
-          { cat: "Transport", amt: "$145", color: theme.amber?.solid ?? "#F59E0B" },
+          { cat: "Transport", amt: "$145", color: theme.amber.solid },
           { cat: "Entertainment", amt: "$85", color: purple },
         ].map((row) => (
           <View key={row.cat} style={[styles.mealRow, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>

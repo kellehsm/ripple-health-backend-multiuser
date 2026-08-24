@@ -52,6 +52,25 @@ function isWidgetAllowed(method: string, url: string): boolean {
   return false;
 }
 
+/**
+ * Rate-limit bucket key: verified JWT user_id when the request carries a valid
+ * bearer token, otherwise the client IP. Verifying (not just echoing) the
+ * header prevents attackers from minting unlimited buckets via garbage
+ * Authorization values.
+ */
+export function rateLimitKey(req: FastifyRequest): string {
+  const auth = req.headers.authorization;
+  if (auth?.startsWith("Bearer ")) {
+    try {
+      const payload = jwt.verify(auth.slice(7), JWT_SECRET!) as { user_id?: string };
+      if (payload.user_id) return `u:${payload.user_id}`;
+    } catch {
+      // invalid token — fall through to IP keying
+    }
+  }
+  return req.ip;
+}
+
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   // URL-based downloads use a short-lived single-use ?dl= token minted via
   // /api/auth/download-token. This keeps the long-lived JWT out of logs,

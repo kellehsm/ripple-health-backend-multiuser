@@ -1,6 +1,6 @@
 import { query } from "../db.js";
 import { InsightRule, InsightResult } from "./types.js";
-import { estToday } from "../lib/estDate.js";
+import { getUserTz, userToday } from "../lib/userTz.js";
 
 export const UndertrainedMuscleRule: InsightRule = {
   id: "undertrained_muscle_group",
@@ -9,10 +9,11 @@ export const UndertrainedMuscleRule: InsightRule = {
 
   async run(userId: string): Promise<InsightResult | null> {
     // Get last session date and 60-day frequency per primary muscle group
+    const tz = await getUserTz(userId);
     const rows = await query<{ muscle: string; last_date: string; appearances: string }>(
       `SELECT
          m.muscle,
-         MAX(DATE(es.started_at AT TIME ZONE 'America/New_York'))::text AS last_date,
+         MAX(DATE(es.started_at AT TIME ZONE $2))::text AS last_date,
          COUNT(DISTINCT es.id) AS appearances
        FROM exercise_sessions es
        JOIN exercise_log_entries ele ON ele.session_id = es.id
@@ -21,12 +22,12 @@ export const UndertrainedMuscleRule: InsightRule = {
        WHERE es.user_id = $1
          AND es.started_at >= NOW() - INTERVAL '60 days'
        GROUP BY m.muscle`,
-      [userId]
+      [userId, tz]
     );
 
     if (rows.length === 0) return null;
 
-    const todayMs = new Date(estToday() + "T12:00:00Z").getTime();
+    const todayMs = new Date((await userToday(userId)) + "T12:00:00Z").getTime();
     const candidates = rows
       .filter((r) => parseInt(r.appearances) >= 2)
       .map((r) => {

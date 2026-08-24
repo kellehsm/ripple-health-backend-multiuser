@@ -73,7 +73,7 @@
 | `/api/completed` | routes/completed.ts | Daily habit completion tracking |
 | `/api/sync` | routes/sync.ts | Mobile offline sync queue |
 | `/api/analytics` | routes/analytics.ts | Correlation and trend analytics |
-| `/api/insights` | routes/insights.ts | AI-generated pattern insights (view, dismiss, feedback) |
+| `/api/insights` | routes/insights.ts | AI-generated pattern insights (view, dismiss, feedback); `GET /insights/categories` returns active counts grouped by type |
 | `/api/recipes` | routes/recipes.ts | Saved meal recipes |
 | `/api/annotations` | routes/annotations.ts | Chart annotations |
 | `/api/user/tab-preferences` | routes/tab-preferences.ts | Per-user home tab ordering |

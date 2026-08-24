@@ -37,19 +37,20 @@ export const LateMealsVsSleepRule: InsightRule = {
 
     if (lateDateSet.size < 5 || earlyMealDates.length < 5) return null;
 
-    // Get sleep quality from sleep_sessions — use AVG quality_score for sessions
-    // ending on the same date as the meal day
+    // Get sleep quality from sleep_sessions — use AVG quality_score for the
+    // NIGHT FOLLOWING the meal day, i.e. sessions ending the next morning
+    // (a late dinner precedes the sleep it can affect).
     const getSleepQuality = async (dates: string[]): Promise<Array<{ date: string; quality: number }>> => {
       if (dates.length === 0) return [];
       const placeholders = dates.map((_, i) => `$${i + 2}`).join(", ");
       return query<{ date: string; quality: number }>(
         `SELECT
-           DATE(end_time)::text AS date,
+           (DATE(end_time) - 1)::text AS date,
            AVG(quality_score)::numeric AS quality
          FROM sleep_sessions
          WHERE user_id = $1
            AND quality_score IS NOT NULL
-           AND DATE(end_time) = ANY(ARRAY[${placeholders}]::date[])
+           AND DATE(end_time) - 1 = ANY(ARRAY[${placeholders}]::date[])
          GROUP BY DATE(end_time)`,
         [userId, ...dates]
       );
