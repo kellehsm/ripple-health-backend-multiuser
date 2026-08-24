@@ -52,25 +52,32 @@ async function runDailySummaryJobBody(date?: string): Promise<void> {
   try {
     const [dataRows, userRows] = await Promise.all([
       query<{ user_id: string }>(
-        `SELECT DISTINCT user_id FROM (
-           SELECT user_id FROM journal_entries
-             WHERE logged_at >= $1::date AND logged_at < $1::date + INTERVAL '1 day'
+        `WITH bounds AS (
+           -- Explicit EST day window (targetDate comes from estToday()), so the
+           -- pre-flight matches the summary's day regardless of session timezone.
+           SELECT ($1::date)::timestamp AT TIME ZONE 'America/New_York' AS lo,
+                  ($1::date + 1)::timestamp AT TIME ZONE 'America/New_York' AS hi
+         )
+         SELECT DISTINCT user_id FROM (
+           SELECT user_id FROM journal_entries, bounds
+             WHERE logged_at >= bounds.lo AND logged_at < bounds.hi
            UNION ALL
-           SELECT user_id FROM glucose_readings
-             WHERE recorded_at >= $1::date AND recorded_at < $1::date + INTERVAL '1 day'
+           SELECT user_id FROM glucose_readings, bounds
+             WHERE recorded_at >= bounds.lo AND recorded_at < bounds.hi
            UNION ALL
-           SELECT user_id FROM meals
-             WHERE logged_at >= $1::date AND logged_at < $1::date + INTERVAL '1 day'
+           SELECT user_id FROM meals, bounds
+             WHERE logged_at >= bounds.lo AND logged_at < bounds.hi
            UNION ALL
-           SELECT user_id FROM sleep_sessions
-             WHERE end_time >= $1::date AND end_time < $1::date + INTERVAL '1 day'
+           SELECT user_id FROM sleep_sessions, bounds
+             WHERE end_time >= bounds.lo AND end_time < bounds.hi
            UNION ALL
-           SELECT m.user_id FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
-             WHERE ml.logged_at >= $1::date AND ml.logged_at < $1::date + INTERVAL '1 day'
+           SELECT m.user_id FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id, bounds
+             WHERE ml.logged_at >= bounds.lo AND ml.logged_at < bounds.hi
            UNION ALL
            SELECT user_id FROM reading_logs WHERE logged_at = $1::date
            UNION ALL
-           SELECT user_id FROM hobby_logs WHERE logged_at::date = $1::date
+           SELECT user_id FROM hobby_logs, bounds
+             WHERE logged_at >= bounds.lo AND logged_at < bounds.hi
          ) AS combined`,
         [targetDate]
       ),

@@ -661,7 +661,8 @@ export function HealthScreen() {
     return function () { cancelled = true; };
   }, [rangeHours]));
 
-  useEffect(function () {
+  // Focus-scoped so the 5-minute refresh doesn't fire while other tabs are open.
+  useFocusEffect(useCallback(function () {
     load(rangeHours);
     const interval = setInterval(function () {
       load(rangeHours);
@@ -669,7 +670,7 @@ export function HealthScreen() {
     return function () {
       clearInterval(interval);
     };
-  }, [load, rangeHours]);
+  }, [load, rangeHours]));
 
   useEffect(function () {
     let cancelled = false;

@@ -5,6 +5,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { ThemedIcon, resolveIcon } from '../theme/iconRegistry';
 import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
+import { SectionLabel } from '../components/SectionLabel';
 import { formatDateWithTime, addDays, todayStr } from '../utils/dateUtils';
 
 interface DoseStats {
@@ -171,14 +172,14 @@ export function MedicationHistoryScreen() {
                     </View>
                   ))}
                 </View>
-                <Text style={[styles.subLabel, { color: theme.textSoft, marginTop: 5 }]}>DOSES · LAST 12 WEEKS</Text>
+                <SectionLabel text="Doses · last 12 weeks" style={{ marginTop: 5 }} />
               </View>
             );
           })()}
         </View>
       )}
 
-      <Text style={[styles.subLabel, { color: theme.textSoft }]}>CHANGE HISTORY</Text>
+      <SectionLabel text="Change history" />
 
       {history.length === 0 ? (
         <View style={styles.empty}>
@@ -242,7 +243,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   medName: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5 },
-  subLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
   statsCard: { borderRadius: 22, borderWidth: 2, padding: 14 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   statTile: { alignItems: 'center', flex: 1, gap: 2 },

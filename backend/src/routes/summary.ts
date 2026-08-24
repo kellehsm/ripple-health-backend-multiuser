@@ -46,21 +46,22 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
   app.get("/weekly-digest", async (req) => {
     const user_id = req.user_id;
+    const tz = await getUserTz(user_id);
 
     const [glucoseRows, highCarbRows, missingDayRows, spendingRows, hrRows, stepsRows, hobbiesRows, exerciseRows, booksRows, moodRows] = await Promise.all([
       query<any>(`
         SELECT
           CASE
-            WHEN EXTRACT(HOUR FROM recorded_at) >= 5 AND EXTRACT(HOUR FROM recorded_at) < 11 THEN 'morning'
-            WHEN EXTRACT(HOUR FROM recorded_at) >= 11 AND EXTRACT(HOUR FROM recorded_at) < 16 THEN 'afternoon'
-            WHEN EXTRACT(HOUR FROM recorded_at) >= 16 AND EXTRACT(HOUR FROM recorded_at) < 21 THEN 'evening'
+            WHEN EXTRACT(HOUR FROM recorded_at AT TIME ZONE $2) >= 5 AND EXTRACT(HOUR FROM recorded_at AT TIME ZONE $2) < 11 THEN 'morning'
+            WHEN EXTRACT(HOUR FROM recorded_at AT TIME ZONE $2) >= 11 AND EXTRACT(HOUR FROM recorded_at AT TIME ZONE $2) < 16 THEN 'afternoon'
+            WHEN EXTRACT(HOUR FROM recorded_at AT TIME ZONE $2) >= 16 AND EXTRACT(HOUR FROM recorded_at AT TIME ZONE $2) < 21 THEN 'evening'
             ELSE 'night'
           END AS bucket,
           ROUND(AVG(mg_dl)) AS avg_mg_dl,
           COUNT(*) AS reading_count
         FROM glucose_readings
         WHERE user_id = $1 AND recorded_at >= NOW() - INTERVAL '7 days'
-        GROUP BY bucket`, [user_id]),
+        GROUP BY bucket`, [user_id, tz]),
 
       query<any>(`
         WITH avg_carbs AS (
@@ -111,7 +112,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
         FROM (
           SELECT logged_at::date, MAX(value) AS max_val
           FROM metric_logs
-          WHERE metric_id = (SELECT id FROM metrics WHERE user_id = $1 AND name = 'steps')
+          WHERE metric_id = (SELECT id FROM metrics WHERE user_id = $1 AND name = 'steps' ORDER BY id LIMIT 1)
             AND logged_at::date >= CURRENT_DATE - 13
           GROUP BY logged_at::date
         ) daily`, [user_id]),
@@ -272,37 +273,38 @@ export default async function summaryRoutes(app: FastifyInstance) {
     const user_id = req.user_id;
     const { date } = req.query as any;
     const day = date ?? estToday();
+    const tz = await getUserTz(user_id);
 
     const [mood, spend, meals, glucoseSpikes, water, hobbyEvts] = await Promise.all([
       query(
         `SELECT logged_at AS time, 'mood' AS type,
                 COALESCE(mood_label, mood_score::text) AS label,
                 entry_type, period
-         FROM journal_entries WHERE user_id = $1 AND logged_at::date = $2`,
-        [user_id, day]
+         FROM journal_entries WHERE user_id = $1 AND (logged_at AT TIME ZONE $3)::date = $2`,
+        [user_id, day, tz]
       ),
       query(
         `SELECT logged_at AS time, 'spend' AS type, ('$' || amount || ' ' || COALESCE(category,'')) AS label
-         FROM spending_entries WHERE user_id = $1 AND logged_at::date = $2`,
-        [user_id, day]
+         FROM spending_entries WHERE user_id = $1 AND (logged_at AT TIME ZONE $3)::date = $2`,
+        [user_id, day, tz]
       ),
       query(
         `SELECT logged_at AS time, 'meal' AS type, name AS label
-         FROM meals WHERE user_id = $1 AND logged_at::date = $2`,
-        [user_id, day]
+         FROM meals WHERE user_id = $1 AND (logged_at AT TIME ZONE $3)::date = $2`,
+        [user_id, day, tz]
       ),
       query(
         `SELECT recorded_at AS time, 'glucose_spike' AS type, (mg_dl || ' mg/dL') AS label
          FROM glucose_readings
-         WHERE user_id = $1 AND recorded_at::date = $2 AND mg_dl > 180`,
-        [user_id, day]
+         WHERE user_id = $1 AND (recorded_at AT TIME ZONE $3)::date = $2 AND mg_dl > 180`,
+        [user_id, day, tz]
       ),
       query(
         `SELECT ml.logged_at AS time, 'water' AS type, 'Water' AS label
          FROM metric_logs ml
          JOIN metrics m ON m.id = ml.metric_id
-         WHERE m.user_id = $1 AND m.name = 'water' AND ml.logged_at::date = $2`,
-        [user_id, day]
+         WHERE m.user_id = $1 AND m.name = 'water' AND (ml.logged_at AT TIME ZONE $3)::date = $2`,
+        [user_id, day, tz]
       ),
       query(
         `SELECT hl.logged_at AS time, 'hobby' AS type,
@@ -311,8 +313,8 @@ export default async function summaryRoutes(app: FastifyInstance) {
                      ELSE h.name END AS label
          FROM hobby_logs hl
          JOIN hobbies h ON h.id = hl.hobby_id
-         WHERE h.user_id = $1 AND hl.logged_at::date = $2`,
-        [user_id, day]
+         WHERE h.user_id = $1 AND (hl.logged_at AT TIME ZONE $3)::date = $2`,
+        [user_id, day, tz]
       ),
     ]);
 
@@ -324,13 +326,17 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
   app.get("/streaks", async (req) => {
     const user_id = req.user_id;
+    const tz = await getUserTz(user_id);
+    // "Today"/"yesterday" in the user's local zone, matching the AT TIME ZONE
+    // day-bucketing below.
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    const today = fmt.format(new Date());
+    const yesterday = fmt.format(new Date(Date.now() - 86400000));
 
     function calcStreak(rawDays: any[]): number {
       const days = rawDays.map((r: any) =>
         r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10)
       );
-      const today = estToday();
-      const yesterday = estYesterday();
       if (days.length === 0 || (days[0] !== today && days[0] !== yesterday)) return 0;
       let streak = 0;
       let expected = days[0];
@@ -349,34 +355,34 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
     const [mealDays, moodDays, stepsDays, exerciseDays, readingDays, waterDays, hobbyDays] = await Promise.all([
       query<any>(
-        `SELECT DISTINCT logged_at::date AS day FROM meals
+        `SELECT DISTINCT (logged_at AT TIME ZONE $2)::date AS day FROM meals
          WHERE user_id = $1 AND logged_at >= current_date - 90
          ORDER BY day DESC`,
-        [user_id]
+        [user_id, tz]
       ),
       query<any>(
-        `SELECT DISTINCT logged_at::date AS day FROM journal_entries
+        `SELECT DISTINCT (logged_at AT TIME ZONE $2)::date AS day FROM journal_entries
          WHERE user_id = $1 AND logged_at >= current_date - 90
          ORDER BY day DESC`,
-        [user_id]
+        [user_id, tz]
       ),
       query<any>(
-        `SELECT DISTINCT ml.logged_at::date AS day
+        `SELECT DISTINCT (ml.logged_at AT TIME ZONE $2)::date AS day
          FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
          WHERE m.user_id = $1 AND m.name = 'steps' AND ml.value > 0
            AND ml.logged_at >= current_date - 90
          ORDER BY day DESC`,
-        [user_id]
+        [user_id, tz]
       ),
       query<any>(
-        `SELECT DISTINCT started_at::date AS day FROM exercise_sessions
+        `SELECT DISTINCT (started_at AT TIME ZONE $2)::date AS day FROM exercise_sessions
          WHERE user_id = $1 AND ended_at IS NOT NULL
            AND started_at >= current_date - 90
          ORDER BY day DESC`,
-        [user_id]
+        [user_id, tz]
       ),
       query<any>(
-        `SELECT DISTINCT logged_at::date AS day FROM reading_logs
+        `SELECT DISTINCT logged_at AS day FROM reading_logs
          WHERE user_id = $1 AND logged_at >= current_date - 90
          ORDER BY day DESC`,
         [user_id]
@@ -385,23 +391,23 @@ export default async function summaryRoutes(app: FastifyInstance) {
       // Threshold matches the target the app nudges toward on Home.
       query<any>(
         `SELECT day FROM (
-           SELECT ml.logged_at::date AS day, COUNT(*) AS n
+           SELECT (ml.logged_at AT TIME ZONE $2)::date AS day, COUNT(*) AS n
            FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
            WHERE m.user_id = $1 AND m.name = 'water'
              AND ml.logged_at >= current_date - 90
-           GROUP BY ml.logged_at::date
+           GROUP BY (ml.logged_at AT TIME ZONE $2)::date
          ) w
          WHERE n >= 6
          ORDER BY day DESC`,
-        [user_id]
+        [user_id, tz]
       ),
       // Hobby streak: any hobby session on a given day counts.
       query<any>(
-        `SELECT DISTINCT hl.logged_at::date AS day
+        `SELECT DISTINCT (hl.logged_at AT TIME ZONE $2)::date AS day
          FROM hobby_logs hl JOIN hobbies h ON h.id = hl.hobby_id
          WHERE h.user_id = $1 AND hl.logged_at >= current_date - 90
          ORDER BY day DESC`,
-        [user_id]
+        [user_id, tz]
       ),
     ]);
 
@@ -548,16 +554,22 @@ export default async function summaryRoutes(app: FastifyInstance) {
          WHERE user_id = $1 AND date >= $2 AND date <= $3`;
 
       const [stepsRows, spendRows, prevSpendRows, mealDaysRows, scoreRows, prevScoreRows, bestDayRows, totalStepsRows] = await Promise.all([
-        // Steps by ISO week within the previous month
+        // Steps by ISO week within the previous month.
+        // MAX per day then SUM — steps sync cumulatively, so raw SUM double-counts
+        // (matches weekly-digest / weekly-total).
         query<any>(
           `SELECT
-             date_trunc('week', ml.logged_at::date) AS week_start,
-             SUM(ml.value)::float AS total_steps
-           FROM metric_logs ml
-           JOIN metrics m ON m.id = ml.metric_id
-           WHERE m.user_id = $1 AND m.name = 'steps'
-             AND ml.logged_at::date >= $2 AND ml.logged_at::date <= $3
-             AND ml.value > 0
+             date_trunc('week', day) AS week_start,
+             SUM(day_max)::float AS total_steps
+           FROM (
+             SELECT ml.logged_at::date AS day, MAX(ml.value) AS day_max
+             FROM metric_logs ml
+             JOIN metrics m ON m.id = ml.metric_id
+             WHERE m.user_id = $1 AND m.name = 'steps'
+               AND ml.logged_at::date >= $2 AND ml.logged_at::date <= $3
+               AND ml.value > 0
+             GROUP BY ml.logged_at::date
+           ) daily
            GROUP BY week_start
            ORDER BY total_steps DESC`,
           [user_id, monthStart, monthEnd]
@@ -590,13 +602,18 @@ export default async function summaryRoutes(app: FastifyInstance) {
            ORDER BY overall_score DESC`,
           [user_id, monthStart, monthEnd]
         ),
+        // Same MAX-per-day convention as the weekly breakdown above.
         query<any>(
-          `SELECT COALESCE(SUM(ml.value), 0)::float AS total
-           FROM metric_logs ml
-           JOIN metrics m ON m.id = ml.metric_id
-           WHERE m.user_id = $1 AND m.name = 'steps'
-             AND ml.logged_at::date >= $2 AND ml.logged_at::date <= $3
-             AND ml.value > 0`,
+          `SELECT COALESCE(SUM(day_max), 0)::float AS total
+           FROM (
+             SELECT MAX(ml.value) AS day_max
+             FROM metric_logs ml
+             JOIN metrics m ON m.id = ml.metric_id
+             WHERE m.user_id = $1 AND m.name = 'steps'
+               AND ml.logged_at::date >= $2 AND ml.logged_at::date <= $3
+               AND ml.value > 0
+             GROUP BY ml.logged_at::date
+           ) daily`,
           [user_id, monthStart, monthEnd]
         ),
       ]);
@@ -656,7 +673,8 @@ export default async function summaryRoutes(app: FastifyInstance) {
         },
         observation,
       };
-    } catch {
+    } catch (err) {
+      req.log.error({ err }, "monthly-review failed — returning empty payload");
       return {
         month: prevMonthStr,
         scores: null,

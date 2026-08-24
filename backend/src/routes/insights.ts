@@ -30,10 +30,14 @@ export default async function insightsRoutes(app: FastifyInstance) {
     return all.filter((i) => !dead.has(i.rule_id));
   });
 
-  // GET /insights/history — all insights including dismissed/stale
+  // GET /insights/history — all insights including dismissed/stale.
+  // Optional ?limit= (max 200) and ?offset= (max 10000) for pagination.
   app.get("/history", async (req) => {
     const user_id = req.user_id;
-    return getInsightHistory(user_id);
+    const { limit, offset } = req.query as any;
+    const lim = Math.min(Math.max(Number(limit ?? 100) || 100, 1), 200);
+    const off = Math.min(Math.max(Number(offset ?? 0) || 0, 0), 10000);
+    return getInsightHistory(user_id, lim, off);
   });
 
   // GET /insights/impact/:rule_id — cross-user average outcome so an insight
@@ -173,15 +177,19 @@ export default async function insightsRoutes(app: FastifyInstance) {
 
   // GET /insights/timeline — insight lifecycle (first_detected, last_confirmed,
   // dismissed, resurfaced) newest-first.
+  // Optional ?limit= (max 200) and ?offset= (max 10000) for pagination.
   app.get("/timeline", async (req) => {
     const user_id = req.user_id;
+    const { limit, offset } = req.query as any;
+    const lim = Math.min(Math.max(Number(limit ?? 200) || 200, 1), 200);
+    const off = Math.min(Math.max(Number(offset ?? 0) || 0, 0), 10000);
     return query(
       `SELECT id, rule_id, type, title, first_detected, last_confirmed, status, dismissed
        FROM user_insights
        WHERE user_id = $1
        ORDER BY last_confirmed DESC, first_detected DESC
-       LIMIT 200`,
-      [user_id]
+       LIMIT $2 OFFSET $3`,
+      [user_id, lim, off]
     );
   });
 

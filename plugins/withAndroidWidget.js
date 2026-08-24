@@ -144,7 +144,11 @@ function withAndroidWidget(config) {
       app.receiver.push({
         $: {
           'android:name': cls,
-          'android:exported': 'true',
+          // Not exported: system APPWIDGET_UPDATE broadcasts still deliver to
+          // non-exported receivers, and all in-app broadcasts (PendingIntents,
+          // RippleWidgetSyncModule) target the class explicitly. Keeping this
+          // false stops other apps from firing WIDGET_LOG_WATER/WIDGET_LOG_MOOD.
+          'android:exported': 'false',
           'android:label': label,
         },
         'intent-filter': [

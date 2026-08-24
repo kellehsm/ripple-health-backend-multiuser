@@ -135,14 +135,22 @@ export function OverviewScreen() {
   // Content crossfade — fades from 0→1 when loading finishes
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
-  // Time-aware sub-greeting — computed once on mount
+  // Minute-level tick so time-derived values (greeting, mood period bucket)
+  // re-evaluate while the screen stays mounted.
+  const [minuteTick, setMinuteTick] = useState(0);
+  useEffect(function () {
+    const id = setInterval(function () { setMinuteTick(function (t) { return t + 1; }); }, 60 * 1000);
+    return function () { clearInterval(id); };
+  }, []);
+
+  // Time-aware sub-greeting — recomputed each minute + on focus
   const dashboardGreeting = useMemo(function () {
     const hour = new Date().getHours();
     if (hour >= 5  && hour < 12) return "Good morning 🌅";
     if (hour >= 12 && hour < 17) return "Good afternoon ☀️";
     if (hour >= 17 && hour < 21) return "Good evening 🌆";
     return "Wind down 🌙";
-  }, []);
+  }, [minuteTick]);
 
   // Number counter animations (0→1, interpolate to real value)
   const stepsCounterAnim = useRef(new Animated.Value(0)).current;
@@ -161,8 +169,9 @@ export function OverviewScreen() {
   const refreshSpinAnim = useRef(new Animated.Value(0)).current;
   const refreshSpinLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Stagger card entrance animations
-  const CARD_COUNT = 9;
+  // Stagger card entrance animations — safely larger than the dashboard
+  // layout's card count (default order has 10 entries; see useOverviewData).
+  const CARD_COUNT = 12;
   const cardAnims = useRef(
     Array.from({ length: CARD_COUNT }, () => new Animated.Value(0))
   ).current;
@@ -349,7 +358,7 @@ export function OverviewScreen() {
       const t = setTimeout(() => setShowMoodModal(true), 700);
       return () => clearTimeout(t);
     }
-  }, [loading, todayEntries]);
+  }, [loading, todayEntries, currentBucket, minuteTick]);
 
   // Number counter animations — trigger when loading finishes
   useEffect(function () {

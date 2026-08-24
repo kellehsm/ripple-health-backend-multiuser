@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify";
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 import { getUserTz } from "../lib/userTz.js";
 import { parse as csvParseSync } from "csv-parse/sync";
 import * as XLSX from "xlsx";
@@ -129,9 +129,12 @@ function medSelect(tzParamIndex: number): string {
   LEFT JOIN medication_schedule_slots s ON s.medication_id = m.id
 `;
 }
-// Legacy alias kept so unrelated grep-and-replace won't miss anywhere else
-// that references MED_SELECT; new call sites should call medSelect(n).
-const MED_SELECT = medSelect(99);
+// Row-returning query helper bound to a single client, so transactional
+// code paths can share the same shape as the pool-level query().
+type Q = <T = any>(text: string, params?: any[]) => Promise<T[]>;
+function clientQuery(client: import("pg").PoolClient): Q {
+  return async (text, params = []) => (await client.query(text, params)).rows;
+}
 
 function shapeMed(r: any) {
   return {
@@ -172,7 +175,7 @@ async function ensureDefaultCategories(user_id: string) {
   );
 }
 
-async function insertSlots(medId: string, slots: any[]): Promise<void> {
+async function insertSlots(medId: string, slots: any[], q: Q = query): Promise<void> {
   if (slots.length === 0) return;
   const values: any[] = [];
   const placeholders = slots.map((s, i) => {
@@ -180,7 +183,7 @@ async function insertSlots(medId: string, slots: any[]): Promise<void> {
     values.push(medId, s.time_of_day, s.specific_time ?? null, i);
     return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4})`;
   });
-  await query(
+  await q(
     `INSERT INTO medication_schedule_slots (medication_id, time_of_day, specific_time, sort_order) VALUES ${placeholders.join(", ")}`,
     values
   );
@@ -210,28 +213,42 @@ export default async function medicationsRoutes(app: FastifyInstance) {
             frequency, day_of_week, is_prn } = req.body as any;
 
     await ensureDefaultCategories(user_id);
+    const tz = await getUserTz(user_id);
 
-    const [med] = await query<any>(
-      `INSERT INTO medications (user_id, name, dosage, notes, purpose, refill_date, color_category_id, prescriber_id, frequency, day_of_week, is_prn)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-      [user_id, name, dosage ?? null, notes ?? null, purpose ?? null,
-       refill_date ?? null, color_category_id ?? null, prescriber_id ?? null,
-       frequency ?? "daily", day_of_week ?? null, is_prn ?? false]
-    );
+    const client = await pool.connect();
+    let med: any;
+    try {
+      await client.query("BEGIN");
+      const q = clientQuery(client);
 
-    if (Array.isArray(slots) && slots.length > 0) {
-      await insertSlots(med.id, slots);
+      [med] = await q(
+        `INSERT INTO medications (user_id, name, dosage, notes, purpose, refill_date, color_category_id, prescriber_id, frequency, day_of_week, is_prn)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [user_id, name, dosage ?? null, notes ?? null, purpose ?? null,
+         refill_date ?? null, color_category_id ?? null, prescriber_id ?? null,
+         frequency ?? "daily", day_of_week ?? null, is_prn ?? false]
+      );
+
+      if (Array.isArray(slots) && slots.length > 0) {
+        await insertSlots(med.id, slots, q);
+      }
+
+      await q(
+        `INSERT INTO medication_history (medication_id, change_type, new_value)
+         VALUES ($1, 'added', $2)`,
+        [med.id, name]
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
 
-    await query(
-      `INSERT INTO medication_history (medication_id, change_type, new_value)
-       VALUES ($1, 'added', $2)`,
-      [med.id, name]
-    );
-
     const [result] = await query<any>(
-      `${MED_SELECT} WHERE m.id = $1 GROUP BY m.id, p.id, c.id`,
-      [med.id]
+      `${medSelect(2)} WHERE m.id = $1 GROUP BY m.id, p.id, c.id`,
+      [med.id, tz]
     );
     return shapeMed(result);
   });
@@ -256,28 +273,33 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       [id, user_id]
     );
     if (!current) throw { statusCode: 404, message: "Not found" };
+    const tz = await getUserTz(user_id);
 
-    await query(
-      `UPDATE medications
-       SET name = COALESCE($1, name), dosage = COALESCE($2, dosage),
-           notes = COALESCE($3, notes), purpose = COALESCE($4, purpose),
-           refill_date = COALESCE($5, refill_date), active = COALESCE($6, active),
-           color_category_id = COALESCE($7, color_category_id),
-           prescriber_id = COALESCE($8, prescriber_id),
-           generic_name = COALESCE($11, generic_name),
-           brand_name = COALESCE($12, brand_name),
-           drug_class = COALESCE($13, drug_class),
-           rxcui = COALESCE($14, rxcui),
-           alternative_brand_names = COALESCE($15, alternative_brand_names),
-           frequency = COALESCE($16, frequency),
-           day_of_week = CASE WHEN $17::smallint IS NOT NULL THEN $17::smallint ELSE day_of_week END,
-           is_prn = COALESCE($18, is_prn)
-       WHERE id = $9 AND user_id = $10`,
-      [name ?? null, dosage ?? null, notes ?? null, purpose ?? null, refill_date ?? null,
-       active ?? null, color_category_id ?? null, prescriber_id ?? null, id, user_id,
-       generic_name ?? null, brand_name ?? null, drug_class ?? null, rxcui ?? null,
-       alternative_brand_names ?? null, frequency ?? null, day_of_week ?? null, is_prn ?? null]
-    );
+    // Only fields present in the body are updated; explicit null clears
+    // nullable fields (notes, refill_date, prescriber_id, ...).
+    const sets: string[] = [];
+    const params: any[] = [id, user_id];
+    const set = (col: string, val: any, cast = "") => {
+      if (val === undefined) return;
+      params.push(val);
+      sets.push(`${col} = $${params.length}${cast}`);
+    };
+    set("name", name);
+    set("dosage", dosage);
+    set("notes", notes);
+    set("purpose", purpose);
+    set("refill_date", refill_date);
+    set("active", active);
+    set("color_category_id", color_category_id);
+    set("prescriber_id", prescriber_id);
+    set("generic_name", generic_name);
+    set("brand_name", brand_name);
+    set("drug_class", drug_class);
+    set("rxcui", rxcui);
+    set("alternative_brand_names", alternative_brand_names);
+    set("frequency", frequency);
+    set("day_of_week", day_of_week, "::smallint");
+    set("is_prn", is_prn);
 
     // Write history entries for changed fields
     const histEntries: Array<[string, string | null, string | null]> = [];
@@ -290,12 +312,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
         : [{ name: null }];
       histEntries.push(["prescriber_changed", current.prescriber_name ?? null, newP?.name ?? null]);
     }
-
     if (Array.isArray(slots)) {
-      await query(`DELETE FROM medication_schedule_slots WHERE medication_id = $1`, [id]);
-      if (slots.length > 0) {
-        await insertSlots(id, slots);
-      }
       const newTimes = slots.map((s: any) => s.time_of_day).sort().join(", ");
       const oldTimes = (current.slot_times ?? []).sort().join(", ");
       if (newTimes !== oldTimes) {
@@ -303,17 +320,43 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       }
     }
 
-    await Promise.all(histEntries.map(([change_type, old_value, new_value]) =>
-      query(
-        `INSERT INTO medication_history (medication_id, change_type, old_value, new_value, reason, changed_by)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [id, change_type, old_value, new_value, reason ?? null, changed_by ?? null]
-      )
-    ));
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const q = clientQuery(client);
+
+      if (sets.length > 0) {
+        await q(
+          `UPDATE medications SET ${sets.join(", ")} WHERE id = $1 AND user_id = $2`,
+          params
+        );
+      }
+
+      if (Array.isArray(slots)) {
+        await q(`DELETE FROM medication_schedule_slots WHERE medication_id = $1`, [id]);
+        if (slots.length > 0) {
+          await insertSlots(id, slots, q);
+        }
+      }
+
+      for (const [change_type, old_value, new_value] of histEntries) {
+        await q(
+          `INSERT INTO medication_history (medication_id, change_type, old_value, new_value, reason, changed_by)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [id, change_type, old_value, new_value, reason ?? null, changed_by ?? null]
+        );
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
 
     const [result] = await query<any>(
-      `${MED_SELECT} WHERE m.id = $1 GROUP BY m.id, p.id, c.id`,
-      [id]
+      `${medSelect(2)} WHERE m.id = $1 GROUP BY m.id, p.id, c.id`,
+      [id, tz]
     );
     return shapeMed(result);
   });
@@ -433,7 +476,8 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       [rxcui, brand_name, generic_name, alternative_brand_names, id, user_id]
     );
 
-    const [result] = await query<any>(`${MED_SELECT} WHERE m.id = $1 GROUP BY m.id, p.id, c.id`, [id]);
+    const tz = await getUserTz(user_id);
+    const [result] = await query<any>(`${medSelect(2)} WHERE m.id = $1 GROUP BY m.id, p.id, c.id`, [id, tz]);
     return shapeMed(result);
   });
 
@@ -513,11 +557,14 @@ export default async function medicationsRoutes(app: FastifyInstance) {
   // ── Adherence stats ──────────────────────────────────────────────────────────
   app.get("/adherence", async (req) => {
     const user_id = req.user_id;
+    // "Today" is the user's local day — dose logs are written against the
+    // user-tz log_date, so the expected/taken windows must match.
+    const tz = await getUserTz(user_id);
 
     // Per-day expected vs taken over the last 84 days. Weekly meds only count
     // on their scheduled weekday; meds don't count before they were created.
     const days = await query<any>(
-      `WITH days AS (SELECT (CURRENT_DATE - g.n)::date AS day FROM generate_series(0, 83) AS g(n)),
+      `WITH days AS (SELECT ((now() AT TIME ZONE $2)::date - g.n)::date AS day FROM generate_series(0, 83) AS g(n)),
        slots AS (
          SELECT s.id AS slot_id, m.frequency, m.day_of_week, m.created_at::date AS created
          FROM medication_schedule_slots s
@@ -535,7 +582,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
          SELECT log_date AS day, COUNT(*) AS taken
          FROM medication_dose_logs
          WHERE user_id = $1 AND status = 'taken' AND slot_id IS NOT NULL
-           AND log_date >= CURRENT_DATE - 83
+           AND log_date >= (now() AT TIME ZONE $2)::date - 83
          GROUP BY log_date
        )
        SELECT d.day::text, COALESCE(e.expected, 0)::int AS expected, COALESCE(t.taken, 0)::int AS taken
@@ -543,7 +590,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
        LEFT JOIN expected e ON e.day = d.day
        LEFT JOIN taken t ON t.day = d.day
        ORDER BY d.day ASC`,
-      [user_id]
+      [user_id, tz]
     );
 
     // Cap taken at expected (schedule edits can strand extra logs)
@@ -576,7 +623,7 @@ export default async function medicationsRoutes(app: FastifyInstance) {
 
     // Per-med 30-day adherence
     const perMed = await query<any>(
-      `WITH days AS (SELECT (CURRENT_DATE - g.n)::date AS day FROM generate_series(0, 29) AS g(n)),
+      `WITH days AS (SELECT ((now() AT TIME ZONE $2)::date - g.n)::date AS day FROM generate_series(0, 29) AS g(n)),
        slots AS (
          SELECT s.id AS slot_id, m.id AS med_id, m.name, m.frequency, m.day_of_week, m.created_at::date AS created
          FROM medication_schedule_slots s
@@ -594,13 +641,13 @@ export default async function medicationsRoutes(app: FastifyInstance) {
          SELECT medication_id, COUNT(*) AS taken
          FROM medication_dose_logs
          WHERE user_id = $1 AND status = 'taken' AND slot_id IS NOT NULL
-           AND log_date >= CURRENT_DATE - 29
+           AND log_date >= (now() AT TIME ZONE $2)::date - 29
          GROUP BY medication_id
        )
        SELECT e.med_id AS id, e.name, e.expected::int, COALESCE(t.taken, 0)::int AS taken
        FROM exp e LEFT JOIN tak t ON t.medication_id = e.med_id
        ORDER BY e.name`,
-      [user_id]
+      [user_id, tz]
     );
 
     // Yesterday's missed doses (for the recovery banner)
@@ -609,14 +656,14 @@ export default async function medicationsRoutes(app: FastifyInstance) {
        FROM medication_schedule_slots s
        JOIN medications m ON m.id = s.medication_id
        WHERE m.user_id = $1 AND m.active = true AND m.is_prn = false
-         AND m.created_at::date <= CURRENT_DATE - 1
-         AND (m.frequency IS DISTINCT FROM 'weekly' OR m.day_of_week = EXTRACT(DOW FROM (CURRENT_DATE - 1))::int)
+         AND m.created_at::date <= (now() AT TIME ZONE $2)::date - 1
+         AND (m.frequency IS DISTINCT FROM 'weekly' OR m.day_of_week = EXTRACT(DOW FROM ((now() AT TIME ZONE $2)::date - 1))::int)
          AND NOT EXISTS (
            SELECT 1 FROM medication_dose_logs dl
-           WHERE dl.user_id = $1 AND dl.slot_id = s.id AND dl.log_date = CURRENT_DATE - 1
+           WHERE dl.user_id = $1 AND dl.slot_id = s.id AND dl.log_date = (now() AT TIME ZONE $2)::date - 1
          )
        ORDER BY m.name`,
-      [user_id]
+      [user_id, tz]
     );
 
     return {
@@ -765,41 +812,54 @@ export default async function medicationsRoutes(app: FastifyInstance) {
       });
     }
 
-    // Resolve prescribers: create any that don't exist yet (insert on first encounter)
-    for (const r of parsed) {
-      if (!r.prescrName) continue;
-      const key = r.prescrName.toLowerCase();
-      if (!prescriberMap.has(key)) {
-        const [p] = await query<any>(
-          `INSERT INTO medication_prescribers (user_id, name) VALUES ($1, $2) RETURNING id`,
-          [user_id, r.prescrName]
-        );
-        prescriberMap.set(key, p.id);
-      }
-    }
-
-    // Insert medications one-by-one (we need the returned ID for slots and history)
+    // All-or-nothing: prescribers + meds + slots + history in one transaction
+    const client = await pool.connect();
     let imported = 0;
-    for (const r of parsed) {
-      const prescriber_id = r.prescrName ? (prescriberMap.get(r.prescrName.toLowerCase()) ?? null) : null;
+    try {
+      await client.query("BEGIN");
+      const q = clientQuery(client);
 
-      const [med] = await query<any>(
-        `INSERT INTO medications (user_id, name, dosage, notes, prescriber_id)
-         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-        [user_id, r.name, r.dosage, r.notes, prescriber_id]
-      );
-
-      if (r.slots.length > 0) {
-        await insertSlots(med.id, r.slots);
+      // Resolve prescribers: create any that don't exist yet (insert on first encounter)
+      for (const r of parsed) {
+        if (!r.prescrName) continue;
+        const key = r.prescrName.toLowerCase();
+        if (!prescriberMap.has(key)) {
+          const [p] = await q(
+            `INSERT INTO medication_prescribers (user_id, name) VALUES ($1, $2) RETURNING id`,
+            [user_id, r.prescrName]
+          );
+          prescriberMap.set(key, p.id);
+        }
       }
 
-      await query(
-        `INSERT INTO medication_history (medication_id, change_type, new_value)
-         VALUES ($1, 'added', $2)`,
-        [med.id, r.name]
-      );
+      // Insert medications one-by-one (we need the returned ID for slots and history)
+      for (const r of parsed) {
+        const prescriber_id = r.prescrName ? (prescriberMap.get(r.prescrName.toLowerCase()) ?? null) : null;
 
-      imported++;
+        const [med] = await q(
+          `INSERT INTO medications (user_id, name, dosage, notes, prescriber_id)
+           VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+          [user_id, r.name, r.dosage, r.notes, prescriber_id]
+        );
+
+        if (r.slots.length > 0) {
+          await insertSlots(med.id, r.slots, q);
+        }
+
+        await q(
+          `INSERT INTO medication_history (medication_id, change_type, new_value)
+           VALUES ($1, 'added', $2)`,
+          [med.id, r.name]
+        );
+
+        imported++;
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
     return { imported };
   });

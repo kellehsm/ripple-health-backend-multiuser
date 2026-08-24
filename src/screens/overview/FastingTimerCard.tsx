@@ -57,15 +57,14 @@ export function FastingTimerCard() {
     setFastStatus(s);
   }
 
-  if (!fastingEnabled) return null;
-
   const TARGET_MS = 16 * 3600_000;
   const R = 14;
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { pct, CIRC } = useMemo(() => {
     const p = fastStatus.active ? Math.min(fastStatus.elapsedMs / TARGET_MS, 1) : 0;
     return { pct: p, CIRC: 2 * Math.PI * R };
   }, [fastStatus.active, fastStatus.elapsedMs]);
+
+  if (!fastingEnabled) return null;
 
   return (
     <Pressable

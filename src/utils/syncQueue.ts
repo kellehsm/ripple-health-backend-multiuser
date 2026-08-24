@@ -71,11 +71,16 @@ export async function processSyncQueue(): Promise<{ processed: number; remaining
   const token = await getToken();
   if (token) headers["Authorization"] = "Bearer " + token;
 
+  // Abort a hung connection after 15s (matches REQUEST_TIMEOUT_MS in
+  // src/api/client.ts) so the caller's sync-in-flight flag can't stay locked.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
   let res: Response;
   try {
     res = await fetch(`${BASE_URL}/sync/batch`, {
       method: "POST",
       headers,
+      signal: controller.signal,
       body: JSON.stringify({
         items: items.map((i) => ({
           sync_id: i.id,
@@ -86,8 +91,10 @@ export async function processSyncQueue(): Promise<{ processed: number; remaining
       }),
     });
   } catch {
-    // Network down — leave queue intact
+    // Network down or timed out — leave queue intact
     return { processed: 0, remaining: items.length };
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!res.ok) {

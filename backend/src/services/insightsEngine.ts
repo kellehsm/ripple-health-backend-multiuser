@@ -1,4 +1,4 @@
-import { query } from "../db.js";
+import { query, pool } from "../db.js";
 import { estDayOfWeek } from "../lib/estDate.js";
 import type { InsightRule, InsightResult, RuleTier, UserCapabilities } from "../rules/types.js";
 import { buildDayFrame } from "./dayFrame.js";
@@ -243,12 +243,16 @@ export interface StoredInsight {
   updated_at: string;
 }
 
+// Minimal query shape shared by the pool helper and a checked-out client,
+// so the stale-mark + upsert swap can run inside one transaction.
+type QueryFn = (text: string, params?: any[]) => Promise<any>;
+
 async function upsertInsight(userId: string, ruleId: string, type: string, result: InsightResult, extras: {
   ruleVersion?: number;
   actionable?: boolean;
   clinicalRisk?: boolean;
   primaryMetric?: string;
-}): Promise<void> {
+}, q: QueryFn = query): Promise<void> {
   const enrichedSupport = {
     ...result.supportingData,
     ...(result.pValue     != null ? { p_value:     result.pValue     } : {}),
@@ -259,7 +263,7 @@ async function upsertInsight(userId: string, ruleId: string, type: string, resul
     ...(extras.clinicalRisk    != null ? { clinical_risk:    extras.clinicalRisk    } : {}),
     ...(extras.primaryMetric   != null ? { primary_metric:   extras.primaryMetric   } : {}),
   };
-  await query(
+  await q(
     `INSERT INTO user_insights
        (user_id, rule_id, type, title, description, confidence, confidence_score,
         supporting_data, last_confirmed, times_observed, status, dismissed)
@@ -296,16 +300,16 @@ function tierRunsToday(tier: RuleTier, now: Date, force: boolean): boolean {
   return true;
 }
 
-async function markStale(userId: string, activeRuleIds: string[]): Promise<void> {
+async function markStale(userId: string, activeRuleIds: string[], q: QueryFn = query): Promise<void> {
   if (activeRuleIds.length === 0) {
-    await query(
+    await q(
       `UPDATE user_insights SET status = 'stale', updated_at = NOW()
        WHERE user_id = $1 AND dismissed = FALSE AND status = 'active'`,
       [userId]
     );
     return;
   }
-  await query(
+  await q(
     `UPDATE user_insights SET status = 'stale', updated_at = NOW()
      WHERE user_id = $1
        AND dismissed = FALSE
@@ -539,14 +543,29 @@ export async function runInsightsForUser(
   }
   const surviving = candidates.filter(c => !(c.result as any).__fdrRejected);
 
-  // Now do the atomic swap: mark stale + upsert survivors + log stats.
-  await markStale(userId, surviving.map(c => c.rule.id));
-  await Promise.all(surviving.map(c => upsertInsight(userId, c.rule.id, c.rule.type, c.result, {
-    ruleVersion:    c.rule.version,
-    actionable:     c.rule.actionable ?? c.result.actionable,
-    clinicalRisk:   c.rule.clinicalRisk ?? c.result.clinicalRisk,
-    primaryMetric:  c.rule.primaryMetric ?? c.result.primaryMetric,
-  })));
+  // Now do the atomic swap: mark stale + upsert survivors inside a single
+  // transaction so a crash mid-swap can't leave everything stale with no
+  // fresh insights written.
+  const swapClient = await pool.connect();
+  try {
+    await swapClient.query("BEGIN");
+    const q: QueryFn = (text, params = []) => swapClient.query(text, params);
+    await markStale(userId, surviving.map(c => c.rule.id), q);
+    for (const c of surviving) {
+      await upsertInsight(userId, c.rule.id, c.rule.type, c.result, {
+        ruleVersion:    c.rule.version,
+        actionable:     c.rule.actionable ?? c.result.actionable,
+        clinicalRisk:   c.rule.clinicalRisk ?? c.result.clinicalRisk,
+        primaryMetric:  c.rule.primaryMetric ?? c.result.primaryMetric,
+      }, q);
+    }
+    await swapClient.query("COMMIT");
+  } catch (err) {
+    await swapClient.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    swapClient.release();
+  }
   foundRuleIds.push(...surviving.map(c => c.rule.id));
 
   // Observability — one row per evaluated rule per run, non-blocking.
@@ -631,7 +650,7 @@ export async function getActiveInsights(userId: string): Promise<StoredInsight[]
   );
 }
 
-export async function getInsightHistory(userId: string): Promise<StoredInsight[]> {
+export async function getInsightHistory(userId: string, limit = 100, offset = 0): Promise<StoredInsight[]> {
   return query<StoredInsight>(
     `SELECT id, user_id, rule_id, type, title, description, confidence, confidence_score,
             supporting_data, first_detected, last_confirmed, times_observed, status,
@@ -639,7 +658,7 @@ export async function getInsightHistory(userId: string): Promise<StoredInsight[]
      FROM user_insights
      WHERE user_id = $1
      ORDER BY last_confirmed DESC
-     LIMIT 100`,
-    [userId]
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset]
   );
 }
