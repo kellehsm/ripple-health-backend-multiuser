@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { EmptyState } from "../components/EmptyState";
+import { SectionLabel } from "../components/SectionLabel";
 import { ThemedIcon } from "../theme/iconRegistry";
 import { ShadowCard } from "../components/ShadowCard";
 import { UndoBanner } from "../components/UndoBanner";
@@ -117,10 +118,10 @@ function BookShelf({
   const SPINE_COLORS = [
     theme.teal.solid,
     theme.coral.solid,
-    (theme.blue as any)?.solid ?? "#3b82f6",
+    theme.blue.solid,
     theme.berry.solid,
-    (theme.amber as any)?.solid ?? "#f59e0b",
-    (theme.violet as any)?.solid ?? theme.purple.solid,
+    theme.amber.solid,
+    theme.violet.solid,
     theme.purple.solid,
   ];
 
@@ -398,7 +399,7 @@ export function CompletedScreen() {
 
           {completedBooks.length > 0 && (
             <>
-              <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>BOOKS READ · {completedBooks.length}</Text>
+              <SectionLabel text={`Books read · ${completedBooks.length}`} style={{ marginTop: 4, marginBottom: -4 }} />
               {completedBooks.map((item) => (
                 <View key={item.id} style={[styles.card, { backgroundColor: theme.teal.tint }]}>
                   <View style={{ flexDirection: "row", gap: 12 }}>
@@ -426,7 +427,7 @@ export function CompletedScreen() {
 
           {readingBooks.length > 0 && (
             <>
-              <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>CURRENTLY READING · {readingBooks.length}</Text>
+              <SectionLabel text={`Currently reading · ${readingBooks.length}`} style={{ marginTop: 4, marginBottom: -4 }} />
               {readingBooks.map((book) => {
                 const prog = progress[book.id];
                 const pct = prog?.percent_complete ?? null;
@@ -459,7 +460,7 @@ export function CompletedScreen() {
 
           {completedHobbies.length > 0 && (
             <>
-              <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>HOBBIES COMPLETED · {completedHobbies.length}</Text>
+              <SectionLabel text={`Hobbies completed · ${completedHobbies.length}`} style={{ marginTop: 4, marginBottom: -4 }} />
               {completedHobbies.map((item) => (
                 <View key={item.id} style={[styles.card, { backgroundColor: theme.violet.tint }]}>
                   <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
@@ -500,14 +501,6 @@ export function CompletedScreen() {
 function makeStyles(ink: string) {
   return StyleSheet.create({
     content: { padding: 16, gap: 12, paddingBottom: 32 },
-    sectionLabel: {
-      fontSize: 9,
-      fontWeight: "900",
-      letterSpacing: 0.6,
-      marginBottom: -4,
-      marginTop: 4,
-      textTransform: "uppercase",
-    },
     card: {
       borderRadius: 22,
       borderWidth: 2,

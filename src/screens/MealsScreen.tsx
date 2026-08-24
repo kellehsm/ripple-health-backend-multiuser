@@ -509,8 +509,13 @@ export function MealsScreen() {
       sodium_mg: drink.sodium_mg,
       source_db: "manual",
     })
-      .then(function () {
+      .then(function (res) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (res === null) {
+          // Offline — write was queued; it won't appear in the list yet.
+          toast("Saved — will sync when online.", "info");
+          return;
+        }
         toast(drink.name + " logged.");
         loadMeals();
       })
@@ -543,8 +548,13 @@ export function MealsScreen() {
       sodium_mg: null,
       source_db: "recipe",
     })
-      .then(function () {
+      .then(function (res) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (res === null) {
+          // Offline — write was queued; it won't appear in the list yet.
+          toast("Saved — will sync when online.", "info");
+          return;
+        }
         toast("Meal logged.");
         loadMeals();
       })
@@ -612,11 +622,16 @@ export function MealsScreen() {
       sodium_mg: values.sodium_mg,
       servings: values.servings ?? 1,
     })
-      .then(function () {
+      .then(function (res) {
         setPendingFood(null);
         setSearchQuery("");
         setSearchResults([]);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (res === null) {
+          // Offline — write was queued; it won't appear in the list yet.
+          toast("Saved — will sync when online.", "info");
+          return;
+        }
         toast("Meal logged.");
         setTimeout(function () {
           Alert.alert(
@@ -1086,7 +1101,7 @@ export function MealsScreen() {
   );
 }
 
-function makeStyles(ink: string, card: string, border: string, coral: string = "#E8654E") {
+function makeStyles(ink: string, card: string, border: string, coral: string) {
   return StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
 

@@ -18,17 +18,20 @@ class RippleScoreWidgetProvider : RippleWidgetProvider() {
 
     override fun siblingClass(): Class<*> = RippleWidgetProvider::class.java
 
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
-        // Advance rotation once per onUpdate call (not per widget id)
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val current = prefs.getInt(ROTATION_KEY, 0)
-        val next = (current + 1) % 3
-        prefs.edit().putInt(ROTATION_KEY, next).apply()
-        super.onUpdate(context, appWidgetManager, appWidgetIds)
+    override fun onReceive(context: Context, intent: Intent) {
+        // Tap the big number to advance the stat: score → steps → glucose.
+        // (System onUpdate no longer rotates — that drifted unpredictably.)
+        if (intent.action == ACTION_NEXT_STAT) {
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            prefs.edit().putInt(ROTATION_KEY, (prefs.getInt(ROTATION_KEY, 0) + 1) % 3).apply()
+            try {
+                val mgr = AppWidgetManager.getInstance(context)
+                val ids = mgr.getAppWidgetIds(ComponentName(context, javaClass))
+                for (id in ids) mgr.updateAppWidget(id, buildViews(context, getCached(context), id))
+            } catch (e: Exception) { Log.w("RippleScore", "next stat failed", e) }
+            return
+        }
+        super.onReceive(context, intent)
     }
 
     override fun buildViews(context: Context, d: WidgetData, appWidgetId: Int): RemoteViews {
@@ -78,17 +81,27 @@ class RippleScoreWidgetProvider : RippleWidgetProvider() {
                 android.graphics.Color.parseColor(if (night) "#AAAAAA" else "#6E655A"))
         }
 
+        views.setContentDescription(R.id.score_value, "$labelText $valueText. Tap for next stat")
+
         // Whole widget tap → wellness screen
         try {
-            views.setOnClickPendingIntent(R.id.score_root, deeplink(context, 22, "wellness"))
+            views.setOnClickPendingIntent(R.id.score_root, deeplink(context, appWidgetId * 100 + 22, "wellness"))
         } catch (e: Exception) { Log.w("RippleScore", "wellness link failed", e) }
+
+        // Big number tap → advance rotation
+        val nextStatIntent = Intent(context, RippleScoreWidgetProvider::class.java).apply {
+            action = ACTION_NEXT_STAT
+        }
+        views.setOnClickPendingIntent(R.id.score_value,
+            PendingIntent.getBroadcast(context, appWidgetId * 100 + 23, nextStatIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 
         // Refresh button
         val refreshIntent = Intent(context, RippleScoreWidgetProvider::class.java).apply {
             action = ACTION_REFRESH
         }
         views.setOnClickPendingIntent(R.id.score_refresh,
-            PendingIntent.getBroadcast(context, 21, refreshIntent,
+            PendingIntent.getBroadcast(context, appWidgetId * 100 + 21, refreshIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 
         return views

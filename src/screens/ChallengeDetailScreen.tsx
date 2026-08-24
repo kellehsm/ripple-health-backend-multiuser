@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
 import { ThemedIcon } from "../theme/iconRegistry";
 import { ShadowCard } from "../components/ShadowCard";
+import { SectionLabel } from "../components/SectionLabel";
 import { toast } from "../lib/toast";
 import { RANK_COLORS } from "../constants";
 import {
@@ -211,7 +212,7 @@ export function ChallengeDetailScreen() {
       )}
 
       {/* Participant leaderboard */}
-      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PARTICIPANTS</Text>
+      <SectionLabel text="Participants" style={{ marginTop: 4, marginBottom: -4 }} />
       {participants.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center" }]}>
           <ThemedIcon slot="ui.medal" size={28} />
@@ -278,14 +279,6 @@ export function ChallengeDetailScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 100 },
-  groupLabel: {
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 0.6,
-    marginTop: 4,
-    marginBottom: -4,
-    textTransform: "uppercase",
-  },
   iconBadge: {
     width: 48,
     height: 48,

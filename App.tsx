@@ -36,6 +36,7 @@ import { StringsProvider } from "./src/strings/StringsContext";
 import { TabPreferencesProvider } from "./src/context/TabPreferencesContext";
 import { OfflineBanner } from "./src/components/OfflineBanner";
 import { ToastHost } from "./src/components/ToastHost";
+import { toast as showToast } from "./src/lib/toast";
 import { WhatsNewModal } from "./src/components/WhatsNewModal";
 import { RootTabs } from "./src/navigation/RootTabs";
 import { RippleLoader } from "./src/components/RippleLoader";
@@ -97,7 +98,10 @@ function navigateRootWhenReady(name: string) {
 
 function toast(msg: string) {
   if (Platform.OS === "android") ToastAndroid.show(msg, ToastAndroid.SHORT);
-  else Alert.alert(msg);
+  // iOS: non-blocking in-app toast pill (ToastHost). If the overlay isn't
+  // mounted yet (very early cold start), showToast is a safe no-op rather
+  // than a blocking Alert.
+  else showToast(msg, "info");
 }
 
 async function logWaterFromShortcut() {
@@ -126,6 +130,9 @@ const DEEP_LINK_ACTIONS: Record<string, () => void> = {
   "steps": () => navigateRootWhenReady("StepsDetail"),
   "heartrate": () => navigateRootWhenReady("HeartRateDetail"),
   "insights": () => navigateRootWhenReady("Insights"),
+  "water": () => navigateRootWhenReady("WaterDetail"),
+  "exercise": () => navigateWhenReady("Exercise"),
+  "mindfulness": () => navigateRootWhenReady("Mindfulness"),
 };
 
 function handleUrl(url: string | null) {
@@ -357,11 +364,21 @@ export default function App() {
     // Keep the widget auth file in sync on every launch so the Android home
     // screen widget can always find the token (setToken is only called at login).
     setToken(token).catch(() => {});
+    // Cold start must respect App Lock: if biometric lock is enabled, require
+    // an unlock instead of unconditionally marking the session unlocked.
+    const lockEnabled = await isBiometricLockEnabled().catch(() => false);
+    function applyLockState() {
+      if (lockEnabled) {
+        setBiometricLocked(true);
+      } else {
+        markUnlocked();
+        setBiometricLocked(false);
+      }
+    }
     try {
       const user = await api.me();
       if (!user) throw new Error("no user");
-      markUnlocked();
-      setBiometricLocked(false);
+      applyLockState();
       setAppState(user.onboarding_completed ? "app" : "onboarding");
     } catch (err: any) {
       // Only clear the token on actual auth rejection (401/403). Network errors or
@@ -370,8 +387,7 @@ export default function App() {
         await clearToken();
         setAppState("login");
       } else {
-        markUnlocked();
-        setBiometricLocked(false);
+        applyLockState();
         setAppState("app");
       }
     }

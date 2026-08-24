@@ -608,14 +608,14 @@ export function FinanceScreen() {
                 {syncing ? "  ·  syncing…" : ""}
               </Text>
               {view === "day" && (
-                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= dailyBudget ? (theme.teal?.solid ?? "#14b8a6") : (theme.red?.solid ?? "#C0392B") }}>
+                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= dailyBudget ? theme.teal.solid : theme.red.solid }}>
                   {total <= dailyBudget
                     ? "On track"
                     : `Over by $${(total - dailyBudget).toFixed(2)}`}
                 </Text>
               )}
               {view === "week" && lastWeekTotal > 0 && (
-                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= lastWeekTotal ? (theme.teal?.solid ?? "#14b8a6") : (theme.coral?.sub ?? "#f97316") }}>
+                <Text style={{ fontSize: 13, fontWeight: "800", marginTop: 4, color: total <= lastWeekTotal ? theme.teal.solid : theme.coral.sub }}>
                   {total <= lastWeekTotal
                     ? `▼ ${formatAmount(lastWeekTotal - total)} less than last week`
                     : `▲ ${formatAmount(total - lastWeekTotal)} more than last week`}
@@ -677,7 +677,7 @@ export function FinanceScreen() {
         {entries.length > 0 && monthForecast.dayOfMonth >= 3 && (function () {
           const { monthTotal, projected, budget, daysInMonth, dayOfMonth } = monthForecast;
           const projPct  = Math.min(1, budget > 0 ? projected / budget : 0);
-          const barColor = projPct > 1.1 ? theme.red?.solid ?? "#C0392B" : projPct > 0.9 ? theme.amber?.solid ?? "#f59e0b" : theme.teal.solid;
+          const barColor = projPct > 1.1 ? theme.red.solid : projPct > 0.9 ? theme.amber.solid : theme.teal.solid;
           return (
             <ShadowCard size="card" rotate={-0.3}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
@@ -1141,7 +1141,7 @@ export function FinanceScreen() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeStyles(ink: string, card: string, border: string, purple: string = "#7B3FBF") {
+function makeStyles(ink: string, card: string, border: string, purple: string) {
   const shadowCard = coloredShadow(purple);
   return StyleSheet.create({
     content:     { padding: 16, gap: 12, paddingBottom: 40 },

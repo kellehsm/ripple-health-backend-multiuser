@@ -3,7 +3,7 @@
  * Types, constants, and small presentational helpers shared across Overview
  * sub-components. Extracted from OverviewScreen.tsx — no logic changes.
  */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -203,10 +203,14 @@ export function AnimatedCounterText({
   style?: object;
   format?: (v: number) => string;
 }) {
-  const interpolated = animValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, targetValue],
-  });
+  const interpolated = useMemo(
+    () =>
+      animValue.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, targetValue],
+      }),
+    [animValue, targetValue]
+  );
   const [display, setDisplay] = useState(() => (format ? format(0) : "0"));
   useEffect(() => {
     const id = (interpolated as any).addListener(({ value }: { value: number }) => {

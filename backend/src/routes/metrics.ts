@@ -1,6 +1,10 @@
 import { FastifyInstance } from "fastify";
 import { query } from "../db.js";
 import { parseWeekStartDay } from "../lib/weekStartDay.js";
+import { getUserTz } from "../lib/userTz.js";
+
+// Matches the documented values on metrics.value_type in schema.sql
+const ALLOWED_VALUE_TYPES = ["number", "duration_minutes", "scale_1_5", "boolean"];
 
 // Generic metric engine: water, screen time, meds, workouts, etc.
 export default async function metricsRoutes(app: FastifyInstance) {
@@ -30,12 +34,37 @@ export default async function metricsRoutes(app: FastifyInstance) {
     if (typeof name !== "string" || !name.trim()) {
       return reply.status(400).send({ error: "name is required" });
     }
-    const rows = await query(
-      `INSERT INTO metrics (user_id, name, value_type, unit, icon, color_key)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [user_id, name, value_type, unit, icon, color_key]
+    if (value_type != null && !ALLOWED_VALUE_TYPES.includes(value_type)) {
+      return reply.status(400).send({ error: `value_type must be one of: ${ALLOWED_VALUE_TYPES.join(", ")}` });
+    }
+    if (unit != null && (typeof unit !== "string" || unit.length > 32)) {
+      return reply.status(400).send({ error: "unit must be a string of at most 32 characters" });
+    }
+    // Idempotent per (user_id, name): return the existing metric instead of
+    // creating a duplicate (unique index added in migration 050).
+    const [existing] = await query(
+      `SELECT * FROM metrics WHERE user_id = $1 AND name = $2 ORDER BY id LIMIT 1`,
+      [user_id, name]
     );
-    return rows[0];
+    if (existing) return existing;
+    try {
+      const rows = await query(
+        `INSERT INTO metrics (user_id, name, value_type, unit, icon, color_key)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [user_id, name, value_type ?? "number", unit, icon, color_key]
+      );
+      return rows[0];
+    } catch (err: any) {
+      if (err?.code === "23505") {
+        // Concurrent create raced us — return the winner.
+        const [row] = await query(
+          `SELECT * FROM metrics WHERE user_id = $1 AND name = $2 ORDER BY id LIMIT 1`,
+          [user_id, name]
+        );
+        if (row) return row;
+      }
+      throw err;
+    }
   });
 
   // Today's water count + goal — used by the Android widget (no metricId required)
@@ -155,12 +184,13 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { week_start_day = "1", agg = "max" } = req.query as any;
     const startDay = parseWeekStartDay(week_start_day);
     const aggFn = agg === "sum" ? "SUM" : "MAX";
+    const tz = await getUserTz(req.user_id);
 
     const toStr = (v: any) => v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
     const weekStart = toStr(
       ((await query<any>(
-        `SELECT (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $1 + 7) % 7) * INTERVAL '1 day')::date AS week_start`,
-        [startDay]
+        `SELECT ((now() AT TIME ZONE $2)::date - ((EXTRACT(DOW FROM now() AT TIME ZONE $2)::int - $1 + 7) % 7))::date AS week_start`,
+        [startDay, tz]
       ))[0].week_start)
     );
 
@@ -169,23 +199,23 @@ export default async function metricsRoutes(app: FastifyInstance) {
          SELECT generate_series($2::date, $2::date + INTERVAL '6 days', INTERVAL '1 day')::date AS d
        ),
        day_agg AS (
-         SELECT logged_at::date AS d, ${aggFn}(value) AS total
+         SELECT (logged_at AT TIME ZONE $3)::date AS d, ${aggFn}(value) AS total
          FROM metric_logs
          WHERE metric_id = $1
-           AND logged_at::date >= $2::date
-           AND logged_at::date <= $2::date + INTERVAL '6 days'
-         GROUP BY logged_at::date
+           AND (logged_at AT TIME ZONE $3)::date >= $2::date
+           AND (logged_at AT TIME ZONE $3)::date <= $2::date + INTERVAL '6 days'
+         GROUP BY (logged_at AT TIME ZONE $3)::date
        )
        SELECT
          ds.d::date AS date,
          TRIM(TO_CHAR(ds.d, 'Dy')) AS day_label,
-         CASE WHEN ds.d > current_date THEN 0 ELSE COALESCE(da.total, 0) END AS total,
-         (ds.d = current_date) AS is_today,
-         (ds.d > current_date) AS is_future
+         CASE WHEN ds.d > (now() AT TIME ZONE $3)::date THEN 0 ELSE COALESCE(da.total, 0) END AS total,
+         (ds.d = (now() AT TIME ZONE $3)::date) AS is_today,
+         (ds.d > (now() AT TIME ZONE $3)::date) AS is_future
        FROM day_series ds
        LEFT JOIN day_agg da ON da.d = ds.d
        ORDER BY ds.d`,
-      [metricId, weekStart]
+      [metricId, weekStart, tz]
     );
 
     const lastWeekRows = await query<any>(
@@ -193,12 +223,12 @@ export default async function metricsRoutes(app: FastifyInstance) {
          SELECT generate_series($2::date - INTERVAL '7 days', $2::date - INTERVAL '1 day', INTERVAL '1 day')::date AS d
        ),
        day_agg AS (
-         SELECT logged_at::date AS d, ${aggFn}(value) AS total
+         SELECT (logged_at AT TIME ZONE $3)::date AS d, ${aggFn}(value) AS total
          FROM metric_logs
          WHERE metric_id = $1
-           AND logged_at::date >= $2::date - INTERVAL '7 days'
-           AND logged_at::date < $2::date
-         GROUP BY logged_at::date
+           AND (logged_at AT TIME ZONE $3)::date >= $2::date - INTERVAL '7 days'
+           AND (logged_at AT TIME ZONE $3)::date < $2::date
+         GROUP BY (logged_at AT TIME ZONE $3)::date
        )
        SELECT
          ds.d::date AS date,
@@ -207,7 +237,7 @@ export default async function metricsRoutes(app: FastifyInstance) {
        FROM day_series ds
        LEFT JOIN day_agg da ON da.d = ds.d
        ORDER BY ds.d`,
-      [metricId, weekStart]
+      [metricId, weekStart, tz]
     );
 
     const thisWeek = thisWeekRows.map((r: any) => ({
@@ -248,15 +278,18 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { week_start_day = "1", agg = "max" } = req.query as any;
     const startDay = parseWeekStartDay(week_start_day);
     const aggFn = agg === "sum" ? "SUM" : "MAX";
+    const tz = await getUserTz(req.user_id);
 
     const toStr = (v: any) => v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
 
     // Single query: compute all 8 week windows (4 recent + 4 prior) in one round-trip.
-    // $1 = metricId, $2 = startDay (DOW integer for week boundary calculation)
+    // $1 = metricId, $2 = startDay (DOW integer for week boundary calculation), $3 = user tz.
+    // Inner aggregates are bounded to the 8-week window (+ margin) so they don't
+    // scan the metric's full history.
     const rows = await query<any>(
       `WITH base AS (
          SELECT (
-           date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $2 + 7) % 7) * INTERVAL '1 day'
+           (now() AT TIME ZONE $3)::date - ((EXTRACT(DOW FROM now() AT TIME ZONE $3)::int - $2 + 7) % 7)
          )::date AS this_week_start
        ),
        recent_weeks AS (
@@ -269,28 +302,25 @@ export default async function metricsRoutes(app: FastifyInstance) {
                 (base.this_week_start - (gs.n + 4) * INTERVAL '7 days')::date AS week_start
          FROM generate_series(0, 3) AS gs(n), base
        ),
+       day_totals AS (
+         SELECT (logged_at AT TIME ZONE $3)::date AS d, ${aggFn}(value) AS day_val
+         FROM metric_logs
+         WHERE metric_id = $1
+           AND logged_at >= now() - INTERVAL '60 days'
+         GROUP BY (logged_at AT TIME ZONE $3)::date
+       ),
        recent_totals AS (
          SELECT rw.week_offset,
                 COALESCE(SUM(day_val), 0) AS total
          FROM recent_weeks rw
-         LEFT JOIN (
-           SELECT logged_at::date AS d, ${aggFn}(value) AS day_val
-           FROM metric_logs
-           WHERE metric_id = $1
-           GROUP BY logged_at::date
-         ) dl ON dl.d >= rw.week_start AND dl.d < rw.week_start + INTERVAL '7 days'
+         LEFT JOIN day_totals dl ON dl.d >= rw.week_start AND dl.d < rw.week_start + INTERVAL '7 days'
          GROUP BY rw.week_offset
        ),
        prior_totals AS (
          SELECT pw.week_offset,
                 COALESCE(SUM(day_val), 0) AS total
          FROM prior_weeks pw
-         LEFT JOIN (
-           SELECT logged_at::date AS d, ${aggFn}(value) AS day_val
-           FROM metric_logs
-           WHERE metric_id = $1
-           GROUP BY logged_at::date
-         ) dl ON dl.d >= pw.week_start AND dl.d < pw.week_start + INTERVAL '7 days'
+         LEFT JOIN day_totals dl ON dl.d >= pw.week_start AND dl.d < pw.week_start + INTERVAL '7 days'
          GROUP BY pw.week_offset
        )
        SELECT rw.week_offset,
@@ -301,7 +331,7 @@ export default async function metricsRoutes(app: FastifyInstance) {
        JOIN recent_totals rt ON rt.week_offset = rw.week_offset
        JOIN prior_totals  pt ON pt.week_offset = rw.week_offset
        ORDER BY rw.week_offset`,
-      [metricId, startDay]
+      [metricId, startDay, tz]
     );
 
     const weeks = rows.map((r: any) => {
@@ -336,6 +366,7 @@ export default async function metricsRoutes(app: FastifyInstance) {
     const { week_start_day = "1", agg = "max" } = req.query as any;
     const startDay = parseWeekStartDay(week_start_day);
     const aggFn = agg === "sum" ? "SUM" : "MAX";
+    const tz = await getUserTz(req.user_id);
 
     // Current week: from the most recent week-start day up to today (inclusive)
     const [thisWeek] = await query<any>(
@@ -343,10 +374,10 @@ export default async function metricsRoutes(app: FastifyInstance) {
          SELECT ${aggFn}(value) AS day_val
          FROM metric_logs
          WHERE metric_id = $1
-           AND logged_at::date >= (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $2 + 7) % 7) * INTERVAL '1 day')::date
-         GROUP BY logged_at::date
+           AND (logged_at AT TIME ZONE $3)::date >= ((now() AT TIME ZONE $3)::date - ((EXTRACT(DOW FROM now() AT TIME ZONE $3)::int - $2 + 7) % 7))::date
+         GROUP BY (logged_at AT TIME ZONE $3)::date
        ) t`,
-      [metricId, startDay]
+      [metricId, startDay, tz]
     );
 
     // Last week: the 7-day window immediately before the current week start
@@ -355,23 +386,23 @@ export default async function metricsRoutes(app: FastifyInstance) {
          SELECT ${aggFn}(value) AS day_val
          FROM metric_logs
          WHERE metric_id = $1
-           AND logged_at::date >= (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $2 + 7) % 7) * INTERVAL '1 day')::date - INTERVAL '7 days'
-           AND logged_at::date <  (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $2 + 7) % 7) * INTERVAL '1 day')::date
-         GROUP BY logged_at::date
+           AND (logged_at AT TIME ZONE $3)::date >= ((now() AT TIME ZONE $3)::date - ((EXTRACT(DOW FROM now() AT TIME ZONE $3)::int - $2 + 7) % 7))::date - INTERVAL '7 days'
+           AND (logged_at AT TIME ZONE $3)::date <  ((now() AT TIME ZONE $3)::date - ((EXTRACT(DOW FROM now() AT TIME ZONE $3)::int - $2 + 7) % 7))::date
+         GROUP BY (logged_at AT TIME ZONE $3)::date
        ) t`,
-      [metricId, startDay]
+      [metricId, startDay, tz]
     );
 
-    // Month-to-date: 1st of current calendar month → today (server local date)
+    // Month-to-date: 1st of current calendar month → today (user's local date)
     const [monthToDate] = await query<any>(
       `SELECT COALESCE(SUM(day_val), 0) as total FROM (
          SELECT ${aggFn}(value) AS day_val
          FROM metric_logs
          WHERE metric_id = $1
-           AND logged_at::date >= date_trunc('month', now())::date
-         GROUP BY logged_at::date
+           AND (logged_at AT TIME ZONE $2)::date >= date_trunc('month', now() AT TIME ZONE $2)::date
+         GROUP BY (logged_at AT TIME ZONE $2)::date
        ) t`,
-      [metricId]
+      [metricId, tz]
     );
 
     return {

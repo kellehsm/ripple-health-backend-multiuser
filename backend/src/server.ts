@@ -56,7 +56,7 @@ import friendsRoutes from "./routes/friends.js";
 import challengesRoutes from "./routes/challenges.js";
 import socialNotificationsRoutes from "./routes/social-notifications.js";
 import hardcoverRoutes from "./routes/hardcover.js";
-import { requireAuth } from "./middleware/auth.js";
+import { requireAuth, rateLimitKey } from "./middleware/auth.js";
 import { createDownloadToken } from "./lib/downloadTokens.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
 import { runDailySummaryJob, setDailySummaryLogger } from "./jobs/dailySummaryJob.js";
@@ -115,21 +115,34 @@ async function main() {
   await app.register(cors, {
     origin: [
       "https://app.kels.gg",
-      /^http:\/\/app\.kels\.gg:\d+$/,
-      /^http:\/\/localhost:\d+$/,
-      /^http:\/\/129\.121\.125\.214:\d+$/,
+      // Cleartext origins are dev-only; never allowed in production.
+      ...(process.env.NODE_ENV === "production"
+        ? []
+        : [
+            /^http:\/\/app\.kels\.gg:\d+$/,
+            /^http:\/\/localhost:\d+$/,
+            /^http:\/\/129\.121\.125\.214:\d+$/,
+          ]),
     ],
   });
-  // CSP disabled: the only HTML served is the inline-scripted admin media tool.
-  await app.register(helmet, { contentSecurityPolicy: false });
+  // Default CSP on for everything; the inline-scripted admin media tool gets a
+  // relaxed policy set manually in its route handler (overrides helmet's header).
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: { "upgrade-insecure-requests": null },
+    },
+  });
   // Global limiter is a generous safety net; strict per-route limits are set
   // on the credential endpoints in routes/auth.ts via config.rateLimit.
   await app.register(rateLimit, {
     max: 300,
     timeWindow: "1 minute",
-    // Key authenticated traffic by token (per-user buckets — also covers the
-    // dashboard endpoint's internal app.inject() calls); anonymous by IP.
-    keyGenerator: (req) => (req.headers.authorization as string | undefined) ?? req.ip,
+    // Key authenticated traffic by *verified* JWT user_id (per-user buckets —
+    // also covers the dashboard endpoint's internal app.inject() calls);
+    // anonymous or invalid-token traffic falls back to IP so attackers can't
+    // mint fresh buckets with garbage Authorization headers.
+    keyGenerator: rateLimitKey,
   });
 
   // Global auth hook — runs before every handler except public routes
@@ -145,6 +158,12 @@ async function main() {
   const adminHtmlPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "admin/media-admin.html");
   app.get("/admin/media", async (_req, reply) => {
     reply.type("text/html");
+    // Relaxed CSP for this single inline-scripted page (overrides the global
+    // helmet header). Everything else keeps helmet's strict defaults.
+    reply.header(
+      "content-security-policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    );
     return fs.promises.readFile(adminHtmlPath, "utf8");
   });
   await app.register(authRoutes, { prefix: "/api/auth" });

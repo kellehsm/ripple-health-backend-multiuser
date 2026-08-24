@@ -211,7 +211,7 @@ export function GlucoseDetailScreen() {
               <Text style={[s.statLbl, { color: theme.textSoft }]}>High</Text>
             </View>
             <View style={s.stat}>
-              <Text style={[s.statVal, { color: tir24 !== null && tir24 >= 70 ? theme.teal?.solid ?? "#2E7A7F" : theme.textStrong }]}>
+              <Text style={[s.statVal, { color: tir24 !== null && tir24 >= 70 ? theme.teal.solid : theme.textStrong }]}>
                 {tir24 !== null ? tir24 + "%" : "--"}
               </Text>
               <Text style={[s.statLbl, { color: theme.textSoft }]}>TIR</Text>
@@ -254,9 +254,9 @@ export function GlucoseDetailScreen() {
               {lowY > highY && (
                 <React.Fragment>
                   <Line x1={PAD_L} x2={CHART_W} y1={lowY} y2={lowY}
-                    stroke={theme.teal?.solid ?? "#2E7A7F"} strokeDasharray="3,3" strokeWidth={1} opacity={0.5} />
+                    stroke={theme.teal.solid} strokeDasharray="3,3" strokeWidth={1} opacity={0.5} />
                   <Line x1={PAD_L} x2={CHART_W} y1={highY} y2={highY}
-                    stroke={theme.teal?.solid ?? "#2E7A7F"} strokeDasharray="3,3" strokeWidth={1} opacity={0.5} />
+                    stroke={theme.teal.solid} strokeDasharray="3,3" strokeWidth={1} opacity={0.5} />
                 </React.Fragment>
               )}
               {/* Gradient fill */}
@@ -287,7 +287,7 @@ export function GlucoseDetailScreen() {
           {readings24h.length > 0 && (
             <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <View style={{ width: 16, height: 1.5, borderStyle: "dashed", borderWidth: 1, borderColor: theme.teal?.solid ?? "#2E7A7F", opacity: 0.7 }} />
+                <View style={{ width: 16, height: 1.5, borderStyle: "dashed", borderWidth: 1, borderColor: theme.teal.solid, opacity: 0.7 }} />
                 <Text style={{ color: theme.textSoft, fontSize: 10 }}>Target 70–180</Text>
               </View>
             </View>
@@ -310,7 +310,7 @@ export function GlucoseDetailScreen() {
                 const barColor = avg === null
                   ? theme.cardBorder
                   : inRange
-                    ? (theme.teal?.solid ?? "#2E7A7F")
+                    ? theme.teal.solid
                     : accent;
                 return (
                   <View key={key}>
@@ -365,7 +365,7 @@ export function GlucoseDetailScreen() {
                   <Text style={[s.statLbl, { color: theme.textSoft }]}>Avg mg/dL</Text>
                 </View>
                 <View style={s.stat}>
-                  <Text style={[s.statVal, { color: tir30 !== null && tir30 >= 70 ? (theme.teal?.solid ?? "#2E7A7F") : theme.textStrong }]}>
+                  <Text style={[s.statVal, { color: tir30 !== null && tir30 >= 70 ? theme.teal.solid : theme.textStrong }]}>
                     {tir30 !== null ? tir30 + "%" : "--"}
                   </Text>
                   <Text style={[s.statLbl, { color: theme.textSoft }]}>Time in Range</Text>
@@ -383,13 +383,13 @@ export function GlucoseDetailScreen() {
                 <View>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
                     <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>Time in Range</Text>
-                    <Text style={{ color: tir30 >= 70 ? (theme.teal?.solid ?? "#2E7A7F") : accent, fontSize: 12, fontWeight: "700" }}>{tir30}%</Text>
+                    <Text style={{ color: tir30 >= 70 ? theme.teal.solid : accent, fontSize: 12, fontWeight: "700" }}>{tir30}%</Text>
                   </View>
                   <View style={{ height: 12, backgroundColor: theme.cardBorder, borderRadius: 6, overflow: "hidden" }}>
                     <View style={{
                       height: 12,
                       width: (`${tir30}%` as `${number}%`),
-                      backgroundColor: tir30 >= 70 ? (theme.teal?.solid ?? "#2E7A7F") : accent,
+                      backgroundColor: tir30 >= 70 ? theme.teal.solid : accent,
                       borderRadius: 6,
                     }} />
                   </View>

@@ -38,6 +38,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         const val ACTION_NEXT_INSIGHT = "com.kellehs.wellness.WIDGET_NEXT_INSIGHT"
         const val ACTION_LOG_MOOD = "com.kellehs.wellness.WIDGET_LOG_MOOD"
         const val ACTION_WEAR_SYNC = "com.kellehs.wellness.WIDGET_WEAR_SYNC"
+        const val ACTION_NEXT_STAT = "com.kellehs.wellness.WIDGET_NEXT_STAT"
+        private const val REFRESH_INTERVAL_MS = 30L * 60 * 1000
 
         // Default brand colors (fallback when theme file absent)
         const val DEFAULT_TEAL   = "#3FA0A6"
@@ -100,8 +102,58 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         /** Latest mood score as emoji (e.g. "😊") or "--" */
         val mood: String = "--",
         /** Up to 5 mood scores today, oldest→newest, comma-joined e.g. "3,4,5"; empty = hide strip */
-        val moodTrendRaw: String = ""
+        val moodTrendRaw: String = "",
+        val mindStreak: Int = 0,
+        /** Today's active-exercise minutes; 0 = hide */
+        val exerciseMins: Int = 0,
+        /** Today's meal calories; 0 = show "Log" */
+        val mealCals: Int = 0
     )
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        // Backup refresh alarm: launchers sometimes drop updatePeriodMillis
+        // updates after doze; an inexact repeating alarm keeps data ≤30 min old.
+        try {
+            val am = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            am.setInexactRepeating(
+                android.app.AlarmManager.ELAPSED_REALTIME,
+                android.os.SystemClock.elapsedRealtime() + REFRESH_INTERVAL_MS,
+                REFRESH_INTERVAL_MS,
+                refreshAlarmIntent(context)
+            )
+        } catch (e: Exception) { Log.w(TAG, "alarm schedule failed", e) }
+    }
+
+    override fun onDisabled(context: Context) {
+        super.onDisabled(context)
+        try {
+            val am = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+            am.cancel(refreshAlarmIntent(context))
+        } catch (e: Exception) { Log.w(TAG, "alarm cancel failed", e) }
+    }
+
+    private fun refreshAlarmIntent(context: Context): PendingIntent =
+        PendingIntent.getBroadcast(context, 98,
+            Intent(context, javaClass).setAction(ACTION_REFRESH),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    /**
+     * Runs [work] on a background thread while holding goAsync(), but releases
+     * the broadcast within ~9 s regardless — outliving the 10 s window ANRs.
+     * The worker thread keeps running to completion either way.
+     */
+    protected fun runAsync(work: () -> Unit) {
+        val pending = try { goAsync() } catch (_: Exception) { null }
+        val worker = Thread {
+            try { work() } catch (e: Exception) { Log.e(TAG, "async work failed", e) }
+        }
+        worker.start()
+        Thread {
+            try { worker.join(9000) } catch (_: InterruptedException) {}
+            try { pending?.finish() } catch (_: Exception) {}
+        }.start()
+    }
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
@@ -159,8 +211,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
 
         // Single goAsync() shared across all widget IDs — calling it per-iteration
         // returns null on the 2nd+ call and NPEs in finally.
-        val pending = goAsync()
-        Thread {
+        runAsync {
             try {
                 val token = readToken(context)
                 // Fetch once with the enriched glucose payload so we can (1)
@@ -172,18 +223,22 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 } else {
                     val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
                     val moodResult = fetchMoodWithTrend(token)
+                    val mind = fetchMindStats(token)
                     WidgetData(
                         gluInfo.display,
                         fetchSteps(token),
                         fetchHeart(token),
                         fetchWater(token),
                         fetchSleep(token),
-                        fetchInsights(token) + listOfNotNull(fetchMindfulnessInsight(token)),
+                        fetchInsights(token) + listOfNotNull(mindfulnessInsight(mind)),
                         "Updated $time",
                         fetchWellnessScore(token),
                         fetchGlucoseTrend(token),
                         moodResult.first,
-                        moodResult.second
+                        moodResult.second,
+                        mind.first,
+                        fetchExerciseMins(token),
+                        fetchMealCals(token)
                     )
                 }
                 saveCache(context, data)
@@ -193,7 +248,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 // Mirror the freshest values to any paired Wear OS device.
                 // Silently no-ops if Google Play Services / wear isn't around.
                 try {
-                    val mindStreak = if (token != null) fetchMindStreak(token) else 0
+                    val mindStreak = data.mindStreak
                     WearDataBridge.push(
                         context = context,
                         glucose = gluInfo.mg?.toString() ?: "--",
@@ -219,16 +274,13 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 for (id in appWidgetIds) {
                     updateWidget(context, appWidgetManager, id, cached, id)
                 }
-            } finally {
-                try { pending?.finish() } catch (_: Exception) {}
             }
-        }.start()
+        }
     }
 
     /** Logs one glass of water directly from the widget, then refreshes the count. */
     private fun logWaterAndRefresh(context: Context) {
-        val pending = goAsync()
-        Thread {
+        runAsync {
             try {
                 val mgr = AppWidgetManager.getInstance(context)
                 val ids = mgr.getAppWidgetIds(ComponentName(context, javaClass))
@@ -238,6 +290,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                     for (id in ids) updateWidget(context, mgr, id, d, id)
                 } else {
                     val ok = postWaterLog(token)
+                    toast(context, if (ok) "Water logged ✓" else "Water log failed — retry")
                     val water = fetchWater(token)
                     val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
                     val status = if (ok) "Water logged ✓ $time" else "Log failed — retry"
@@ -269,18 +322,23 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "logWater error", e)
-            } finally {
-                try { pending?.finish() } catch (_: Exception) {}
             }
-        }.start()
+        }
+    }
+
+    private fun toast(context: Context, msg: String) {
+        try {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } catch (_: Exception) {}
     }
 
     /** Logs a mood entry directly from the widget, then re-renders from cache. */
     private fun logMoodAndRefresh(context: Context, intent: Intent) {
         val moodScore = intent.getIntExtra("mood_score", 0)
         if (moodScore < 1 || moodScore > 5) return
-        val pending = goAsync()
-        Thread {
+        runAsync {
             try {
                 val mgr = AppWidgetManager.getInstance(context)
                 val ids = mgr.getAppWidgetIds(ComponentName(context, javaClass))
@@ -301,16 +359,15 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                     val code = post(token, "/journal", payload)
                     val time = LocalTime.now().format(DateTimeFormatter.ofPattern("h:mm a"))
                     val status = if (code in 200..299) "Mood logged ✓ $time" else "Log failed — retry"
+                    toast(context, if (code in 200..299) "Mood logged ✓" else "Mood log failed — retry")
                     val d = getCached(context).copy(status = status)
                     saveCache(context, d)
                     for (id in ids) updateWidget(context, mgr, id, d, id)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "logMood error", e)
-            } finally {
-                try { pending?.finish() } catch (_: Exception) {}
             }
-        }.start()
+        }
     }
 
     protected open fun siblingClass(): Class<*> = RippleCompactWidgetProvider::class.java
@@ -352,7 +409,10 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             p.getString("wellness", "--") ?: "--",
             p.getString("glucose_trend_raw", "") ?: "",
             p.getString("mood", "--") ?: "--",
-            p.getString("mood_trend_raw", "") ?: ""
+            p.getString("mood_trend_raw", "") ?: "",
+            p.getInt("mind_streak", 0),
+            p.getInt("exercise_mins", 0),
+            p.getInt("meal_cals", 0)
         )
     }
 
@@ -371,6 +431,9 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             .putString("glucose_trend_raw", d.glucoseTrendRaw)
             .putString("mood", d.mood)
             .putString("mood_trend_raw", d.moodTrendRaw)
+            .putInt("mind_streak", d.mindStreak)
+            .putInt("exercise_mins", d.exerciseMins)
+            .putInt("meal_cals", d.mealCals)
             .putLong("cache_time", System.currentTimeMillis())
             .apply()
     }
@@ -391,12 +454,19 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         val mg = glucose.trim().split(" ")[0].toIntOrNull()
         // Night palette is brighter so it reads on the dark berry chip
         val night = isNight(context)
+        // Light hexes mirror the app's status tokens (success/warning/danger)
         return when {
             mg == null -> android.graphics.Color.parseColor(if (night) "#F0A6BB" else "#A62A50")
-            mg < 70 || mg > 180 -> android.graphics.Color.parseColor(if (night) "#FF6B6B" else "#C0392B")
-            mg > 140 -> android.graphics.Color.parseColor(if (night) "#F5B041" else "#E67E22")
-            else -> android.graphics.Color.parseColor(if (night) "#58D68D" else "#27AE60")
+            mg < 70 || mg > 180 -> android.graphics.Color.parseColor(if (night) "#FF6B6B" else "#C02840")
+            mg > 140 -> android.graphics.Color.parseColor(if (night) "#F5B041" else "#B88820")
+            else -> android.graphics.Color.parseColor(if (night) "#58D68D" else "#1A9870")
         }
+    }
+
+    /** True when the reading is urgently out of range (alerts the chip label). */
+    protected fun glucoseUrgent(glucose: String): Boolean {
+        val mg = glucose.trim().split(" ")[0].toIntOrNull() ?: return false
+        return mg < 70 || mg > 180
     }
 
     protected fun scoreColor(context: Context, score: String): Int {
@@ -404,9 +474,9 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         val night = isNight(context)
         return when {
             n == null -> android.graphics.Color.parseColor(if (night) "#AAAAAA" else "#999999")
-            n >= 75 -> android.graphics.Color.parseColor(if (night) "#58D68D" else "#27AE60")
-            n >= 50 -> android.graphics.Color.parseColor(if (night) "#F5B041" else "#E67E22")
-            else -> android.graphics.Color.parseColor(if (night) "#FF6B6B" else "#C0392B")
+            n >= 75 -> android.graphics.Color.parseColor(if (night) "#58D68D" else "#1A9870")
+            n >= 50 -> android.graphics.Color.parseColor(if (night) "#F5B041" else "#B88820")
+            else -> android.graphics.Color.parseColor(if (night) "#FF6B6B" else "#C02840")
         }
     }
 
@@ -443,6 +513,49 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_water, if (d.water != "--") d.water else "0")
         views.setTextViewText(R.id.widget_sleep, d.sleep)
 
+        // Urgent glucose: label flips to a warning so out-of-range is obvious at a glance
+        if (glucoseUrgent(d.glucose)) {
+            views.setTextViewText(R.id.widget_glucose_label, "⚠ GLUCOSE")
+            views.setTextColor(R.id.widget_glucose_label, glucoseColor(context, d.glucose))
+        } else {
+            views.setTextViewText(R.id.widget_glucose_label, "GLUCOSE")
+            views.setTextColor(R.id.widget_glucose_label, context.getColor(R.color.widget_berry_label))
+        }
+
+        // Exercise minutes ride on the steps chip sub-label
+        views.setTextViewText(R.id.widget_steps_sub,
+            if (d.exerciseMins > 0) "today · ${d.exerciseMins}m active" else "today")
+
+        // Meal chip shows today's calories once something is logged
+        if (d.mealCals > 0) {
+            views.setTextViewText(R.id.widget_meal_value, NumberFormat.getNumberInstance().format(d.mealCals))
+            views.setTextViewText(R.id.widget_meal_sub, "kcal today")
+        } else {
+            views.setTextViewText(R.id.widget_meal_value, "Log")
+            views.setTextViewText(R.id.widget_meal_sub, "open →")
+        }
+
+        // Mindfulness streak badge in the header (🔥 from 3 days)
+        if (d.mindStreak >= 3) {
+            views.setTextViewText(R.id.widget_streak, "🔥${d.mindStreak}")
+            views.setViewVisibility(R.id.widget_streak, View.VISIBLE)
+        } else {
+            views.setViewVisibility(R.id.widget_streak, View.GONE)
+        }
+
+        // Screen-reader labels for the tap targets
+        views.setContentDescription(R.id.block_glucose, "Glucose ${if (d.glucose == "--") "unknown" else d.glucose + " milligrams per deciliter"}. Opens glucose screen")
+        views.setContentDescription(R.id.block_steps, "Steps today ${if (d.steps == "--") "unknown" else d.steps}. Opens steps screen")
+        views.setContentDescription(R.id.block_heart, "Heart rate ${if (d.heart == "--") "unknown" else d.heart + " beats per minute"}. Opens heart rate screen")
+        views.setContentDescription(R.id.block_water, "Water ${if (d.water == "--") "0" else d.water} glasses. Opens water screen")
+        views.setContentDescription(R.id.block_sleep, "Sleep last night ${if (d.sleep == "--") "unknown" else d.sleep}. Opens sleep screen")
+        views.setContentDescription(R.id.block_meal, "Meals. Opens meal logging")
+        views.setContentDescription(R.id.block_insight, "Insights. Opens insights screen")
+        views.setContentDescription(R.id.btn_water_plus, "Log one glass of water")
+        views.setContentDescription(R.id.btn_refresh, "Refresh widget")
+        views.setContentDescription(R.id.btn_insight_next, "Next insight")
+        views.setContentDescription(R.id.btn_breathe, "Open mindfulness")
+
         // Status with staleness tint
         views.setTextViewText(R.id.widget_status, d.status)
         val night = isNight(context)
@@ -459,7 +572,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.widget_score, scoreText)
         views.setTextColor(R.id.widget_score, scoreColor(context, d.wellnessScore))
         try {
-            views.setOnClickPendingIntent(R.id.widget_score, deeplink(context, 13, "wellness"))
+            views.setOnClickPendingIntent(R.id.widget_score, deeplink(context, appWidgetId * 100 + 13, "wellness"))
         } catch (e: Exception) { Log.w(TAG, "score link failed", e) }
 
         // Insight carousel: the ViewFlipper auto-advances through one child per insight
@@ -508,21 +621,24 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             views.setViewVisibility(R.id.widget_mood_trend, View.GONE)
         }
 
-        // Block taps → respective pages
-        try { views.setOnClickPendingIntent(R.id.block_glucose, deeplink(context, 4, "glucose")) } catch (e: Exception) { Log.w(TAG, "glucose link failed", e) }
-        try { views.setOnClickPendingIntent(R.id.block_steps, deeplink(context, 5, "steps")) } catch (e: Exception) { Log.w(TAG, "steps link failed", e) }
-        try { views.setOnClickPendingIntent(R.id.block_heart, deeplink(context, 6, "heartrate")) } catch (e: Exception) { Log.w(TAG, "heart link failed", e) }
-        try { views.setOnClickPendingIntent(R.id.block_water, deeplink(context, 3, "wellness")) } catch (e: Exception) { Log.w(TAG, "water link failed", e) }
-        try { views.setOnClickPendingIntent(R.id.block_sleep, deeplink(context, 10, "sleep")) } catch (e: Exception) { Log.w(TAG, "sleep link failed", e) }
-        try { views.setOnClickPendingIntent(R.id.block_meal, deeplink(context, 1, "meals")) } catch (e: Exception) { Log.w(TAG, "meal link failed", e) }
-        try { views.setOnClickPendingIntent(R.id.block_insight, deeplink(context, 7, "insights")) } catch (e: Exception) { Log.w(TAG, "insight link failed", e) }
+        // Block taps → respective pages. Request codes fold in the widget id so
+        // multiple instances of the same widget don't share cached PendingIntents.
+        fun rc(n: Int) = appWidgetId * 100 + n
+        try { views.setOnClickPendingIntent(R.id.block_glucose, deeplink(context, rc(4), "glucose")) } catch (e: Exception) { Log.w(TAG, "glucose link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_steps, deeplink(context, rc(5), "steps")) } catch (e: Exception) { Log.w(TAG, "steps link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_heart, deeplink(context, rc(6), "heartrate")) } catch (e: Exception) { Log.w(TAG, "heart link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_water, deeplink(context, rc(3), "water")) } catch (e: Exception) { Log.w(TAG, "water link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_sleep, deeplink(context, rc(10), "sleep")) } catch (e: Exception) { Log.w(TAG, "sleep link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_meal, deeplink(context, rc(1), "meals")) } catch (e: Exception) { Log.w(TAG, "meal link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.block_insight, deeplink(context, rc(7), "insights")) } catch (e: Exception) { Log.w(TAG, "insight link failed", e) }
+        try { views.setOnClickPendingIntent(R.id.btn_breathe, deeplink(context, rc(16), "mindfulness")) } catch (e: Exception) { Log.w(TAG, "breathe link failed", e) }
 
         // Water "+" → log one glass directly (no app open)
         val waterIntent = Intent(context, RippleWidgetProvider::class.java).apply {
             action = ACTION_LOG_WATER
         }
         views.setOnClickPendingIntent(R.id.btn_water_plus,
-            PendingIntent.getBroadcast(context, 8, waterIntent,
+            PendingIntent.getBroadcast(context, rc(8), waterIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 
         // Insight "›" → advance the carousel manually
@@ -530,7 +646,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             action = ACTION_NEXT_INSIGHT
         }
         views.setOnClickPendingIntent(R.id.btn_insight_next,
-            PendingIntent.getBroadcast(context, 12, nextIntent,
+            PendingIntent.getBroadcast(context, rc(12), nextIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 
         // Refresh button
@@ -538,7 +654,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             action = ACTION_REFRESH
         }
         views.setOnClickPendingIntent(R.id.btn_refresh,
-            PendingIntent.getBroadcast(context, 99, refreshIntent,
+            PendingIntent.getBroadcast(context, rc(99), refreshIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 
         // Mood quick-log buttons
@@ -549,7 +665,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 putExtra("mood_score", 4)
             }
             views.setOnClickPendingIntent(R.id.btn_mood_good,
-                PendingIntent.getBroadcast(context, 14, moodGoodIntent,
+                PendingIntent.getBroadcast(context, rc(14), moodGoodIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         } catch (e: Exception) { Log.w(TAG, "mood_good link failed", e) }
 
@@ -560,7 +676,7 @@ open class RippleWidgetProvider : AppWidgetProvider() {
                 putExtra("mood_score", 2)
             }
             views.setOnClickPendingIntent(R.id.btn_mood_low,
-                PendingIntent.getBroadcast(context, 15, moodLowIntent,
+                PendingIntent.getBroadcast(context, rc(15), moodLowIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         } catch (e: Exception) { Log.w(TAG, "mood_low link failed", e) }
 
@@ -648,27 +764,32 @@ open class RippleWidgetProvider : AppWidgetProvider() {
 
     private fun get(token: String, path: String): Pair<Int, String> {
         val conn = URL("$API$path").openConnection() as HttpsURLConnection
-        conn.connectTimeout = 3000
-        conn.readTimeout = 3000
-        conn.setRequestProperty("Authorization", "Bearer $token")
-        val code = conn.responseCode
-        val body = if (code in 200..299) conn.inputStream.bufferedReader().readText() else ""
-        conn.disconnect()
-        return Pair(code, body)
+        try {
+            conn.connectTimeout = 3000
+            conn.readTimeout = 3000
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            val code = conn.responseCode
+            val body = if (code in 200..299) conn.inputStream.bufferedReader().readText() else ""
+            return Pair(code, body)
+        } finally {
+            conn.disconnect()
+        }
     }
 
     private fun post(token: String, path: String, json: String): Int {
         val conn = URL("$API$path").openConnection() as HttpsURLConnection
-        conn.connectTimeout = 4000
-        conn.readTimeout = 4000
-        conn.requestMethod = "POST"
-        conn.doOutput = true
-        conn.setRequestProperty("Authorization", "Bearer $token")
-        conn.setRequestProperty("Content-Type", "application/json")
-        conn.outputStream.bufferedWriter().use { it.write(json) }
-        val code = conn.responseCode
-        conn.disconnect()
-        return code
+        try {
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            conn.requestMethod = "POST"
+            conn.doOutput = true
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.bufferedWriter().use { it.write(json) }
+            return conn.responseCode
+        } finally {
+            conn.disconnect()
+        }
     }
 
     private fun readToken(context: Context): String? {
@@ -902,32 +1023,67 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    /** Mindfulness streak card for the insight carousel, or null when there's no streak. */
-    private fun fetchMindfulnessInsight(token: String): WInsight? {
+    /** Single /mindfulness/stats fetch shared by the carousel card, the header
+     *  badge and the Wear push: (streak, practicedToday). */
+    private fun fetchMindStats(token: String): Pair<Int, Boolean> {
         return try {
             val (code, body) = get(token, "/mindfulness/stats")
-            if (code != 200) return null
+            if (code != 200) return Pair(0, false)
             val obj = JSONObject(body)
-            val streak = obj.optInt("streak", 0)
-            if (streak < 1) return null
-            val practicedToday = obj.optBoolean("practiced_today", false)
-            val title = if (streak == 1) "1-day mindfulness streak" else "$streak-day mindfulness streak"
-            val bodyText = if (practicedToday) "Practiced today — keep it rolling" else "Practice today to keep it going"
-            WInsight("🧘", title, bodyText)
+            Pair(obj.optInt("streak", 0), obj.optBoolean("practiced_today", false))
         } catch (e: Exception) {
-            Log.w(TAG, "fetchMindfulnessInsight: ${e.message}")
-            null
+            Log.w(TAG, "fetchMindStats: ${e.message}")
+            Pair(0, false)
         }
     }
 
-    /** Just the streak number — pushed to the Wear Breathe tile so it can
-     *  render the mindfulness hero without another API call. */
-    private fun fetchMindStreak(token: String): Int {
+    /** Mindfulness streak card for the insight carousel, or null when there's no streak. */
+    private fun mindfulnessInsight(mind: Pair<Int, Boolean>): WInsight? {
+        val (streak, practicedToday) = mind
+        if (streak < 1) return null
+        val title = if (streak == 1) "1-day mindfulness streak" else "$streak-day mindfulness streak"
+        val bodyText = if (practicedToday) "Practiced today — keep it rolling" else "Practice today to keep it going"
+        return WInsight("🧘", title, bodyText)
+    }
+
+    /** Sum of today's exercise session minutes, 0 on any failure. */
+    private fun fetchExerciseMins(token: String): Int {
         return try {
-            val (code, body) = get(token, "/mindfulness/stats")
+            val (code, body) = get(token, "/exercise/sessions?limit=20")
             if (code != 200) return 0
-            JSONObject(body).optInt("streak", 0)
-        } catch (_: Exception) { 0 }
+            val arr = JSONArray(body)
+            val today = LocalDate.now().toString()
+            var secs = 0
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                if (o.optString("started_at", "").startsWith(today)) {
+                    secs += o.optInt("duration_seconds", 0)
+                }
+            }
+            secs / 60
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchExerciseMins: ${e.message}")
+            0
+        }
+    }
+
+    /** Total calories from today's logged meals, 0 on any failure. */
+    private fun fetchMealCals(token: String): Int {
+        return try {
+            val today = LocalDate.now().toString()
+            val (code, body) = get(token, "/meals?date=$today")
+            if (code != 200) return 0
+            val arr = JSONArray(body)
+            var cals = 0.0
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                cals += o.optDouble("calories", 0.0)
+            }
+            cals.toInt()
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchMealCals: ${e.message}")
+            0
+        }
     }
 
     /** Mirrors the app's getOrCreateWaterMetric + logWater client calls. */
@@ -942,19 +1098,22 @@ open class RippleWidgetProvider : AppWidgetProvider() {
             if (metricId.isNullOrEmpty()) {
                 // Create the water metric the same way the app does
                 val createConn = URL("$API/metrics").openConnection() as HttpsURLConnection
-                createConn.connectTimeout = 4000
-                createConn.readTimeout = 4000
-                createConn.requestMethod = "POST"
-                createConn.doOutput = true
-                createConn.setRequestProperty("Authorization", "Bearer $token")
-                createConn.setRequestProperty("Content-Type", "application/json")
-                createConn.outputStream.bufferedWriter().use {
-                    it.write("""{"name":"water","value_type":"number","unit":"glasses","icon":"water","color_key":"blue"}""")
+                try {
+                    createConn.connectTimeout = 4000
+                    createConn.readTimeout = 4000
+                    createConn.requestMethod = "POST"
+                    createConn.doOutput = true
+                    createConn.setRequestProperty("Authorization", "Bearer $token")
+                    createConn.setRequestProperty("Content-Type", "application/json")
+                    createConn.outputStream.bufferedWriter().use {
+                        it.write("""{"name":"water","value_type":"number","unit":"glasses","icon":"water","color_key":"blue"}""")
+                    }
+                    if (createConn.responseCode in 200..299) {
+                        metricId = JSONObject(createConn.inputStream.bufferedReader().readText()).optString("id")
+                    }
+                } finally {
+                    createConn.disconnect()
                 }
-                if (createConn.responseCode in 200..299) {
-                    metricId = JSONObject(createConn.inputStream.bufferedReader().readText()).optString("id")
-                }
-                createConn.disconnect()
             }
             if (metricId.isNullOrEmpty()) return false
             val payload = """{"value":1,"logged_at":"${Instant.now()}"}"""

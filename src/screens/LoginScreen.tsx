@@ -127,10 +127,10 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
       {/* Background blobs */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {[
-          { anim: blob1X, animY: blob1Y, size: 140, top: -30, left: -40, color: "#A62A50" },
-          { anim: blob2X, animY: blob2Y, size: 110, top: 160, right: -30, color: "#E8654E" },
-          { anim: blob3X, animY: blob3Y, size: 160, bottom: 100, left: -50, color: "#A62A50" },
-          { anim: blob4X, animY: blob4Y, size: 100, bottom: 120, right: 20, color: "#E8654E" },
+          { anim: blob1X, animY: blob1Y, size: 140, top: -30, left: -40, color: theme.berry.solid },
+          { anim: blob2X, animY: blob2Y, size: 110, top: 160, right: -30, color: theme.coral.solid },
+          { anim: blob3X, animY: blob3Y, size: 160, bottom: 100, left: -50, color: theme.berry.solid },
+          { anim: blob4X, animY: blob4Y, size: 100, bottom: 120, right: 20, color: theme.coral.solid },
         ].map((b, i) => (
           <Animated.View
             key={i}
@@ -179,7 +179,7 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
           <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
             {/* Email field */}
             <Animated.View style={{ marginBottom: 14, opacity: fadeAnims[2], transform: [{ translateY: slideAnims[2] }] }}>
-              <Text style={[styles.label, { color: theme.ink }]}>EMAIL</Text>
+              <Text style={[styles.label, { color: theme.ink }]}>Email</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink, color: theme.textStrong }]}
                 value={email}
@@ -194,7 +194,7 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
 
             {/* Password field */}
             <Animated.View style={{ marginBottom: 8, opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }] }}>
-              <Text style={[styles.label, { color: theme.ink }]}>PASSWORD</Text>
+              <Text style={[styles.label, { color: theme.ink }]}>Password</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink, color: theme.textStrong }]}
                 value={password}
@@ -266,11 +266,10 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
 
 const styles = StyleSheet.create({
   label: {
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 0.6,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.3,
     marginBottom: 6,
-    textTransform: "uppercase",
   },
   input: {
     borderWidth: 2,

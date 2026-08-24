@@ -102,7 +102,10 @@ export function fmtDateRange(start: string, end: string): string {
  * Used in HistoryScreen, CompletedScreen, BanksSettingsScreen.
  */
 export function formatDate(str: string): string {
-  return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // Date-only strings parse as UTC midnight (previous day west of UTC) — use
+  // noon like fmtDate. Full ISO datetimes pass through unchanged.
+  const d = new Date(str.includes("T") ? str : str + "T12:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 /**

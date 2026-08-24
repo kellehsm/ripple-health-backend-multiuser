@@ -285,7 +285,7 @@ export function ExerciseSessionScreen() {
     startTicker();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     pollHR();
-    hrPollRef.current = setInterval(pollHR, 1000);
+    hrPollRef.current = setInterval(pollHR, 15000);
   }
 
   function togglePause() {
@@ -298,7 +298,7 @@ export function ExerciseSessionScreen() {
         pauseStartRef.current = null;
       }
       startTicker();
-      if (!hrPollRef.current) hrPollRef.current = setInterval(pollHR, 1000);
+      if (!hrPollRef.current) hrPollRef.current = setInterval(pollHR, 15000);
       setIsPaused(false);
     } else {
       // Pause: stop ticker + HR poll, remember when we paused.
