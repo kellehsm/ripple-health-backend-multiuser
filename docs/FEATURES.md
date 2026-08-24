@@ -304,7 +304,7 @@ Key routes: `POST /api/plaid/create-link-token`, `POST /api/plaid/exchange-token
 
 **Screens:** `src/screens/MindfulnessScreen.tsx`, `src/screens/mindfulness/BodyScanSection.tsx`, `src/screens/mindfulness/GratitudeHistory.tsx`, `src/screens/mindfulness/SoundscapesSection.tsx`, `src/screens/mindfulness/StatsHero.tsx`
 
-**HealthScreen entry point:** the top-of-page mindfulness bar has been replaced by a MIND MetricChip tile — the 6th tile completing the 2×3 metric chip grid. Pressing it navigates to `MindfulnessScreen`. All six MetricChip tile icons are normalized to size 44.
+**HealthScreen entry point:** the full-width mindfulness bar is back (restored 2026-08-24, above the chip grid) and the MIND chip is gone. The five remaining MetricChips are laid out 3-over-2: glucose/steps/sleep on top, water/heart centered beneath so each sits under a gap of the top row (`src/screens/health/MetricChipRow.tsx`).
 
 **API:**
 | Method | Path | File |
@@ -468,6 +468,8 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 **App→watch sync trigger** (2026-08): previously the watch only received data when a pinned home-screen widget refreshed — no widget meant no steps/sleep on the watch, and in-app water logs never reached it. Now a local Expo module (`modules/ripple-widget-sync/`, JS wrapper `src/lib/widgetSync.ts` → `syncWidgetAndWatch()`) broadcasts `WIDGET_WEAR_SYNC` to `RippleWidgetProvider`, which refetches metrics and pushes to the watch even with zero pinned widgets. Called after every water log (Health/Overview/WatchTiles screens) and at the end of `syncHealthData()`. `RippleWearMainActivity` also gained deeper top/bottom padding on round screens (`isScreenRound`) so the "Ripple" title isn't clipped by the bezel. **Native change; effective in the next build.**
 
 **Watch/widget polish wave** (2026-08): urgent-glucose wrist haptic (double buzz, 15-min debounce), "Updated X" timestamp + mood row + water progress arc on the watch home screen, mood field in the phone→watch push, "phone not reachable" feedback on watch logging (no more silent dropped logs), breathing screen auto-dims after 60 s, widget mood-trend dot strip. **Native; next build.**
+
+**Widget review wave** (2026-08-24): full widget audit fixes — backup refresh alarm, goAsync ANR guard, per-instance PendingIntents, deduped fetches, connection cleanup, score-card tap-to-advance; new: exercise minutes on steps chip, meal kcal in meal chip, mindfulness streak badge, urgent-glucose ⚠ label, breathe button, water/mood log toasts; a11y contentDescriptions throughout, dark-mode color fix on compact widget, water chips deeplink to the water screen. **Native; next build.**
 
 **Data:** No separate table — token carries `user_id`
 

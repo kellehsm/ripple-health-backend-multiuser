@@ -13,8 +13,8 @@ class RippleWidgetSyncModule : Module() {
     // Explicit broadcast by class name — no compile-time dep on the app package.
     Function("syncNow") {
       val context = appContext.reactContext ?: return@Function
-      val intent = Intent("com.kellehs.wellness.WIDGET_WEAR_SYNC")
-        .setClassName(context.packageName, "com.kellehs.wellness.RippleWidgetProvider")
+      val intent = Intent("${context.packageName}.WIDGET_WEAR_SYNC")
+        .setClassName(context.packageName, "${context.packageName}.RippleWidgetProvider")
       context.sendBroadcast(intent)
     }
   }

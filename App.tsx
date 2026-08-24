@@ -126,6 +126,9 @@ const DEEP_LINK_ACTIONS: Record<string, () => void> = {
   "steps": () => navigateRootWhenReady("StepsDetail"),
   "heartrate": () => navigateRootWhenReady("HeartRateDetail"),
   "insights": () => navigateRootWhenReady("Insights"),
+  "water": () => navigateRootWhenReady("WaterDetail"),
+  "exercise": () => navigateWhenReady("Exercise"),
+  "mindfulness": () => navigateRootWhenReady("Mindfulness"),
 };
 
 function handleUrl(url: string | null) {
