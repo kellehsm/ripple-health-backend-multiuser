@@ -261,6 +261,7 @@ Shipped in git (1.5.0 / vc 22) but require a native rebuild to reach devices:
 - **Watch swipeable insights** — multi-insight ViewFlipper on the wear main activity (`RippleWidgetProvider.kt`, `WearDataBridge.kt.template`, `WearDataListenerService.kt`, `WearCache.kt`, `RippleWearMainActivity.kt`).
 - **ripple-widget-sync local Expo module** — app-triggered widget/watch refresh (`WIDGET_WEAR_SYNC` action in `RippleWidgetProvider.kt`); fixes watch never getting steps/sleep without a pinned widget and stale water counts after in-app logs.
 - **Round-screen padding fix** — `RippleWearMainActivity.kt` pads 48/52dp top/bottom on round faces so the title clears the bezel.
+- **Watch/widget polish wave (2026-08)** — urgent-glucose double-buzz haptic with 15-min debounce (`WearDataListenerService.kt`), "Updated X" timestamp + mood stat row + water progress arc on the watch home screen (`RippleWearMainActivity.kt`), mood pushed through the data bridge (`WearDataBridge.kt.template`, `WearCache.kt`), "phone not reachable" state instead of silent optimistic bumps in `RippleWearLogActivity.kt`, breathing screen dims to 1% brightness after 60 s (touch restores; `RippleWearBreathingActivity.kt`), widget mood-trend dot strip (`RippleWidgetProvider.kt`, `ripple_widget.xml`).
 
 ### Dev client vs Expo Go
 

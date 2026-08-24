@@ -467,6 +467,8 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 
 **App→watch sync trigger** (2026-08): previously the watch only received data when a pinned home-screen widget refreshed — no widget meant no steps/sleep on the watch, and in-app water logs never reached it. Now a local Expo module (`modules/ripple-widget-sync/`, JS wrapper `src/lib/widgetSync.ts` → `syncWidgetAndWatch()`) broadcasts `WIDGET_WEAR_SYNC` to `RippleWidgetProvider`, which refetches metrics and pushes to the watch even with zero pinned widgets. Called after every water log (Health/Overview/WatchTiles screens) and at the end of `syncHealthData()`. `RippleWearMainActivity` also gained deeper top/bottom padding on round screens (`isScreenRound`) so the "Ripple" title isn't clipped by the bezel. **Native change; effective in the next build.**
 
+**Watch/widget polish wave** (2026-08): urgent-glucose wrist haptic (double buzz, 15-min debounce), "Updated X" timestamp + mood row + water progress arc on the watch home screen, mood field in the phone→watch push, "phone not reachable" feedback on watch logging (no more silent dropped logs), breathing screen auto-dims after 60 s, widget mood-trend dot strip. **Native; next build.**
+
 **Data:** No separate table — token carries `user_id`
 
 **Status:** Partial (Android widget shipped; WearOS complication planned)

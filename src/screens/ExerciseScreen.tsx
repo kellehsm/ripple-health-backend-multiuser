@@ -26,6 +26,7 @@ import { hasSeenTooltip, markTooltipSeen } from '../utils/tooltipSeen';
 import { WorkoutPlannerModal, PlanExercise } from '../components/WorkoutPlannerModal';
 import { getCached, setCached, invalidateCache } from '../utils/staleCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { UndoBanner } from '../components/UndoBanner';
 
 interface DetectedWorkout {
   start: string;
@@ -187,6 +188,9 @@ export function ExerciseScreen() {
   const [plannerInitialQueue, setPlannerInitialQueue] = useState<PlanExercise[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [undoSession, setUndoSession] = useState<{ session: ExerciseSession; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const undoSessionRef = React.useRef(undoSession);
+  React.useEffect(() => { undoSessionRef.current = undoSession; }, [undoSession]);
 
   // Wizard gate — null = loading, false = show wizard, true = show main screen
   const [wizardDone, setWizardDone] = useState<boolean | null>(null);
@@ -705,17 +709,25 @@ export function ExerciseScreen() {
                     label={`${formatDate(session.started_at)} · empty session`}
                     action={{
                       label: "Delete",
-                      onPress: async () => {
-                        const prev = sessions;
-                        setSessions((cur) => cur.filter((s) => s.id !== session.id));
-                        try {
-                          await api.deleteExerciseSession(session.id);
+                      onPress: () => {
+                        if (undoSessionRef.current) {
+                          clearTimeout(undoSessionRef.current.timer);
+                          const prev = undoSessionRef.current.session;
+                          api.deleteExerciseSession(prev.id).catch(() => {});
                           invalidateCache('exercise:main');
-                          toast("Session removed.");
-                        } catch {
-                          setSessions(prev);
-                          toast("Couldn't delete that session.", "error");
                         }
+                        setSessions((cur) => cur.filter((s) => s.id !== session.id));
+                        const timer = setTimeout(async () => {
+                          setUndoSession(null);
+                          try {
+                            await api.deleteExerciseSession(session.id);
+                            invalidateCache('exercise:main');
+                          } catch {
+                            setSessions((cur) => [...cur, session]);
+                            toast("Couldn't delete that session.", "error");
+                          }
+                        }, 4000);
+                        setUndoSession({ session, timer });
                       },
                     }}
                   />
@@ -749,28 +761,24 @@ export function ExerciseScreen() {
                     </Text>
                     <Pressable
                       onPress={() => {
-                        Alert.alert(
-                          "Delete this workout?",
-                          `${formatDate(session.started_at)} and all its logged sets will be removed.`,
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            {
-                              text: "Delete", style: "destructive",
-                              onPress: async () => {
-                                const prev = sessions;
-                                setSessions((cur) => cur.filter((s) => s.id !== session.id));
-                                try {
-                                  await api.deleteExerciseSession(session.id);
-                                  invalidateCache('exercise:main');
-                                  toast("Workout deleted.");
-                                } catch {
-                                  setSessions(prev);
-                                  toast("Couldn't delete that session.", "error");
-                                }
-                              },
-                            },
-                          ]
-                        );
+                        if (undoSessionRef.current) {
+                          clearTimeout(undoSessionRef.current.timer);
+                          const prev = undoSessionRef.current.session;
+                          api.deleteExerciseSession(prev.id).catch(() => {});
+                          invalidateCache('exercise:main');
+                        }
+                        setSessions((cur) => cur.filter((s) => s.id !== session.id));
+                        const timer = setTimeout(async () => {
+                          setUndoSession(null);
+                          try {
+                            await api.deleteExerciseSession(session.id);
+                            invalidateCache('exercise:main');
+                          } catch {
+                            setSessions((cur) => [...cur, session]);
+                            toast("Couldn't delete that session.", "error");
+                          }
+                        }, 4000);
+                        setUndoSession({ session, timer });
                       }}
                       hitSlop={12}
                       style={{ padding: 6 }}
@@ -910,6 +918,17 @@ export function ExerciseScreen() {
         </SafeAreaView>
       </Modal>
       <FeatureIntroSheet intro={exerciseIntro} visible={introVisible} onClose={dismissIntro} />
+      {undoSession && (
+        <UndoBanner
+          message={`${formatDate(undoSession.session.started_at)} workout removed`}
+          onUndo={() => {
+            clearTimeout(undoSession.timer);
+            setSessions((cur) => [...cur, undoSession.session]);
+            setUndoSession(null);
+          }}
+          theme={theme}
+        />
+      )}
     </View>
     </KeyboardAvoidingView>
   );

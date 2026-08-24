@@ -158,6 +158,19 @@ export default async function insightsRoutes(app: FastifyInstance) {
     return { ok: true, pinned: !!pinned };
   });
 
+  // GET /insights/categories — active insight counts grouped by type/domain.
+  app.get("/categories", async (req) => {
+    const user_id = req.user_id;
+    return query<{ type: string; count: number }>(
+      `SELECT type, COUNT(*)::int AS count
+       FROM user_insights
+       WHERE user_id = $1 AND status = 'active'
+       GROUP BY type
+       ORDER BY count DESC`,
+      [user_id]
+    );
+  });
+
   // GET /insights/timeline — insight lifecycle (first_detected, last_confirmed,
   // dismissed, resurfaced) newest-first.
   app.get("/timeline", async (req) => {

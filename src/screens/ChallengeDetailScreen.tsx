@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
@@ -94,6 +95,7 @@ export function ChallengeDetailScreen() {
   }
 
   async function handleLeave() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
       "Leave Challenge",
       "Are you sure you want to leave this challenge?",
@@ -106,9 +108,11 @@ export function ChallengeDetailScreen() {
             setLeaving(true);
             try {
               await leaveChallenge(challengeId);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
               toast("You've left the challenge.");
               navigation.goBack();
             } catch (e: any) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
               toast(e?.message ?? "Could not leave challenge.", "error");
             } finally {
               setLeaving(false);

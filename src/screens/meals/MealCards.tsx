@@ -198,7 +198,7 @@ export function MacroDonut({ carbs, sugar, caffeine, calories, carbColor, sugarC
       <Pressable
         onPress={() => { Haptics.selectionAsync(); setShowBreakdown(v => !v); }}
         accessibilityRole="button"
-        accessibilityLabel="Macro breakdown donut — tap to toggle breakdown"
+        accessibilityLabel={`Macro breakdown donut${calories != null ? `, ${calories} calories` : ""}${c > 0 ? `, ${c}g carbs` : ""}${s > 0 ? `, ${s}g sugar` : ""}${f > 0 ? `, ${f}mg caffeine` : ""}. Tap to toggle breakdown.`}
       >
         <Svg width={SIZE} height={SIZE}>
           <Circle cx={cx} cy={cy} r={R} stroke={theme.cardBorder} strokeWidth={STROKE} fill="none" />
