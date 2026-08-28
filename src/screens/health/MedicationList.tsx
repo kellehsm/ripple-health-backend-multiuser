@@ -1,16 +1,50 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, TextInput, Alert, ActivityIndicator, Animated, LayoutAnimation, Platform, UIManager, Modal, KeyboardAvoidingView } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { api } from '../../api/client';
 import { addDays, todayStr } from '../../utils/dateUtils';
 import { coloredShadow } from '../../theme/styleUtils';
 import { IconBadge } from '../../components/IconBadge';
 import { LongPressActionMenu } from '../../components/LongPressActionMenu';
-import { Medication, MedSlot, computeMedStatus, statusBadge, nextDoseCallout } from './shared';
+import { Medication, MedSlot, computeMedStatus, statusBadge, nextDoseCallout, TOD_HOUR } from './shared';
 import { AddMedicationModal, MedicationInfoModal } from './AddMedicationModal';
 import { AdherenceHero } from './AdherenceHero';
 import { ThemedIcon } from '../../theme/iconRegistry';
+
+function formatTime(iso: string): string {
+  const d = new Date(iso);
+  const h = d.getHours() % 12 || 12;
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${m} ${d.getHours() >= 12 ? 'PM' : 'AM'}`;
+}
+
+function slotDisplayTime(slot: MedSlot): string {
+  if (slot.specific_time) {
+    const [hh, mm] = slot.specific_time.split(':').map(Number);
+    const h = hh % 12 || 12;
+    const ampm = hh >= 12 ? 'PM' : 'AM';
+    return `${h}:${String(mm).padStart(2, '0')} ${ampm}`;
+  }
+  const hour = TOD_HOUR[slot.time_of_day] ?? 8;
+  const h = hour % 12 || 12;
+  return `${h}:00 ${hour >= 12 ? 'PM' : 'AM'}`;
+}
+
+function computeMedStreak(dates: string[]): number {
+  if (!dates.length) return 0;
+  const set = new Set(dates);
+  let streak = 0;
+  const today = new Date();
+  for (let i = 1; i <= 30; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    if (set.has(d.toISOString().slice(0, 10))) streak++;
+    else break;
+  }
+  return streak;
+}
 
 /** Map time-of-day bucket to an icon slot. */
 function bucketSlotId(bucket: string): string {
@@ -52,6 +86,10 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
   const prevTakenRef = useRef<number | null>(null);
   const [prnSummary, setPrnSummary] = useState<Record<string, { today_count: number; last_taken: string | null; last_log_id: string | null }>>({});
   const [medSearch, setMedSearch] = useState('');
+  const [medHistory, setMedHistory] = useState<Record<string, string[]>>({});
+  const [calView, setCalView] = useState(false);
+  const [noteModal, setNoteModal] = useState<{ medId: string; medName: string; current: string } | null>(null);
+  const [noteText, setNoteText] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -73,6 +111,19 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
   }, []);
 
   useEffect(() => { load(); }, [load, refresh]);
+
+  // Fetch 7-day history for all meds after medications load
+  useEffect(() => {
+    if (medications.length === 0) return;
+    const map: Record<string, string[]> = {};
+    Promise.allSettled(
+      medications.map(med =>
+        api.getMedicationHistory(med.id).then((hist: any[]) => {
+          map[med.id] = (hist ?? []).map((h: any) => h.date ?? h.taken_at?.slice(0, 10)).filter(Boolean);
+        })
+      )
+    ).then(() => setMedHistory({ ...map }));
+  }, [medications.map(m => m.id).join(',')]);
 
   // Refresh on focus so meds added elsewhere (e.g. CSV import screen) show up
   const firstFocusRef = useRef(true);
@@ -256,9 +307,14 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={[medStyles.sectionHead, { color: theme.textStrong }]}>Today's Schedule</Text>
-            <Pressable onPress={() => { setSelectMode((s) => !s); setSelectedSlotIds([]); }}>
-              <Text style={{ color: theme.teal.solid, fontWeight: '700', fontSize: 13 }}>{selectMode ? 'Done' : 'Select'}</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Pressable onPress={() => setCalView(v => !v)} style={{ padding: 4 }}>
+                <Ionicons name={calView ? 'list-outline' : 'grid-outline'} size={18} color={theme.teal.solid} />
+              </Pressable>
+              <Pressable onPress={() => { setSelectMode((s) => !s); setSelectedSlotIds([]); }}>
+                <Text style={{ color: theme.teal.solid, fontWeight: '700', fontSize: 13 }}>{selectMode ? 'Done' : 'Select'}</Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Empty schedule but has PRN meds → point to them instead of leaving a bare gap */}
@@ -279,7 +335,51 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
             }
             return null;
           })()}
-          {Object.entries(buckets).map(([bucket, meds]) => {
+          {calView ? (() => {
+            const DOW = ['M','T','W','T','F','S','S'];
+            const todayD = new Date();
+            const weekDates = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date(todayD);
+              const offset = todayD.getDay() === 0 ? -6 : 1 - todayD.getDay();
+              d.setDate(todayD.getDate() + offset + i);
+              return d.toISOString().slice(0, 10);
+            });
+            const scheduledMeds = medications.filter(m => !m.is_prn);
+            const todayStr2 = todayD.toISOString().slice(0, 10);
+            return (
+              <View style={{ borderRadius: 16, borderWidth: 1.5, borderColor: theme.cardBorder, backgroundColor: theme.card, overflow: 'hidden' }}>
+                <View style={{ flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.cardBorder }}>
+                  <View style={{ width: 100, padding: 8 }} />
+                  {DOW.map((d, i) => (
+                    <View key={i} style={{ flex: 1, alignItems: 'center', paddingVertical: 6 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '800', color: theme.textSoft }}>{d}</Text>
+                    </View>
+                  ))}
+                </View>
+                {scheduledMeds.map((med, mi) => (
+                  <View key={med.id} style={{ flexDirection: 'row', borderTopWidth: mi === 0 ? 0 : 1, borderTopColor: theme.cardBorder, alignItems: 'center' }}>
+                    <View style={{ width: 100, padding: 8 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textStrong }} numberOfLines={1}>{med.name}</Text>
+                    </View>
+                    {weekDates.map((date, di) => {
+                      const history = medHistory[med.id] ?? [];
+                      const taken = history.includes(date);
+                      const isToday = date === todayStr2;
+                      const takenToday = isToday && med.slots.some(s => s.dose_log !== null);
+                      const show = isToday ? takenToday : taken;
+                      return (
+                        <View key={di} style={{ flex: 1, alignItems: 'center', paddingVertical: 10 }}>
+                          <View style={{ width: 14, height: 14, borderRadius: 3, backgroundColor: show ? theme.teal.solid : theme.cardBorder, opacity: show ? 1 : 0.5 }} />
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+            );
+          })() : null}
+
+          {!calView && Object.entries(buckets).map(([bucket, meds]) => {
             if (meds.length === 0) return null;
             const bucketSlots = meds
               .map((med) => med.slots.find((s) => {
@@ -419,6 +519,10 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                         {med.frequency === 'weekly' && med.day_of_week != null && (
                           <Text style={{ color: theme.textSoft, fontSize: 11 }}>Weekly — {DOW_NAMES[med.day_of_week]}</Text>
                         )}
+                        <Text style={{ color: theme.textSoft, fontSize: 11 }}>⏰ {slotDisplayTime(slot)}</Text>
+                        {slot.dose_log !== null && (
+                          <Text style={{ color: theme.teal.sub, fontSize: 11 }}>✓ Taken {formatTime(slot.dose_log.taken_at)}</Text>
+                        )}
                       </View>
                     </Pressable>
                   );
@@ -426,6 +530,48 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
               </View>
             );
           })}
+
+          {/* Missed dose recovery prompts */}
+          {!calView && (() => {
+            const now = new Date();
+            const nowH = now.getHours();
+            const BUCKET_CUTOFF: Record<string, number> = { morning: 12, midday: 18, evening: 24 };
+            const missedBuckets: { bucket: string; slots: MedSlot[]; meds: Medication[] }[] = [];
+            for (const [bucket, bMeds] of Object.entries(buckets)) {
+              if (bMeds.length === 0) continue;
+              const cutoff = BUCKET_CUTOFF[bucket];
+              if (cutoff === undefined || nowH < cutoff) continue;
+              const bucketSlots = bMeds.map(med => med.slots.find(s => {
+                const b = ['morning','midday','evening'].includes(s.time_of_day) ? s.time_of_day : 'custom';
+                return b === bucket;
+              })).filter((s): s is MedSlot => !!s);
+              const unTaken = bucketSlots.filter(s => s.dose_log === null);
+              if (unTaken.length === 0) continue;
+              missedBuckets.push({ bucket, slots: unTaken, meds: bMeds.filter((_, i) => bucketSlots[i]?.dose_log === null) });
+            }
+            if (missedBuckets.length === 0) return null;
+            return missedBuckets.map(({ bucket, slots, meds: missedMeds }) => (
+              <View key={bucket} style={{ backgroundColor: theme.coral?.tint ?? '#FFF0F0', borderRadius: 14, borderWidth: 1.5, borderColor: theme.coral?.solid ?? '#C0392B', padding: 12, gap: 8 }}>
+                <Text style={{ color: theme.coral?.solid ?? '#C0392B', fontWeight: '800', fontSize: 13 }}>
+                  Missed {BUCKET_LABELS[bucket]} dose{slots.length > 1 ? 's' : ''}
+                </Text>
+                <Text style={{ color: theme.textSoft, fontSize: 12 }}>
+                  {missedMeds.map(m => m.name).join(', ')} — log it anyway?
+                </Text>
+                <Pressable
+                  onPress={async () => {
+                    try {
+                      await api.markSelectedTaken(slots.map(s => s.id));
+                      setRefresh(r => r + 1);
+                    } catch {}
+                  }}
+                  style={{ alignSelf: 'flex-start', borderRadius: 10, borderWidth: 1.5, borderColor: theme.coral?.solid ?? '#C0392B', paddingHorizontal: 12, paddingVertical: 5 }}
+                >
+                  <Text style={{ color: theme.coral?.solid ?? '#C0392B', fontWeight: '700', fontSize: 12 }}>Log as taken</Text>
+                </Pressable>
+              </View>
+            ));
+          })()}
 
           {/* PRN quick-take */}
           {(() => {
@@ -577,6 +723,33 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
               }
             }
 
+            // 7-day heatmap
+            const cardToday = new Date();
+            const weekDaysCard = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date(cardToday);
+              const dayOfWeek = cardToday.getDay();
+              const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+              d.setDate(cardToday.getDate() + mondayOffset + i);
+              return d.toISOString().slice(0, 10);
+            });
+            const cardTodayStr = cardToday.toISOString().slice(0, 10);
+            const history = medHistory[med.id] ?? [];
+            const takenTodayCard = med.slots.some(s => s.dose_log !== null);
+
+            // Streak badge
+            const streak = computeMedStreak(history);
+
+            // Supply level bar
+            let supplyPct = 0;
+            let supplyColor = theme.teal.solid;
+            if (refillDays !== null && med.created_at) {
+              const createdAt = new Date(med.created_at).getTime();
+              const totalDays = Math.min(90, (new Date(med.refill_date!).getTime() - createdAt) / 86400000);
+              const daysUsed = (Date.now() - createdAt) / 86400000;
+              supplyPct = Math.max(0, Math.min(1, 1 - daysUsed / Math.max(1, totalDays)));
+              supplyColor = supplyPct > 0.4 ? theme.teal.solid : supplyPct > 0.15 ? (theme.amber?.solid ?? '#D97706') : (theme.coral?.solid ?? '#C0392B');
+            }
+
             return (
               <LongPressActionMenu
                 key={med.id}
@@ -584,6 +757,7 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                 onPress={() => navigation.navigate('MedicationHistory', { medicationId: med.id, medicationName: med.name })}
                 actions={[
                   { label: 'Edit', onPress: () => { setEditMed(med); setShowEditModal(true); } },
+                  { label: med.notes ? 'Edit note' : 'Add note', onPress: () => { setNoteModal({ medId: med.id, medName: med.name, current: med.notes ?? '' }); setNoteText(med.notes ?? ''); } },
                   { label: 'Remove', destructive: true, onPress: () => deleteMed(med.id) },
                 ]}
               >
@@ -595,6 +769,11 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                   <View style={{ flex: 1, gap: 2 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <Text style={[medStyles.medName, { color: theme.textStrong, flex: 1 }]}>{med.name}</Text>
+                      {streak >= 3 && (
+                        <View style={{ backgroundColor: theme.amber?.solid ?? '#D97706', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>🔥 {streak}d</Text>
+                        </View>
+                      )}
                       {med.is_prn && (
                         <View style={{ backgroundColor: theme.amber.solid, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 }}>
                           <Text style={{ color: theme.amber.fg, fontSize: 10, fontWeight: '700' }}>PRN</Text>
@@ -618,6 +797,9 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                     {brandGenericLine && <Text style={{ color: theme.textSoft, fontSize: 12 }}>{brandGenericLine}</Text>}
                     {med.purpose && <Text style={{ color: theme.textSoft, fontSize: 12 }}>Purpose: {med.purpose}</Text>}
                     {med.prescriber && <Text style={{ color: theme.textSoft, fontSize: 12 }}>Dr. {med.prescriber.name}</Text>}
+                    {med.notes ? (
+                      <Text style={{ color: theme.textSoft, fontSize: 12, fontStyle: 'italic' }} numberOfLines={2}>{med.notes}</Text>
+                    ) : null}
                     {med.is_prn ? (
                       <Text style={{ color: theme.textSoft, fontSize: 12 }}>As needed (PRN)</Text>
                     ) : med.frequency === 'weekly' ? (
@@ -629,22 +811,41 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
                         {med.slots.map((s) => s.time_of_day).join(', ') || 'No schedule'}
                       </Text>
                     )}
+                    {/* 7-day adherence heatmap */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                      <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: '700' }}>7d</Text>
+                      {weekDaysCard.map((date, di) => {
+                        const isToday = date === cardTodayStr;
+                        const taken = isToday ? takenTodayCard : history.includes(date);
+                        const isFuture = date > cardTodayStr;
+                        const color = taken ? theme.teal.solid : (isFuture ? theme.cardBorder : (theme.coral?.solid ?? '#C0392B') + '55');
+                        return (
+                          <View key={di} style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: color, opacity: isFuture ? 0.4 : 1 }} />
+                        );
+                      })}
+                    </View>
                     {refillDays !== null && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
-                        <Text style={{ color: refillDays <= 0 ? theme.coral.solid : theme.textSoft, fontSize: 12 }}>
-                          {refillDays <= 0 ? 'Refill overdue' : `Refill in ${refillDays} day${refillDays !== 1 ? 's' : ''}`}
-                        </Text>
-                        {refillDays <= 7 && (
-                          <Pressable
-                            style={[medStyles.refilledBtn, { borderColor: theme.teal.solid, backgroundColor: theme.teal.tint }]}
-                            onPress={() => markRefilled(med)}
-                            hitSlop={4}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Mark ${med.name} as refilled`}
-                          >
-                            <Text style={{ color: theme.teal.fg, fontWeight: '800', fontSize: 11 }}>↻ Refilled</Text>
-                          </Pressable>
-                        )}
+                      <View style={{ marginTop: 2 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{ color: refillDays <= 0 ? theme.coral.solid : theme.textSoft, fontSize: 12 }}>
+                            {refillDays <= 0 ? 'Refill overdue' : `Refill in ${refillDays} day${refillDays !== 1 ? 's' : ''}`}
+                          </Text>
+                          {refillDays <= 7 && (
+                            <Pressable
+                              style={[medStyles.refilledBtn, { borderColor: theme.teal.solid, backgroundColor: theme.teal.tint }]}
+                              onPress={() => markRefilled(med)}
+                              hitSlop={4}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Mark ${med.name} as refilled`}
+                            >
+                              <Text style={{ color: theme.teal.fg, fontWeight: '800', fontSize: 11 }}>↻ Refilled</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                        {/* Supply level bar */}
+                        <View style={{ height: 4, borderRadius: 2, backgroundColor: theme.cardBorder, marginTop: 4, overflow: 'hidden' }}>
+                          <View style={{ height: 4, borderRadius: 2, width: `${supplyPct * 100}%` as any, backgroundColor: supplyColor }} />
+                        </View>
                       </View>
                     )}
                   </View>
@@ -727,6 +928,46 @@ export function MedicationList({ theme, scrollEnabled = true }: { theme: any; sc
           theme={theme}
           onClose={() => setInfoMed(null)}
         />
+      )}
+
+      {noteModal && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setNoteModal(null)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 }}>
+              <View style={{ backgroundColor: theme.card, borderRadius: 20, borderWidth: 2, borderColor: theme.cardBorder, padding: 20, gap: 12 }}>
+                <Text style={{ color: theme.textStrong, fontSize: 16, fontWeight: '800' }}>{noteModal.medName}</Text>
+                <TextInput
+                  style={{ borderWidth: 1.5, borderColor: theme.cardBorder, borderRadius: 12, padding: 10, color: theme.textStrong, fontSize: 14, minHeight: 80, textAlignVertical: 'top', backgroundColor: theme.bg }}
+                  placeholder="Add a note…"
+                  placeholderTextColor={theme.textSoft}
+                  value={noteText}
+                  onChangeText={setNoteText}
+                  multiline
+                  autoFocus
+                />
+                <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end' }}>
+                  <Pressable onPress={() => setNoteModal(null)} style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+                    <Text style={{ color: theme.textSoft, fontWeight: '700' }}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={{ backgroundColor: theme.teal.solid, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 8 }}
+                    onPress={async () => {
+                      try {
+                        await api.updateMedication(noteModal.medId, { notes: noteText });
+                        setNoteModal(null);
+                        setRefresh(r => r + 1);
+                      } catch (err: any) {
+                        Alert.alert('Error', err?.message ?? 'Failed to save note');
+                      }
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '800' }}>Save</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
       )}
 
       {showPerfectDay && (
