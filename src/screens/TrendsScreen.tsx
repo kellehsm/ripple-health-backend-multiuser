@@ -21,6 +21,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { TooltipBubble } from "../components/TooltipBubble";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
 import { DefinedTerm } from "../components/DefinedTerm";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 
 const SCREEN_W = Dimensions.get("window").width;
@@ -445,11 +446,13 @@ export function TrendsScreen() {
   const exsXs = exsRows.map(r => r.exercise_minutes),   exsYs = exsRows.map(r => r.sleep_hours);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: theme.page }}
-      contentContainerStyle={s.page}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(days, true)} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
-    >
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        contentContainerStyle={s.page}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(days, true)} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
+      >
       {showTooltip && (
         <TooltipBubble
           message="Pick any two things to compare — sleep, mood, glucose, spending — and see how they move together over your logged days. Tap a chart to explore."
@@ -759,6 +762,7 @@ export function TrendsScreen() {
         </>
       )}
     </ScrollView>
+    </View>
   );
 }
 

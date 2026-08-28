@@ -12,7 +12,9 @@ import * as Haptics from "expo-haptics";
 import { useFocusEffect, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES, SPACING } from "../theme/tokens";
 import { ShadowCard } from "../components/ShadowCard";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { getLeaderboard, getReactions, addReaction, LeaderboardEntry, Reaction, SocialCategory } from "../api/friends";
 import { toast } from "../lib/toast";
 import { getWeekStart } from "../utils/dateUtils";
@@ -142,17 +144,17 @@ export function LeaderboardScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Ionicons name={CATEGORY_ICON[category]} size={28} color={theme.teal.fg} />
           <View>
-            <Text style={{ color: theme.teal.fg, fontSize: 20, fontWeight: "900", lineHeight: 26 }}>
+            <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.title, fontWeight: "900", lineHeight: 26 }}>
               {CATEGORY_LABEL[category]}
             </Text>
-            <Text style={{ color: theme.teal.sub, fontSize: 12, marginTop: 4, lineHeight: 17 }}>
+            <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.label, marginTop: SPACING.xs, lineHeight: 17 }}>
               Compared with your friends
             </Text>
           </View>
         </View>
         {myEntry && (
           <View style={[styles.myBanner, { backgroundColor: theme.teal.solid, borderColor: theme.ink }]}>
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13, lineHeight: 18 }}>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: FONT_SIZES.label, lineHeight: 18 }}>
               Your position: #{myEntry.rank} — {formatValue(myEntry.value, category)}
             </Text>
           </View>
@@ -162,7 +164,7 @@ export function LeaderboardScreen() {
       {/* Privacy note */}
       <View style={[styles.privacyNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <Ionicons name="shield-checkmark-outline" size={14} color={theme.textSoft} style={{ marginRight: 6 }} />
-        <Text style={{ color: theme.textSoft, fontSize: 11, flex: 1, lineHeight: 16 }}>
+        <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, flex: 1, lineHeight: 16 }}>
           Only data each person has chosen to share is visible here. All other health data stays completely private.
         </Text>
       </View>
@@ -180,10 +182,10 @@ export function LeaderboardScreen() {
         <ShadowCard padding={20}>
           <View style={{ alignItems: "center", gap: 12 }}>
             <Ionicons name="cloud-offline-outline" size={36} color={theme.textSoft} />
-            <Text style={{ color: theme.textStrong, fontSize: 16, fontWeight: "800", textAlign: "center" }}>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.subheading, fontWeight: "800", textAlign: "center" }}>
               Couldn't load the leaderboard
             </Text>
-            <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, textAlign: "center", lineHeight: 19 }}>
               Check your connection, then pull down to refresh or tap retry.
             </Text>
             <Pressable
@@ -193,7 +195,7 @@ export function LeaderboardScreen() {
               }}
               style={{ borderWidth: 2, borderColor: theme.cardBorder, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 8, backgroundColor: theme.card }}
             >
-              <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 13 }}>Retry</Text>
+              <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: FONT_SIZES.label }}>Retry</Text>
             </Pressable>
           </View>
         </ShadowCard>
@@ -201,10 +203,10 @@ export function LeaderboardScreen() {
         <ShadowCard padding={20}>
           <View style={{ alignItems: "center", gap: 12 }}>
             <Ionicons name="people-outline" size={40} color={theme.teal.solid} />
-            <Text style={{ color: theme.textStrong, fontSize: 17, fontWeight: "800", textAlign: "center", lineHeight: 23 }}>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.heading, fontWeight: "800", textAlign: "center", lineHeight: 23 }}>
               Invite friends to compare!
             </Text>
-            <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, textAlign: "center", lineHeight: 19 }}>
               You need at least two people with shared data to see a leaderboard. Add friends from the Friends tab.
             </Text>
           </View>
@@ -220,7 +222,7 @@ export function LeaderboardScreen() {
       {/* Encouraging note */}
       {entries.length >= 2 && (
         <View style={[styles.encourageNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", lineHeight: 18 }}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, textAlign: "center", lineHeight: 18 }}>
             Keep it up — every bit of progress counts. The goal is to stay active together, not to race.
           </Text>
         </View>
@@ -235,7 +237,7 @@ export function LeaderboardScreen() {
       >
         <Pressable style={styles.modalOverlay} onPress={() => setPickerTarget(null)}>
           <View style={[styles.emojiPicker, { backgroundColor: theme.card, borderColor: theme.ink }]}>
-            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: "700", marginBottom: 8, letterSpacing: 0.4 }}>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, fontWeight: "700", marginBottom: SPACING.sm, letterSpacing: 0.4 }}>
               REACT TO {(pickerTarget?.display_name ?? "").toUpperCase()}
             </Text>
             <View style={{ flexDirection: "row", gap: 12 }}>
@@ -265,20 +267,22 @@ export function LeaderboardScreen() {
             styles.entryRow,
             entry.is_me && { backgroundColor: theme.teal.tint },
           ]}
+          accessibilityRole="button"
+          accessibilityLabel={`Rank ${entry.rank}, ${entry.display_name}${entry.is_me ? ", you" : ""}`}
         >
           {/* Rank */}
           <View style={[styles.rankBadge, isTop3 && { backgroundColor: medalColor + "22", borderColor: medalColor }]}>
-            <Text style={{ color: isTop3 ? medalColor : theme.textSoft, fontWeight: "900", fontSize: 15 }}>
+            <Text style={{ color: isTop3 ? medalColor : theme.textSoft, fontWeight: "900", fontSize: FONT_SIZES.subheading }}>
               {entry.rank}
             </Text>
           </View>
 
           {/* Name + reaction pills */}
-          <View style={{ flex: 1, marginLeft: 10 }}>
+          <View style={{ flex: 1, marginLeft: SPACING.sm }}>
             <Text
               style={{
                 color: theme.textStrong,
-                fontSize: 15,
+                fontSize: FONT_SIZES.subheading,
                 fontWeight: entry.is_me ? "900" : "600",
                 lineHeight: 20,
               }}
@@ -290,11 +294,11 @@ export function LeaderboardScreen() {
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
                 {entryReactions.map((r, j) => (
                   <View key={j} style={[styles.reactionPill, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                    <Text style={{ fontSize: 13 }}>{r.emoji}</Text>
+                    <Text style={{ fontSize: FONT_SIZES.label }}>{r.emoji}</Text>
                   </View>
                 ))}
                 {myReaction && (
-                  <Text style={{ color: theme.textSoft, fontSize: 10, alignSelf: "center" }}>you reacted</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.micro, alignSelf: "center" }}>you reacted</Text>
                 )}
               </View>
             )}
@@ -305,7 +309,7 @@ export function LeaderboardScreen() {
             style={{
               color: entry.is_me ? theme.teal.fg : theme.textStrong,
               fontWeight: "800",
-              fontSize: 14,
+              fontSize: FONT_SIZES.body,
               lineHeight: 20,
             }}
           >
@@ -317,37 +321,40 @@ export function LeaderboardScreen() {
   }, [reactions, myUserId, theme, category]);
 
   return (
-    <FlatList
-      style={{ backgroundColor: theme.page }}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />
-      }
-      data={!loading && !loadError && entries.length >= 2 ? entries : []}
-      keyExtractor={(entry, i) => entry.user_id + String(i)}
-      renderItem={renderEntry}
-      ListHeaderComponent={listHeader}
-      ListFooterComponent={listFooter}
-      ListHeaderComponentStyle={{ gap: 12 }}
-    />
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <FlatList
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} />
+        }
+        data={!loading && !loadError && entries.length >= 2 ? entries : []}
+        keyExtractor={(entry, i) => entry.user_id + String(i)}
+        renderItem={renderEntry}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
+        ListHeaderComponentStyle={{ gap: 12 }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12, paddingBottom: 40 },
+  content: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: 40 },
   myBanner: {
-    marginTop: 12,
+    marginTop: SPACING.md,
     borderRadius: 22,
     borderWidth: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   privacyNote: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
     borderRadius: 22,
-    padding: 10,
+    padding: SPACING.sm,
   },
   board: {
     borderRadius: 22,
@@ -359,12 +366,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  divider: { height: 1, marginHorizontal: 14 },
+  divider: { height: 1, marginHorizontal: SPACING.base },
   entryRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.base,
   },
   rankBadge: {
     width: 34,
@@ -377,13 +384,13 @@ const styles = StyleSheet.create({
   },
   encourageNote: {
     borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: SPACING.lg,
+    padding: SPACING.md,
   },
   reactionPill: {
     borderWidth: 1.5,
-    borderRadius: 8,
-    paddingHorizontal: 6,
+    borderRadius: SPACING.sm,
+    paddingHorizontal: SPACING.xs + 2,
     paddingVertical: 2,
   },
   modalOverlay: {

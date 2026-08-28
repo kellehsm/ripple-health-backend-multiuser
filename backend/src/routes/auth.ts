@@ -20,7 +20,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const emailLower = email.trim().toLowerCase();
     if (process.env.NODE_ENV !== "production" && process.env.DEMO_LOGIN_ENABLED === "1" && (emailLower === "demo" || emailLower === "demo@ripple.test")) {
       email = "demo@ripple.test";
-      password = "Ripple2026";
+      password = process.env.DEMO_PASSWORD ?? "Ripple2026";
     }
 
     const rows = await query<{ id: string; password_hash: string | null; token_version: number }>(

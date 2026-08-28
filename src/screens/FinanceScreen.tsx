@@ -119,9 +119,10 @@ function groupByDay(entries: SpendingEntry[]): [string, SpendingEntry[]][] {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FinanceEmptyState({ onAdd }: { onAdd: () => void }) {
+function FinanceEmptyState({ onAdd, view }: { onAdd: () => void; view: "day" | "week" | string }) {
   const { theme } = useTheme();
   const c = theme.purple.solid;
+  const emptyLabel = view === "day" ? "No spending logged today" : view === "week" ? "No spending logged this week" : "No spending logged this month";
   return (
     <View style={{ alignItems: "center", paddingVertical: 48 }}>
       <View style={{
@@ -132,7 +133,7 @@ function FinanceEmptyState({ onAdd }: { onAdd: () => void }) {
       }}>
         <Ionicons name="wallet-outline" size={34} color={theme.purple.solid} />
       </View>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>No spending logged this month</Text>
+      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>{emptyLabel}</Text>
       <Text style={{ fontSize: 13, color: theme.textSoft, marginTop: 6, textAlign: "center", maxWidth: 240 }}>
         Add your first transaction to start tracking where it goes
       </Text>
@@ -567,7 +568,8 @@ export function FinanceScreen() {
               key={v}
               onPress={() => { Haptics.selectionAsync(); setView(v); }}
               style={[s.toggleBtn, view === v && { backgroundColor: theme.purple.solid }]}
-              accessibilityRole="button"
+              accessibilityRole="tab"
+              accessibilityState={{ selected: view === v }}
             >
               <Text style={[s.toggleText, { color: view === v ? "#fff" : theme.textSoft }]}>
                 {v === "day" ? "Today" : "This Week"}
@@ -893,7 +895,7 @@ export function FinanceScreen() {
 
         {/* Transaction list grouped by day */}
         {!loading && !monthHasEntries ? (
-          <FinanceEmptyState onAdd={() => setShowAdd(true)} />
+          <FinanceEmptyState onAdd={() => setShowAdd(true)} view={view} />
         ) : (
           grouped.map(([day, dayEntries]) => (
             <View key={day}>

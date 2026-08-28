@@ -41,7 +41,7 @@ export function FeatureIntroSheet({ intro, visible, onClose }: Props) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.screen, { backgroundColor: theme.page }]}>
+      <View style={[styles.screen, { backgroundColor: theme.page }]} accessibilityViewIsModal={true}>
         <View style={styles.topBar}>
           <Text style={[styles.eyebrow, { color: accent.sub }]}>
             {intro.name.toUpperCase()}

@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import { useFocusEffect, useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES, SPACING } from "../theme/tokens";
 import { ThemedIcon } from "../theme/iconRegistry";
 import { ShadowCard } from "../components/ShadowCard";
 import { SectionLabel } from "../components/SectionLabel";
@@ -26,6 +27,7 @@ import {
   SocialCategory,
 } from "../api/friends";
 import { formatDateLocal } from "../utils/dateUtils";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -136,7 +138,7 @@ export function ChallengeDetailScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: theme.page, alignItems: "center", justifyContent: "center", padding: 24 }}>
         <Ionicons name="alert-circle-outline" size={40} color={theme.textSoft} />
-        <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12, textAlign: "center" }}>
+        <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.subheading, marginTop: SPACING.md, textAlign: "center" }}>
           Could not load challenge details.
         </Text>
       </View>
@@ -152,11 +154,13 @@ export function ChallengeDetailScreen() {
   const myParticipant = participants.find((p) => p.is_me);
 
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.page }}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
-    >
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
+      >
       {/* Header */}
       <ShadowCard padding={16} bg={theme.purple.tint} accent={theme.purple.solid}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -164,23 +168,23 @@ export function ChallengeDetailScreen() {
             <Ionicons name={CATEGORY_ICON[challenge.category]} size={24} color="#fff" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.purple.fg, fontSize: 19, fontWeight: "900", flexShrink: 1 }}>
+            <Text style={{ color: theme.purple.fg, fontSize: FONT_SIZES.heading, fontWeight: "900", flexShrink: 1 }}>
               {challenge.title}
             </Text>
-            <Text style={{ color: theme.purple.sub, fontSize: 13, marginTop: 2 }}>
+            <Text style={{ color: theme.purple.sub, fontSize: FONT_SIZES.label, marginTop: 2 }}>
               {challenge.category.charAt(0).toUpperCase() + challenge.category.slice(1)}
             </Text>
           </View>
         </View>
 
-        <Text style={{ color: theme.purple.fg, fontSize: 14, marginTop: 12 }}>
+        <Text style={{ color: theme.purple.fg, fontSize: FONT_SIZES.body, marginTop: SPACING.md }}>
           {challenge.goal_description}
         </Text>
 
         <View style={styles.metaRow}>
           <View style={[styles.metaBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <Ionicons name="calendar-outline" size={12} color={theme.textSoft} />
-            <Text style={{ color: theme.textSoft, fontSize: 11, marginLeft: 4 }}>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginLeft: 4 }}>
               {parseLocalDate(challenge.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               {" – "}
               {parseLocalDate(challenge.end_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
@@ -188,13 +192,13 @@ export function ChallengeDetailScreen() {
           </View>
           <View style={[styles.metaBadge, { backgroundColor: isPast ? theme.card : theme.teal.tint, borderColor: isPast ? theme.cardBorder : theme.teal.solid }]}>
             <Ionicons name="time-outline" size={12} color={isPast ? theme.textSoft : theme.teal.fg} />
-            <Text style={{ color: isPast ? theme.textSoft : theme.teal.fg, fontSize: 11, marginLeft: 4 }}>
+            <Text style={{ color: isPast ? theme.textSoft : theme.teal.fg, fontSize: FONT_SIZES.caption, marginLeft: 4 }}>
               {isPast ? "Ended" : days + " day" + (days === 1 ? "" : "s") + " left"}
             </Text>
           </View>
           <View style={[styles.metaBadge, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <Ionicons name="people-outline" size={12} color={theme.textSoft} />
-            <Text style={{ color: theme.textSoft, fontSize: 11, marginLeft: 4 }}>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginLeft: 4 }}>
               {challenge.participant_count} {challenge.participant_count === 1 ? "participant" : "participants"}
             </Text>
           </View>
@@ -205,7 +209,7 @@ export function ChallengeDetailScreen() {
       {myParticipant && (
         <View style={[styles.myBanner, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
           <Ionicons name="person-circle-outline" size={20} color={theme.teal.fg} />
-          <Text style={{ color: theme.teal.fg, fontWeight: "800", fontSize: 13, marginLeft: 8, flex: 1 }}>
+          <Text style={{ color: theme.teal.fg, fontWeight: "800", fontSize: FONT_SIZES.label, marginLeft: SPACING.sm, flex: 1 }}>
             Your progress: {formatValue(myParticipant.progress, challenge.category)} — Rank #{myParticipant.rank}
           </Text>
         </View>
@@ -216,8 +220,8 @@ export function ChallengeDetailScreen() {
       {participants.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center" }]}>
           <ThemedIcon slot="ui.medal" size={28} />
-          <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "800", marginTop: 6 }}>No participants yet</Text>
-          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4, textAlign: "center" }}>
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: "800", marginTop: SPACING.xs }}>No participants yet</Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: SPACING.xs, textAlign: "center" }}>
             Be the first to join — invite friends to make it a race.
           </Text>
         </View>
@@ -231,14 +235,14 @@ export function ChallengeDetailScreen() {
                 {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
                 <View style={[styles.entryRow, p.is_me && { backgroundColor: theme.teal.tint }]}>
                   <View style={[styles.rankBadge, isTop3 && { backgroundColor: medalColor + "22", borderColor: medalColor }]}>
-                    <Text style={{ color: isTop3 ? medalColor : theme.textSoft, fontWeight: "900", fontSize: 14 }}>
+                    <Text style={{ color: isTop3 ? medalColor : theme.textSoft, fontWeight: "900", fontSize: FONT_SIZES.body }}>
                       {p.rank}
                     </Text>
                   </View>
-                  <Text style={{ flex: 1, color: theme.textStrong, fontSize: 14, fontWeight: p.is_me ? "900" : "600", marginLeft: 10 }}>
+                  <Text style={{ flex: 1, color: theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: p.is_me ? "900" : "600", marginLeft: SPACING.sm }}>
                     {p.display_name}{p.is_me ? " (you)" : ""}
                   </Text>
-                  <Text style={{ color: p.is_me ? theme.teal.fg : theme.textStrong, fontWeight: "800", fontSize: 13 }}>
+                  <Text style={{ color: p.is_me ? theme.teal.fg : theme.textStrong, fontWeight: "800", fontSize: FONT_SIZES.label }}>
                     {formatValue(p.progress, challenge.category)}
                   </Text>
                 </View>
@@ -251,7 +255,7 @@ export function ChallengeDetailScreen() {
       {/* Encouragement */}
       {!isPast && (
         <View style={[styles.encourageNote, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center" }}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, textAlign: "center" }}>
             Keep going — every bit of effort counts. Consistent progress is the goal, not just the finish line.
           </Text>
         </View>
@@ -267,18 +271,19 @@ export function ChallengeDetailScreen() {
           {leaving ? (
             <ActivityIndicator color={theme.textSoft} size="small" />
           ) : (
-            <Text style={{ color: theme.textSoft, fontWeight: "700", fontSize: 14 }}>
+            <Text style={{ color: theme.textSoft, fontWeight: "700", fontSize: FONT_SIZES.body }}>
               Leave Challenge
             </Text>
           )}
         </Pressable>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12, paddingBottom: 100 },
+  content: { padding: SPACING.lg, gap: SPACING.md, paddingBottom: 100 },
   iconBadge: {
     width: 48,
     height: 48,
@@ -287,22 +292,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  metaRow: { flexDirection: "row", gap: 8, marginTop: 12, flexWrap: "wrap" },
+  metaRow: { flexDirection: "row", gap: SPACING.sm, marginTop: SPACING.md, flexWrap: "wrap" },
   metaBadge: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
     borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
   },
   myBanner: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 2,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: SPACING.lg,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.sm,
   },
   board: {
     borderRadius: 22,
@@ -314,12 +319,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  divider: { height: 1, marginHorizontal: 14 },
+  divider: { height: 1, marginHorizontal: SPACING.base },
   entryRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: SPACING.base,
+    paddingVertical: SPACING.base,
   },
   rankBadge: {
     width: 32,
@@ -332,19 +337,19 @@ const styles = StyleSheet.create({
   },
   encourageNote: {
     borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: SPACING.lg,
+    padding: SPACING.md,
   },
   emptyCard: {
     borderWidth: 2,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: SPACING.lg,
+    padding: SPACING.lg,
   },
   leaveBtn: {
     borderWidth: 2,
-    borderRadius: 16,
-    paddingVertical: 12,
+    borderRadius: SPACING.lg,
+    paddingVertical: SPACING.md,
     alignItems: "center",
-    marginTop: 8,
+    marginTop: SPACING.sm,
   },
 });

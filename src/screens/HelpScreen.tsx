@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
+import { ScreenBackground } from "../components/ScreenBackground";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES } from "../theme/tokens";
 import { ThemedIcon } from "../theme/iconRegistry";
 
 type FaqItem = { q: string; a: string };
@@ -123,7 +125,9 @@ export function HelpScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={styles.content}>
       {/* App tour replay */}
       <Pressable
         style={[styles.tourCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
@@ -154,7 +158,7 @@ export function HelpScreen() {
               return (
                 <View key={key}>
                   {idx > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
-                  <Pressable onPress={() => toggle(key)} style={styles.qRow}>
+                  <Pressable onPress={() => toggle(key)} style={styles.qRow} accessibilityRole="button" accessibilityState={{ expanded: open }}>
                     <Text style={[styles.question, { color: theme.textStrong, flex: 1 }]}>{item.q}</Text>
                     <Ionicons name={open ? "chevron-up" : "chevron-down"} size={16} color={theme.textSoft} />
                   </Pressable>
@@ -167,7 +171,8 @@ export function HelpScreen() {
           </View>
         </View>
       ))}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -187,10 +192,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  tourTitle: { fontSize: 15, fontWeight: "900" },
-  tourSub: { fontSize: 12, marginTop: 2, fontWeight: "600" },
-  intro: { fontSize: 13, marginBottom: 16, lineHeight: 18, fontWeight: "600" },
-  sectionLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginBottom: 6, textTransform: "uppercase" },
+  tourTitle: { fontSize: FONT_SIZES.subheading, fontWeight: "900" },
+  tourSub: { fontSize: FONT_SIZES.label, marginTop: 2, fontWeight: "600" },
+  intro: { fontSize: FONT_SIZES.label, marginBottom: 16, lineHeight: 18, fontWeight: "600" },
+  sectionLabel: { fontSize: FONT_SIZES.micro, fontWeight: "900", letterSpacing: 0.6, marginBottom: 6, textTransform: "uppercase" },
   card: {
     borderRadius: 26,
     borderWidth: 2,
@@ -208,6 +213,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  question: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
-  answer: { fontSize: 13, lineHeight: 19, paddingHorizontal: 14, paddingBottom: 12, paddingTop: 2 },
+  question: { fontSize: FONT_SIZES.label, fontWeight: "600", lineHeight: 18 },
+  answer: { fontSize: FONT_SIZES.label, lineHeight: 19, paddingHorizontal: 14, paddingBottom: 12, paddingTop: 2 },
 });

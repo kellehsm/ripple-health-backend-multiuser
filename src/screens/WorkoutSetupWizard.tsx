@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { api } from '../api/client';
+import { ScreenBackground } from '../components/ScreenBackground';
 
 // ── Wizard answer types ────────────────────────────────────────────────────────
 
@@ -334,6 +335,7 @@ export function WorkoutSetupWizard({ onComplete }: Props) {
     if (generating) {
       return (
         <View style={[styles.centered, { backgroundColor: theme.page }]}>
+          <ScreenBackground />
           <ActivityIndicator size="large" color={theme.teal?.solid ?? ink} />
           <Text style={{ color: theme.textSoft, marginTop: 16, fontSize: 15 }}>
             Building your plan…
@@ -345,16 +347,19 @@ export function WorkoutSetupWizard({ onComplete }: Props) {
     if (!generatedDays) {
       return (
         <View style={[styles.centered, { backgroundColor: theme.page }]}>
+          <ScreenBackground />
           <ActivityIndicator size="large" color={theme.teal?.solid ?? ink} />
         </View>
       );
     }
 
     return (
-      <ScrollView
-        style={{ backgroundColor: theme.page }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-      >
+      <View style={{ flex: 1, backgroundColor: theme.page }}>
+        <ScreenBackground />
+        <ScrollView
+          style={{ flex: 1, backgroundColor: 'transparent' }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        >
         <Text style={{ color: theme.textStrong, fontSize: 22, fontWeight: '900', letterSpacing: -0.8, marginBottom: 4 }}>
           Your starter plan
         </Text>
@@ -422,18 +427,21 @@ export function WorkoutSetupWizard({ onComplete }: Props) {
             }
           </Pressable>
         </View>
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   }
 
   // ── Steps 0–7: wizard questions ────────────────────────────────────────────
 
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.page }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: 'transparent' }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* ── Step 0: Goal ── */}
       {step === 0 && (
         <>
@@ -662,7 +670,8 @@ export function WorkoutSetupWizard({ onComplete }: Props) {
           </Pressable>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

@@ -6,6 +6,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES } from "../theme/tokens";
 import { api } from "../api/client";
 import { ScreenBackground } from "../components/ScreenBackground";
 
@@ -67,7 +68,7 @@ export function ChatScreen() {
       <ScreenBackground />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <FlatList
           ref={listRef}
@@ -78,8 +79,8 @@ export function ChatScreen() {
           ListEmptyComponent={
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 14 }}>
               <Ionicons name="sparkles-outline" size={34} color={theme.textSoft} />
-              <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 16 }}>Ask about your data</Text>
-              <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", paddingHorizontal: 30 }}>
+              <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: FONT_SIZES.subheading }}>Ask about your data</Text>
+              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, textAlign: "center", paddingHorizontal: 30 }}>
                 Questions are answered from your last two weeks of daily summaries. Observations only — never medical advice.
               </Text>
               <View style={{ gap: 8, marginTop: 6, alignSelf: "stretch", paddingHorizontal: 16 }}>
@@ -89,7 +90,7 @@ export function ChatScreen() {
                     onPress={() => send(s)}
                     style={[styles.suggestion, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                   >
-                    <Text style={{ color: theme.textStrong, fontSize: 13 }}>{s}</Text>
+                    <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label }}>{s}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -112,11 +113,11 @@ export function ChatScreen() {
                     : { backgroundColor: theme.card, borderWidth: 1, borderColor: theme.cardBorder },
                 ]}
               >
-                <Text style={{ color: item.role === "user" ? "#fff" : theme.textStrong, fontSize: 14, lineHeight: 20 }}>
+                <Text style={{ color: item.role === "user" ? "#fff" : theme.textStrong, fontSize: FONT_SIZES.body, lineHeight: 20 }}>
                   {item.content}
                 </Text>
                 {shownTs === index && item.ts ? (
-                  <Text style={{ color: item.role === "user" ? "rgba(255,255,255,0.75)" : theme.textSoft, fontSize: 10, marginTop: 4 }}>
+                  <Text style={{ color: item.role === "user" ? "rgba(255,255,255,0.75)" : theme.textSoft, fontSize: FONT_SIZES.micro, marginTop: 4 }}>
                     {new Date(item.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </Text>
                 ) : null}
@@ -127,21 +128,21 @@ export function ChatScreen() {
             sending ? (
               <View style={[styles.bubble, { alignSelf: "flex-start", backgroundColor: theme.card, borderWidth: 1, borderColor: theme.cardBorder, flexDirection: "row", gap: 8, alignItems: "center" }]}>
                 <ActivityIndicator size="small" color={theme.teal.solid} />
-                <Text style={{ color: theme.textSoft, fontSize: 12 }}>Thinking…</Text>
+                <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label }}>Thinking…</Text>
               </View>
             ) : null
           }
         />
         {sendError ? (
           <View style={[styles.errorBanner, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={{ color: theme.danger, fontSize: 12, flex: 1 }}>{sendError}</Text>
+            <Text style={{ color: theme.danger, fontSize: FONT_SIZES.label, flex: 1 }}>{sendError}</Text>
             <Pressable
               onPress={() => { if (lastFailed.current) send(lastFailed.current); }}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Retry sending message"
             >
-              <Text style={{ color: theme.primary, fontSize: 12, fontWeight: "700" }}>Retry</Text>
+              <Text style={{ color: theme.primary, fontSize: FONT_SIZES.label, fontWeight: "700" }}>Retry</Text>
             </Pressable>
           </View>
         ) : null}
@@ -178,6 +179,6 @@ const styles = StyleSheet.create({
   suggestion: { borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 14 },
   inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 10, borderTopWidth: 1 },
   errorBanner: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 12, marginBottom: 6, borderWidth: 1, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
-  input: { flex: 1, borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, maxHeight: 110 },
+  input: { flex: 1, borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 9, fontSize: FONT_SIZES.body, maxHeight: 110 },
   sendBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
 });

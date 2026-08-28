@@ -282,7 +282,7 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
               </Text>
               {step < PMR_STEPS.length && (
                 <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder ?? ink }]}>
-                  <PmrBodyDiagram activeArea={activeArea} accentColor={coralSolid} />
+                  <PmrBodyDiagram activeArea={activeArea} accentColor={coralSolid} textSoftColor={theme.textSoft} />
                 </View>
               )}
               {step < PMR_STEPS.length && (

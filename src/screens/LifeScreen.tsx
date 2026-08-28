@@ -623,7 +623,7 @@ export function LifeScreen() {
       )}
       {/* Section editor pencil */}
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 4 }}>
-        <Pressable onPress={() => setShowSectionEditor(true)} hitSlop={10} accessibilityLabel="Customize Life screen">
+        <Pressable onPress={() => setShowSectionEditor(true)} hitSlop={14} accessibilityLabel="Customize Life screen">
           <Ionicons name="pencil-outline" size={17} color={theme.textSoft} />
         </Pressable>
       </View>
@@ -1035,7 +1035,7 @@ export function LifeScreen() {
             </Text>
             <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
               {[1, 2, 3, 4, 5].map((n) => (
-                <Pressable key={n} onPress={() => handleRateBook(n)} hitSlop={6}>
+                <Pressable key={n} onPress={() => handleRateBook(n)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`${n} star${n === 1 ? '' : 's'}`}>
                   <Text style={{ fontSize: 36, color: n <= pendingRating ? theme.amber.solid : theme.cardBorder }}>★</Text>
                 </Pressable>
               ))}

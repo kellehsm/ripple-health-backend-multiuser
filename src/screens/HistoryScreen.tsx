@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { ShadowCard } from "../components/ShadowCard";
 import { formatDate } from "../utils/dateUtils";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 
 type FilterMode = "glucose" | "meals" | "mood" | "spending";
@@ -93,18 +94,22 @@ export function HistoryScreen() {
   }
 
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.page }}
-      contentContainerStyle={styles.content}
-      keyboardDismissMode="on-drag"
-      keyboardShouldPersistTaps="handled"
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
-    >
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        contentContainerStyle={styles.content}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
+      >
       <View style={styles.modeRow}>
         {MODES.map(m => (
           <Pressable
             key={m}
             onPress={() => { setMode(m); setResults([]); setHasSearched(false); setSearchError(null); }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: mode === m }}
             style={[styles.modeChip, {
               backgroundColor: mode === m ? theme.teal.bar : theme.page,
               borderColor: theme.ink,
@@ -276,7 +281,8 @@ export function HistoryScreen() {
           ))}
         </ShadowCard>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

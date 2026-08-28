@@ -75,7 +75,7 @@ export default async function metricsRoutes(app: FastifyInstance) {
        FROM metric_logs ml
        JOIN metrics m ON m.id = ml.metric_id
        WHERE m.user_id = $1 AND m.name = 'water'
-         AND ml.logged_at::date = current_date`,
+         AND ml.logged_at >= current_date AND ml.logged_at < current_date + interval '1 day'`,
       [user_id]
     );
     const [settings] = await query<any>(
@@ -159,7 +159,7 @@ export default async function metricsRoutes(app: FastifyInstance) {
     if (!await verifyOwner(metricId, req.user_id)) return reply.code(404).send({ error: "not found" });
     const [yesterday] = await query<any>(
       `SELECT COALESCE(SUM(ml.value), 0) as total FROM metric_logs ml JOIN metrics m ON m.id = ml.metric_id
-       WHERE ml.metric_id = $1 AND m.user_id = $2 AND ml.logged_at::date = current_date - interval '1 day'`,
+       WHERE ml.metric_id = $1 AND m.user_id = $2 AND ml.logged_at >= current_date - interval '1 day' AND ml.logged_at < current_date`,
       [metricId, req.user_id]
     );
     const [weekAvg] = await query<any>(

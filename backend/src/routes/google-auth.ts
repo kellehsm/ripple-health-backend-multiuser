@@ -3,6 +3,7 @@ import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { fetchWithTimeout } from "../lib/http.js";
 import { createOAuthState, consumeOAuthState } from "../lib/oauthStates.js";
+import { encryptCredential, decryptCredential } from "../lib/credCrypto.js";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -63,15 +64,18 @@ export default async function googleAuthRoutes(app: FastifyInstance) {
       const existing = rows[0]?.settings ?? {};
 
       // Google only returns a refresh_token on the first authorization per user+client.
-      // On re-authorizations (e.g. reinstall), fall back to the one we already have stored.
-      const refreshToken = tokens.refresh_token ?? existing.google_drive?.refresh_token;
+      // On re-authorizations (e.g. reinstall), fall back to the one we already have stored
+      // (decrypt it first so we can re-encrypt consistently below).
+      const storedRaw = existing.google_drive?.refresh_token;
+      const storedDecrypted = storedRaw ? decryptCredential(storedRaw) : undefined;
+      const refreshToken = tokens.refresh_token ?? storedDecrypted;
       if (!refreshToken) {
         app.log.error({ userId, status: tokenRes.status }, "No refresh_token in Google response and none stored");
         return reply.redirect(302, `${APP_REDIRECT}?status=error&reason=no_refresh_token`);
       }
 
       const googleDrivePatch = {
-        refresh_token: refreshToken,
+        refresh_token: encryptCredential(refreshToken),
         auto_backup: existing.google_drive?.auto_backup ?? true,
         connected_at: new Date().toISOString(),
         last_backup: existing.google_drive?.last_backup ?? null,

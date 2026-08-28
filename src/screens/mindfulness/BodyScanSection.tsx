@@ -215,7 +215,7 @@ export function BodyScanSection({ theme, ink, onBack }: { theme: any; ink: strin
             Area {stepIdx + 1} of {BODY_DIAGRAM_ORDER.length}
           </Text>
           <View style={[sharedStyles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder ?? ink }]}>
-            <PmrBodyDiagram activeArea={activeArea} accentColor={sleepSolid} />
+            <PmrBodyDiagram activeArea={activeArea} accentColor={sleepSolid} textSoftColor={theme.textSoft} />
           </View>
           <View style={[sharedStyles.card, { backgroundColor: group.tint ?? theme.card, borderColor: ink }]}>
             <Text style={{ color: group.fg ?? theme.textStrong, fontSize: 18, fontWeight: "900", marginBottom: 6 }}>

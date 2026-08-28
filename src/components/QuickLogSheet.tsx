@@ -83,7 +83,7 @@ export function QuickLogSheet({ visible, kind, onClose, onLogWater, onLogMood, o
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => {}}>
+        <Pressable style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => {}} accessibilityViewIsModal={true}>
           <View style={[styles.handle, { backgroundColor: theme.cardBorder }]} />
           <Text style={[styles.title, { color: theme.textStrong }]}>{TITLES[kind]}</Text>
           {body()}

@@ -1,5 +1,6 @@
 import { query } from "../db.js";
 import { fetchWithTimeout } from "../lib/http.js";
+import { decryptCredential } from "../lib/credCrypto.js";
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
   const res = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
@@ -22,7 +23,7 @@ export async function backupToGoogleDrive(userId: string): Promise<string> {
   const gd = rows[0]?.settings?.google_drive;
   if (!gd?.refresh_token) throw new Error("Google Drive not connected");
 
-  const accessToken = await refreshAccessToken(gd.refresh_token);
+  const accessToken = await refreshAccessToken(decryptCredential(gd.refresh_token));
 
   // Export all user data as JSON (same format as GET /export/all)
   const [glucose, meals, journal, spending, books, hobbies, hobbiesLogs, sleep, heartRate, metrics, metricLogs] =

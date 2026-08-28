@@ -79,7 +79,7 @@ export function DashboardEditorModal({ visible, layout, onSave, onCancel }: Prop
       presentationStyle="pageSheet"
       onRequestClose={onCancel}
     >
-      <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <View style={{ flex: 1, backgroundColor: theme.page }} accessibilityViewIsModal={true}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
           <Pressable onPress={onCancel} hitSlop={8} style={{ marginRight: 12 }}>

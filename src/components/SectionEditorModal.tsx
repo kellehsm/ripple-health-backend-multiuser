@@ -62,7 +62,7 @@ export function SectionEditorModal({
       presentationStyle="pageSheet"
       onRequestClose={onCancel}
     >
-      <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <View style={{ flex: 1, backgroundColor: theme.page }} accessibilityViewIsModal={true}>
         <View style={[styles.header, { borderBottomColor: theme.cardBorder }]}>
           <Pressable onPress={onCancel} hitSlop={8} style={{ marginRight: 12 }}>
             <Ionicons name="close" size={22} color={ink} />

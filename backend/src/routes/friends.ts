@@ -590,6 +590,12 @@ export default async function friendsRoutes(app: FastifyInstance) {
     if (to_user_id === me) {
       return reply.status(400).send({ error: "Cannot react to yourself" });
     }
+    if (!emoji || typeof emoji !== "string" || [...emoji].length > 8) {
+      return reply.status(400).send({ error: "emoji must be at most 8 characters" });
+    }
+    if (!week_start || !/^\d{4}-\d{2}-\d{2}$/.test(week_start)) {
+      return reply.status(400).send({ error: "week_start must be in YYYY-MM-DD format" });
+    }
 
     const friendship = await query<any>(
       `SELECT id FROM friend_connections

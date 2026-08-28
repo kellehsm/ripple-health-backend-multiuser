@@ -72,7 +72,7 @@ export function HealthTabScreen() {
   const emptyBg = useMemo(() => [rootStyles.center, { backgroundColor: theme.page }], [theme.page]);
   const emptyText = useMemo(() => [rootStyles.placeholder, { color: theme.textSoft }], [theme.textSoft]);
   const stickyHeader = useMemo(() => ({ backgroundColor: theme.page, padding: 12, paddingBottom: 4 }), [theme.page]);
-  const contentContainer = useMemo(() => ({ flexGrow: 1, paddingBottom: tourPadding }), [tourPadding]);
+  const contentContainer = useMemo(() => ({ flexGrow: 1, paddingBottom: Math.max(tourPadding, 32) }), [tourPadding]);
 
   if (!medication && !cycle) {
     return (
@@ -103,7 +103,7 @@ export function HealthTabScreen() {
           {/* Sticky overview blocks */}
           <View style={stickyHeader}>
             <View style={rootStyles.editRow}>
-              <Pressable onPress={openSectionEditor} hitSlop={10} accessibilityLabel="Customize Health screen">
+              <Pressable onPress={openSectionEditor} hitSlop={14} accessibilityLabel="Customize Health screen">
                 <Ionicons name="pencil-outline" size={17} color={theme.textSoft} />
               </Pressable>
             </View>

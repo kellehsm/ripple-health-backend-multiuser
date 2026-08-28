@@ -73,7 +73,7 @@ dotenv.config();
 
 // Fail fast on missing critical env vars — silent misconfiguration causes
 // runtime errors deep inside handlers that are hard to trace.
-const REQUIRED_ENV = ["DATABASE_URL", "JWT_SECRET"];
+const REQUIRED_ENV = ["DATABASE_URL", "JWT_SECRET", "ADMIN_SECRET"];
 const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missingEnv.length > 0) {
   // eslint-disable-next-line no-console
@@ -258,15 +258,17 @@ async function main() {
       return;
     }
     try {
-      const rows = await query<{ user_id: string; pw: string | null; hc: string | null }>(
+      const rows = await query<{ user_id: string; pw: string | null; hc: string | null; gd: string | null }>(
         `SELECT user_id,
-                settings->'dexcom'->>'share_password' AS pw,
-                settings->'hardcover'->>'api_token'  AS hc
+                settings->'dexcom'->>'share_password'    AS pw,
+                settings->'hardcover'->>'api_token'      AS hc,
+                settings->'google_drive'->>'refresh_token' AS gd
          FROM user_settings
          WHERE (settings->'dexcom'->>'share_password' IS NOT NULL AND settings->'dexcom'->>'share_password' NOT LIKE 'enc:v1:%')
-            OR (settings->'hardcover'->>'api_token'  IS NOT NULL AND settings->'hardcover'->>'api_token'  NOT LIKE 'enc:v1:%')`
+            OR (settings->'hardcover'->>'api_token'  IS NOT NULL AND settings->'hardcover'->>'api_token'  NOT LIKE 'enc:v1:%')
+            OR (settings->'google_drive'->>'refresh_token' IS NOT NULL AND settings->'google_drive'->>'refresh_token' NOT LIKE 'enc:v1:%')`
       );
-      for (const { user_id, pw, hc } of rows) {
+      for (const { user_id, pw, hc, gd } of rows) {
         if (pw && !isEncrypted(pw)) {
           await query(
             `UPDATE user_settings SET settings = jsonb_set(settings, '{dexcom,share_password}', to_jsonb($2::text)) WHERE user_id = $1`,
@@ -277,6 +279,12 @@ async function main() {
           await query(
             `UPDATE user_settings SET settings = jsonb_set(settings, '{hardcover,api_token}', to_jsonb($2::text)) WHERE user_id = $1`,
             [user_id, encryptCredential(hc)]
+          );
+        }
+        if (gd && !isEncrypted(gd)) {
+          await query(
+            `UPDATE user_settings SET settings = jsonb_set(settings, '{google_drive,refresh_token}', to_jsonb($2::text)) WHERE user_id = $1`,
+            [user_id, encryptCredential(gd)]
           );
         }
       }

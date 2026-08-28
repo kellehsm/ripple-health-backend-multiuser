@@ -15,6 +15,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { ExerciseSearchModal } from '../components/ExerciseSearchModal';
 import { PlanExercise } from '../components/WorkoutPlannerModal';
 import { fireRestTimerDone } from '../lib/smartNotifications';
+import { ScreenBackground } from '../components/ScreenBackground';
 
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
@@ -489,6 +490,7 @@ export function ExerciseSessionScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.page }]}>
+      <ScreenBackground />
       {greatSetToast ? (
         <View
           style={{

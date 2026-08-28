@@ -95,6 +95,7 @@ export function WeeklyDigestModal({
     >
       <SafeAreaView
         style={[styles.safeArea, { backgroundColor: theme.page }]}
+        accessibilityViewIsModal={true}
       >
         {/* Header */}
         <View

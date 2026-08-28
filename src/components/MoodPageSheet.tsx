@@ -153,7 +153,7 @@ export function MoodPageSheet({ visible, todayEntries, currentBucket, onDismiss,
         style={styles.sheetWrapper}
         pointerEvents="box-none"
       >
-        <View style={[styles.sheet, { backgroundColor: theme.page, borderColor: ink }]}>
+        <View style={[styles.sheet, { backgroundColor: theme.page, borderColor: ink }]} accessibilityViewIsModal={true}>
 
           {activePeriod === null ? (
             // ── Period overview ──────────────────────────────────────────────

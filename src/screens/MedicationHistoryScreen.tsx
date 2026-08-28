@@ -7,6 +7,7 @@ import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { SectionLabel } from '../components/SectionLabel';
 import { formatDateWithTime, addDays, todayStr } from '../utils/dateUtils';
+import { ScreenBackground } from '../components/ScreenBackground';
 
 interface DoseStats {
   is_prn: boolean;
@@ -99,11 +100,13 @@ export function MedicationHistoryScreen() {
   }
 
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.page }}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
-    >
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: 'transparent' }}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
+      >
       <Text style={[styles.medName, { color: theme.textStrong }]}>{medicationName}</Text>
 
       {stats && (stats.totalDoses > 0 || !stats.is_prn) && (
@@ -235,7 +238,8 @@ export function MedicationHistoryScreen() {
           ))}
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

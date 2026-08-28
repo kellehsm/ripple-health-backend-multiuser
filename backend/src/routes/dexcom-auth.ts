@@ -3,6 +3,7 @@ import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { fetchWithTimeout } from "../lib/http.js";
 import { createOAuthState, consumeOAuthState } from "../lib/oauthStates.js";
+import { encryptCredential } from "../lib/credCrypto.js";
 
 const API_BASE = process.env.DEXCOM_API_BASE ?? "https://sandbox-api.dexcom.com";
 
@@ -55,7 +56,7 @@ export default async function dexcomAuthRoutes(app: FastifyInstance) {
          access_token = EXCLUDED.access_token,
          refresh_token = EXCLUDED.refresh_token,
          expires_at = EXCLUDED.expires_at`,
-      [user_id, tokens.access_token, tokens.refresh_token, expiresAt]
+      [user_id, encryptCredential(tokens.access_token), encryptCredential(tokens.refresh_token), expiresAt]
     );
 
     return { ok: true, message: "Dexcom connected. You can close this window." };

@@ -13,6 +13,7 @@ import * as WebBrowser from "expo-web-browser";
 import notifee from "../lib/notifeeSafe";
 import * as IntentLauncher from "expo-intent-launcher";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES } from "../theme/tokens";
 import { GOOGLE_CLIENT_ID, api } from "../api/client";
 import { getUserId } from "../lib/auth";
 import { requestHealthPermissions } from "../lib/healthConnect";
@@ -262,9 +263,9 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             { icon: "💧", label: "Water", time: "3:00 pm" },
           ].map((entry) => (
             <View key={entry.label} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Text style={{ fontSize: 14 }}>{entry.icon}</Text>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: ink, flex: 1 }}>{entry.label}</Text>
-              <Text style={{ fontSize: 11, color: theme.textSoft }}>{entry.time}</Text>
+              <Text style={{ fontSize: FONT_SIZES.body }}>{entry.icon}</Text>
+              <Text style={{ fontSize: FONT_SIZES.label, fontWeight: "700", color: ink, flex: 1 }}>{entry.label}</Text>
+              <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft }}>{entry.time}</Text>
             </View>
           ))}
         </View>
@@ -284,7 +285,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           ].map((chip) => (
             <View key={chip.label} style={[styles.miniChip, { backgroundColor: theme.card, borderColor: chip.color }]}>
               <View style={[styles.miniChipDot, { backgroundColor: chip.color }]} />
-              <Text style={[styles.miniChipValue, { color: ink, fontSize: 12 }]}>{chip.value}</Text>
+              <Text style={[styles.miniChipValue, { color: ink, fontSize: FONT_SIZES.label }]}>{chip.value}</Text>
               <Text style={[styles.statChipSub, { color: theme.textSoft }]}>{chip.label}</Text>
             </View>
           ))}
@@ -326,7 +327,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             {bars.map((b) => (
               <View key={b.day} style={{ alignItems: "center", gap: 4 }}>
                 <View style={{ width: 22, height: b.h, borderRadius: 4, backgroundColor: b.color, opacity: 0.85 }} />
-                <Text style={{ fontSize: 10, color: theme.textSoft, fontWeight: "600" }}>{b.day}</Text>
+                <Text style={{ fontSize: FONT_SIZES.micro, color: theme.textSoft, fontWeight: "600" }}>{b.day}</Text>
               </View>
             ))}
           </View>
@@ -366,8 +367,8 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             { label: "Fat", g: "32g", color: theme.amber.solid },
           ].map((m) => (
             <View key={m.label} style={[styles.macroChip, { borderColor: m.color, backgroundColor: theme.card }]}>
-              <Text style={{ fontSize: 14, fontWeight: "800", color: ink }}>{m.g}</Text>
-              <Text style={{ fontSize: 11, color: theme.textSoft }}>{m.label}</Text>
+              <Text style={{ fontSize: FONT_SIZES.body, fontWeight: "800", color: ink }}>{m.g}</Text>
+              <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft }}>{m.label}</Text>
             </View>
           ))}
         </View>
@@ -538,8 +539,8 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
               { label: "Streak", val: "5", unit: "days 🔥" },
             ].map((stat) => (
               <View key={stat.label} style={{ alignItems: "center", flex: 1 }}>
-                <Text style={{ fontSize: 18, fontWeight: "900", color: theme.berry.solid }}>{stat.val}</Text>
-                <Text style={{ fontSize: 10, color: theme.textSoft }}>{stat.unit}</Text>
+                <Text style={{ fontSize: FONT_SIZES.heading, fontWeight: "900", color: theme.berry.solid }}>{stat.val}</Text>
+                <Text style={{ fontSize: FONT_SIZES.micro, color: theme.textSoft }}>{stat.unit}</Text>
               </View>
             ))}
           </View>
@@ -562,7 +563,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
       <View style={styles.preview}>
         {friends.map((f) => (
           <View key={f.name} style={[styles.mealRow, { backgroundColor: f.isYou ? theme.teal.bg : theme.card, borderColor: f.isYou ? theme.teal.solid : theme.cardBorder }]}>
-            <Text style={{ fontSize: 16, fontWeight: "900", width: 22, color: theme.teal.solid }}>#{f.rank}</Text>
+            <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", width: 22, color: theme.teal.solid }}>#{f.rank}</Text>
             <Text style={{ fontSize: 20, marginHorizontal: 4 }}>{f.mood}</Text>
             <View style={{ flex: 1 }}>
               <Text style={[styles.mealName, { color: ink }]}>{f.name}{f.isYou ? " (you)" : ""}</Text>
@@ -595,7 +596,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
               <Text style={{ fontSize: 17 }}>{item.icon}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.mealName, { color: ink, fontSize: 13 }]}>{item.gesture}</Text>
+              <Text style={[styles.mealName, { color: ink, fontSize: FONT_SIZES.label }]}>{item.gesture}</Text>
               <Text style={[styles.mealMeta, { color: theme.textSoft }]}>{item.desc}</Text>
             </View>
           </View>
@@ -611,8 +612,8 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           <View style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: theme.cardBorder, alignItems: "center", justifyContent: "center", marginBottom: 10, backgroundColor: theme.page }}>
             <Text style={{ fontSize: 26 }}>💧</Text>
           </View>
-          <Text style={{ fontWeight: "700", color: ink, fontSize: 14 }}>Pull down to refresh</Text>
-          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4 }}>The Ripple icon spins while syncing</Text>
+          <Text style={{ fontWeight: "700", color: ink, fontSize: FONT_SIZES.body }}>Pull down to refresh</Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 4 }}>The Ripple icon spins while syncing</Text>
         </View>
         <View style={[styles.insightCard, { backgroundColor: theme.coral.bg, borderColor: theme.coral.sub }]}>
           <Text style={{ fontSize: 16 }}>⚡</Text>
@@ -628,7 +629,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
         ].map((item) => (
           <View key={item.label} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Text style={{ fontSize: 16 }}>{item.icon}</Text>
-            <Text style={{ color: theme.textStrong, fontSize: 13 }}>{item.label}</Text>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label }}>{item.label}</Text>
           </View>
         ))}
       </View>
@@ -1045,14 +1046,14 @@ function makeStyles(ink: string, card: string, cardBorder: string, _width: numbe
     // ── Walkthrough ──
     topBar: { flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 20, paddingBottom: 6 },
     skipTouchable: { padding: 8 },
-    skipText: { fontSize: 14 },
+    skipText: { fontSize: FONT_SIZES.body },
     dots: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, paddingBottom: 20 },
     dot: { height: 8, borderRadius: 4 },
     walkthroughPage: { paddingHorizontal: 28, alignItems: "center", paddingBottom: 24 },
     bigEmojiBlock: { width: 110, height: 110, borderRadius: 28, borderWidth: 3, alignItems: "center", justifyContent: "center", marginBottom: 24, ...shadow },
     bigEmoji: { fontSize: 50 },
-    pageLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, marginBottom: 8, textTransform: "uppercase" },
-    pageDesc: { fontSize: 16, fontWeight: "500", textAlign: "center", lineHeight: 25, marginBottom: 20 },
+    pageLabel: { fontSize: FONT_SIZES.micro, fontWeight: "900", letterSpacing: 0.6, marginBottom: 8, textTransform: "uppercase" },
+    pageDesc: { fontSize: FONT_SIZES.subheading, fontWeight: "500", textAlign: "center", lineHeight: 25, marginBottom: 20 },
 
     // ── Preview: shared ──
     preview: { width: "100%", gap: 10 },
@@ -1061,87 +1062,87 @@ function makeStyles(ink: string, card: string, cardBorder: string, _width: numbe
     glanceChip: { flex: 1, borderRadius: 22, borderWidth: 1.5, padding: 10, alignItems: "center", gap: 3 },
     miniChip: { flex: 1, flexDirection: "row", alignItems: "center", borderRadius: 16, borderWidth: 1.5, padding: 10, gap: 8 },
     miniChipDot: { width: 8, height: 8, borderRadius: 4 },
-    miniChipValue: { fontSize: 14, fontWeight: "800", flex: 1 },
+    miniChipValue: { fontSize: FONT_SIZES.body, fontWeight: "800", flex: 1 },
 
     // ── Preview: Health stat chips ──
     statChip: { flex: 1, minWidth: "45%", borderRadius: 22, borderWidth: 2, padding: 12, gap: 2 },
     statChipDot: { width: 8, height: 8, borderRadius: 4, marginBottom: 4 },
-    statChipLabel: { fontSize: 12, fontWeight: "700" },
-    statChipValue: { fontSize: 18, fontWeight: "800" },
-    statChipUnit: { fontSize: 12, fontWeight: "500" },
-    statChipSub: { fontSize: 11 },
+    statChipLabel: { fontSize: FONT_SIZES.label, fontWeight: "700" },
+    statChipValue: { fontSize: FONT_SIZES.heading, fontWeight: "800" },
+    statChipUnit: { fontSize: FONT_SIZES.label, fontWeight: "500" },
+    statChipSub: { fontSize: FONT_SIZES.caption },
 
     // ── Preview: Meal rows ──
     mealRow: { flexDirection: "row", alignItems: "center", borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
     mealDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
-    mealName: { fontSize: 14, fontWeight: "700" },
-    mealMeta: { fontSize: 12, marginTop: 2 },
+    mealName: { fontSize: FONT_SIZES.body, fontWeight: "700" },
+    mealMeta: { fontSize: FONT_SIZES.label, marginTop: 2 },
     macroChip: { flex: 1, borderRadius: 20, borderWidth: 1.5, padding: 8, alignItems: "center", gap: 2 },
     substanceBadge: { alignSelf: "flex-start", borderRadius: 20, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
-    substanceBadgeText: { fontSize: 13, fontWeight: "700" },
+    substanceBadgeText: { fontSize: FONT_SIZES.label, fontWeight: "700" },
 
     // ── Preview: Hobbies / Books ──
     bookCard: { borderRadius: 22, borderWidth: 1, padding: 14, gap: 4 },
-    bookTitle: { fontSize: 14, fontWeight: "800" },
-    bookAuthor: { fontSize: 12, marginBottom: 8 },
+    bookTitle: { fontSize: FONT_SIZES.body, fontWeight: "800" },
+    bookAuthor: { fontSize: FONT_SIZES.label, marginBottom: 8 },
     progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
     progressFill: { height: 6, borderRadius: 3 },
-    progressLabel: { fontSize: 11, marginTop: 4 },
+    progressLabel: { fontSize: FONT_SIZES.caption, marginTop: 4 },
     hobbyRow: { flexDirection: "row", alignItems: "center", borderRadius: 16, borderWidth: 1, padding: 12, gap: 12 },
     hobbyIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-    hobbyName: { fontSize: 14, fontWeight: "700" },
-    hobbyMeta: { fontSize: 12, marginTop: 2 },
+    hobbyName: { fontSize: FONT_SIZES.body, fontWeight: "700" },
+    hobbyMeta: { fontSize: FONT_SIZES.label, marginTop: 2 },
 
     // ── Preview: Insights ──
     insightCard: { flexDirection: "row", alignItems: "flex-start", borderRadius: 22, borderWidth: 1.5, padding: 12, gap: 10 },
-    insightTitle: { fontSize: 13, fontWeight: "800", marginBottom: 2 },
-    insightText: { fontSize: 12, lineHeight: 18 },
+    insightTitle: { fontSize: FONT_SIZES.label, fontWeight: "800", marginBottom: 2 },
+    insightText: { fontSize: FONT_SIZES.label, lineHeight: 18 },
     weekBadge: { flexDirection: "row", alignItems: "center", borderRadius: 16, borderWidth: 1, padding: 10, gap: 10 },
-    weekBadgeText: { fontSize: 12, fontWeight: "600", flex: 1 },
+    weekBadgeText: { fontSize: FONT_SIZES.label, fontWeight: "600", flex: 1 },
 
     // ── Preview: Finance ──
     categoryDot: { width: 12, height: 12, borderRadius: 8, flexShrink: 0 },
 
     // ── Theme picker ──
     themeHeader: { paddingHorizontal: 24, paddingBottom: 16 },
-    themeSubtitle: { fontSize: 14, marginTop: 6 },
+    themeSubtitle: { fontSize: FONT_SIZES.body, marginTop: 6 },
     themeGrid: { paddingHorizontal: 20, paddingBottom: 24, gap: 20 },
-    themeGroupLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 1.2, marginBottom: 10 },
+    themeGroupLabel: { fontSize: FONT_SIZES.caption, fontWeight: "800", letterSpacing: 1.2, marginBottom: 10 },
     themeRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     themeCard: { width: "46%", borderRadius: 22, borderWidth: 2, padding: 12, gap: 8 },
     swatchRow: { flexDirection: "row", gap: 4 },
     swatch: { flex: 1, height: 14, borderRadius: 4 },
-    themeCardName: { fontSize: 13, fontWeight: "700" },
+    themeCardName: { fontSize: FONT_SIZES.label, fontWeight: "700" },
 
     // ── Shared bottom ──
     bottom: { padding: 20, gap: 12, borderTopWidth: 1 },
     primaryBtn: { borderRadius: 26, borderWidth: 2, paddingVertical: 15, alignItems: "center", shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
-    primaryBtnText: { color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: 0.2 },
+    primaryBtnText: { color: "#fff", fontWeight: "800", fontSize: FONT_SIZES.subheading, letterSpacing: 0.2 },
     secondaryBtn: { borderRadius: 26, borderWidth: 2, paddingVertical: 13, alignItems: "center", shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
-    secondaryBtnText: { fontWeight: "800", fontSize: 15, letterSpacing: 0.2 },
+    secondaryBtnText: { fontWeight: "800", fontSize: FONT_SIZES.subheading, letterSpacing: 0.2 },
 
     // ── Integration step card ──
     stepCard: { margin: 20, borderRadius: 16, borderWidth: 2, padding: 24, ...shadow },
     stepEmojiBlock: { width: 88, height: 88, borderRadius: 22, borderWidth: 2, alignItems: "center", justifyContent: "center", marginBottom: 20, alignSelf: "center", shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
     stepEmoji: { fontSize: 40 },
-    stepTitle: { fontSize: 24, fontWeight: "900", letterSpacing: -0.8, textAlign: "center", marginBottom: 16 },
-    stepDesc: { fontSize: 15, lineHeight: 24 },
-    stepDescSmall: { fontSize: 13, lineHeight: 20 },
+    stepTitle: { fontSize: FONT_SIZES.title, fontWeight: "900", letterSpacing: -0.8, textAlign: "center", marginBottom: 16 },
+    stepDesc: { fontSize: FONT_SIZES.subheading, lineHeight: 24 },
+    stepDescSmall: { fontSize: FONT_SIZES.label, lineHeight: 20 },
 
     // ── Dexcom inputs ──
-    inputLabel: { fontSize: 12, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase", marginTop: 14, marginBottom: 6 },
-    input: { borderWidth: 2, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+    inputLabel: { fontSize: FONT_SIZES.label, fontWeight: "700", letterSpacing: 0.8, textTransform: "uppercase", marginTop: 14, marginBottom: 6 },
+    input: { borderWidth: 2, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, fontSize: FONT_SIZES.subheading },
     regionToggle: { flexDirection: "row", gap: 10, marginTop: 14 },
     regionBtn: { flex: 1, borderRadius: 16, borderWidth: 2, paddingVertical: 10, alignItems: "center" },
-    regionBtnText: { fontWeight: "700", fontSize: 14 },
+    regionBtnText: { fontWeight: "700", fontSize: FONT_SIZES.body },
 
     // ── Disclosure box ──
     disclosureBox: { marginTop: 16, borderRadius: 22, borderWidth: 2, padding: 14, gap: 4 },
-    disclosureLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
-    disclosureText: { fontSize: 13, lineHeight: 20, fontWeight: "500" },
+    disclosureLabel: { fontSize: FONT_SIZES.micro, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
+    disclosureText: { fontSize: FONT_SIZES.label, lineHeight: 20, fontWeight: "500" },
 
-    errorText: { fontSize: 13, marginTop: 10, lineHeight: 19 },
+    errorText: { fontSize: FONT_SIZES.label, marginTop: 10, lineHeight: 19 },
     bulletDot: { width: 7, height: 7, borderRadius: 4, marginTop: 7, flexShrink: 0 },
-    bulletText: { flex: 1, fontSize: 15, lineHeight: 23 },
+    bulletText: { flex: 1, fontSize: FONT_SIZES.subheading, lineHeight: 23 },
   });
 }

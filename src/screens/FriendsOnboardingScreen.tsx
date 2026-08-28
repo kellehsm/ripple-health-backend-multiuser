@@ -16,6 +16,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { setUsername, updateSharingPrefs } from "../api/friends";
 import { toast } from "../lib/toast";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 const FRIENDS_ONBOARDING_KEY = "friends_onboarding_done";
 
@@ -106,6 +107,7 @@ export function FriendsOnboardingScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
       {/* Dots */}
       <View style={s.dots}>
         {STEPS.map((_, i) => (

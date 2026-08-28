@@ -68,6 +68,9 @@ const CATEGORY_ORDER: { label: string; types: string[] }[] = [
   { label: "Medication",   types: ["medication"] },
   { label: "Finance",      types: ["spending"] },
   { label: "Cycle",        types: ["cycle"] },
+  { label: "Trends",       types: ["trend"] },
+  { label: "Anomalies",    types: ["anomaly"] },
+  { label: "Finance",      types: ["finance"] },
   { label: "Combined",     types: ["combined", "category_summary"] },
 ];
 

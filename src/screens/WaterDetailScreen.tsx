@@ -31,6 +31,7 @@ import { api } from "../api/client";
 import { CountUpText } from "../components/CountUpText";
 import { useReduceMotion } from "../hooks/useReduceMotion";
 import { UndoBanner } from "../components/UndoBanner";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 const WATER_GOAL_KEY = "ripple_water_goal";
 const DEFAULT_WATER_GOAL = 8;
@@ -213,7 +214,7 @@ function RippleRing({ color, trigger }: { color: string; trigger: number }) {
 
 // ── Mini 7-day droplet ────────────────────────────────────────────────────────
 
-function MiniDayDroplet({ fillPct, color, label, isToday }: { fillPct: number; color: string; label: string; isToday: boolean }) {
+function MiniDayDroplet({ fillPct, color, label, isToday, textSoftColor }: { fillPct: number; color: string; label: string; isToday: boolean; textSoftColor: string }) {
   const W = 28, H = 36;
   const MINI_PATH = "M14 3 C14 3 4 14 4 22 a10 10 0 0 0 20 0 C24 14 14 3 14 3 Z";
   const innerTop = 8, innerH = 24;
@@ -235,7 +236,7 @@ function MiniDayDroplet({ fillPct, color, label, isToday }: { fillPct: number; c
         )}
         <Path d={MINI_PATH} fill="none" stroke={color} strokeWidth={1.5} />
       </Svg>
-      <Text style={{ fontSize: 10, fontWeight: "700", color: isToday ? color : "#888" }}>{label}</Text>
+      <Text style={{ fontSize: 10, fontWeight: "700", color: isToday ? color : textSoftColor }}>{label}</Text>
     </View>
   );
 }
@@ -611,6 +612,7 @@ export function WaterDetailScreen() {
 
   return (
     <View style={[s.page, { position: "relative" }]}>
+      <ScreenBackground />
       <ScrollView
         contentContainerStyle={s.scroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.blue.bar ?? theme.blue.solid} colors={[theme.blue.bar ?? theme.blue.solid]} />}
@@ -688,6 +690,7 @@ export function WaterDetailScreen() {
                     color={blue.solid}
                     label={label}
                     isToday={isToday}
+                    textSoftColor={theme.textSoft}
                   />
                 </View>
               );

@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { pool, query } from "../db.js";
 import { backupToGoogleDrive } from "../jobs/google-drive-backup.js";
 import { fetchWithTimeout } from "../lib/http.js";
+import { decryptCredential } from "../lib/credCrypto.js";
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
   const res = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
@@ -52,7 +53,7 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
     const gd = rows[0]?.settings?.google_drive ?? {};
     if (!gd.refresh_token) return reply.code(400).send({ error: "Google Drive not connected" });
     try {
-      const accessToken = await refreshAccessToken(gd.refresh_token);
+      const accessToken = await refreshAccessToken(decryptCredential(gd.refresh_token));
       const listRes = await fetchWithTimeout(
         "https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&pageSize=1&orderBy=modifiedTime%20desc&fields=files(id,name,modifiedTime,size)",
         { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -139,7 +140,7 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
     const gd = rows[0]?.settings?.google_drive;
     if (!gd?.refresh_token) throw new Error("Google Drive not connected");
 
-    const accessToken = await refreshAccessToken(gd.refresh_token);
+    const accessToken = await refreshAccessToken(decryptCredential(gd.refresh_token));
     const listRes = await fetchWithTimeout(
       "https://www.googleapis.com/drive/v3/files?" +
         new URLSearchParams({
@@ -168,7 +169,7 @@ export default async function googleDriveRoutes(app: FastifyInstance) {
     const gd = rows[0]?.settings?.google_drive;
     if (!gd?.refresh_token) throw new Error("Google Drive not connected");
 
-    const accessToken = await refreshAccessToken(gd.refresh_token);
+    const accessToken = await refreshAccessToken(decryptCredential(gd.refresh_token));
 
     const fileRes = await fetchWithTimeout(
       `https://www.googleapis.com/drive/v3/files/${file_id}?alt=media`,
