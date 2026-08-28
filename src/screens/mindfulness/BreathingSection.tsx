@@ -233,6 +233,8 @@ export function BreathingSection({ theme, ink, onBack, quickReset }: { theme: an
   const phaseTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cyclesRef = useRef(0);
   const quickResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quickResetCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [quickResetSecsLeft, setQuickResetSecsLeft] = useState(QUICK_RESET_SECONDS);
   const endSessionRef = useRef<(() => void) | undefined>(undefined);
   const runCycleRef = useRef<((key: BreathPattern) => void) | undefined>(undefined);
 
@@ -322,6 +324,7 @@ export function BreathingSection({ theme, ink, onBack, quickReset }: { theme: an
 
   function clearQuickResetTimer() {
     if (quickResetTimerRef.current) { clearTimeout(quickResetTimerRef.current); quickResetTimerRef.current = null; }
+    if (quickResetCountdownRef.current) { clearInterval(quickResetCountdownRef.current); quickResetCountdownRef.current = null; }
   }
 
   function beginSession(key: BreathPattern) {
@@ -334,7 +337,16 @@ export function BreathingSection({ theme, ink, onBack, quickReset }: { theme: an
     setRunning(true); runningRef.current = true;
     setTimeout(() => runCycleRef.current?.(key), 100);
     if (quickReset) {
+      setQuickResetSecsLeft(QUICK_RESET_SECONDS);
       quickResetTimerRef.current = setTimeout(() => { quickResetTimerRef.current = null; endSessionRef.current?.(); }, QUICK_RESET_SECONDS * 1000);
+      let remaining = QUICK_RESET_SECONDS;
+      quickResetCountdownRef.current = setInterval(() => {
+        remaining -= 1;
+        setQuickResetSecsLeft(remaining > 0 ? remaining : 0);
+        if (remaining <= 0) {
+          if (quickResetCountdownRef.current) { clearInterval(quickResetCountdownRef.current); quickResetCountdownRef.current = null; }
+        }
+      }, 1000);
     }
   }
 
@@ -497,10 +509,22 @@ export function BreathingSection({ theme, ink, onBack, quickReset }: { theme: an
         </>
       ) : (
         <View style={{ alignItems: "center", gap: 20, paddingVertical: 16 }}>
-          <Text style={{ color: theme.textSoft, fontSize: 13, letterSpacing: 0.5 }}>
-            {pattern ? BREATH_PATTERNS[pattern].label : ""}
-            {quickReset ? " · ends automatically" : ""}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Text style={{ color: theme.textSoft, fontSize: 13, letterSpacing: 0.5 }}>
+              {pattern ? BREATH_PATTERNS[pattern].label : ""}
+            </Text>
+            {quickReset && (
+              <View style={{
+                flexDirection: "row", alignItems: "center", gap: 5,
+                backgroundColor: tealSolid + "22", borderRadius: 12,
+                paddingHorizontal: 10, paddingVertical: 3,
+              }}>
+                <Text style={{ color: tealSolid, fontSize: 13, fontWeight: "900", fontVariant: ["tabular-nums"] }}>
+                  {String(Math.floor(quickResetSecsLeft / 60)).padStart(1, "0")}:{String(quickResetSecsLeft % 60).padStart(2, "0")}
+                </Text>
+              </View>
+            )}
+          </View>
 
           {pattern === "box" ? (
             <BoxBreathingAnimationInner perimeterAnim={perimeterAnim} phase={phase} phaseSecsLeft={phaseSecsLeft} phaseColors={phaseColors} />
