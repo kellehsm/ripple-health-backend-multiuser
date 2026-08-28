@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, Alert, Animated, Easing, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { FONT_SIZES } from '../../theme/tokens';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -83,6 +84,24 @@ export function AdherenceHero({
   const teal = theme.teal;
   const yesterday = addDays(todayStr(), -1);
 
+  // ── 7-Day Adherence score derived from days array ────────────────────────
+  // data.days is ordered oldest→newest; last 7 = current week, prior 7 = last week
+  const last7Days = data.days.slice(-7);
+  const prior7Days = data.days.length >= 14 ? data.days.slice(-14, -7) : [];
+  const week7Scheduled = last7Days.reduce((s, d) => s + d.expected, 0);
+  const week7Taken = last7Days.reduce((s, d) => s + d.taken, 0);
+  const week7Score = week7Scheduled > 0 ? Math.round((week7Taken / week7Scheduled) * 100) : null;
+  const prior7Scheduled = prior7Days.reduce((s, d) => s + d.expected, 0);
+  const prior7Taken = prior7Days.reduce((s, d) => s + d.taken, 0);
+  const prior7Score = prior7Scheduled > 0 ? Math.round((prior7Taken / prior7Scheduled) * 100) : null;
+  const weekTrend = week7Score !== null && prior7Score !== null ? week7Score - prior7Score : null;
+  const adherenceColor =
+    week7Score == null ? theme.textSoft
+    : week7Score >= 90 ? theme.success
+    : week7Score >= 70 ? theme.warning
+    : theme.danger;
+  const showWeekCard = week7Scheduled >= 3;
+
   async function markYesterdayTaken(missed: MissedSlot[]) {
     setMarking(true);
     try {
@@ -117,6 +136,33 @@ export function AdherenceHero({
 
   return (
     <View style={{ gap: 12 }}>
+      {/* ── Weekly Adherence Score Card ─────────────────────────────────── */}
+      {showWeekCard && week7Score !== null && (
+        <View style={[heroStyles.weekCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <ProgressRing size={72} stroke={8} progress={week7Score / 100} color={adherenceColor} track={teal.tint}>
+              <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: '900', color: adherenceColor }} allowFontScaling maxFontSizeMultiplier={1.2}>
+                {week7Score}%
+              </Text>
+            </ProgressRing>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={{ fontSize: FONT_SIZES.caption, fontWeight: '900', color: theme.textSoft, letterSpacing: 0.5 }}>7-DAY ADHERENCE</Text>
+              <Text style={{ fontSize: FONT_SIZES.body, fontWeight: '900', color: adherenceColor }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                {week7Score >= 90 ? 'Excellent' : week7Score >= 70 ? 'Good' : 'Needs attention'}
+              </Text>
+              <Text style={{ fontSize: FONT_SIZES.label, color: theme.textSoft }} allowFontScaling maxFontSizeMultiplier={1.3}>
+                {week7Taken} of {week7Scheduled} scheduled doses taken
+              </Text>
+              {weekTrend !== null && (
+                <Text style={{ fontSize: FONT_SIZES.caption, fontWeight: '700', color: weekTrend >= 0 ? theme.success : theme.danger }}>
+                  {weekTrend >= 0 ? `↑ ${weekTrend}% vs last week` : `↓ ${Math.abs(weekTrend)}% vs last week`}
+                </Text>
+              )}
+            </View>
+          </View>
+        </View>
+      )}
+
       {/* Missed-dose banner — slim row with expandable detail sheet */}
       {showMissedBanner && (
         <View style={[heroStyles.missedBanner, { backgroundColor: theme.amber?.bg ?? '#FEF3E2', borderColor: theme.amber?.solid ?? '#D97706', padding: 0, overflow: 'hidden' }]}>
@@ -251,6 +297,12 @@ export function AdherenceHero({
 }
 
 const heroStyles = StyleSheet.create({
+  weekCard: {
+    borderRadius: 22,
+    borderWidth: 2,
+    padding: 14,
+    elevation: 3,
+  },
   card: {
     borderRadius: 26,
     borderWidth: 2,

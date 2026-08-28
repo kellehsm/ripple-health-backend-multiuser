@@ -6,7 +6,7 @@
  * Extracted from OverviewScreen.tsx — no logic changes.
  */
 import React, { useRef, useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView, Animated, StyleSheet } from "react-native";
+import { View, Text, Pressable, ScrollView, Animated, StyleSheet, Alert } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/ThemeContext";
@@ -29,6 +29,8 @@ interface Props {
   tourHeaderRef: React.RefObject<View | null>;
   navigation: any;
   onEditLayout: () => void;
+  freezeStatus?: { available: boolean; used_this_month: boolean; freeze_count_remaining: number } | null;
+  onFreezeStreak?: () => void;
 }
 
 export function HeaderCard({
@@ -41,6 +43,8 @@ export function HeaderCard({
   tourHeaderRef,
   navigation,
   onEditLayout,
+  freezeStatus,
+  onFreezeStreak,
 }: Props) {
   const { theme } = useTheme();
 
@@ -218,6 +222,29 @@ export function HeaderCard({
         </ScrollView>
       ) : null}
 
+      {/* Streak freeze row */}
+      {allStreaks.some(s => s.count > 0) && freezeStatus != null && (
+        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 6 }}>
+          {freezeStatus.available ? (
+            <Pressable
+              onPress={onFreezeStreak}
+              style={[styles.freezeBtn, { backgroundColor: theme.blue.tint, borderColor: theme.blue.solid }]}
+              accessibilityRole="button"
+              accessibilityLabel="Freeze your streak"
+            >
+              <Ionicons name="snow-outline" size={13} color={theme.blue.fg} />
+              <Text style={{ color: theme.blue.fg, fontSize: FONT_SIZES.caption, fontWeight: "800", marginLeft: 4 }}>
+                Freeze Streak
+              </Text>
+            </Pressable>
+          ) : (
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontWeight: "600" }}>
+              ❄️ Freeze used this month
+            </Text>
+          )}
+        </View>
+      )}
+
       {/* Weekly activity summary — one-liner below streak pills */}
       {!loading && weeklyData.length > 0 && (() => {
         const moodDays = weeklyData.filter(d => d.avg_mood !== null).length;
@@ -259,4 +286,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   streakPillText: { fontSize: FONT_SIZES.caption, fontWeight: "800", letterSpacing: 0.5 },
+  freezeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: "flex-start",
+  },
 });

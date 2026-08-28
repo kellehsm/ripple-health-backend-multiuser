@@ -445,6 +445,115 @@ export default async function friendsRoutes(app: FastifyInstance) {
     return feed;
   });
 
+  // GET /activity-feed-v2 — rich activity feed: what friends have been doing in the last 7 days
+  app.get("/activity-feed-v2", async (req, reply) => {
+    const me = req.user_id;
+    const { limit: limitParam } = req.query as any;
+    const limit = Math.min(Math.max(parseInt(limitParam, 10) || 20, 1), 50);
+
+    // Find all accepted friends
+    const friendRows = await query<any>(
+      `SELECT
+         CASE WHEN fc.user_id_a = $1 THEN fc.user_id_b ELSE fc.user_id_a END AS friend_id
+       FROM friend_connections fc
+       WHERE (fc.user_id_a = $1 OR fc.user_id_b = $1) AND fc.status = 'accepted'`,
+      [me]
+    );
+    if (friendRows.length === 0) return [];
+
+    const friendIds: string[] = friendRows.map((r: any) => r.friend_id);
+
+    // Get display names for all friends
+    const userRows = await query<any>(
+      `SELECT id, username, email FROM users WHERE id = ANY($1::uuid[])`,
+      [friendIds]
+    );
+    const userMap = new Map<string, string>();
+    for (const u of userRows) userMap.set(u.id, u.username ?? u.email);
+
+    // Fetch activity across all 4 sources using UNION ALL
+    const activityRows = await query<any>(
+      `SELECT user_id, activity_type, description, occurred_at FROM (
+         -- metric logs (non-mindfulness)
+         SELECT
+           ml.user_id,
+           'metric'::text AS activity_type,
+           m.name || ': ' || ml.value::text AS description,
+           ml.logged_at AS occurred_at
+         FROM metric_logs ml
+         JOIN metrics m ON m.id = ml.metric_id
+         WHERE ml.user_id = ANY($1::uuid[])
+           AND ml.logged_at >= now() - INTERVAL '7 days'
+           AND m.name != 'mindfulness'
+
+         UNION ALL
+
+         -- exercise sessions (completed)
+         SELECT
+           s.user_id,
+           'exercise'::text AS activity_type,
+           COALESCE(
+             (SELECT string_agg(DISTINCT lib.name, ', ' ORDER BY lib.name)
+              FROM exercise_log_entries e
+              JOIN exercise_library lib ON lib.id = e.exercise_id
+              WHERE e.session_id = s.id),
+             'Workout'
+           ) || ' — ' ||
+           EXTRACT(EPOCH FROM (s.ended_at - s.started_at))::int / 60 || ' min' AS description,
+           s.ended_at AS occurred_at
+         FROM exercise_sessions s
+         WHERE s.user_id = ANY($1::uuid[])
+           AND s.ended_at IS NOT NULL
+           AND s.ended_at >= now() - INTERVAL '7 days'
+
+         UNION ALL
+
+         -- mindfulness sessions (stored as metric_logs with name='mindfulness')
+         SELECT
+           ml.user_id,
+           'mindfulness'::text AS activity_type,
+           COALESCE(
+             REGEXP_REPLACE(ml.note, '^type:([^ ]+).*$', '\1'),
+             'mindfulness'
+           ) || ': ' ||
+           COALESCE(
+             REGEXP_REPLACE(ml.note, '.*duration:([0-9]+)s.*', '\1'),
+             '0'
+           )::int / 60 || ' min' AS description,
+           ml.logged_at AS occurred_at
+         FROM metric_logs ml
+         JOIN metrics m ON m.id = ml.metric_id
+         WHERE ml.user_id = ANY($1::uuid[])
+           AND m.name = 'mindfulness'
+           AND ml.logged_at >= now() - INTERVAL '7 days'
+
+         UNION ALL
+
+         -- challenge joins
+         SELECT
+           cp.user_id,
+           'challenge_joined'::text AS activity_type,
+           'Joined challenge: ' || c.title AS description,
+           cp.joined_at AS occurred_at
+         FROM challenge_participants cp
+         JOIN challenges c ON c.id = cp.challenge_id
+         WHERE cp.user_id = ANY($1::uuid[])
+           AND cp.joined_at >= now() - INTERVAL '7 days'
+       ) combined
+       ORDER BY occurred_at DESC
+       LIMIT $2`,
+      [friendIds, limit]
+    );
+
+    return activityRows.map((r: any) => ({
+      user_id: r.user_id,
+      display_name: userMap.get(r.user_id) ?? r.user_id,
+      activity_type: r.activity_type,
+      description: r.description,
+      occurred_at: r.occurred_at,
+    }));
+  });
+
   // POST /nudge/:friendId — poke a friend (24h rate-limit)
   app.post("/nudge/:friendId", async (req, reply) => {
     const me = req.user_id;

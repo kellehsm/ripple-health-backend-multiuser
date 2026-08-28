@@ -78,6 +78,91 @@ export default async function hobbiesRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  // GET /hobbies/stats-batch — fetch stats + 3 recent logs for ALL user hobbies in one round trip
+  app.get("/stats-batch", async (req) => {
+    const user_id = req.user_id;
+    const { week_start_day = "1" } = req.query as any;
+    const startDay = parseWeekStartDay(week_start_day);
+
+    // 1. All hobbies for the user
+    const hobbies = await query<any>(
+      `SELECT * FROM hobbies WHERE user_id = $1 AND (status IS NULL OR status = 'active') ORDER BY name`,
+      [user_id]
+    );
+    if (hobbies.length === 0) return [];
+
+    const hobbyIds: string[] = hobbies.map((h: any) => h.id);
+
+    // 2. Compute this week's start date (same logic as /:id/stats)
+    const [ws] = await query<any>(
+      `SELECT (date_trunc('day', now()) - ((EXTRACT(DOW FROM now())::int - $1 + 7) % 7) * INTERVAL '1 day')::date AS week_start`,
+      [startDay]
+    );
+    const weekStart = ws.week_start instanceof Date ? ws.week_start.toISOString().slice(0, 10) : String(ws.week_start).slice(0, 10);
+
+    // 3. This-week totals for all hobbies in one query
+    const thisWeekRows = await query<any>(
+      `SELECT hl.hobby_id, COALESCE(SUM(hl.amount), 0) AS total
+       FROM hobby_logs hl
+       WHERE hl.hobby_id = ANY($1::uuid[]) AND hl.logged_at::date >= $2::date
+       GROUP BY hl.hobby_id`,
+      [hobbyIds, weekStart]
+    );
+
+    // 4. Last-week totals for all hobbies in one query
+    const lastWeekRows = await query<any>(
+      `SELECT hl.hobby_id, COALESCE(SUM(hl.amount), 0) AS total
+       FROM hobby_logs hl
+       WHERE hl.hobby_id = ANY($1::uuid[])
+         AND hl.logged_at::date >= $2::date - INTERVAL '7 days'
+         AND hl.logged_at::date < $2::date
+       GROUP BY hl.hobby_id`,
+      [hobbyIds, weekStart]
+    );
+
+    // 5. 3 most recent logs per hobby using a window function
+    const recentLogsRows = await query<any>(
+      `SELECT * FROM (
+         SELECT hl.*,
+                ROW_NUMBER() OVER (PARTITION BY hl.hobby_id ORDER BY hl.logged_at DESC) AS rn
+         FROM hobby_logs hl
+         WHERE hl.hobby_id = ANY($1::uuid[])
+       ) ranked
+       WHERE rn <= 3
+       ORDER BY hobby_id, logged_at DESC`,
+      [hobbyIds]
+    );
+
+    // Build lookup maps
+    const thisWeekMap = new Map<string, number>();
+    for (const r of thisWeekRows) thisWeekMap.set(r.hobby_id, Number(r.total));
+
+    const lastWeekMap = new Map<string, number>();
+    for (const r of lastWeekRows) lastWeekMap.set(r.hobby_id, Number(r.total));
+
+    const recentLogsMap = new Map<string, any[]>();
+    for (const r of recentLogsRows) {
+      const { rn, ...log } = r;
+      if (!recentLogsMap.has(r.hobby_id)) recentLogsMap.set(r.hobby_id, []);
+      recentLogsMap.get(r.hobby_id)!.push(log);
+    }
+
+    // Assemble response
+    return hobbies.map((hobby: any) => {
+      const thisWeekTotal = thisWeekMap.get(hobby.id) ?? 0;
+      const lastWeekTotal = lastWeekMap.get(hobby.id) ?? 0;
+      return {
+        hobby,
+        stats: {
+          this_week_total: thisWeekTotal,
+          last_week_total: lastWeekTotal,
+          change: thisWeekTotal - lastWeekTotal,
+        },
+        recentLogs: recentLogsMap.get(hobby.id) ?? [],
+      };
+    });
+  });
+
   app.get("/:id/stats", async (req, reply) => {
     const user_id = req.user_id;
     const { id } = req.params as any;

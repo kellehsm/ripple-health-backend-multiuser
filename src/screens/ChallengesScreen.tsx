@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
@@ -9,6 +9,7 @@ import {
   Pressable,
   StyleSheet,
   RefreshControl,
+  Alert,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -18,7 +19,9 @@ import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { EmptyState } from "../components/EmptyState";
 import { getChallenges, Challenge, SocialCategory } from "../api/friends";
+import { api } from "../api/client";
 import { todayStr, fmtDateRange } from "../utils/dateUtils";
+import { toast } from "../lib/toast";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -36,6 +39,16 @@ function daysRemaining(endDate: string): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
+type ChallengeTemplate = {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  duration_days: number;
+  difficulty: "easy" | "medium" | "hard";
+  category: string;
+};
+
 export function ChallengesScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
@@ -48,6 +61,9 @@ export function ChallengesScreen() {
   const [reloadKey, setReloadKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const lastFetchRef = useRef(0);
+
+  const [templates, setTemplates] = useState<ChallengeTemplate[]>([]);
+  const templatesFetchedRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,6 +79,48 @@ export function ChallengesScreen() {
       return () => { cancelled = true; };
     }, [reloadKey, refreshing])
   );
+
+  // Fetch templates once per session
+  useEffect(() => {
+    if (templatesFetchedRef.current) return;
+    templatesFetchedRef.current = true;
+    api.getChallengeTemplates()
+      .then((data) => setTemplates(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  function difficultyColor(difficulty: ChallengeTemplate["difficulty"]): string {
+    if (difficulty === "easy") return theme.success;
+    if (difficulty === "medium") return theme.warning;
+    return theme.danger;
+  }
+
+  function handleTemplatePress(tmpl: ChallengeTemplate) {
+    Haptics.selectionAsync();
+    Alert.alert(
+      "Start " + tmpl.title + "?",
+      tmpl.description,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Invite Friends",
+          onPress: () => navigation.navigate("NewChallenge", { template: tmpl }),
+        },
+        {
+          text: "Start Solo",
+          onPress: async () => {
+            try {
+              await api.startChallengeFromTemplate(tmpl.id);
+              toast("Challenge started!");
+              setReloadKey((k) => k + 1);
+            } catch (e: any) {
+              toast(e?.message ?? "Could not start challenge.", "error");
+            }
+          },
+        },
+      ]
+    );
+  }
 
   const today = todayStr();
   const active = challenges.filter((c) => c.end_date >= today && c.start_date <= today);
@@ -131,6 +189,43 @@ export function ChallengesScreen() {
           />
         }
       >
+        {/* Quick Start templates */}
+        {templates.length > 0 && (
+          <>
+            <Text style={[styles.groupLabel, { color: theme.textSoft }]}>QUICK START</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 10, paddingRight: 4, paddingBottom: 4 }}
+            >
+              {templates.map((tmpl) => (
+                <Pressable
+                  key={tmpl.id}
+                  onPress={() => handleTemplatePress(tmpl)}
+                  style={[styles.templateCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={"Start " + tmpl.title}
+                >
+                  <View style={[styles.iconBadge, { backgroundColor: theme.purple.tint, borderColor: theme.purple.solid }]}>
+                    <Ionicons name={(tmpl.icon as any) || "trophy-outline"} size={20} color={theme.purple.fg} />
+                  </View>
+                  <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: 13, marginTop: 8 }} numberOfLines={2}>
+                    {tmpl.title}
+                  </Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 2 }}>
+                    {tmpl.duration_days}d
+                  </Text>
+                  <View style={[styles.diffBadge, { backgroundColor: difficultyColor(tmpl.difficulty) + "22", borderColor: difficultyColor(tmpl.difficulty) }]}>
+                    <Text style={{ color: difficultyColor(tmpl.difficulty), fontSize: 10, fontWeight: "800" }}>
+                      {tmpl.difficulty.toUpperCase()}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
         {loading ? (
           <View style={{ gap: 12 }}>
             <ShadowCard skeleton skeletonHeight={88} />
@@ -258,6 +353,25 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 10,
     marginTop: 4,
+  },
+  templateCard: {
+    width: 120,
+    borderWidth: 2,
+    borderRadius: 18,
+    padding: 12,
+    alignItems: "flex-start",
+    shadowColor: "rgba(60,40,20,0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  diffBadge: {
+    marginTop: 8,
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   fab: {
     position: "absolute",

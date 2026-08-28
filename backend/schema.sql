@@ -155,6 +155,18 @@ CREATE TABLE spending_entries (
     source TEXT DEFAULT 'manual'       -- 'manual' | 'goldfinch_import'
 );
 
+-- ---------- STREAK FREEZES ----------
+CREATE TABLE IF NOT EXISTS streak_freezes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  freeze_month DATE NOT NULL, -- first day of the month this freeze was used
+  applied_to_date DATE NOT NULL, -- the missed day that was covered
+  streak_type TEXT NOT NULL, -- e.g. 'mindfulness', 'logging', 'exercise'
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS streak_freezes_user_month_type
+  ON streak_freezes (user_id, freeze_month, streak_type);
+
 -- ---------- INDEXES for the correlation queries ----------
 CREATE INDEX idx_glucose_time ON glucose_readings (user_id, recorded_at);
 CREATE INDEX idx_meals_time ON meals (user_id, logged_at);

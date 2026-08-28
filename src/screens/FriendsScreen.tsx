@@ -56,6 +56,32 @@ import {
 import { api } from "../api/client";
 import { todayStr } from "../utils/dateUtils";
 
+type FriendActivity = {
+  id: string;
+  user_id: string;
+  display_name: string;
+  activity_type: "metric" | "exercise" | "mindfulness" | "challenge_joined";
+  description: string;
+  occurred_at: string;
+};
+
+function activityIcon(type: FriendActivity["activity_type"]): keyof typeof Ionicons.glyphMap {
+  if (type === "exercise") return "barbell-outline";
+  if (type === "mindfulness") return "leaf-outline";
+  if (type === "challenge_joined") return "trophy-outline";
+  return "fitness-outline";
+}
+
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return mins <= 1 ? "just now" : `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
   exercise: "barbell-outline",
@@ -130,6 +156,10 @@ export function FriendsScreen() {
   const [cheersSentToday, setCheersSentToday] = useState<Set<string>>(new Set());
   const [cheeringSent, setCheeringSent] = useState<string | null>(null);
 
+  const [friendActivity, setFriendActivity] = useState<FriendActivity[]>([]);
+  const [friendActivityLoading, setFriendActivityLoading] = useState(true);
+  const [activityExpanded, setActivityExpanded] = useState(true);
+
   // Feature tour refs
   const scrollRef = useRef<ScrollView>(null);
   const scrollOffsetRef = useRef(0);
@@ -149,6 +179,17 @@ export function FriendsScreen() {
         tourTimeoutRef.current = null;
       }
     };
+  }, []);
+
+  // Fetch friend activity feed once on mount
+  useEffect(() => {
+    let cancelled = false;
+    setFriendActivityLoading(true);
+    api.getFriendActivityFeed()
+      .then(data => { if (!cancelled) setFriendActivity(Array.isArray(data) ? data.slice(0, 10) : []); })
+      .catch(() => { if (!cancelled) setFriendActivity([]); })
+      .finally(() => { if (!cancelled) setFriendActivityLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const TOUR_STEPS: TourStep[] = [
@@ -567,6 +608,60 @@ export function FriendsScreen() {
             ))}
           </View>
         </>
+      )}
+
+      {/* Recent Activity */}
+      <Pressable
+        onPress={() => setActivityExpanded(e => !e)}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}
+        accessibilityRole="button"
+        accessibilityLabel={activityExpanded ? "Collapse recent activity" : "Expand recent activity"}
+      >
+        <SectionLabel text="Recent Activity" style={{ marginBottom: 0 }} />
+        <Ionicons name={activityExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.textSoft} />
+      </Pressable>
+      {activityExpanded && (
+        friendActivityLoading ? (
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            {[0, 1, 2].map(i => (
+              <View key={i} style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.cardBorder }} />
+                <View style={{ flex: 1, gap: 6 }}>
+                  <View style={{ width: "60%", height: 10, borderRadius: 5, backgroundColor: theme.cardBorder }} />
+                  <View style={{ width: "80%", height: 10, borderRadius: 5, backgroundColor: theme.cardBorder }} />
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : friendActivity.length === 0 ? (
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 14 }]}>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label }}>No recent activity from friends.</Text>
+          </View>
+        ) : (
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            {friendActivity.map((item, i) => {
+              const initial = item.display_name ? item.display_name[0].toUpperCase() : "?";
+              return (
+                <View key={item.id}>
+                  {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+                  <View style={[styles.friendRow, { alignItems: "flex-start" }]}>
+                    <View style={[styles.avatarCircle, { backgroundColor: theme.teal.tint }]}>
+                      <Text style={{ color: theme.teal.fg, fontWeight: "800", fontSize: FONT_SIZES.body }}>{initial}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body }}>{item.display_name}</Text>
+                        <Ionicons name={activityIcon(item.activity_type)} size={13} color={theme.textSoft} />
+                      </View>
+                      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }}>{item.description}</Text>
+                    </View>
+                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption }}>{timeAgo(item.occurred_at)}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )
       )}
 
       {/* My Friends */}

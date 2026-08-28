@@ -110,6 +110,12 @@ import { WeatherDaylightMoodRule } from "../rules/weatherDaylightMood.js";
 import { BestDayRecipeRule } from "../rules/bestDayRecipe.js";
 import { SleepExerciseInteractionRule } from "../rules/sleepExerciseInteraction.js";
 import { MealTimingSleepRule } from "../rules/mealTimingSleep.js";
+// Wave 4 — new correlation rules
+import { MindfulnessVsSleepRule } from "../rules/mindfulnessVsSleep.js";
+import { MealSkippingVsGlucoseRule } from "../rules/mealSkippingVsGlucose.js";
+import { WaterVsNextDayGlucoseRule } from "../rules/waterVsNextDayGlucose.js";
+import { SleepDebtAccumulationRule } from "../rules/sleepDebtAccumulation.js";
+import { ChallengeActivityBoostRule } from "../rules/challengeActivityBoost.js";
 
 // Registry — add new rules here, nothing else changes
 export const ALL_RULES: InsightRule[] = [
@@ -222,6 +228,12 @@ export const ALL_RULES: InsightRule[] = [
   BestDayRecipeRule,
   SleepExerciseInteractionRule,
   MealTimingSleepRule,
+  // Wave 4 — new correlation rules
+  MindfulnessVsSleepRule,
+  MealSkippingVsGlucoseRule,
+  WaterVsNextDayGlucoseRule,
+  SleepDebtAccumulationRule,
+  ChallengeActivityBoostRule,
 ];
 
 export interface StoredInsight {

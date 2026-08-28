@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
@@ -10,6 +11,7 @@ import {
   Animated,
   RefreshControl,
   PanResponder,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -107,6 +109,8 @@ export function OverviewScreen() {
     load, handleRefresh, handleSaveLayout, handlePin,
   } = data;
 
+  const [freezeStatus, setFreezeStatus] = useState<{ available: boolean; used_this_month: boolean; freeze_count_remaining: number } | null>(null);
+
   const [showMoodModal, setShowMoodModal] = useState(false);
   const [showMoodSheet, setShowMoodSheet] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
@@ -119,6 +123,10 @@ export function OverviewScreen() {
   const [tourPadding, setTourPadding] = useState(0);
   const [quickLogKind, setQuickLogKind] = useState<QuickLogKind | null>(null);
   const [correlation, setCorrelation] = useState<"sleep" | "spend">("sleep");
+
+  // Adaptive card ordering
+  const [tapCounts, setTapCounts] = useState<Record<string, number>>({});
+  const [adaptiveBannerVisible, setAdaptiveBannerVisible] = useState(false);
 
   // Tour refs
   const tourHeaderRef = useRef<View>(null);
@@ -290,7 +298,105 @@ export function OverviewScreen() {
     } catch { toast("Couldn't log mood", "error"); }
   }
 
+  async function handleFreezeStreak() {
+    Alert.alert(
+      "Freeze Streak?",
+      "Use your monthly streak freeze to protect this streak?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Freeze it",
+          onPress: async () => {
+            try {
+              await api.freezeStreak("mood", todayStr());
+              toast("Streak frozen! ❄️");
+              setFreezeStatus(prev => prev ? { ...prev, available: false, used_this_month: true } : null);
+            } catch (e: any) {
+              toast(e?.message ?? "Could not freeze streak.", "error");
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  // ─── Adaptive ordering helpers ───────────────────────────────────────────────
+
+  async function updateTapCount(cardId: string) {
+    try {
+      const raw = await AsyncStorage.getItem("ripple_card_tap_counts");
+      const counts = raw ? JSON.parse(raw) : {};
+      counts[cardId] = (counts[cardId] ?? 0) + 1;
+      await AsyncStorage.setItem("ripple_card_tap_counts", JSON.stringify(counts));
+      setTapCounts({ ...counts });
+      // Check if banner should show
+      const total = Object.values(counts as Record<string, number>).reduce((s, v) => s + v, 0);
+      if (total >= 50) {
+        const dismissed = await AsyncStorage.getItem("ripple_adaptive_order_dismissed");
+        if (!dismissed) {
+          const topId = Object.entries(counts as Record<string, number>).sort((a, b) => b[1] - a[1])[0]?.[0];
+          const visibleOrder = dashboardLayout.order.filter(id => !dashboardLayout.hidden.includes(id));
+          const topIdxInOrder = visibleOrder.indexOf(topId as any);
+          if (topIdxInOrder > 2) {
+            setAdaptiveBannerVisible(true);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  function getMostTappedCardInfo(): { id: string; name: string } | null {
+    const entries = Object.entries(tapCounts);
+    if (entries.length === 0) return null;
+    const [id] = entries.sort((a, b) => b[1] - a[1])[0];
+    const card = (require("../constants/dashboardCards").DASHBOARD_CARDS as Array<{ id: string; label: string }>).find(c => c.id === id);
+    return card ? { id, name: card.label } : null;
+  }
+
+  async function handleSuggestReorder() {
+    const info = getMostTappedCardInfo();
+    if (!info) return;
+    const newOrder = [
+      info.id as import("../constants/dashboardCards").CardId,
+      ...dashboardLayout.order.filter(id => id !== info.id),
+    ];
+    const newLayout = { ...dashboardLayout, order: newOrder };
+    await handleSaveLayout(newLayout);
+    setAdaptiveBannerVisible(false);
+    await AsyncStorage.setItem("ripple_adaptive_order_dismissed", "1");
+  }
+
+  async function dismissSuggestion() {
+    setAdaptiveBannerVisible(false);
+    try { await AsyncStorage.setItem("ripple_adaptive_order_dismissed", "1"); } catch {}
+  }
+
   // ─── Effects ────────────────────────────────────────────────────────────────
+
+  // Load tap counts and check adaptive banner on mount
+  useEffect(function () {
+    async function loadTapCounts() {
+      try {
+        const raw = await AsyncStorage.getItem("ripple_card_tap_counts");
+        if (raw) {
+          const counts = JSON.parse(raw);
+          setTapCounts(counts);
+          const total = Object.values(counts as Record<string, number>).reduce((s, v) => s + v, 0);
+          if (total >= 50) {
+            const dismissed = await AsyncStorage.getItem("ripple_adaptive_order_dismissed");
+            if (!dismissed) {
+              const topId = Object.entries(counts as Record<string, number>).sort((a, b) => b[1] - a[1])[0]?.[0];
+              const visibleOrder = dashboardLayout.order.filter(id => !dashboardLayout.hidden.includes(id));
+              if (visibleOrder.indexOf(topId as any) > 2) {
+                setAdaptiveBannerVisible(true);
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+    loadTapCounts();
+  }, []);
 
   useFocusEffect(useCallback(() => {
     let cancelled = false;
@@ -306,6 +412,10 @@ export function OverviewScreen() {
         setTimeout(() => setShowTour(true), 600);
       }
     });
+    // Fetch streak freeze status on focus
+    api.getStreakFreezeStatus()
+      .then(status => { if (!cancelled) setFreezeStatus(status); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []));
 
@@ -718,6 +828,8 @@ export function OverviewScreen() {
         tourHeaderRef={tourHeaderRef}
         navigation={navigation}
         onEditLayout={() => setShowEditor(true)}
+        freezeStatus={freezeStatus}
+        onFreezeStreak={handleFreezeStreak}
       />
 
       {/* ── Fasting Timer ── */}
@@ -769,6 +881,26 @@ export function OverviewScreen() {
           </View>
         )}
 
+        {/* ── Adaptive reorder suggestion banner ── */}
+        {adaptiveBannerVisible && (() => {
+          const info = getMostTappedCardInfo();
+          if (!info) return null;
+          return (
+            <View style={{ backgroundColor: theme.teal.bg, borderRadius: 12, padding: 12, flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <Ionicons name="bulb-outline" size={18} color={theme.teal.fg} />
+              <Text style={{ flex: 1, fontSize: FONT_SIZES.caption, color: theme.teal.fg }}>
+                {"You tap " + info.name + " most — want to move it to the top?"}
+              </Text>
+              <Pressable onPress={handleSuggestReorder} accessibilityRole="button">
+                <Text style={{ fontSize: FONT_SIZES.label, color: theme.teal.solid, fontWeight: "800" }}>Move it</Text>
+              </Pressable>
+              <Pressable onPress={dismissSuggestion} hitSlop={14} accessibilityRole="button" accessibilityLabel="Dismiss suggestion">
+                <Ionicons name="close" size={16} color={theme.teal.sub} />
+              </Pressable>
+            </View>
+          );
+        })()}
+
         {/* ── Dashboard cards in user-defined order ── */}
         {dashboardLayout.order
           .filter(id => !dashboardLayout.hidden.includes(id))
@@ -785,6 +917,7 @@ export function OverviewScreen() {
                 }}
               >
                 <Pressable
+                  onPress={() => updateTapCount(id)}
                   onLongPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     setShowEditor(true);
