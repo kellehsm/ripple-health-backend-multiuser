@@ -77,7 +77,113 @@ async function computeProgressBatch(
   return result;
 }
 
+const CHALLENGE_TEMPLATES = [
+  { id: "tpl_steps_7",       title: "7-Day Step Surge",      description: "Hit 8,000 steps every day for a week.",                    metric: "steps",       goal: 8000, duration_days: 7,  icon: "walk-outline",    difficulty: "easy"   },
+  { id: "tpl_hydration_7",   title: "Hydration Week",        description: "Log at least 8 glasses of water daily for 7 days.",         metric: "water",       goal: 8,    duration_days: 7,  icon: "water-outline",   difficulty: "easy"   },
+  { id: "tpl_mindfulness_14",title: "Mindful Fortnight",     description: "Complete a mindfulness session every day for 2 weeks.",     metric: "mindfulness", goal: 1,    duration_days: 14, icon: "leaf-outline",    difficulty: "medium" },
+  { id: "tpl_nospend_7",     title: "No-Spend Week",         description: "Log zero discretionary spending for 7 days.",               metric: "spending",    goal: 0,    duration_days: 7,  icon: "wallet-outline",  difficulty: "hard"   },
+  { id: "tpl_steps_30",      title: "30-Day Step Streak",    description: "Log at least 5,000 steps every day for a month.",           metric: "steps",       goal: 5000, duration_days: 30, icon: "fitness-outline", difficulty: "hard"   },
+  { id: "tpl_sleep_14",      title: "Sleep Reset",           description: "Get 7+ hours of sleep for 14 consecutive days.",            metric: "sleep",       goal: 420,  duration_days: 14, icon: "moon-outline",    difficulty: "medium" },
+];
+
+// Map template metric names to challenge categories where they differ
+function templateMetricToCategory(metric: string): string {
+  const map: Record<string, string> = {
+    steps:       "steps",
+    water:       "steps",    // no dedicated water category; falls back to steps tracking
+    mindfulness: "exercise",
+    spending:    "steps",    // no spending category; creator can adjust
+    sleep:       "exercise",
+  };
+  return map[metric] ?? "steps";
+}
+
 export default async function challengesRoutes(app: FastifyInstance) {
+
+  // GET /templates — list pre-built challenge templates
+  app.get("/templates", async (_req) => {
+    return CHALLENGE_TEMPLATES;
+  });
+
+  // POST /from-template — create a real challenge from a template
+  app.post("/from-template", async (req, reply) => {
+    const me = req.user_id;
+    const { template_id, invited_friend_ids = [] } = req.body as any;
+
+    const template = CHALLENGE_TEMPLATES.find(t => t.id === template_id);
+    if (!template) {
+      return reply.status(400).send({ error: `Unknown template_id: ${template_id}` });
+    }
+    if (!Array.isArray(invited_friend_ids)) {
+      return reply.status(400).send({ error: "invited_friend_ids must be an array" });
+    }
+
+    // Compute start/end dates (start today, end after duration_days - 1)
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + template.duration_days - 1);
+    const start_date = startDate.toISOString().slice(0, 10);
+    const end_date = endDate.toISOString().slice(0, 10);
+
+    const category = templateMetricToCategory(template.metric);
+    const goal_description = template.description;
+    const goal_value = template.goal;
+
+    // Verify friend IDs are accepted friends
+    if (invited_friend_ids.length > 0) {
+      const friendCheck = await query<any>(
+        `SELECT
+           CASE WHEN user_id_a = $1 THEN user_id_b ELSE user_id_a END AS friend_id
+         FROM friend_connections
+         WHERE (user_id_a = $1 OR user_id_b = $1)
+           AND status = 'accepted'`,
+        [me]
+      );
+      const acceptedFriendSet = new Set(friendCheck.map((r: any) => r.friend_id));
+      for (const fid of invited_friend_ids) {
+        if (!acceptedFriendSet.has(fid)) {
+          return reply.status(400).send({ error: `User ${fid} is not an accepted friend` });
+        }
+      }
+    }
+
+    const client = await pool.connect();
+    let challenge: any;
+    try {
+      await client.query("BEGIN");
+
+      const chalRes = await client.query(
+        `INSERT INTO challenges (created_by, title, category, goal_description, goal_value, start_date, end_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, title, category, goal_description, goal_value, start_date, end_date, status, created_at`,
+        [me, template.title, category, goal_description, goal_value, start_date, end_date]
+      );
+      challenge = chalRes.rows[0];
+
+      // Add creator as participant
+      await client.query(
+        `INSERT INTO challenge_participants (challenge_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [challenge.id, me]
+      );
+
+      // Add invited friends as participants
+      for (const fid of invited_friend_ids) {
+        await client.query(
+          `INSERT INTO challenge_participants (challenge_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [challenge.id, fid]
+        );
+      }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return reply.status(201).send({ ...challenge, template_id, template_metric: template.metric });
+  });
 
   // GET / — list challenges I'm a participant in or created
   app.get("/", async (req) => {

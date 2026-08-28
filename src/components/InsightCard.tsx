@@ -36,6 +36,7 @@ export interface Insight {
   first_detected: string;
   last_confirmed: string;
   dismissed: boolean;
+  prior_period_value?: number;
 }
 
 const TYPE_ICON: Record<string, string> = {
@@ -259,6 +260,10 @@ const TYPE_TIP: Record<string, string> = {
   mindfulness:      "Even a short session counts — consistency over duration.",
   category_summary: "These patterns are drawn from multiple observations — keep logging to refine them.",
 };
+
+function formatInsightValue(v: number): string {
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
 
 function formatSupportingData(data: Record<string, unknown>): Array<{ label: string; value: string }> {
   return Object.entries(data)
@@ -552,6 +557,17 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
           </View>
           {tip && (
             <Text style={[styles.tipText, { color: theme.textSoft }]}>{tip}</Text>
+          )}
+          {insight.prior_period_value !== undefined && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: theme.cardBorder }}>
+              <Ionicons name="time-outline" size={14} color={theme.textSoft} />
+              <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft }}>
+                {"Last month: " + formatInsightValue(insight.prior_period_value) + " " + (
+                  insight.confidence_score > insight.prior_period_value ? "↑" :
+                  insight.confidence_score < insight.prior_period_value ? "↓" : "→"
+                )}
+              </Text>
+            </View>
           )}
           <FeedbackRow insightId={insight.id} theme={theme} />
           <View style={{ flexDirection: "row", gap: 12, marginTop: 8, alignItems: "center" }}>

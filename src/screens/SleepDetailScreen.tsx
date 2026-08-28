@@ -10,6 +10,7 @@ import { ShadowCard } from "../components/ShadowCard";
 import { CardLoadingOverlay } from "../components/CardLoadingOverlay";
 import { Ionicons } from "@expo/vector-icons";
 import { formatDateLocal } from "../utils/dateUtils";
+import { FONT_SIZES } from "../theme/tokens";
 
 type SleepSession = {
   id: string;
@@ -225,6 +226,41 @@ export function SleepDetailScreen() {
   const debtSecs = (GOAL_SECS - avgSecs) * rangeDays;
   const isDebt = debtSecs > 0;
 
+  // ── Rolling 7-day sleep debt ──────────────────────────────────────────────
+  const sleepDebt = useMemo(() => {
+    // Build a day→seconds map from all fetched sessions (regardless of rangeDays)
+    const byDay = new Map<string, number>();
+    for (const s of sessions) {
+      const key = formatDateLocal(new Date(s.end_time));
+      const secs = (new Date(s.end_time).getTime() - new Date(s.start_time).getTime()) / 1000;
+      byDay.set(key, (byDay.get(key) ?? 0) + secs);
+    }
+    const GOAL = 8 * 3600;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+    // Last 7 days (days 1–7 back, i.e. yesterday through 7 days ago)
+    let current7h = 0;
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(today); d.setDate(today.getDate() - i);
+      const secs = byDay.get(formatDateLocal(d)) ?? 0;
+      current7h += Math.max(0, GOAL - secs) / 3600;
+    }
+
+    // Prior 7 days (days 8–14 back) for trend
+    let prior7h = 0;
+    let priorHasData = false;
+    for (let i = 8; i <= 14; i++) {
+      const d = new Date(today); d.setDate(today.getDate() - i);
+      const key = formatDateLocal(d);
+      if (byDay.has(key)) priorHasData = true;
+      const secs = byDay.get(key) ?? 0;
+      prior7h += Math.max(0, GOAL - secs) / 3600;
+    }
+
+    const trendH = priorHasData ? current7h - prior7h : null;
+    return { debtH: current7h, trendH, priorHasData };
+  }, [sessions]);
+
   if (!loadingRange && sessions.length === 0) {
     return (
       <ScrollView
@@ -303,6 +339,61 @@ export function SleepDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ── Sleep Debt Card ─────────────────────────────────────────────── */}
+      {(() => {
+        const { debtH, trendH } = sleepDebt;
+        const noDebt = debtH < 0.1;
+        // Bar fill: 0h debt = empty, 8h+ = full; capped at 1
+        const fillFraction = Math.min(1, debtH / 8);
+        const barColor = debtH < 2 ? theme.success : debtH < 5 ? theme.warning : theme.danger;
+        return (
+          <ShadowCard size="card" accent={noDebt ? theme.success : theme.danger} padding={14}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <Ionicons name="battery-half-outline" size={17} color={noDebt ? theme.success : theme.danger} />
+              <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "900", color: theme.textStrong, letterSpacing: -0.4 }} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">
+                Sleep Debt
+              </Text>
+            </View>
+
+            {noDebt ? (
+              <Text style={{ fontSize: FONT_SIZES.body, fontWeight: "700", color: theme.success }}>
+                No sleep debt this week 🎉
+              </Text>
+            ) : (
+              <>
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+                  <Text style={{ fontSize: FONT_SIZES.display, fontWeight: "900", color: theme.danger, letterSpacing: -0.5 }}>
+                    {debtH.toFixed(1)}h
+                  </Text>
+                  <Text style={{ fontSize: FONT_SIZES.label, color: theme.textSoft }}>over the past 7 days</Text>
+                </View>
+
+                {/* Debt fill bar */}
+                <View style={{ height: 7, backgroundColor: theme.cardBorder, borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
+                  <View
+                    style={{
+                      height: 7,
+                      width: (`${Math.round(fillFraction * 100)}%` as `${number}%`),
+                      backgroundColor: barColor,
+                      borderRadius: 4,
+                    }}
+                  />
+                </View>
+
+                {/* Trend */}
+                {trendH !== null && (
+                  <Text style={{ fontSize: FONT_SIZES.caption, fontWeight: "700", color: trendH > 0 ? theme.danger : theme.success }}>
+                    {trendH > 0
+                      ? `↑ ${trendH.toFixed(1)}h more than last week`
+                      : `↓ ${Math.abs(trendH).toFixed(1)}h less than last week`}
+                  </Text>
+                )}
+              </>
+            )}
+          </ShadowCard>
+        );
+      })()}
 
       {/* Range picker + averages */}
       <ShadowCard size="card" accent={theme.violet?.solid ?? "#7965B0"} padding={14}>

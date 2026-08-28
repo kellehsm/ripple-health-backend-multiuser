@@ -954,4 +954,39 @@ export const api = {
     request(`/hardcover/disconnect`, { method: 'DELETE' }),
   hardcoverSync: (): Promise<{ books_checked: number; pushed: number; pulled: number; imported?: number; errors: number }> =>
     request(`/hardcover/sync`, { method: 'POST', body: JSON.stringify({}) }),
+
+  // ── Challenge templates ───────────────────────────────────────────────────
+  getChallengeTemplates: (): Promise<Array<{
+    id: string;
+    title: string;
+    description: string;
+    icon: string;
+    duration_days: number;
+    difficulty: "easy" | "medium" | "hard";
+    category: string;
+  }>> => request('/challenges/templates'),
+  startChallengeFromTemplate: (templateId: string, friendIds?: string[]): Promise<{ id: string }> =>
+    request('/challenges/from-template', {
+      method: 'POST',
+      body: JSON.stringify({ template_id: templateId, ...(friendIds ? { friend_ids: friendIds } : {}) }),
+    }),
+
+  // ── Streak freeze ─────────────────────────────────────────────────────────
+  getStreakFreezeStatus: (): Promise<{
+    available: boolean;
+    used_this_month: boolean;
+    freeze_count_remaining: number;
+  }> => request('/streaks/freeze-status'),
+  freezeStreak: (type: string, missedDate: string): Promise<{ ok: boolean }> =>
+    request('/streaks/freeze', { method: 'POST', body: JSON.stringify({ type, missed_date: missedDate }) }),
+
+  // ── Friend activity feed ───────────────────────────────────────────────────
+  getFriendActivityFeed: (): Promise<Array<{
+    id: string;
+    user_id: string;
+    display_name: string;
+    activity_type: "metric" | "exercise" | "mindfulness" | "challenge_joined";
+    description: string;
+    occurred_at: string;
+  }>> => request('/friends/activity-feed'),
 };

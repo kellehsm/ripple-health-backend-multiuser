@@ -336,6 +336,65 @@ export default async function summaryRoutes(app: FastifyInstance) {
     return events;
   });
 
+  // GET /streaks/freeze-status — returns which streak types have used their freeze this month
+  app.get("/streaks/freeze-status", async (req) => {
+    const user_id = req.user_id;
+    const firstOfMonth = new Date();
+    firstOfMonth.setDate(1);
+    const freezeMonth = firstOfMonth.toISOString().slice(0, 10);
+
+    const rows = await query<any>(
+      `SELECT streak_type FROM streak_freezes
+       WHERE user_id = $1 AND freeze_month = $2`,
+      [user_id, freezeMonth]
+    );
+    const usedThisMonth = rows.map((r: any) => r.streak_type);
+    return { canFreeze: true, usedThisMonth };
+  });
+
+  // POST /streaks/freeze — apply a streak freeze for a missed day
+  app.post("/streaks/freeze", async (req, reply) => {
+    const user_id = req.user_id;
+    const { streak_type, missed_date } = req.body as any;
+
+    if (!streak_type || !missed_date) {
+      return reply.status(400).send({ error: "streak_type and missed_date are required" });
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(missed_date)) {
+      return reply.status(400).send({ error: "missed_date must be YYYY-MM-DD" });
+    }
+
+    // Only allow yesterday or the day before yesterday
+    const tz = await getUserTz(user_id);
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz });
+    const yesterday = fmt.format(new Date(Date.now() - 86400000));
+    const dayBefore = fmt.format(new Date(Date.now() - 2 * 86400000));
+    if (missed_date !== yesterday && missed_date !== dayBefore) {
+      return reply.status(400).send({ error: "missed_date must be yesterday or the day before" });
+    }
+
+    // freeze_month = first day of missed_date's month
+    const [year, month] = missed_date.split("-");
+    const freezeMonth = `${year}-${month}-01`;
+
+    try {
+      await query(
+        `INSERT INTO streak_freezes (user_id, freeze_month, applied_to_date, streak_type)
+         VALUES ($1, $2, $3, $4)`,
+        [user_id, freezeMonth, missed_date, streak_type]
+      );
+      // Invalidate streak cache so next /streaks call reflects the freeze
+      const todayKey = fmt.format(new Date());
+      streaksCache.delete(`${user_id}:${todayKey}`);
+      return { ok: true, freeze_month: freezeMonth, applied_to_date: missed_date, streak_type };
+    } catch (err: any) {
+      if (err.code === "23505") {
+        return reply.status(400).send({ error: `Freeze already used this month for streak type: ${streak_type}` });
+      }
+      throw err;
+    }
+  });
+
   app.get("/streaks", async (req) => {
     const user_id = req.user_id;
     const tz = await getUserTz(user_id);
@@ -349,27 +408,31 @@ export default async function summaryRoutes(app: FastifyInstance) {
     const streaksHit = streaksCache.get(streaksCacheKey);
     if (streaksHit && streaksHit.expiresAt > Date.now()) return streaksHit.data;
 
-    function calcStreak(rawDays: any[]): number {
+    function calcStreak(rawDays: any[], frozenDates: Set<string>): number {
       const days = rawDays.map((r: any) =>
         r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10)
       );
       if (days.length === 0 || (days[0] !== today && days[0] !== yesterday)) return 0;
       let streak = 0;
       let expected = days[0];
-      for (const day of days) {
-        if (day === expected) {
+      const daySet = new Set(days);
+      for (;;) {
+        if (daySet.has(expected)) {
           streak++;
-          const d = new Date(expected + "T12:00:00");
-          d.setDate(d.getDate() - 1);
-          expected = d.toISOString().slice(0, 10);
+        } else if (frozenDates.has(expected)) {
+          // Gap covered by a freeze — count it and continue walking back
+          streak++;
         } else {
           break;
         }
+        const d = new Date(expected + "T12:00:00");
+        d.setDate(d.getDate() - 1);
+        expected = d.toISOString().slice(0, 10);
       }
       return streak;
     }
 
-    const [mealDays, moodDays, stepsDays, exerciseDays, readingDays, waterDays, hobbyDays] = await Promise.all([
+    const [mealDays, moodDays, stepsDays, exerciseDays, readingDays, waterDays, hobbyDays, freezeRows] = await Promise.all([
       query<any>(
         `SELECT DISTINCT (logged_at AT TIME ZONE $2)::date AS day FROM meals
          WHERE user_id = $1 AND logged_at >= current_date - 90
@@ -425,16 +488,32 @@ export default async function summaryRoutes(app: FastifyInstance) {
          ORDER BY day DESC`,
         [user_id, tz]
       ),
+      // Streak freezes applied in the last 90 days, grouped by streak_type
+      query<any>(
+        `SELECT streak_type, applied_to_date::text AS applied_to_date
+         FROM streak_freezes
+         WHERE user_id = $1 AND applied_to_date >= current_date - 90`,
+        [user_id]
+      ),
     ]);
 
+    // Build per-type freeze sets for streak calculation
+    function freezeSet(type: string): Set<string> {
+      return new Set(
+        freezeRows
+          .filter((r: any) => r.streak_type === type)
+          .map((r: any) => String(r.applied_to_date).slice(0, 10))
+      );
+    }
+
     const streaksResult = {
-      meal_streak:     calcStreak(mealDays),
-      mood_streak:     calcStreak(moodDays),
-      steps_streak:    calcStreak(stepsDays),
-      exercise_streak: calcStreak(exerciseDays),
-      reading_streak:  calcStreak(readingDays),
-      water_streak:    calcStreak(waterDays),
-      hobby_streak:    calcStreak(hobbyDays),
+      meal_streak:     calcStreak(mealDays,     freezeSet("logging")),
+      mood_streak:     calcStreak(moodDays,     freezeSet("mood")),
+      steps_streak:    calcStreak(stepsDays,    freezeSet("steps")),
+      exercise_streak: calcStreak(exerciseDays, freezeSet("exercise")),
+      reading_streak:  calcStreak(readingDays,  freezeSet("reading")),
+      water_streak:    calcStreak(waterDays,    freezeSet("water")),
+      hobby_streak:    calcStreak(hobbyDays,    freezeSet("hobby")),
     };
     streaksCache.set(streaksCacheKey, { data: streaksResult, expiresAt: Date.now() + SUMMARY_CACHE_TTL_MS });
     return streaksResult;

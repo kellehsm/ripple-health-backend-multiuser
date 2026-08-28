@@ -5,6 +5,7 @@
  */
 import React from "react";
 import { View, Text, Animated, Pressable, Image } from "react-native";
+import type { Theme } from "../../theme/theme";
 import Svg, { Polyline, Rect } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -16,6 +17,29 @@ import { ThemedIcon } from "../../theme/iconRegistry";
 import { AnimatedProgressRing } from "../../components/AnimatedProgressRing";
 import { toast } from "../../lib/toast";
 import { CHIP_GAP, PopText, StepsRing, MiniDroplet, type GlucoseStatus, type HRReading } from "./healthScreenShared";
+
+function MindfulnessSidePanel({ side, theme }: { side: 'left' | 'right'; theme: Theme }) {
+  const isCatTheme = theme.id === "cozy-cat";
+  const catImageLeft = require("../../../assets/themes/cat/greeting_morning.png");
+  const catImageRight = require("../../../assets/themes/cat/greeting_afternoon.png");
+
+  return (
+    <View style={{ width: 44, alignItems: "center", justifyContent: "center" }}>
+      {isCatTheme ? (
+        <Image
+          source={side === "left" ? catImageLeft : catImageRight}
+          style={[
+            { width: 38, height: 38 },
+            side === "right" ? { transform: [{ scaleX: -1 }] } : undefined,
+          ]}
+          resizeMode="contain"
+        />
+      ) : (
+        <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: theme.purple.tint, opacity: 0.5 }} />
+      )}
+    </View>
+  );
+}
 
 interface Props {
   chipEntranceAnim: Animated.Value;
@@ -87,43 +111,48 @@ export function MetricChipRow({
 
   return (
     <Animated.View style={{ opacity: chipEntranceAnim }}>
-      {/* Full-width Mindfulness bar (restored) */}
-      <Pressable
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          navigation.getParent()?.navigate("Mindfulness");
-        }}
-        accessibilityRole="button"
-        accessibilityLabel="Open Mindfulness hub"
-        style={{
-          borderRadius: 26,
-          borderWidth: 2,
-          borderColor: theme.cardBorder,
-          backgroundColor: theme.purple.solid,
-          paddingVertical: 11,
-          paddingHorizontal: 14,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-          marginBottom: CHIP_GAP,
-          overflow: "hidden",
-        }}
-      >
-        <Image
-          source={require("../../../assets/themes/cat/greeting_morning.png")}
-          style={{ width: 40, height: 40 }}
-          resizeMode="contain"
-        />
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: onSolid(theme.purple.solid), fontSize: 16, fontWeight: "900", marginBottom: 1 }}>Mindfulness</Text>
-          <Text style={{ color: onSolid(theme.purple.solid), fontSize: 12, opacity: 0.75 }}>
-            {mindStats && (mindStats.streak > 0 || mindStats.week_minutes > 0)
-              ? `${mindStats.streak} day streak · ${mindStats.week_minutes}m this week`
-              : "Breathing · grounding · gratitude"}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={onSolid(theme.purple.solid)} style={{ opacity: 0.85 }} />
-      </Pressable>
+      {/* Mindfulness bar with decorative side panels */}
+      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: CHIP_GAP }}>
+        <MindfulnessSidePanel side="left" theme={theme as Theme} />
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            navigation.getParent()?.navigate("Mindfulness");
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Open Mindfulness hub"
+          style={{
+            flex: 1,
+            marginHorizontal: 8,
+            borderRadius: 26,
+            borderWidth: 2,
+            borderColor: theme.cardBorder,
+            backgroundColor: theme.purple.solid,
+            paddingVertical: 11,
+            paddingHorizontal: 14,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            overflow: "hidden",
+          }}
+        >
+          <Image
+            source={require("../../../assets/themes/cat/greeting_morning.png")}
+            style={{ width: 40, height: 40 }}
+            resizeMode="contain"
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: onSolid(theme.purple.solid), fontSize: 16, fontWeight: "900", marginBottom: 1 }}>Mindfulness</Text>
+            <Text style={{ color: onSolid(theme.purple.solid), fontSize: 12, opacity: 0.75 }}>
+              {mindStats && (mindStats.streak > 0 || mindStats.week_minutes > 0)
+                ? `${mindStats.streak} day streak · ${mindStats.week_minutes}m this week`
+                : "Breathing · grounding · gratitude"}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={onSolid(theme.purple.solid)} style={{ opacity: 0.85 }} />
+        </Pressable>
+        <MindfulnessSidePanel side="right" theme={theme as Theme} />
+      </View>
 
       {/* Top row: 3 chips */}
       <View style={{ flexDirection: "row", gap: CHIP_GAP }}>

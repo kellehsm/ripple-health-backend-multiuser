@@ -14,6 +14,12 @@ import { startForegroundService, stopForegroundService, isForegroundServiceRunni
 const STEP_GOAL_OPTIONS = [5000, 7500, 8000, 10000, 12000, 15000];
 const STEP_GOAL_KEY = "ripple_step_goal";
 const STEP_GOAL_NUDGE_KEY = "ripple_step_goal_nudge_dismissed";
+const WATER_GOAL_OPTIONS = [6, 7, 8, 10, 12];
+const WATER_GOAL_KEY = "ripple_water_goal";
+const SLEEP_GOAL_OPTIONS = [6, 7, 7.5, 8, 9];
+const SLEEP_GOAL_KEY = "ripple_sleep_goal";
+const MIND_GOAL_OPTIONS = [15, 30, 45, 60, 90, 120];
+const MIND_GOAL_KEY = "ripple_mindfulness_goal";
 
 function StatusRow({ label, status, theme }: { label: string; status: "granted" | "denied" | "unknown"; theme: any }) {
   const dot = status === "granted" ? "●" : status === "denied" ? "●" : "○";
@@ -36,12 +42,30 @@ export function TrackingSettingsScreen() {
   const [batteryGranted, setBatteryGranted] = useState<boolean | null>(null);
   const [hcGranted, setHcGranted] = useState<boolean | null>(null);
   const [stepGoal, setStepGoal] = useState<number | null>(null);
+  const [waterGoal, setWaterGoal] = useState<number | null>(null);
+  const [sleepGoal, setSleepGoal] = useState<number | null>(null);
+  const [mindGoal, setMindGoal] = useState<number | null>(null);
 
   async function handleStepGoalSelect(goal: number) {
     setStepGoal(goal);
     await AsyncStorage.setItem(STEP_GOAL_KEY, String(goal));
     // Clear the nudge dismissal so it doesn't re-appear (goal is now set)
     await AsyncStorage.removeItem(STEP_GOAL_NUDGE_KEY);
+  }
+
+  async function handleWaterGoalSelect(goal: number) {
+    setWaterGoal(goal);
+    await AsyncStorage.setItem(WATER_GOAL_KEY, String(goal));
+  }
+
+  async function handleSleepGoalSelect(goal: number) {
+    setSleepGoal(goal);
+    await AsyncStorage.setItem(SLEEP_GOAL_KEY, String(goal));
+  }
+
+  async function handleMindGoalSelect(goal: number) {
+    setMindGoal(goal);
+    await AsyncStorage.setItem(MIND_GOAL_KEY, String(goal));
   }
 
   const checkPermissions = useCallback(async () => {
@@ -69,6 +93,15 @@ export function TrackingSettingsScreen() {
     checkPermissions();
     AsyncStorage.getItem(STEP_GOAL_KEY).then((v) => {
       if (!cancelled && v) setStepGoal(Number(v));
+    }).catch(() => {});
+    AsyncStorage.getItem(WATER_GOAL_KEY).then((v) => {
+      if (!cancelled && v) setWaterGoal(Number(v));
+    }).catch(() => {});
+    AsyncStorage.getItem(SLEEP_GOAL_KEY).then((v) => {
+      if (!cancelled && v) setSleepGoal(Number(v));
+    }).catch(() => {});
+    AsyncStorage.getItem(MIND_GOAL_KEY).then((v) => {
+      if (!cancelled && v) setMindGoal(Number(v));
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [checkPermissions]));
@@ -180,6 +213,111 @@ export function TrackingSettingsScreen() {
           })}
         </View>
         {stepGoal === null && (
+          <Text style={{ color: theme.coral.fg, fontSize: 11, fontWeight: "700", marginTop: 6 }}>
+            No goal set — tap one to set yours
+          </Text>
+        )}
+      </View>
+
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 8 }]}>DAILY WATER GOAL (GLASSES)</Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Text style={[styles.desc, { color: theme.textSoft }]}>
+          Sets your daily water intake target. Shown on the Health screen water chip.
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+          {WATER_GOAL_OPTIONS.map((opt) => {
+            const selected = waterGoal === opt;
+            return (
+              <Pressable
+                key={opt}
+                onPress={() => handleWaterGoalSelect(opt)}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selected ? theme.blue.solid : theme.page,
+                    borderColor: selected ? theme.blue.solid : theme.cardBorder,
+                    boxShadow: selected ? `3px 3px 0 ${theme.ink}` : undefined,
+                  },
+                ]}
+              >
+                <Text style={{ color: selected ? "#fff" : theme.textSoft, fontSize: 13, fontWeight: "800" }}>
+                  {opt}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {waterGoal === null && (
+          <Text style={{ color: theme.coral.fg, fontSize: 11, fontWeight: "700", marginTop: 6 }}>
+            No goal set — tap one to set yours
+          </Text>
+        )}
+      </View>
+
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 8 }]}>NIGHTLY SLEEP GOAL (HOURS)</Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Text style={[styles.desc, { color: theme.textSoft }]}>
+          Sets your nightly sleep target. Used on the Health screen sleep chip.
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+          {SLEEP_GOAL_OPTIONS.map((opt) => {
+            const selected = sleepGoal === opt;
+            return (
+              <Pressable
+                key={opt}
+                onPress={() => handleSleepGoalSelect(opt)}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selected ? theme.amber.solid : theme.page,
+                    borderColor: selected ? theme.amber.solid : theme.cardBorder,
+                    boxShadow: selected ? `3px 3px 0 ${theme.ink}` : undefined,
+                  },
+                ]}
+              >
+                <Text style={{ color: selected ? "#fff" : theme.textSoft, fontSize: 13, fontWeight: "800" }}>
+                  {opt % 1 === 0 ? String(opt) : opt.toFixed(1)}h
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {sleepGoal === null && (
+          <Text style={{ color: theme.coral.fg, fontSize: 11, fontWeight: "700", marginTop: 6 }}>
+            No goal set — tap one to set yours
+          </Text>
+        )}
+      </View>
+
+      <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 8 }]}>WEEKLY MINDFULNESS GOAL (MINUTES)</Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Text style={[styles.desc, { color: theme.textSoft }]}>
+          Sets your weekly mindfulness minutes target. Shown on the Health screen mindfulness tile.
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
+          {MIND_GOAL_OPTIONS.map((opt) => {
+            const selected = mindGoal === opt;
+            return (
+              <Pressable
+                key={opt}
+                onPress={() => handleMindGoalSelect(opt)}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: selected ? theme.purple.solid : theme.page,
+                    borderColor: selected ? theme.purple.solid : theme.cardBorder,
+                    boxShadow: selected ? `3px 3px 0 ${theme.ink}` : undefined,
+                  },
+                ]}
+              >
+                <Text style={{ color: selected ? "#fff" : theme.textSoft, fontSize: 13, fontWeight: "800" }}>
+                  {opt}m
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {mindGoal === null && (
           <Text style={{ color: theme.coral.fg, fontSize: 11, fontWeight: "700", marginTop: 6 }}>
             No goal set — tap one to set yours
           </Text>
