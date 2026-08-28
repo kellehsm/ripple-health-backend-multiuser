@@ -31,6 +31,7 @@ interface Props {
   onEditLayout: () => void;
   freezeStatus?: { available: boolean; used_this_month: boolean; freeze_count_remaining: number } | null;
   onFreezeStreak?: () => void;
+  adaptiveGreeting?: string | null;
 }
 
 export function HeaderCard({
@@ -45,6 +46,7 @@ export function HeaderCard({
   onEditLayout,
   freezeStatus,
   onFreezeStreak,
+  adaptiveGreeting,
 }: Props) {
   const { theme } = useTheme();
 
@@ -136,6 +138,11 @@ export function HeaderCard({
           <Text style={[styles.dateText, { color: theme.textSoft }]}>
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
           </Text>
+          {adaptiveGreeting ? (
+            <Text style={{ fontSize: FONT_SIZES.label, fontWeight: "700", color: theme.teal.solid, marginBottom: 2 }}>
+              {adaptiveGreeting}
+            </Text>
+          ) : null}
           {(overall !== null || topStreak >= 2) && (() => {
             const parts: string[] = [];
             if (overall !== null) parts.push(`Score ${overall}`);

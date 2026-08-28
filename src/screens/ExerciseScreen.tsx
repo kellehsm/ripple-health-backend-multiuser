@@ -97,6 +97,98 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function formatDateWithDay(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now.getTime() - d.getTime();
+  if (diff < 86400000 && d.getDate() === now.getDate()) return 'Today';
+  if (diff < 172800000) return 'Yesterday';
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return `${days[d.getDay()]} · ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+}
+
+function getWeekStart(): Date {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + diff);
+  mon.setHours(0, 0, 0, 0);
+  return mon;
+}
+
+function isThisWeek(iso: string): boolean {
+  const d = new Date(iso);
+  const weekStart = getWeekStart();
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+  return d >= weekStart && d < weekEnd;
+}
+
+function computeStreak(sessions: ExerciseSession[]): number {
+  const completed = sessions
+    .filter(s => s.ended_at)
+    .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+  if (completed.length === 0) return 0;
+  const dayKey = (iso: string) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  };
+  const days = [...new Set(completed.map(s => dayKey(s.started_at)))];
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i < days.length; i++) {
+    const expected = new Date(today);
+    expected.setDate(today.getDate() - i);
+    if (days[i] === dayKey(expected.toISOString())) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function WeeklyStatsStrip({ sessions, theme }: { sessions: ExerciseSession[]; theme: any }) {
+  const thisWeek = sessions.filter(s => s.ended_at && isThisWeek(s.started_at));
+  const totalSecs = thisWeek.reduce((acc, s) => acc + s.duration_seconds, 0);
+  const totalExercises = thisWeek.reduce((acc, s) => acc + s.entry_count, 0);
+  const stats = [
+    { label: 'SESSIONS', value: String(thisWeek.length) },
+    { label: 'TIME', value: totalSecs > 0 ? formatDuration(totalSecs) : '—' },
+    { label: 'EXERCISES', value: totalExercises > 0 ? String(totalExercises) : '—' },
+  ];
+  return (
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      {stats.map(s => (
+        <View key={s.label} style={{ flex: 1, backgroundColor: theme.teal.tint, borderRadius: 14, borderWidth: 1.5, borderColor: theme.teal.solid + '55', alignItems: 'center', paddingVertical: 10 }}>
+          <Text style={{ color: theme.teal.fg, fontSize: 18, fontWeight: '900' }}>{s.value}</Text>
+          <Text style={{ color: theme.teal.sub, fontSize: 10, fontWeight: '800', letterSpacing: 0.5, marginTop: 1 }}>{s.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function PlanProgressRing({ completed, total, color, trackColor }: { completed: number; total: number; color: string; trackColor: string }) {
+  const size = 40, stroke = 3.5;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const pct = total > 0 ? Math.min(completed / total, 1) : 0;
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', width: size, height: size }}>
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={stroke} />
+        <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+          strokeDasharray={`${circ}`}
+          strokeDashoffset={circ * (1 - pct)}
+          strokeLinecap="round"
+          rotation="-90"
+          origin={`${size / 2},${size / 2}`}
+        />
+      </Svg>
+      <Text style={{ color, fontSize: 11, fontWeight: '900' }}>{completed}/{total}</Text>
+    </View>
+  );
+}
+
 const FOCUS_LABEL: Record<string, string> = {
   push: 'Push', pull: 'Pull', legs: 'Legs',
   upper: 'Upper Body', lower: 'Lower Body', full_body: 'Full Body',
@@ -438,6 +530,9 @@ export function ExerciseScreen() {
 
   // Check if there's an open (unfinished) session
   const openSession = sessions.find((s) => !s.ended_at);
+  const streak = computeStreak(sessions);
+  const thisWeekSessions = sessions.filter(s => s.ended_at && isThisWeek(s.started_at));
+  const completedDaysThisWeek = thisWeekSessions.length;
 
   return (
     <KeyboardAvoidingView
@@ -572,6 +667,8 @@ export function ExerciseScreen() {
           </Pressable>
         </View>
 
+        <WeeklyStatsStrip sessions={sessions} theme={theme} />
+
         {/* Active workout program */}
         {activeProgram && (
           <>
@@ -605,6 +702,12 @@ export function ExerciseScreen() {
                     {activeProgram.preferred_minutes} min · {activeProgram.days_per_week} day{activeProgram.days_per_week !== 1 ? 's' : ''}/week
                   </Text>
                 </View>
+                <PlanProgressRing
+                  completed={Math.min(completedDaysThisWeek, activeProgram.days_per_week)}
+                  total={activeProgram.days_per_week}
+                  color={theme.teal.solid}
+                  trackColor={theme.teal.tint}
+                />
                 <Pressable
                   onPress={handleOpenProgramMenu}
                   hitSlop={8}
@@ -617,26 +720,33 @@ export function ExerciseScreen() {
               </View>
               {(activeProgram.days ?? []).length === 0 ? (
                 <GhostRow label="No days in this plan yet" icon="📋" />
-              ) : (activeProgram.days ?? []).map((day, i) => (
+              ) : (activeProgram.days ?? []).map((day, i) => {
+                const isDone = i < completedDaysThisWeek;
+                return (
                 <Pressable
                   key={day.id}
                   onPress={() => handleSelectDay(day)}
-                  style={[styles.programDay, { borderTopColor: theme.cardBorder ?? '#E5E7EB', borderTopWidth: i === 0 ? 0 : 1 }]}
+                  style={[styles.programDay, { borderTopColor: theme.cardBorder ?? '#E5E7EB', borderTopWidth: i === 0 ? 0 : 1, opacity: isDone ? 0.6 : 1 }]}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <View style={[styles.dayBadge, { backgroundColor: theme.teal?.solid ?? ink }]}>
-                      <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>D{day.day_number}</Text>
+                    <View style={[styles.dayBadge, { backgroundColor: isDone ? theme.teal.sub : (theme.teal?.solid ?? ink) }]}>
+                      {isDone
+                        ? <Ionicons name="checkmark" size={11} color="#fff" />
+                        : <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>D{day.day_number}</Text>
+                      }
                     </View>
-                    <Text style={{ color: theme.textStrong, fontWeight: '700', fontSize: 13 }}>
+                    <Text style={{ color: isDone ? theme.textSoft : theme.textStrong, fontWeight: '700', fontSize: 13 }}>
                       {FOCUS_LABEL[day.focus] ?? day.focus}
                     </Text>
+                    {isDone && <Text style={{ color: theme.teal.sub, fontSize: 11, fontWeight: '700' }}>Done this week</Text>}
                   </View>
                   <Text style={{ color: theme.textSoft, fontSize: 12, lineHeight: 17 }} numberOfLines={2}>
                     {(day.exercises ?? []).map((e) => e.name).join(' · ')}
                   </Text>
-                  <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.caption, fontWeight: '700', marginTop: 4 }}>Tap to preview ›</Text>
+                  {!isDone && <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.caption, fontWeight: '700', marginTop: 4 }}>Tap to preview ›</Text>}
                 </Pressable>
-              ))}
+                );
+              })}
             </ShadowCard>
           </>
         )}
@@ -692,6 +802,17 @@ export function ExerciseScreen() {
           </ShadowCard>
         )}
 
+        {/* Streak callout (E) */}
+        {streak >= 2 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.teal.tint, borderRadius: 16, borderWidth: 1.5, borderColor: theme.teal.solid, paddingHorizontal: 14, paddingVertical: 12 }}>
+            <Text style={{ fontSize: 24 }}>🔥</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.teal.fg, fontSize: 15, fontWeight: '900' }}>{streak}-day workout streak</Text>
+              <Text style={{ color: theme.teal.sub, fontSize: 12, marginTop: 1 }}>Keep the momentum going!</Text>
+            </View>
+          </View>
+        )}
+
         {/* Sessions history */}
         {loading ? (
           <View style={styles.center}><LoadingIndicator /></View>
@@ -734,28 +855,38 @@ export function ExerciseScreen() {
                 );
               }
               return (
-              <ShadowCard key={session.id} padding={14}>
-                <Pressable
-                  onPress={() => navigation.navigate('ExerciseDetail', { sessionId: session.id })}
-                  style={{ flex: 1 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View session from ${formatDate(session.started_at)}`}
-                >
+              <ShadowCard key={session.id} padding={0}>
+                <View style={{ flexDirection: 'row', overflow: 'hidden', borderRadius: 22 }}>
+                  <View style={{ width: 4, backgroundColor: theme.teal.solid, borderTopLeftRadius: 22, borderBottomLeftRadius: 22 }} />
+                  <Pressable
+                    onPress={() => navigation.navigate('ExerciseDetail', { sessionId: session.id })}
+                    style={{ flex: 1, padding: 14 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`View session from ${formatDate(session.started_at)}`}
+                  >
                   <View style={styles.sessionCardRow}>
                     <Text style={[styles.sessionDate, { color: theme.textStrong }]}>
-                      {formatDate(session.started_at)}
+                      {formatDateWithDay(session.started_at)}
                     </Text>
                     <Text style={[styles.sessionDuration, { color: theme.textSoft }]}>
                       {formatDuration(session.duration_seconds)}
                     </Text>
                   </View>
                   {session.exercise_names && session.exercise_names.length > 0 && (
-                    <Text style={[styles.sessionExercises, { color: theme.textSoft }]} numberOfLines={1}>
-                      {session.exercise_names.slice(0, 3).join(' · ')}
-                      {session.exercise_names.length > 3 ? ` +${session.exercise_names.length - 3}` : ''}
-                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
+                      {session.exercise_names.slice(0, 3).map((name) => (
+                        <View key={name} style={{ backgroundColor: theme.teal.tint, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
+                          <Text style={{ color: theme.teal.fg, fontSize: 11, fontWeight: '700' }} numberOfLines={1}>{name}</Text>
+                        </View>
+                      ))}
+                      {session.exercise_names.length > 3 && (
+                        <View style={{ backgroundColor: theme.page, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: theme.cardBorder }}>
+                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>+{session.exercise_names.length - 3}</Text>
+                        </View>
+                      )}
+                    </View>
                   )}
-                  <View style={styles.sessionCardRow}>
+                  <View style={[styles.sessionCardRow, { marginTop: 8 }]}>
                     <Text style={[styles.sessionCount, { color: theme.teal.fg }]}>
                       {session.entry_count} exercise{session.entry_count !== 1 ? 's' : ''}
                     </Text>
@@ -788,7 +919,8 @@ export function ExerciseScreen() {
                       <Ionicons name="trash-outline" size={16} color={theme.textSoft} />
                     </Pressable>
                   </View>
-                </Pressable>
+                  </Pressable>
+                </View>
               </ShadowCard>
               );
             })}
