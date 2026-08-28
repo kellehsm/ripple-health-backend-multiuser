@@ -12,7 +12,9 @@ import {
   RefreshControl,
   PanResponder,
   Alert,
+  useWindowDimensions,
 } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
@@ -80,6 +82,146 @@ function glucoseY(val: number, minVal: number, maxVal: number): number {
 
 function eventX(t: number, windowStart: number, windowEnd: number): number {
   return eventXBase(t, windowStart, windowEnd, CHART_W, PAD_L);
+}
+
+// ─── Local sub-components ─────────────────────────────────────────────────────
+
+interface RingProps {
+  score: number; // 0–100
+  color: string;
+  label: string;
+  valueLabel: string;
+}
+
+function MiniRing({ score, color, label, valueLabel }: RingProps) {
+  const { theme } = useTheme();
+  const SIZE = 52;
+  const STROKE = 4;
+  const R = (SIZE - STROKE) / 2;
+  const CIRC = 2 * Math.PI * R;
+  const progress = CIRC * (1 - Math.min(100, Math.max(0, score)) / 100);
+  return (
+    <View style={{ alignItems: "center", gap: 4 }}>
+      <View style={{ width: SIZE, height: SIZE }}>
+        <Svg width={SIZE} height={SIZE}>
+          <Circle
+            cx={SIZE / 2}
+            cy={SIZE / 2}
+            r={R}
+            stroke={theme.cardBorder}
+            strokeWidth={STROKE}
+            fill="none"
+          />
+          <Circle
+            cx={SIZE / 2}
+            cy={SIZE / 2}
+            r={R}
+            stroke={color}
+            strokeWidth={STROKE}
+            fill="none"
+            strokeDasharray={`${CIRC}`}
+            strokeDashoffset={progress}
+            strokeLinecap="round"
+            rotation="-90"
+            origin={`${SIZE / 2}, ${SIZE / 2}`}
+          />
+        </Svg>
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontSize: 10, fontWeight: "800", color: theme.textStrong }}>{valueLabel}</Text>
+        </View>
+      </View>
+      <Text style={{ fontSize: 10, fontWeight: "700", color: theme.textSoft }}>{label}</Text>
+    </View>
+  );
+}
+
+interface TodayAtAGlanceProps {
+  sleepStats: { yesterday_seconds: number; seven_day_average_seconds: number } | null;
+  stepsCount: number | null;
+  waterCount: number;
+}
+
+function TodayAtAGlanceStrip({ sleepStats, stepsCount, waterCount }: TodayAtAGlanceProps) {
+  const { theme } = useTheme();
+
+  const sleepScore = sleepStats?.yesterday_seconds
+    ? Math.min(100, Math.round((sleepStats.yesterday_seconds / (8 * 3600)) * 100))
+    : 0;
+  const sleepSecs = sleepStats?.yesterday_seconds ?? 0;
+  const sleepH = Math.floor(sleepSecs / 3600);
+  const sleepM = Math.floor((sleepSecs % 3600) / 60);
+  const sleepLabel = sleepSecs > 0 ? `${sleepH}h${sleepM > 0 ? sleepM + "m" : ""}` : "—";
+
+  const stepsScore = stepsCount !== null ? Math.min(100, Math.round((stepsCount / 8000) * 100)) : 0;
+  const stepsLabel = stepsCount !== null ? stepsCount.toLocaleString() : "—";
+
+  const waterScore = Math.min(100, Math.round((waterCount / 8) * 100));
+  const waterLabel = `${waterCount}gl`;
+
+  return (
+    <View style={{
+      flexDirection: "row",
+      justifyContent: "space-around",
+      alignItems: "flex-start",
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      marginBottom: 4,
+    }}>
+      <MiniRing score={sleepScore} color={theme.amber?.solid ?? "#B88820"} label="Sleep" valueLabel={sleepLabel} />
+      <MiniRing score={stepsScore} color={theme.teal.solid} label="Steps" valueLabel={stepsLabel} />
+      <MiniRing score={waterScore} color={theme.blue.solid} label="Water" valueLabel={waterLabel} />
+    </View>
+  );
+}
+
+interface QuickWinChipsProps {
+  waterCount: number;
+  hasMoodToday: boolean;
+  stepsCount: number | null;
+  onLogWater: () => void;
+  onLogMood: () => void;
+  onNavigateExercise: () => void;
+}
+
+function QuickWinChips({ waterCount, hasMoodToday, stepsCount, onLogWater, onLogMood, onNavigateExercise }: QuickWinChipsProps) {
+  const { theme } = useTheme();
+
+  const chips: Array<{ label: string; onPress: () => void }> = [];
+  if (waterCount < 4) chips.push({ label: "Drink water 💧", onPress: onLogWater });
+  if (!hasMoodToday) chips.push({ label: "Log mood 😊", onPress: onLogMood });
+  if (stepsCount !== null && stepsCount < 3000) chips.push({ label: "Take a walk 🚶", onPress: onNavigateExercise });
+
+  if (chips.length === 0) return null;
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ flexDirection: "row", gap: 8, paddingHorizontal: 2, paddingVertical: 4, marginBottom: 4 }}
+    >
+      {chips.map(function (chip) {
+        return (
+          <Pressable
+            key={chip.label}
+            onPress={chip.onPress}
+            accessibilityRole="button"
+            style={{
+              borderRadius: 20,
+              borderWidth: 1.5,
+              borderColor: theme.cardBorder,
+              backgroundColor: theme.card,
+              paddingHorizontal: 14,
+              paddingVertical: 7,
+            }}
+          >
+            <Text style={{ fontSize: FONT_SIZES.caption, fontWeight: "700", color: theme.textStrong }}>
+              {chip.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -562,6 +704,19 @@ export function OverviewScreen() {
     dayGlucose, weeklyData, patternEvents, streak, stepsCount, sleepStats, digest,
   }), [dayGlucose, weeklyData, patternEvents, streak, stepsCount, sleepStats, digest]);
 
+  const adaptiveGreeting = useMemo(function () {
+    if (sleepStats?.yesterday_seconds) {
+      const h = Math.floor(sleepStats.yesterday_seconds / 3600);
+      const m = Math.floor((sleepStats.yesterday_seconds % 3600) / 60);
+      const label = h >= 7 ? "Great sleep last night" : h >= 5 ? "Light sleep last night" : "Tough night";
+      return (`${label} · ${h}h ${m > 0 ? m + "m" : ""}`).trim();
+    }
+    if (stepsCount !== null && stepsCount > 0) {
+      return `${stepsCount.toLocaleString()} steps so far today`;
+    }
+    return null;
+  }, [sleepStats, stepsCount]);
+
   const glucoseChartData = useMemo(() => {
     const allGlucoseValues = [...dayGlucose, ...yesterdayGlucose].map((r) => Number(r.mg_dl));
     const minVal = allGlucoseValues.length ? Math.min(...allGlucoseValues, 70) - 10 : 60;
@@ -726,6 +881,8 @@ export function OverviewScreen() {
             loading={loading}
             insights={insights}
             tourInsightsRef={tourInsightsRef}
+            allInsights={allInsights}
+            onSeeAll={() => navigation.getParent()?.navigate("Insights")}
           />
         );
 
@@ -830,7 +987,29 @@ export function OverviewScreen() {
         onEditLayout={() => setShowEditor(true)}
         freezeStatus={freezeStatus}
         onFreezeStreak={handleFreezeStreak}
+        adaptiveGreeting={adaptiveGreeting}
       />
+
+      {/* ── Today at a glance strip ── */}
+      {!loading && (
+        <TodayAtAGlanceStrip
+          sleepStats={sleepStats}
+          stepsCount={stepsCount}
+          waterCount={waterCount}
+        />
+      )}
+
+      {/* ── Quick-win action chips ── */}
+      {!loading && (
+        <QuickWinChips
+          waterCount={waterCount}
+          hasMoodToday={!!entryPerPeriod[currentBucket]}
+          stepsCount={stepsCount}
+          onLogWater={quickLogWater}
+          onLogMood={() => setShowMoodModal(true)}
+          onNavigateExercise={() => navigation.getParent()?.navigate("Exercise")}
+        />
+      )}
 
       {/* ── Fasting Timer ── */}
       <FastingTimerCard />

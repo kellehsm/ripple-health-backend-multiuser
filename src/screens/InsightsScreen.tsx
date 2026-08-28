@@ -4,7 +4,7 @@ import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
 import { ScreenBackground } from "../components/ScreenBackground";
 import {
-  Animated, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable
+  Animated, ScrollView, View, Text, StyleSheet, RefreshControl, Pressable, Modal, useWindowDimensions
 } from "react-native";
 import { ShadowCard } from "../components/ShadowCard";
 import { todayStr } from "../utils/dateUtils";
@@ -128,8 +128,15 @@ const TYPE_GROUPS: { label: string; types: string[]; slot: string }[] = [
   { label: "Combined",     types: ["combined"],                                    slot: "insight.combined" },
 ];
 
+function insightStripeColor(confidence: string, theme: any): string {
+  if (confidence === "high" || confidence === "very_high") return theme.success;
+  if (confidence === "moderate") return theme.warning;
+  return theme.danger;
+}
+
 export function InsightsScreen() {
   const { theme } = useTheme();
+  const { width } = useWindowDimensions();
   const navigation = useNavigation<any>();
   const insightsIntro = findIntro("insights")!;
   const [introVisible, dismissIntro] = useFeatureIntro(insightsIntro.key);
@@ -149,6 +156,9 @@ export function InsightsScreen() {
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
   const isFirstLoad = useRef(true);
   const loadCancelledRef = useRef(false);
+  const [replayVisible, setReplayVisible] = useState<boolean>(false);
+  const [replayIdx, setReplayIdx] = useState(0);
+  const [heroDot, setHeroDot] = useState(0);
 
   type WeeklyDay = { date: string; avg_mood: number | null; sleep_hours: number; total_spent: number };
   const [weeklyData, setWeeklyData] = useState<WeeklyDay[]>([]);
@@ -296,22 +306,102 @@ export function InsightsScreen() {
         />
       )}
       {/* Header */}
-      <View style={styles.headerBlock}>
-        <Text style={[styles.heading, { color: theme.textStrong }]}>Your Insights</Text>
-        <Text style={[styles.subheading, { color: theme.textSoft }]}>
-          Patterns observed in your own data — not medical advice.
-        </Text>
-        <Pressable
-          onPress={handleRegenerate}
-          style={[styles.regenBtn, { borderColor: ink, opacity: regenerating ? 0.5 : 1 }]}
-          disabled={regenerating}
-        >
-          {regenerating
-            ? <LoadingIndicator size="small" color={theme.textSoft} />
-            : <><Ionicons name="refresh" size={13} color={theme.textSoft} /><Text style={[styles.regenText, { color: theme.textSoft }]}>  Refresh analysis</Text></>
-          }
-        </Pressable>
-      </View>
+      {(() => {
+        const topInsight = insights.length > 0
+          ? [...insights].sort((a, b) => b.confidence_score - a.confidence_score)[0]
+          : null;
+        return (
+          <View style={styles.headerBlock}>
+            {topInsight ? (
+              <>
+                <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1.2, color: theme.textSoft, textTransform: "uppercase", marginBottom: 2 }}>Trending Insight</Text>
+                <Text style={[styles.heading, { color: theme.textStrong }]} numberOfLines={2}>{topInsight.title}</Text>
+              </>
+            ) : (
+              <Text style={[styles.heading, { color: theme.textStrong }]}>Your Insights</Text>
+            )}
+            <Text style={[styles.subheading, { color: theme.textSoft }]}>
+              Patterns observed in your own data — not medical advice.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+              <Pressable
+                onPress={handleRegenerate}
+                style={[styles.regenBtn, { borderColor: ink, opacity: regenerating ? 0.5 : 1, marginTop: 0 }]}
+                disabled={regenerating}
+              >
+                {regenerating
+                  ? <LoadingIndicator size="small" color={theme.textSoft} />
+                  : <><Ionicons name="refresh" size={13} color={theme.textSoft} /><Text style={[styles.regenText, { color: theme.textSoft }]}>  Refresh analysis</Text></>
+                }
+              </Pressable>
+              {insights.length > 0 && (
+                <Pressable
+                  onPress={() => { setReplayIdx(0); setReplayVisible(true); }}
+                  style={[styles.regenBtn, { borderColor: theme.teal.solid, marginTop: 0 }]}
+                >
+                  <Ionicons name="play-circle-outline" size={13} color={theme.teal.solid} />
+                  <Text style={[styles.regenText, { color: theme.teal.solid }]}>  Replay top insights</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        );
+      })()}
+
+      {/* Hero carousel — top 3 by confidence_score, shown on "All" tab */}
+      {activeGroup === 0 && insights.length > 0 && (() => {
+        const heroInsights = [...insights].sort((a, b) => b.confidence_score - a.confidence_score).slice(0, 3);
+        const cardWidth = width - 32;
+        const accentFor = (c: string) => {
+          if (c === "high" || c === "very_high") return theme.success;
+          if (c === "moderate") return theme.warning;
+          return theme.danger;
+        };
+        const confidenceBadge = (c: string) => {
+          if (c === "very_high") return "Very Strong";
+          if (c === "high") return "Strong";
+          if (c === "moderate") return "Moderate";
+          return "Emerging";
+        };
+        return (
+          <View style={{ overflow: "hidden", marginBottom: 4 }}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={e => {
+                const idx = Math.round(e.nativeEvent.contentOffset.x / cardWidth);
+                setHeroDot(idx);
+              }}
+            >
+              {heroInsights.map((ins, i) => {
+                const accent = accentFor(ins.confidence);
+                return (
+                  <View key={ins.id} style={{ width: cardWidth, padding: 16, borderRadius: 18, backgroundColor: theme.card, borderWidth: 2, borderColor: accent, marginRight: 0 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <View style={{ backgroundColor: accent + "22", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ fontSize: 10, fontWeight: "800", color: accent, textTransform: "uppercase", letterSpacing: 0.8 }}>{ins.type}</Text>
+                      </View>
+                      <View style={{ backgroundColor: accent + "33", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: accent }}>{confidenceBadge(ins.confidence)}</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontSize: 17, fontWeight: "900", color: theme.textStrong, marginBottom: 6 }}>{ins.title}</Text>
+                    <Text style={{ fontSize: 13, color: theme.textSoft, lineHeight: 19 }}>{ins.description.slice(0, 120)}{ins.description.length > 120 ? "…" : ""}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+            {heroInsights.length > 1 && (
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 8 }}>
+                {heroInsights.map((_, i) => (
+                  <View key={i} style={{ width: i === heroDot ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: i === heroDot ? theme.ink : theme.cardBorder }} />
+                ))}
+              </View>
+            )}
+          </View>
+        );
+      })()}
 
       {/* Filter grid — 3 rows of 3 */}
       {loading && isFirstLoad.current ? (
@@ -331,19 +421,25 @@ export function InsightsScreen() {
               {row.map((g) => {
                 const idx = TYPE_GROUPS.indexOf(g);
                 const active = activeGroup === idx;
+                const tabCount = g.types.length === 0 ? insights.length : insights.filter(i => g.types.includes(i.type)).length;
                 return (
                   <Pressable
                     key={g.label}
                     onPress={() => { Haptics.selectionAsync(); setActiveGroup(idx); }}
                     style={[
                       styles.filterTab,
-                      { flex: 1, borderColor: ink, backgroundColor: active ? ink : "transparent" },
+                      { flex: 1, borderColor: ink, backgroundColor: active ? ink : "transparent", opacity: (!active && tabCount === 0) ? 0.4 : 1 },
                     ]}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
                       <ThemedIcon slot={g.slot} size={13} color={active ? theme.page : theme.textSoft} />
                       <Text style={[styles.filterText, { color: active ? theme.page : theme.textSoft }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{g.label}</Text>
                     </View>
+                    {tabCount > 0 && (
+                      <View style={{ position: "absolute", top: -6, right: -4, backgroundColor: active ? theme.teal.solid : theme.ink, borderRadius: 10, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
+                        <Text style={{ color: theme.page, fontSize: 9, fontWeight: "800" }}>{tabCount}</Text>
+                      </View>
+                    )}
                   </Pressable>
                 );
               })}
@@ -404,15 +500,19 @@ export function InsightsScreen() {
                 <SectionLabel text={cat.label} style={{ marginBottom: 6 }} />
                 <View style={{ gap: 6 }}>
                   {cat.items.map(insight => (
-                    <InsightCard
-                      key={insight.id}
-                      insight={insight}
-                      compact
-                      onDismiss={handleDismiss}
-                      onSnooze={handleSnooze}
-                      onPin={handlePin}
-                      isPinned={pinnedIds.has(insight.id)}
-                    />
+                    <View key={insight.id} style={{ flexDirection: "row" }}>
+                      <View style={{ width: 4, borderRadius: 2, backgroundColor: insightStripeColor(insight.confidence, theme), marginRight: 6 }} />
+                      <View style={{ flex: 1 }}>
+                        <InsightCard
+                          insight={insight}
+                          compact
+                          onDismiss={handleDismiss}
+                          onSnooze={handleSnooze}
+                          onPin={handlePin}
+                          isPinned={pinnedIds.has(insight.id)}
+                        />
+                      </View>
+                    </View>
                   ))}
                 </View>
               </View>
@@ -422,15 +522,19 @@ export function InsightsScreen() {
                 <SectionLabel text="Other" style={{ marginBottom: 6 }} />
                 <View style={{ gap: 6 }}>
                   {uncategorised.map(insight => (
-                    <InsightCard
-                      key={insight.id}
-                      insight={insight}
-                      compact
-                      onDismiss={handleDismiss}
-                      onSnooze={handleSnooze}
-                      onPin={handlePin}
-                      isPinned={pinnedIds.has(insight.id)}
-                    />
+                    <View key={insight.id} style={{ flexDirection: "row" }}>
+                      <View style={{ width: 4, borderRadius: 2, backgroundColor: insightStripeColor(insight.confidence, theme), marginRight: 6 }} />
+                      <View style={{ flex: 1 }}>
+                        <InsightCard
+                          insight={insight}
+                          compact
+                          onDismiss={handleDismiss}
+                          onSnooze={handleSnooze}
+                          onPin={handlePin}
+                          isPinned={pinnedIds.has(insight.id)}
+                        />
+                      </View>
+                    </View>
                   ))}
                 </View>
               </View>
@@ -618,6 +722,51 @@ export function InsightsScreen() {
     )}
     <FeatureIntroSheet intro={insightsIntro} visible={introVisible} onClose={dismissIntro} />
     <WeeklyDigestModal visible={digestVisible} onClose={() => setDigestVisible(false)} digest={digest} theme={theme} />
+    {/* Replay mode modal */}
+    <Modal visible={replayVisible} animationType="slide" transparent onRequestClose={() => setReplayVisible(false)}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 24 }}>
+        {(() => {
+          const top5 = [...insights].sort((a, b) => b.confidence_score - a.confidence_score).slice(0, 5);
+          const cur = top5[replayIdx];
+          if (!cur) return null;
+          const accent = insightStripeColor(cur.confidence, theme);
+          const confLabel = cur.confidence === "very_high" ? "Very Strong" : cur.confidence === "high" ? "Strong" : cur.confidence === "moderate" ? "Moderate" : "Emerging";
+          return (
+            <View style={{ backgroundColor: theme.card, borderRadius: 24, padding: 24, width: "100%", borderWidth: 2, borderColor: accent }}>
+              <Pressable onPress={() => setReplayVisible(false)} style={{ position: "absolute", top: 16, right: 16, zIndex: 10 }} hitSlop={8}>
+                <Ionicons name="close" size={22} color={theme.textSoft} />
+              </Pressable>
+              <Text style={{ fontSize: 10, fontWeight: "800", letterSpacing: 1.2, color: accent, textTransform: "uppercase", marginBottom: 8 }}>{replayIdx + 1} of {top5.length}</Text>
+              <Text style={{ fontSize: 20, fontWeight: "900", color: theme.textStrong, marginBottom: 12, lineHeight: 26 }}>{cur.title}</Text>
+              <Text style={{ fontSize: 14, color: theme.textSoft, lineHeight: 21, marginBottom: 16 }}>{cur.description}</Text>
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
+                <View style={{ backgroundColor: accent + "22", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: accent }}>{confLabel} confidence</Text>
+                </View>
+                <View style={{ backgroundColor: theme.cardBorder, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: theme.textSoft }}>{cur.type}</Text>
+                </View>
+              </View>
+              {/* Dots */}
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 6, marginBottom: 20 }}>
+                {top5.map((_, i) => (
+                  <View key={i} style={{ width: i === replayIdx ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: i === replayIdx ? accent : theme.cardBorder }} />
+                ))}
+              </View>
+              {replayIdx < top5.length - 1 ? (
+                <Pressable onPress={() => setReplayIdx(replayIdx + 1)} style={{ backgroundColor: theme.ink, borderRadius: 14, paddingVertical: 12, alignItems: "center" }}>
+                  <Text style={{ color: theme.page, fontWeight: "800", fontSize: 15 }}>Next →</Text>
+                </Pressable>
+              ) : (
+                <Pressable onPress={() => setReplayVisible(false)} style={{ backgroundColor: theme.teal.solid, borderRadius: 14, paddingVertical: 12, alignItems: "center" }}>
+                  <Text style={{ color: theme.page, fontWeight: "800", fontSize: 15 }}>Done</Text>
+                </Pressable>
+              )}
+            </View>
+          );
+        })()}
+      </View>
+    </Modal>
     </View>
   );
 }
