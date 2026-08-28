@@ -24,18 +24,18 @@ function MindfulnessSidePanel({ side, theme }: { side: 'left' | 'right'; theme: 
   const catImageRight = require("../../../assets/themes/cat/greeting_afternoon.png");
 
   return (
-    <View style={{ width: 44, alignItems: "center", justifyContent: "center" }}>
+    <View style={{ width: 56, alignItems: "center", justifyContent: "center" }}>
       {isCatTheme ? (
         <Image
           source={side === "left" ? catImageLeft : catImageRight}
           style={[
-            { width: 38, height: 38 },
+            { width: 52, height: 52 },
             side === "right" ? { transform: [{ scaleX: -1 }] } : undefined,
           ]}
           resizeMode="contain"
         />
       ) : (
-        <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: theme.purple.tint, opacity: 0.5 }} />
+        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: theme.purple.tint, opacity: 0.5 }} />
       )}
     </View>
   );

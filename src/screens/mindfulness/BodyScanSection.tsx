@@ -22,7 +22,9 @@ const SCAN_PROMPTS: Record<string, string> = {
   feet:      "Notice your feet — warmth, pressure, tingling. Let them relax fully.",
 };
 
-const SCAN_DURATIONS = [5, 10];
+const SCAN_DURATIONS = [3, 5];
+// Seconds per body-area step for each duration option
+const SCAN_STEP_SECS = [15, 25];
 
 export function BodyScanSection({ theme, ink, onBack }: { theme: any; ink: string; onBack: () => void }) {
   const [duration, setDuration] = useState<number | null>(null);
@@ -53,7 +55,8 @@ export function BodyScanSection({ theme, ink, onBack }: { theme: any; ink: strin
 
   function begin(mins: number) {
     stopTimer();
-    const perStep = Math.round((mins * 60) / BODY_DIAGRAM_ORDER.length);
+    const durationIdx = SCAN_DURATIONS.indexOf(mins);
+    const perStep = durationIdx >= 0 ? SCAN_STEP_SECS[durationIdx] : Math.min(20, Math.round((mins * 60) / BODY_DIAGRAM_ORDER.length));
     setDuration(mins);
     setStepIdx(0);
     setSecsLeft(perStep);

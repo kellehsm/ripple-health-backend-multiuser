@@ -17,7 +17,8 @@ type GroundTechnique = "54321" | "pmr" | "stop";
 const PMR_STEPS = [
   "Feet & toes", "Calves", "Thighs", "Abdomen", "Hands & arms", "Shoulders", "Face & jaw",
 ];
-const PMR_DURATION = 10;
+const PMR_TENSE_DURATION = 10;
+const PMR_RELEASE_DURATION = 4;
 
 const PMR_AREA_MAP: Record<string, { area: string; emoji: string }> = {
   "Feet & toes":  { area: "feet",      emoji: "🦶" },
@@ -38,10 +39,10 @@ const GROUNDING_54321 = [
 ];
 
 const STOP_STEPS = [
-  { letter: "S", word: "Stop",    prompt: "Pause whatever you're doing — just stop for a moment." },
-  { letter: "T", word: "Take",    prompt: "Take a slow, deep breath in … and out." },
-  { letter: "O", word: "Observe", prompt: "Notice your thoughts, feelings, and body sensations without judgment." },
-  { letter: "P", word: "Proceed", prompt: "Continue with a little more awareness of the present moment." },
+  { letter: "S", word: "Stop",    prompt: "Pause whatever you're doing — just stop for a moment.", duration: 5 },
+  { letter: "T", word: "Take",    prompt: "Take a slow, deep breath in … and out.", duration: 10 },
+  { letter: "O", word: "Observe", prompt: "Notice your thoughts, feelings, and body sensations without judgment.", duration: 12 },
+  { letter: "P", word: "Proceed", prompt: "Continue with a little more awareness of the present moment.", duration: 6 },
 ];
 
 // ─── GroundingSection ─────────────────────────────────────────────────────────
@@ -50,7 +51,10 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
   const [technique, setTechnique] = useState<GroundTechnique | null>(null);
   const [step, setStep] = useState(0);
   const [pmrPhase, setPmrPhase] = useState<"tense" | "release">("tense");
-  const [countdown, setCountdown] = useState(PMR_DURATION);
+  const [countdown, setCountdown] = useState(PMR_TENSE_DURATION);
+  const [stopCountdown, setStopCountdown] = useState(STOP_STEPS[0].duration);
+  const [stopRunning, setStopRunning] = useState(false);
+  const stopTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pmrGraceCount, setPmrGraceCount] = useState<number | null>(null);
   const [pmrGracePending, setPmrGracePending] = useState(false);
   const [pmrReadyToStart, setPmrReadyToStart] = useState(false);
@@ -66,6 +70,35 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
 
   function stopTimer() {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  }
+
+  function clearStopTimer() {
+    if (stopTimerRef.current) { clearInterval(stopTimerRef.current); stopTimerRef.current = null; }
+  }
+
+  function startStopStep(s: number) {
+    clearStopTimer();
+    setStep(s);
+    setStopCountdown(STOP_STEPS[s].duration);
+    setStopRunning(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    stopTimerRef.current = setInterval(() => {
+      setStopCountdown((c) => {
+        if (c <= 1) {
+          clearStopTimer();
+          if (s + 1 < STOP_STEPS.length) {
+            startStopStep(s + 1);
+          } else {
+            setStopRunning(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            trackMindfulnessCompletion("grounding");
+            setTechnique(null);
+          }
+          return STOP_STEPS[s].duration;
+        }
+        return c - 1;
+      });
+    }, 1000);
   }
 
   function clearGetReadyTimer() {
@@ -94,8 +127,9 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
   }
 
   function startPmrStep(s: number, phase: "tense" | "release") {
+    const duration = phase === "tense" ? PMR_TENSE_DURATION : PMR_RELEASE_DURATION;
     stopTimer();
-    setStep(s); setPmrPhase(phase); setCountdown(PMR_DURATION);
+    setStep(s); setPmrPhase(phase); setCountdown(duration);
     timerRef.current = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
@@ -109,7 +143,7 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
             trackMindfulnessCompletion("grounding");
             setTechnique(null);
           }
-          return PMR_DURATION;
+          return duration;
         }
         return c - 1;
       });
@@ -155,12 +189,13 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
   function handlePmrRestart() {
     stopTimer(); clearGetReadyTimer(); clearPmrGraceDelay();
     setPmrGetReadyFor(null); setPmrGetReadyNextStep(null);
-    setStep(0); setPmrPhase("tense"); setCountdown(PMR_DURATION);
+    setStep(0); setPmrPhase("tense"); setCountdown(PMR_TENSE_DURATION);
     setPmrReadyToStart(true);
   }
 
   function handleBack() {
-    stopTimer(); clearGetReadyTimer(); clearPmrGraceDelay(); clearPmrGraceInterval();
+    stopTimer(); clearGetReadyTimer(); clearPmrGraceDelay(); clearPmrGraceInterval(); clearStopTimer();
+    setStopRunning(false);
     setPmrGraceCount(null); setPmrGracePending(false); setPmrReadyToStart(false);
     setPmrGetReadyFor(null); setPmrGetReadyNextStep(null);
     setTechnique(null);
@@ -252,7 +287,7 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
             <View style={{ gap: 12 }}>
               <View style={[styles.card, { backgroundColor: (theme.coral as any)?.tint, borderColor: (theme.coral as any)?.solid }]}>
                 <Text style={{ color: (theme.coral as any)?.fg, fontSize: 14, lineHeight: 22, textAlign: "center" }}>
-                  {`${PMR_STEPS.length} muscle groups — ${PMR_DURATION}s tense, ${PMR_DURATION}s release each.`}
+                  {`${PMR_STEPS.length} muscle groups — ${PMR_TENSE_DURATION}s tense, ${PMR_RELEASE_DURATION}s release each.`}
                 </Text>
                 <Text style={{ color: (theme.coral as any)?.sub, fontSize: 13, marginTop: 6, textAlign: "center" }}>
                   Find a comfortable position — lying down or seated.
@@ -309,40 +344,51 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
           )}
         </View>
       ) : (
-        // STOP technique
+        // STOP technique — automated, guided
         <View style={{ gap: 12 }}>
-          {STOP_STEPS.map((s, i) => {
-            const done = i < step;
-            const current = i === step;
-            return (
-              <View key={i} style={[styles.card, {
-                borderColor: current ? ink : theme.cardBorder ?? ink,
-                backgroundColor: current ? (theme.coral as any)?.tint : theme.card,
-                opacity: done ? 0.4 : 1,
-              }]}>
-                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                  <View style={{ width: 32, height: 32, borderRadius: 12, backgroundColor: current ? (theme.coral as any)?.solid : theme.cardBorder, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Text style={{ color: current ? "#fff" : theme.textSoft, fontWeight: "900", fontSize: 15 }}>{s.letter}</Text>
+          {!stopRunning && step === 0 ? (
+            <View style={[styles.card, { borderColor: coralSolid, backgroundColor: (theme.coral as any)?.tint, alignItems: "center", paddingVertical: 24 }]}>
+              <Text style={{ color: (theme.coral as any)?.fg, fontSize: 16, fontWeight: "900", marginBottom: 8 }}>STOP Technique</Text>
+              <Text style={{ color: (theme.coral as any)?.fg, fontSize: 13, textAlign: "center", opacity: 0.8, marginBottom: 20, lineHeight: 20 }}>
+                Tap Start and the exercise will guide you through each step automatically.
+              </Text>
+              <Pressable
+                onPress={() => startStopStep(0)}
+                style={[styles.nextBtn, { backgroundColor: coralSolid, borderColor: ink }]}
+                accessibilityRole="button"
+              >
+                <Text style={{ color: "#fff", fontSize: 14, fontWeight: "900" }}>▶ Start</Text>
+              </Pressable>
+            </View>
+          ) : (
+            STOP_STEPS.map((s, i) => {
+              const done = i < step;
+              const current = i === step;
+              return (
+                <View key={i} style={[styles.card, {
+                  borderColor: current ? ink : theme.cardBorder ?? ink,
+                  backgroundColor: current ? (theme.coral as any)?.tint : theme.card,
+                  opacity: done ? 0.4 : 1,
+                }]}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 12, backgroundColor: current ? coralSolid : theme.cardBorder, alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Text style={{ color: current ? "#fff" : theme.textSoft, fontWeight: "900", fontSize: 15 }}>{s.letter}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: current ? (theme.coral as any)?.fg : theme.textSoft, fontWeight: "800", fontSize: 14, marginBottom: current ? 6 : 0 }}>{s.word}</Text>
+                      {current && <Text style={{ color: (theme.coral as any)?.fg, fontSize: 14, lineHeight: 20 }}>{s.prompt}</Text>}
+                    </View>
+                    {done
+                      ? <Text style={{ color: theme.textSoft, fontSize: 16 }}>✓</Text>
+                      : current && <Text style={{ color: coralSolid, fontSize: 18, fontWeight: "900", minWidth: 28, textAlign: "right" }}>{stopCountdown}</Text>
+                    }
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: current ? (theme.coral as any)?.fg : theme.textSoft, fontWeight: "800", fontSize: 14, marginBottom: current ? 6 : 0 }}>{s.word}</Text>
-                    {current && <Text style={{ color: (theme.coral as any)?.fg, fontSize: 14, lineHeight: 20 }}>{s.prompt}</Text>}
-                  </View>
-                  {done && <Text style={{ color: theme.textSoft, fontSize: 16 }}>✓</Text>}
                 </View>
-                {current && (
-                  <Pressable
-                    onPress={() => { Haptics.selectionAsync(); if (step + 1 < STOP_STEPS.length) { setStep(step + 1); } else { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); trackMindfulnessCompletion("grounding"); setTechnique(null); } }}
-                    style={[styles.nextBtn, { backgroundColor: (theme.coral as any)?.solid, borderColor: ink, marginTop: 12 }]}
-                  >
-                    <Text style={{ color: "#fff", fontSize: 13, fontWeight: "800" }}>{step + 1 < STOP_STEPS.length ? "NEXT →" : "DONE ✓"}</Text>
-                  </Pressable>
-                )}
-              </View>
-            );
-          })}
-          {step > 0 && (
-            <Pressable onPress={() => { Haptics.selectionAsync(); setStep(0); }} style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]} accessibilityRole="button">
+              );
+            })
+          )}
+          {stopRunning && (
+            <Pressable onPress={() => { clearStopTimer(); setStopRunning(false); setStep(0); setStopCountdown(STOP_STEPS[0].duration); Haptics.selectionAsync(); }} style={[styles.endBtn, { borderColor: ink, backgroundColor: theme.card }]} accessibilityRole="button">
               <Text style={{ color: ink, fontSize: 13, fontWeight: "800", letterSpacing: 0.5 }}>↺ RESTART</Text>
             </Pressable>
           )}
