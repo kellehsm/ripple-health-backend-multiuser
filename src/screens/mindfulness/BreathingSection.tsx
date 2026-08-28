@@ -13,7 +13,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type BreathPattern = "box" | "478" | "equal" | "coherent";
+type BreathPattern = "box" | "478" | "sigh" | "heart";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -21,11 +21,31 @@ function phaseColorsFor(theme: any): string[] {
   return [theme.teal.solid, theme.purple.solid, theme.coral.solid, theme.purple.solid];
 }
 
-const BREATH_PATTERNS: Record<BreathPattern, { label: string; desc: string; phases: [number, number, number, number] }> = {
-  box:      { label: "Box Breathing",      desc: "4 · 4 · 4 · 4",   phases: [4, 4, 4, 4] },
-  "478":    { label: "4-7-8",              desc: "4 · 7 · 8 · 0",   phases: [4, 7, 8, 0] },
-  equal:    { label: "Equal Breathing",    desc: "5 · 0 · 5 · 0",   phases: [5, 0, 5, 0] },
-  coherent: { label: "Coherent Breathing", desc: "5.5 in · 5.5 out", phases: [5.5, 0, 5.5, 0] },
+const BREATH_PATTERNS: Record<BreathPattern, { label: string; desc: string; detail: string; phases: [number, number, number, number] }> = {
+  box:   {
+    label: "Box Breathing",
+    desc: "4 · 4 · 4 · 4",
+    detail: "Used by Navy SEALs and surgeons to stay sharp under pressure. Equal counts in every direction train your nervous system to stay steady. Great before a stressful meeting, exam, or anytime you need to feel in control.",
+    phases: [4, 4, 4, 4],
+  },
+  "478": {
+    label: "4-7-8 Breathing",
+    desc: "4 · 7 · 8 · 0",
+    detail: "Developed by Dr. Andrew Weil as a natural tranquilizer for the nervous system. The long hold and slow exhale activate your body's rest response. Use it before bed, during anxiety, or when your mind won't stop racing.",
+    phases: [4, 7, 8, 0],
+  },
+  sigh:  {
+    label: "The Sigh",
+    desc: "2 + 2 · 0 · 8 · 0",
+    detail: "The fastest scientifically-proven way to offload stress — Stanford researchers found a physiological sigh lowers CO₂ faster than any other breath pattern. Two quick inhales through the nose, one long exhale through the mouth. Do it once and feel it immediately.",
+    phases: [4, 0, 8, 0],
+  },
+  heart: {
+    label: "Heart Rhythm",
+    desc: "5 · 0 · 5 · 0",
+    detail: "Breathing at exactly 5 seconds in, 5 seconds out synchronizes your heart rate and breath — a state called cardiac coherence. Used in clinical settings to reduce anxiety and improve heart rate variability over time. Best for longer, deeper sessions when you want to genuinely unwind.",
+    phases: [5, 0, 5, 0],
+  },
 };
 
 const PHASE_LABELS = ["INHALE", "HOLD", "EXHALE", "HOLD"];
@@ -441,8 +461,12 @@ export function BreathingSection({ theme, ink, onBack, quickReset }: { theme: an
         </View>
       ) : breathWaiting ? (
         <>
-          <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
-            {BREATH_PATTERNS[breathWaiting].label} · {BREATH_PATTERNS[breathWaiting].desc}
+          <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "900", marginBottom: 2 }}>
+            {BREATH_PATTERNS[breathWaiting].label}
+            <Text style={{ color: theme.textSoft, fontWeight: "600", fontSize: 13 }}> · {BREATH_PATTERNS[breathWaiting].desc}</Text>
+          </Text>
+          <Text style={{ color: theme.textSoft, fontSize: 13, lineHeight: 19, marginBottom: 10 }}>
+            {BREATH_PATTERNS[breathWaiting].detail}
           </Text>
           <MoodDeltaPicker label="HOW DO YOU FEEL RIGHT NOW?" value={moodBefore} onSelect={setMoodBefore} accentColor={tealSolid} theme={theme} />
           <StartCircleButton onPress={handleBreathStart} accentColor={tealSolid} ink={ink} sublabel="Tap to begin" />
@@ -457,13 +481,15 @@ export function BreathingSection({ theme, ink, onBack, quickReset }: { theme: an
             const p = BREATH_PATTERNS[key];
             const rotation = idx % 2 === 0 ? -0.4 : 0.4;
             return (
-              <Pressable key={key} onPress={() => handlePatternSelect(key)} accessibilityRole="button">
+              <Pressable key={key} onPress={() => handlePatternSelect(key)} accessibilityRole="button" accessibilityLabel={p.label}>
                 <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} rotate={rotation}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.teal.fg, fontSize: 16, fontWeight: "900" }}>{p.label}</Text>
-                    <Text style={{ color: theme.teal.sub, fontSize: 12, marginTop: 2 }}>{p.desc}</Text>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={{ color: theme.teal.fg, fontSize: 16, fontWeight: "900" }}>{p.label}</Text>
+                      <Text style={{ color: theme.teal.sub, fontSize: 12, fontWeight: "700" }}>{p.desc}</Text>
+                    </View>
+                    <Text style={{ color: theme.teal.sub, fontSize: 12, lineHeight: 18, marginTop: 2 }}>{p.detail}</Text>
                   </View>
-                  <Text style={{ color: theme.teal.fg, fontSize: 20 }}>›</Text>
                 </ShadowCard>
               </Pressable>
             );
