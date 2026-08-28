@@ -27,16 +27,15 @@ import { StatsHero } from "./mindfulness/StatsHero";
 import { QuoteCard } from "./mindfulness/QuoteCard";
 import { BodyScanSection } from "./mindfulness/BodyScanSection";
 import { SoundscapesSection } from "./mindfulness/SoundscapesSection";
-import { GratitudeHistory } from "./mindfulness/GratitudeHistory";
 import { BreathingSection } from "./mindfulness/BreathingSection";
 import { GroundingSection } from "./mindfulness/GroundingSection";
 import { MeditationSection } from "./mindfulness/MeditationSection";
-import { GratitudeSection } from "./mindfulness/GratitudeSection";
+import { JournalSection } from "./mindfulness/JournalSection";
 import { TileGrid } from "./mindfulness/TileGrid";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Section = "breathing" | "grounding" | "meditation" | "gratitude" | "body_scan" | "sounds";
+type Section = "breathing" | "grounding" | "meditation" | "gratitude" | "journal" | "body_scan" | "sounds";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -168,7 +167,7 @@ export function MindfulnessScreen() {
           {activeSection === "breathing"  && <BreathingSection  theme={theme} ink={ink} onBack={goBack} quickReset={quickReset} />}
           {activeSection === "grounding"  && <GroundingSection  theme={theme} ink={ink} onBack={goBack} />}
           {activeSection === "meditation" && <MeditationSection theme={theme} ink={ink} onBack={goBack} />}
-          {activeSection === "gratitude"  && <GratitudeSection  theme={theme} ink={ink} onBack={goBack} />}
+          {(activeSection === "gratitude" || activeSection === "journal") && <JournalSection theme={theme} ink={ink} onBack={goBack} />}
           {activeSection === "body_scan"  && <BodyScanSection   theme={theme} ink={ink} onBack={goBack} />}
           {activeSection === "sounds"     && <SoundscapesSection theme={theme} ink={ink} onBack={goBack} />}
         </Animated.View>

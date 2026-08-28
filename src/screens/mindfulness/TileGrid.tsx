@@ -16,7 +16,7 @@ export function TileGrid({ theme, ink, onSelect, onQuickReset, todayDone }: {
     { section: "breathing",  slot: "mindfulness.breathing",  title: "Breathing",   desc: "Box · 4-7-8 · coherent",  colorKey: "teal"   },
     { section: "grounding",  slot: "mindfulness.grounding",  title: "Grounding",   desc: "5-4-3-2-1 · PMR · STOP",  colorKey: "coral"  },
     { section: "meditation", slot: "mindfulness.meditation", title: "Meditation",  desc: "Bells · chimes · ambient", colorKey: "purple" },
-    { section: "gratitude",  slot: "mindfulness.gratitude",  title: "Gratitude",   desc: "Prompts & journaling",     colorKey: "berry"  },
+    { section: "gratitude",  slot: "mindfulness.gratitude",  title: "Journal",     desc: "Free write · guided · gratitude", colorKey: "berry"  },
     { section: "body_scan",  slot: "mindfulness.body_scan",  title: "Body Scan",   desc: "Head-to-toe attention",    colorKey: "blue"   },
     { section: "sounds",     slot: "mindfulness.sounds",     title: "Soundscapes", desc: "Ambient sound · sleep",    colorKey: "amber"  },
   ];
