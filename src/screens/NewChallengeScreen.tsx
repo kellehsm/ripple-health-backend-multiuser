@@ -13,11 +13,13 @@ import {
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES } from "../theme/tokens";
 import { ShadowCard } from "../components/ShadowCard";
 import { SectionLabel } from "../components/SectionLabel";
 import { toast } from "../lib/toast";
 import { createChallenge, getFriends, Friend, SocialCategory } from "../api/friends";
 import { formatDateLocal, addDaysToDate } from "../utils/dateUtils";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 const CATEGORIES: { id: SocialCategory; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { id: "steps",    label: "Steps",    icon: "footsteps-outline" },
@@ -137,18 +139,19 @@ export function NewChallengeScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
+      style={{ flex: 1, backgroundColor: theme.page }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-    <ScrollView
-      style={{ backgroundColor: theme.page }}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
-    >
+      <ScreenBackground />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Privacy note */}
       <View style={[styles.privacyNote, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
         <Ionicons name="shield-checkmark-outline" size={14} color={theme.teal.fg} style={{ marginRight: 6 }} />
-        <Text style={{ color: theme.teal.fg, fontSize: 12, flex: 1, fontWeight: "600" }}>
+        <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.label, flex: 1, fontWeight: "600" }}>
           Challenges are limited to steps, exercise, hobbies, and books. All other health data stays private.
         </Text>
       </View>
@@ -187,7 +190,7 @@ export function NewChallengeScreen() {
                 size={18}
                 color={category === cat.id ? "#fff" : theme.textSoft}
               />
-              <Text style={{ color: category === cat.id ? "#fff" : theme.textStrong, fontWeight: "700", fontSize: 12, marginTop: 4, textAlign: "center" }}>
+              <Text style={{ color: category === cat.id ? "#fff" : theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.label, marginTop: 4, textAlign: "center" }}>
                 {cat.label}
               </Text>
             </Pressable>
@@ -225,7 +228,7 @@ export function NewChallengeScreen() {
           keyboardType="numeric"
           style={[styles.textInput, { color: theme.textStrong, borderColor: theme.ink, backgroundColor: theme.card }]}
         />
-        <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 6 }}>
+        <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginTop: 6 }}>
           Leave blank if the goal is qualitative rather than a specific number.
         </Text>
       </ShadowCard>
@@ -235,7 +238,7 @@ export function NewChallengeScreen() {
       <ShadowCard padding={14}>
         <View style={styles.dateRow}>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "700", marginBottom: 4 }}>START DATE</Text>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontWeight: "700", marginBottom: 4 }}>START DATE</Text>
             <TextInput
               value={startDate}
               onChangeText={(t) => { setStartDate(t); setDateError(null); }}
@@ -245,7 +248,7 @@ export function NewChallengeScreen() {
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "700", marginBottom: 4 }}>END DATE</Text>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontWeight: "700", marginBottom: 4 }}>END DATE</Text>
             <TextInput
               value={endDate}
               onChangeText={(t) => { setEndDate(t); setDateError(null); }}
@@ -272,12 +275,12 @@ export function NewChallengeScreen() {
               }}
               style={[styles.chip, { borderColor: theme.ink, backgroundColor: theme.card }]}
             >
-              <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>{opt.label}</Text>
+              <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label, fontWeight: "700" }}>{opt.label}</Text>
             </Pressable>
           ))}
         </View>
         {dateError && (
-          <Text style={{ color: theme.berry.solid, fontSize: 12, fontWeight: "700", marginTop: 8 }}>
+          <Text style={{ color: theme.berry.solid, fontSize: FONT_SIZES.label, fontWeight: "700", marginTop: 8 }}>
             {dateError}
           </Text>
         )}
@@ -288,7 +291,7 @@ export function NewChallengeScreen() {
         <>
           <SectionLabel text="Invite friends" style={{ marginTop: 4, marginBottom: -4 }} />
           <ShadowCard padding={14}>
-            <Text style={{ color: theme.textSoft, fontSize: 12, marginBottom: 8 }}>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginBottom: 8 }}>
               Select friends to invite. They can also join using the challenge link.
             </Text>
             {friends.map((friend) => {
@@ -328,12 +331,12 @@ export function NewChallengeScreen() {
         {submitting ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={{ color: "#fff", fontWeight: "900", fontSize: 16, letterSpacing: 0.3 }}>
+          <Text style={{ color: "#fff", fontWeight: "900", fontSize: FONT_SIZES.subheading, letterSpacing: 0.3 }}>
             Create Challenge
           </Text>
         )}
       </Pressable>
-    </ScrollView>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -352,7 +355,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: FONT_SIZES.body,
   },
   catRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   catBtn: {

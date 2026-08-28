@@ -77,6 +77,8 @@ export function ChallengesScreen() {
         key={challenge.id}
         onPress={() => { Haptics.selectionAsync(); navigation.navigate("ChallengeDetail", { challengeId: challenge.id }); }}
         style={[styles.challengeCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+        accessibilityRole="button"
+        accessibilityLabel={challenge.title}
       >
         <View style={styles.cardHeader}>
           <View style={[styles.iconBadge, { backgroundColor: theme.purple.tint, borderColor: theme.purple.solid }]}>

@@ -11,6 +11,7 @@ import { api } from '../api/client';
 import { LoadingIndicator } from '../components/LoadingIndicator';
 import { ShadowCard } from '../components/ShadowCard';
 import { formatDuration, entryLabel, suggestNextWeight } from '../utils/exerciseFormatters';
+import { ScreenBackground } from '../components/ScreenBackground';
 
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
@@ -249,11 +250,13 @@ export function ExerciseDetailScreen() {
   }
 
   return (
-    <ScrollView
-      style={{ backgroundColor: theme.page }}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
-    >
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <ScrollView
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
+      >
       {/* Header stats */}
       <View style={[styles.headerCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <View style={styles.statRow}>
@@ -399,7 +402,8 @@ export function ExerciseDetailScreen() {
         <Ionicons name="trash-outline" size={16} color={theme.coral.solid} />
         <Text style={{ color: theme.coral.solid, fontWeight: "700", fontSize: 14 }}>Delete workout</Text>
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

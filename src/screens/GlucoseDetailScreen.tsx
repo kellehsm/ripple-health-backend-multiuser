@@ -23,6 +23,7 @@ import { CardLoadingOverlay } from "../components/CardLoadingOverlay";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { EmptyState } from "../components/EmptyState";
 import { useReduceMotion } from "../hooks/useReduceMotion";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 type GlucoseReading = { recorded_at: string; mg_dl: number };
@@ -188,6 +189,7 @@ export function GlucoseDetailScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
       <ScrollView
         style={{ flex: 1, backgroundColor: "transparent" }}
         contentContainerStyle={s.content}

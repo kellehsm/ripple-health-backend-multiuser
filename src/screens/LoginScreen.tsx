@@ -10,12 +10,14 @@ import {
   Platform,
   Animated,
   Easing,
+  Alert,
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { LoginLogo } from "../components/LoginLogo";
 import { api } from "../api/client";
 import { setToken } from "../lib/auth";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES } from "../theme/tokens";
 import { ShadowCard } from "../components/ShadowCard";
 
 interface Props {
@@ -29,6 +31,7 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   // ── Shake animation for error feedback ────────────────────────────────────
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -123,7 +126,7 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.page ?? "#F5F1E8" }}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
       {/* Background blobs */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {[
@@ -167,10 +170,10 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
           <Animated.View
             style={{ alignItems: "center", marginBottom: 32, opacity: fadeAnims[1], transform: [{ translateY: slideAnims[1] }] }}
           >
-            <Text style={{ fontSize: 30, fontWeight: "900", color: theme.textStrong ?? "#111", letterSpacing: -0.5 }}>
+            <Text style={{ fontSize: FONT_SIZES.display, fontWeight: "900", color: theme.textStrong, letterSpacing: -0.5 }}>
               Ripple Wellness
             </Text>
-            <Text style={{ fontSize: 15, color: theme.textSoft ?? "#888", marginTop: 6 }}>
+            <Text style={{ fontSize: FONT_SIZES.subheading, color: theme.textSoft, marginTop: 6 }}>
               See how it all connects
             </Text>
           </Animated.View>
@@ -189,6 +192,9 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
                 autoCorrect={false}
                 placeholder="your@email.com"
                 placeholderTextColor={theme.textSoft}
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                accessibilityLabel="Email address"
               />
             </Animated.View>
 
@@ -196,34 +202,44 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
             <Animated.View style={{ marginBottom: 8, opacity: fadeAnims[3], transform: [{ translateY: slideAnims[3] }] }}>
               <Text style={[styles.label, { color: theme.ink }]}>Password</Text>
               <TextInput
+                ref={passwordRef}
                 style={[styles.input, { backgroundColor: theme.card, borderColor: theme.ink, color: theme.textStrong }]}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 placeholder="••••••••"
                 placeholderTextColor={theme.textSoft}
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+                accessibilityLabel="Password"
               />
             </Animated.View>
 
             {/* Error */}
             {error ? (
-              <Text style={{ color: theme.danger ?? "#C0392B", fontSize: 13, marginBottom: 8, textAlign: "center" }}>
+              <Text style={{ color: theme.danger, fontSize: FONT_SIZES.label, marginBottom: 8, textAlign: "center" }}>
                 {error}
               </Text>
             ) : null}
           </Animated.View>
 
           {/* Forgot password */}
-          <Pressable onPress={() => {/* no-op for now */}} style={{ alignSelf: "flex-end", marginBottom: 20 }}>
-            <Text style={{ color: theme.textSoft ?? "#888", fontSize: 13 }}>Forgot password?</Text>
+          <Pressable
+            onPress={() => Alert.alert("Reset Password", "Please contact support or use the email link sent to your registered address.")}
+            style={{ alignSelf: "flex-end", marginBottom: 20 }}
+            accessibilityRole="button"
+            accessibilityLabel="Forgot password"
+          >
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label }}>Forgot password?</Text>
           </Pressable>
 
           {/* Sign in button */}
           <Animated.View style={{ opacity: fadeAnims[4], transform: [{ translateY: slideAnims[4] }] }}>
             <Pressable
-              style={[styles.primaryBtn, { backgroundColor: theme.primary, borderColor: theme.ink ?? "#111" }]}
+              style={[styles.primaryBtn, { backgroundColor: theme.primary, borderColor: theme.ink }]}
               onPress={handleLogin}
               disabled={loading}
+              accessibilityRole="button"
             >
               {loading ? (
                 <LoadingIndicator color="#fff" />
@@ -237,8 +253,8 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
           <Animated.View
             style={{ alignItems: "center", marginTop: 20, opacity: fadeAnims[5], transform: [{ translateY: slideAnims[5] }] }}
           >
-            <Pressable onPress={onShowSignup}>
-              <Text style={{ color: theme.textStrong ?? "#111", fontSize: 14 }}>
+            <Pressable onPress={onShowSignup} accessibilityRole="button">
+              <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body }}>
                 {"Don't have an account? "}
                 <Text style={{ fontWeight: "700", textDecorationLine: "underline" }}>Create one</Text>
               </Text>
@@ -253,8 +269,9 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
               setError(null);
             }}
             style={{ alignItems: "center", marginTop: 28, paddingVertical: 10 }}
+            accessibilityRole="button"
           >
-            <Text style={{ color: theme.textSoft ?? "#888", fontSize: 12, letterSpacing: 0.4 }}>
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, letterSpacing: 0.4 }}>
               ✦ Use demo account
             </Text>
           </Pressable>
@@ -266,7 +283,7 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
 
 const styles = StyleSheet.create({
   label: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.label,
     fontWeight: "700",
     letterSpacing: 0.3,
     marginBottom: 6,
@@ -276,7 +293,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 13,
-    fontSize: 16,
+    fontSize: FONT_SIZES.subheading,
     shadowColor: "rgba(60,40,20,0.1)",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.1,
@@ -297,7 +314,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: "#fff",
     fontWeight: "900",
-    fontSize: 15,
+    fontSize: FONT_SIZES.subheading,
     letterSpacing: 1.2,
   },
 });

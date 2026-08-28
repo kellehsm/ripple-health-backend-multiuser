@@ -7,6 +7,12 @@ import { getOrGenerateNarrative } from "../services/monthlyNarrative.js";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+// ─── 1-hour in-process TTL cache for heavy aggregate endpoints ────────────────
+// Key format: "userId:YYYY-MM-DD". Mirrors the pattern used in lib/userTz.ts.
+const SUMMARY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const streaksCache = new Map<string, { data: unknown; expiresAt: number }>();
+const weeklyDigestCache = new Map<string, { data: unknown; expiresAt: number }>();
+
 function formatSummaryResponse(row: any) {
   const dateStr = row.date instanceof Date
     ? row.date.toISOString().slice(0, 10)
@@ -47,6 +53,10 @@ export default async function summaryRoutes(app: FastifyInstance) {
   app.get("/weekly-digest", async (req) => {
     const user_id = req.user_id;
     const tz = await getUserTz(user_id);
+    const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+    const digestCacheKey = `${user_id}:${todayKey}`;
+    const digestHit = weeklyDigestCache.get(digestCacheKey);
+    if (digestHit && digestHit.expiresAt > Date.now()) return digestHit.data;
 
     const [glucoseRows, highCarbRows, missingDayRows, spendingRows, hrRows, stepsRows, hobbiesRows, exerciseRows, booksRows, moodRows] = await Promise.all([
       query<any>(`
@@ -107,13 +117,13 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
       query<any>(`
         SELECT
-          COALESCE(SUM(CASE WHEN logged_at::date >= CURRENT_DATE - 6 THEN max_val ELSE 0 END), 0) AS this_week,
-          COALESCE(SUM(CASE WHEN logged_at::date < CURRENT_DATE - 6 THEN max_val ELSE 0 END), 0) AS last_week
+          COALESCE(SUM(CASE WHEN logged_at >= CURRENT_DATE - interval '6 days' THEN max_val ELSE 0 END), 0) AS this_week,
+          COALESCE(SUM(CASE WHEN logged_at < CURRENT_DATE - interval '6 days' THEN max_val ELSE 0 END), 0) AS last_week
         FROM (
           SELECT logged_at::date, MAX(value) AS max_val
           FROM metric_logs
           WHERE metric_id = (SELECT id FROM metrics WHERE user_id = $1 AND name = 'steps' ORDER BY id LIMIT 1)
-            AND logged_at::date >= CURRENT_DATE - 13
+            AND logged_at >= CURRENT_DATE - interval '13 days'
           GROUP BY logged_at::date
         ) daily`, [user_id]),
 
@@ -171,7 +181,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
 
     const hrCount = Number(hrRows[0]?.reading_count ?? 0);
 
-    return {
+    const digestResult = {
       glucose_by_tod: glucoseByTod,
       meal_flags: mealFlags,
       spending_spikes: spendingSpikes,
@@ -197,6 +207,8 @@ export default async function summaryRoutes(app: FastifyInstance) {
         avg_this_week: moodRows[0]?.avg_mood != null ? Number(moodRows[0].avg_mood) : null,
       },
     };
+    weeklyDigestCache.set(digestCacheKey, { data: digestResult, expiresAt: Date.now() + SUMMARY_CACHE_TTL_MS });
+    return digestResult;
   });
 
   // GET /summary/what-changed — this week vs last week deltas on the key
@@ -333,6 +345,10 @@ export default async function summaryRoutes(app: FastifyInstance) {
     const today = fmt.format(new Date());
     const yesterday = fmt.format(new Date(Date.now() - 86400000));
 
+    const streaksCacheKey = `${user_id}:${today}`;
+    const streaksHit = streaksCache.get(streaksCacheKey);
+    if (streaksHit && streaksHit.expiresAt > Date.now()) return streaksHit.data;
+
     function calcStreak(rawDays: any[]): number {
       const days = rawDays.map((r: any) =>
         r.day instanceof Date ? r.day.toISOString().slice(0, 10) : String(r.day).slice(0, 10)
@@ -411,7 +427,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
       ),
     ]);
 
-    return {
+    const streaksResult = {
       meal_streak:     calcStreak(mealDays),
       mood_streak:     calcStreak(moodDays),
       steps_streak:    calcStreak(stepsDays),
@@ -420,6 +436,8 @@ export default async function summaryRoutes(app: FastifyInstance) {
       water_streak:    calcStreak(waterDays),
       hobby_streak:    calcStreak(hobbyDays),
     };
+    streaksCache.set(streaksCacheKey, { data: streaksResult, expiresAt: Date.now() + SUMMARY_CACHE_TTL_MS });
+    return streaksResult;
   });
 
   // Descriptive-only pattern observations for the Home tab. Returns up to two
@@ -566,7 +584,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
              FROM metric_logs ml
              JOIN metrics m ON m.id = ml.metric_id
              WHERE m.user_id = $1 AND m.name = 'steps'
-               AND ml.logged_at::date >= $2 AND ml.logged_at::date <= $3
+               AND ml.logged_at >= $2::date AND ml.logged_at < $3::date + interval '1 day'
                AND ml.value > 0
              GROUP BY ml.logged_at::date
            ) daily
@@ -577,20 +595,20 @@ export default async function summaryRoutes(app: FastifyInstance) {
         query<any>(
           `SELECT COALESCE(SUM(amount), 0)::float AS total
            FROM spending_entries
-           WHERE user_id = $1 AND logged_at::date >= $2 AND logged_at::date <= $3`,
+           WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $3::date + interval '1 day'`,
           [user_id, monthStart, monthEnd]
         ),
         query<any>(
           `SELECT COALESCE(SUM(amount), 0)::float AS total
            FROM spending_entries
-           WHERE user_id = $1 AND logged_at::date >= $2 AND logged_at::date <= $3`,
+           WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $3::date + interval '1 day'`,
           [user_id, twoMonthStart, twoMonthEnd]
         ),
         // Count distinct days with meal logs for the observation
         query<any>(
           `SELECT COUNT(DISTINCT logged_at::date)::int AS days_logged
            FROM meals
-           WHERE user_id = $1 AND logged_at::date >= $2 AND logged_at::date <= $3`,
+           WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $3::date + interval '1 day'`,
           [user_id, monthStart, monthEnd]
         ),
         query<any>(scoreAvgSql, [user_id, monthStart, monthEnd]),
@@ -610,7 +628,7 @@ export default async function summaryRoutes(app: FastifyInstance) {
              FROM metric_logs ml
              JOIN metrics m ON m.id = ml.metric_id
              WHERE m.user_id = $1 AND m.name = 'steps'
-               AND ml.logged_at::date >= $2 AND ml.logged_at::date <= $3
+               AND ml.logged_at >= $2::date AND ml.logged_at < $3::date + interval '1 day'
                AND ml.value > 0
              GROUP BY ml.logged_at::date
            ) daily`,
@@ -722,25 +740,25 @@ export default async function summaryRoutes(app: FastifyInstance) {
     const [glucose, mood, meals, spend] = await Promise.all([
       query<any>(
         `SELECT recorded_at, mg_dl::float FROM glucose_readings
-         WHERE user_id = $1 AND recorded_at::date = $2 ORDER BY recorded_at`,
+         WHERE user_id = $1 AND recorded_at >= $2::date AND recorded_at < $2::date + interval '1 day' ORDER BY recorded_at`,
         [user_id, day]
       ),
       query<any>(
         `SELECT logged_at AS time, 'mood' AS type, entry_type, period,
                 COALESCE(mood_label, mood_score::text) AS label, mood_score
-         FROM journal_entries WHERE user_id = $1 AND logged_at::date = $2`,
+         FROM journal_entries WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + interval '1 day'`,
         [user_id, day]
       ),
       query<any>(
         `SELECT logged_at AS time, 'meal' AS type, name AS label,
                 (carbs_g * servings)::float AS carbs_g
-         FROM meals WHERE user_id = $1 AND logged_at::date = $2`,
+         FROM meals WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + interval '1 day'`,
         [user_id, day]
       ),
       query<any>(
         `SELECT logged_at AS time, 'spend' AS type,
                 ('$' || amount::int || COALESCE(' ' || category, '')) AS label
-         FROM spending_entries WHERE user_id = $1 AND logged_at::date = $2`,
+         FROM spending_entries WHERE user_id = $1 AND logged_at >= $2::date AND logged_at < $2::date + interval '1 day'`,
         [user_id, day]
       ),
     ]);

@@ -143,12 +143,16 @@ function CircleBreathingAnimationInner({
   phaseSecsLeft,
   pattern,
   phaseColors,
+  cardBorder,
+  textSoftColor,
 }: {
   breathAnim: Animated.Value;
   phase: number;
   phaseSecsLeft: number;
   pattern: BreathPattern;
   phaseColors: string[];
+  cardBorder: string;
+  textSoftColor: string;
 }) {
   const scaleInterp = breathAnim.interpolate({ inputRange: [0.5, 1], outputRange: [0.5, 1] });
   const phaseColor = phaseColors[phase] ?? phaseColors[0];
@@ -163,7 +167,7 @@ function CircleBreathingAnimationInner({
           <View style={{
             width: 180, height: 180, borderRadius: 90,
             backgroundColor: phaseColor,
-            borderWidth: 3, borderColor: "rgba(0,0,0,0.15)",
+            borderWidth: 3, borderColor: cardBorder,
             shadowColor: "rgba(60,40,20,0.1)", shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.12, shadowRadius: 14, elevation: 6,
             alignItems: "center", justifyContent: "center",
@@ -177,7 +181,7 @@ function CircleBreathingAnimationInner({
         {activeBars.filter(b => b.hasPhase).map((b, i) => (
           <View key={i} style={{ alignItems: "center", gap: 3 }}>
             <View style={{ height: 4, width: 32, borderRadius: 2, backgroundColor: b.active ? phaseColor : "rgba(150,150,150,0.3)" }} />
-            <Text style={{ fontSize: 10, fontWeight: b.active ? "800" : "500", color: b.active ? phaseColor : "#aaa", letterSpacing: 0.5 }}>{b.label}</Text>
+            <Text style={{ fontSize: 10, fontWeight: b.active ? "800" : "500", color: b.active ? phaseColor : textSoftColor, letterSpacing: 0.5 }}>{b.label}</Text>
           </View>
         ))}
       </View>
@@ -475,7 +479,7 @@ export function BreathingSection({ theme, ink, onBack, quickReset }: { theme: an
           {pattern === "box" ? (
             <BoxBreathingAnimationInner perimeterAnim={perimeterAnim} phase={phase} phaseSecsLeft={phaseSecsLeft} phaseColors={phaseColors} />
           ) : pattern ? (
-            <CircleBreathingAnimationInner breathAnim={breathAnim} phase={phase} phaseSecsLeft={phaseSecsLeft} pattern={pattern} phaseColors={phaseColors} />
+            <CircleBreathingAnimationInner breathAnim={breathAnim} phase={phase} phaseSecsLeft={phaseSecsLeft} pattern={pattern} phaseColors={phaseColors} cardBorder={theme.cardBorder} textSoftColor={theme.textSoft} />
           ) : null}
 
           <Text style={{ color: theme.textSoft, fontSize: 13 }}>

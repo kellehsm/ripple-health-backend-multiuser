@@ -94,7 +94,7 @@ export default async function exportRoutes(app: FastifyInstance) {
          ORDER BY logged_at`,
         [user_id, startIso, endIso]
       ),
-      query<any>(`SELECT * FROM users WHERE id = $1`, [user_id]),
+      query<any>(`SELECT email FROM users WHERE id = $1`, [user_id]),
     ]);
 
     const email = (userRow[0] as any)?.email ?? "";

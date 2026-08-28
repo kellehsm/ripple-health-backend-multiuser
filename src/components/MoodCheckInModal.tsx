@@ -128,7 +128,7 @@ export function MoodCheckInModal({ visible, period, onDismiss, onSubmitted }: Pr
         style={styles.sheetWrapper}
         pointerEvents="box-none"
       >
-        <View style={[styles.sheet, { backgroundColor: theme.page, borderColor: ink }]}>
+        <View style={[styles.sheet, { backgroundColor: theme.page, borderColor: ink }]} accessibilityViewIsModal={true}>
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: ink }]}>
             <View>

@@ -669,7 +669,7 @@ export function OverviewScreen() {
     <ScrollView
       ref={scrollViewRef}
       style={{ backgroundColor: "transparent" }}
-      contentContainerStyle={[{ padding: 16, gap: 12, paddingBottom: 40 }, tourPadding > 0 && { paddingBottom: tourPadding }]}
+      contentContainerStyle={[{ padding: 16, gap: 12, paddingBottom: 96 }, tourPadding > 0 && { paddingBottom: Math.max(tourPadding, 96) }]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

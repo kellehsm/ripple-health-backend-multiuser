@@ -26,7 +26,7 @@ export function WhatsNewModal({ entry: entryProp, onClose }: { entry?: Changelog
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <View style={styles.backdrop}>
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} accessibilityViewIsModal={true}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <View style={[styles.badge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
               <Text style={{ color: theme.teal.fg, fontSize: 10, fontWeight: "900", letterSpacing: 1.2 }}>WHAT'S NEW</Text>

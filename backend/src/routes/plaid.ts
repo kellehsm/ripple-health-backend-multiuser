@@ -141,15 +141,28 @@ export default async function plaidRoutes(app: FastifyInstance) {
     let total_added = 0;
     let total_removed = 0;
 
-    for (const item of items) {
-      const { added, removed } = await syncTransactionsForItem(
-        user_id,
-        item.item_id,
-        decryptCredential(item.access_token),
-        item.cursor
-      );
-      total_added += added;
-      total_removed += removed;
+    const results = await Promise.allSettled(
+      items.map((item) =>
+        syncTransactionsForItem(
+          user_id,
+          item.item_id,
+          decryptCredential(item.access_token),
+          item.cursor
+        )
+      )
+    );
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result.status === "fulfilled") {
+        total_added += result.value.added;
+        total_removed += result.value.removed;
+      } else {
+        req.log.error(
+          { item_id: items[i].item_id, error: result.reason?.message ?? String(result.reason) },
+          "[plaid] sync failed for item"
+        );
+      }
     }
 
     return { ok: true, total_added, total_removed };

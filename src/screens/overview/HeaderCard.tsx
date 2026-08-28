@@ -145,7 +145,7 @@ export function HeaderCard({
         </View>
         <Pressable
           onPress={onEditLayout}
-          hitSlop={10}
+          hitSlop={14}
           style={{ marginTop: 2 }}
           accessibilityLabel="Edit dashboard layout"
           accessibilityRole="button"

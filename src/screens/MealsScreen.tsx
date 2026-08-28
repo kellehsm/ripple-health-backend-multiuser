@@ -885,7 +885,7 @@ export function MealsScreen() {
         />
       )}
       <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 4 }}>
-        <Pressable onPress={() => setShowSectionEditor(true)} hitSlop={10} accessibilityLabel="Customize Meals screen">
+        <Pressable onPress={() => setShowSectionEditor(true)} hitSlop={14} accessibilityLabel="Customize Meals screen">
           <Ionicons name="pencil-outline" size={17} color={theme.textSoft} />
         </Pressable>
       </View>

@@ -52,7 +52,7 @@ export function WellnessScoreModal({ visible, onClose, scores, date }: {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => {}}>
+        <Pressable style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.cardBorder }]} onPress={() => {}} accessibilityViewIsModal={true}>
           <View style={styles.header}>
             <View>
               <Text style={[styles.title, { color: theme.textStrong }]}>Wellness Score</Text>

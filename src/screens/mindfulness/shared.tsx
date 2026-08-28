@@ -14,7 +14,7 @@ export const BODY_DIAGRAM_ORDER = [
   { area: "feet",      label: "Feet",      emoji: "🦶" },
 ];
 
-export function PmrBodyDiagram({ activeArea, accentColor }: { activeArea: string; accentColor: string }) {
+export function PmrBodyDiagram({ activeArea, accentColor, textSoftColor = "#888" }: { activeArea: string; accentColor: string; textSoftColor?: string }) {
   return (
     <View style={{ gap: 4, marginBottom: 8 }}>
       {BODY_DIAGRAM_ORDER.map((part) => {
@@ -37,7 +37,7 @@ export function PmrBodyDiagram({ activeArea, accentColor }: { activeArea: string
             <Text style={{
               fontSize: isActive ? 15 : 13,
               fontWeight: isActive ? "800" : "400",
-              color: isActive ? accentColor : "#888",
+              color: isActive ? accentColor : textSoftColor,
               opacity: isActive ? 1 : 0.3,
               marginLeft: 8,
               flex: 1,

@@ -50,6 +50,13 @@ const TYPE_ICON: Record<string, string> = {
   streak: "flame",
   mindfulness: "leaf-outline",
   category_summary: "layers-outline",
+  exercise: "barbell-outline",
+  medication: "medical-outline",
+  cycle: "sync-circle-outline",
+  trend: "trending-up-outline",
+  anomaly: "alert-circle-outline",
+  finance: "wallet-outline",
+  combined: "layers-outline",
 };
 
 const CONFIDENCE_LABEL: Record<Confidence, string> = {
@@ -565,7 +572,7 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
               <Text style={{ color: theme.teal.solid, fontSize: 11, fontWeight: "700" }}>Ask about this →</Text>
             </Pressable>
           </View>
-          {RULES_WITH_TEMPLATES.has(insight.rule_id) && (
+          {insight.rule_id && (
             <TryThisButton insightId={insight.id} theme={theme} />
           )}
           {onDismiss && (

@@ -62,7 +62,7 @@ export function rateLimitKey(req: FastifyRequest): string {
   const auth = req.headers.authorization;
   if (auth?.startsWith("Bearer ")) {
     try {
-      const payload = jwt.verify(auth.slice(7), JWT_SECRET!) as { user_id?: string };
+      const payload = jwt.verify(auth.slice(7), JWT_SECRET!, { algorithms: ['HS256'] }) as { user_id?: string };
       if (payload.user_id) return `u:${payload.user_id}`;
     } catch {
       // invalid token — fall through to IP keying
@@ -89,7 +89,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Pro
   }
   const token = auth.slice(7);
   try {
-    const payload = jwt.verify(token, JWT_SECRET!) as { user_id: string; scope?: string; tv?: number };
+    const payload = jwt.verify(token, JWT_SECRET!, { algorithms: ['HS256'] }) as { user_id: string; scope?: string; tv?: number };
     if (payload.scope === "widget" && !isWidgetAllowed(req.method, req.url)) {
       return reply.status(403).send({ error: "Widget token not permitted for this endpoint" });
     }

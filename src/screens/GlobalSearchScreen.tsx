@@ -34,6 +34,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
+import { FONT_SIZES } from "../theme/tokens";
 import { api } from "../api/client";
 
 function relativeDate(iso: string): string {
@@ -131,12 +132,12 @@ export function GlobalSearchScreen() {
 
       {!results && !loading && !searchError && (
         <View style={styles.emptyState}>
-          <Text style={{ color: theme.textSoft, fontSize: 14, textAlign: "center" }}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.body, textAlign: "center" }}>
             Type to search across all your logged data
           </Text>
           {recent.length > 0 && (
             <View style={{ marginTop: 20, width: "100%", paddingHorizontal: 24 }}>
-              <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "800", letterSpacing: 1.2, marginBottom: 8 }}>RECENT</Text>
+              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontWeight: "800", letterSpacing: 1.2, marginBottom: 8 }}>RECENT</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                 {recent.map((q) => (
                   <Pressable
@@ -153,7 +154,7 @@ export function GlobalSearchScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={"Search again for " + q}
                   >
-                    <Text style={{ color: theme.textStrong, fontSize: 12 }}>{q}</Text>
+                    <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label }}>{q}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -164,21 +165,21 @@ export function GlobalSearchScreen() {
 
       {searchError && !loading && (
         <View style={styles.emptyState}>
-          <Text style={{ color: theme.textSoft, fontSize: 14, textAlign: "center" }}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.body, textAlign: "center" }}>
             Couldn't search right now. Check your connection.
           </Text>
           <Pressable
             onPress={() => { if (query.trim().length >= 2) runSearch(query); }}
             style={[styles.retryBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
           >
-            <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700" }}>Retry</Text>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label, fontWeight: "700" }}>Retry</Text>
           </Pressable>
         </View>
       )}
 
       {results && totalHits === 0 && !loading && (
         <View style={styles.emptyState}>
-          <Text style={{ color: theme.textSoft, fontSize: 14, textAlign: "center" }}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.body, textAlign: "center" }}>
             No results for "{query}"
           </Text>
         </View>
@@ -291,8 +292,8 @@ function Row({ title, sub, theme, onPress }: { title: string; sub: string; theme
       ]}
     >
       <View style={{ flex: 1 }}>
-        <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: "600" }} numberOfLines={1}>{title}</Text>
-        {sub ? <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{sub}</Text> : null}
+        <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: "600" }} numberOfLines={1}>{title}</Text>
+        {sub ? <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }} numberOfLines={1}>{sub}</Text> : null}
       </View>
       {onPress ? <Ionicons name="chevron-forward" size={14} color={theme.textSoft} /> : null}
     </Pressable>
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: FONT_SIZES.subheading,
     paddingVertical: 0,
   },
   emptyState: {
@@ -330,9 +331,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 6 },
-  sectionLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
+  sectionLabel: { fontSize: FONT_SIZES.micro, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" },
   countBadge: { borderRadius: 8, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 1, marginLeft: 2 },
-  countText: { fontSize: 9, fontWeight: "900" },
+  countText: { fontSize: FONT_SIZES.micro, fontWeight: "900" },
   sectionCard: {
     borderRadius: 22,
     borderWidth: 2,

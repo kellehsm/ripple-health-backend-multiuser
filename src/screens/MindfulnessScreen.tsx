@@ -20,6 +20,7 @@ import { ThemedIcon } from "../theme/iconRegistry";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
 import { trackMindfulnessCompletion, getTodayCompletedSections } from "../lib/mindfulnessTracker";
+import { useReduceMotion } from "../hooks/useReduceMotion";
 import { TooltipBubble } from "../components/TooltipBubble";
 import { hasSeenTooltip, markTooltipSeen } from "../utils/tooltipSeen";
 import { StatsHero } from "./mindfulness/StatsHero";
@@ -53,6 +54,7 @@ export function MindfulnessScreen() {
   const [hubVisit, setHubVisit] = useState(0);
   const [totalSessions, setTotalSessions] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const reduceMotion = useReduceMotion();
   const contentFade = useRef(new Animated.Value(1)).current;
   const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,6 +83,10 @@ export function MindfulnessScreen() {
   );
 
   function fadeTransition(onChange: () => void) {
+    if (reduceMotion) {
+      onChange();
+      return;
+    }
     Animated.timing(contentFade, { toValue: 0, duration: 140, useNativeDriver: true }).start(() => {
       setSectionLoading(true);
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);

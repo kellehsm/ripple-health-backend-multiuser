@@ -160,3 +160,5 @@ CREATE INDEX idx_glucose_time ON glucose_readings (user_id, recorded_at);
 CREATE INDEX idx_meals_time ON meals (user_id, logged_at);
 CREATE INDEX idx_spending_time ON spending_entries (user_id, logged_at);
 CREATE INDEX idx_journal_time ON journal_entries (user_id, logged_at);
+CREATE INDEX IF NOT EXISTS idx_hobby_logs_hobby_id ON hobby_logs (hobby_id, logged_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dose_logs_med_date ON medication_dose_logs (medication_id, log_date, status);

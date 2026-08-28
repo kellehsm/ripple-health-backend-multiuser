@@ -857,8 +857,8 @@ export function ExerciseScreen() {
                 Day {selectedDay?.day.day_number} · {selectedDay?.exercises.length} exercise{selectedDay?.exercises.length !== 1 ? 's' : ''}
               </Text>
             </View>
-            <Pressable onPress={() => setSelectedDay(null)} hitSlop={12}>
-              <Text style={{ fontSize: 20, color: theme.textSoft }}>✕</Text>
+            <Pressable onPress={() => setSelectedDay(null)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+              <Ionicons name="close" size={20} color={theme.textSoft} />
             </Pressable>
           </View>
 
@@ -867,7 +867,7 @@ export function ExerciseScreen() {
           ) : (
             <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
               {selectedDay?.exercises.map((ex, i) => (
-                <View key={ex.exercise_id} style={{ backgroundColor: theme.card, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 }}>
+                <View key={ex.exercise_id} style={{ backgroundColor: theme.card, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, overflow: 'hidden', shadowColor: 'rgba(60,40,20,0.1)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 }}>
                   {ex.images.length > 0 ? (
                     <CyclingImage images={ex.images} style={{ width: '100%', height: 220 }} />
                   ) : (

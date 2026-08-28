@@ -13,6 +13,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Share,
+  Alert,
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
@@ -84,8 +85,8 @@ function FriendsEmptyState({ onPress }: { onPress: () => void }) {
         <Circle cx="44" cy="38" r="8" fill={c} opacity={0.45} />
         <Circle cx="76" cy="38" r="8" fill={c} opacity={0.45} />
       </Svg>
-      <Text style={{ fontSize: 16, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>No friends yet</Text>
-      <Text style={{ fontSize: 13, color: theme.textSoft, marginTop: 6, textAlign: "center", maxWidth: 240 }}>
+      <Text style={{ fontSize: FONT_SIZES.subheading, fontWeight: "700", color: theme.textStrong, marginTop: 16 }}>No friends yet</Text>
+      <Text style={{ fontSize: FONT_SIZES.label, color: theme.textSoft, marginTop: 6, textAlign: "center", maxWidth: 240 }}>
         Invite someone to join and start tracking wellness together
       </Text>
       <Pressable
@@ -323,17 +324,26 @@ export function FriendsScreen() {
     }
   }
 
-  async function handleDecline(connectionId: string) {
-    setActingOnRequest(connectionId);
-    try {
-      await declineFriendRequest(connectionId);
-      setRequests((prev) => prev.filter((r) => r.connection_id !== connectionId));
-      toast("Request declined.");
-    } catch (e: any) {
-      toast(e?.message ?? "Could not decline request.", "error");
-    } finally {
-      setActingOnRequest(null);
-    }
+  function handleDecline(connectionId: string) {
+    Alert.alert("Decline Request", "Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Decline",
+        style: "destructive",
+        onPress: async () => {
+          setActingOnRequest(connectionId);
+          try {
+            await declineFriendRequest(connectionId);
+            setRequests((prev) => prev.filter((r) => r.connection_id !== connectionId));
+            toast("Request declined.");
+          } catch (e: any) {
+            toast(e?.message ?? "Could not decline request.", "error");
+          } finally {
+            setActingOnRequest(null);
+          }
+        },
+      },
+    ]);
   }
 
   const localToday = todayStr();
@@ -361,14 +371,14 @@ export function FriendsScreen() {
       {!loading && loadError && friends.length > 0 && (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 8 }]}>
           <Ionicons name="cloud-offline-outline" size={16} color={theme.textSoft} />
-          <Text style={{ color: theme.textSoft, fontSize: 12, flex: 1 }}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, flex: 1 }}>
             Some of your friends data couldn't be loaded.
           </Text>
           <Pressable
             onPress={() => setReloadKey((k) => k + 1)}
             style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.ink }]}
           >
-            <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>Retry</Text>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label, fontWeight: "700" }}>Retry</Text>
           </Pressable>
         </View>
       )}
@@ -377,12 +387,12 @@ export function FriendsScreen() {
       {nudges.length > 0 && (
         <View style={[styles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, paddingHorizontal: 14, paddingVertical: 12, gap: 4 }]}>
           {nudges.slice(0, 3).map((n, i) => (
-            <Text key={i} style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700" }}>
+            <Text key={i} style={{ color: theme.teal.fg, fontSize: FONT_SIZES.label, fontWeight: "700" }}>
               👋 {n.display_name} nudged you!
             </Text>
           ))}
           {nudges.length > 3 && (
-            <Text style={{ color: theme.teal.sub, fontSize: 12 }}>+{nudges.length - 3} more</Text>
+            <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.label }}>+{nudges.length - 3} more</Text>
           )}
         </View>
       )}
@@ -393,13 +403,13 @@ export function FriendsScreen() {
           {cheers.slice(0, 3).map((c, i) => (
             <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <Ionicons name="flame" size={16} color={theme.teal.fg} />
-              <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700" }}>
+              <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.label, fontWeight: "700" }}>
                 {c.display_name} cheered your streak!
               </Text>
             </View>
           ))}
           {cheers.length > 3 && (
-            <Text style={{ color: theme.teal.sub, fontSize: 12 }}>+{cheers.length - 3} more</Text>
+            <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.label }}>+{cheers.length - 3} more</Text>
           )}
         </View>
       )}
@@ -408,14 +418,14 @@ export function FriendsScreen() {
       {socialNotifPrefs && Object.values(socialNotifPrefs).some(v => !v) && (
         <View style={[styles.card, { backgroundColor: theme.amber.tint, borderColor: theme.amber.solid, paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }]}>
           <Ionicons name="notifications-off-outline" size={16} color={theme.amber.fg} />
-          <Text style={{ color: theme.amber.fg, fontSize: 12, flex: 1, fontWeight: "600" }}>
+          <Text style={{ color: theme.amber.fg, fontSize: FONT_SIZES.label, flex: 1, fontWeight: "600" }}>
             Some social notifications are turned off.
           </Text>
           <Pressable
             onPress={() => navigation.navigate("SettingsSocial")}
             style={[styles.smallBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
           >
-            <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>Review</Text>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label, fontWeight: "700" }}>Review</Text>
           </Pressable>
         </View>
       )}
@@ -427,13 +437,13 @@ export function FriendsScreen() {
         {username && !editingUsername ? (
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: "700", letterSpacing: 0.4, marginBottom: 4 }}>
+              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontWeight: "700", letterSpacing: 0.4, marginBottom: 4 }}>
                 YOUR USERNAME
               </Text>
-              <Text style={{ color: theme.textStrong, fontSize: 18, fontWeight: "800", lineHeight: 24 }}>
+              <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.heading, fontWeight: "800", lineHeight: 24 }}>
                 @{username}
               </Text>
-              <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 5, lineHeight: 17 }}>
+              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 5, lineHeight: 17 }}>
                 Friends can find you using this name.
               </Text>
             </View>
@@ -442,13 +452,13 @@ export function FriendsScreen() {
               style={[styles.smallBtn, { borderColor: theme.ink, backgroundColor: theme.card }]}
             >
               <Ionicons name="pencil-outline" size={14} color={theme.textStrong} />
-              <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700", marginLeft: 4 }}>Edit</Text>
+              <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label, fontWeight: "700", marginLeft: 4 }}>Edit</Text>
             </Pressable>
           </View>
         ) : (
           <View style={{ gap: 8 }}>
             {!username && !editingUsername && (
-              <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 4 }}>
+              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginBottom: 4 }}>
                 Set a username so friends can find you.
               </Text>
             )}
@@ -531,11 +541,11 @@ export function FriendsScreen() {
                     <Ionicons name="person-outline" size={18} color={theme.teal.fg} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: 14, lineHeight: 19 }}>
+                    <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, lineHeight: 19 }}>
                       {req.from_username ? "@" + req.from_username : req.from_email}
                     </Text>
                     {req.from_username && (
-                      <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>{req.from_email}</Text>
+                      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }}>{req.from_email}</Text>
                     )}
                   </View>
                   <Pressable
@@ -543,14 +553,14 @@ export function FriendsScreen() {
                     disabled={actingOnRequest === req.connection_id}
                     style={[styles.smallBtn, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}
                   >
-                    <Text style={{ color: theme.teal.fg, fontSize: 12, fontWeight: "700" }}>Accept</Text>
+                    <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.label, fontWeight: "700" }}>Accept</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => handleDecline(req.connection_id)}
                     disabled={actingOnRequest === req.connection_id}
                     style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                   >
-                    <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: "600" }}>Decline</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, fontWeight: "600" }}>Decline</Text>
                   </Pressable>
                 </View>
               </View>
@@ -568,14 +578,14 @@ export function FriendsScreen() {
       ) : friends.length === 0 && loadError ? (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 20, paddingHorizontal: 14, gap: 10 }]}>
           <Ionicons name="cloud-offline-outline" size={24} color={theme.textSoft} />
-          <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center" }}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, textAlign: "center" }}>
             Couldn't load your friends. Check your connection and try again.
           </Text>
           <Pressable
             onPress={() => setReloadKey((k) => k + 1)}
             style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.ink }]}
           >
-            <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: "700" }}>Retry</Text>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label, fontWeight: "700" }}>Retry</Text>
           </Pressable>
         </View>
       ) : friends.length === 0 ? (
@@ -590,14 +600,14 @@ export function FriendsScreen() {
                   <Ionicons name="person-outline" size={18} color={theme.teal.fg} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: 14, lineHeight: 19 }}>
+                  <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, lineHeight: 19 }}>
                     {friend.username ? "@" + friend.username : friend.email}
                   </Text>
                   {friend.username && (
-                    <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>{friend.email}</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }}>{friend.email}</Text>
                   )}
                   <View style={styles.sharingRow}>
-                    <Text style={{ color: theme.textSoft, fontSize: 11, marginRight: 6 }}>Sharing:</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginRight: 6 }}>Sharing:</Text>
                     {(["steps", "exercise", "hobbies", "books"] as SocialCategory[]).map((cat) =>
                       friend.sharing?.[cat] ? (
                         <View key={cat} style={[styles.sharingBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
@@ -606,7 +616,7 @@ export function FriendsScreen() {
                       ) : null
                     )}
                     {!friend.sharing?.steps && !friend.sharing?.exercise && !friend.sharing?.hobbies && !friend.sharing?.books && (
-                      <Text style={{ color: theme.textSoft, fontSize: 11, fontStyle: "italic" }}>nothing yet</Text>
+                      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontStyle: "italic" }}>nothing yet</Text>
                     )}
                   </View>
                 </View>
@@ -655,7 +665,7 @@ export function FriendsScreen() {
       <SectionLabel text="Friend Activity" />
       {activityFeed.length === 0 ? (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 12 }]}>
-          <Text style={{ color: theme.textSoft, fontSize: 13 }}>Quiet week so far — no streaks to celebrate yet.</Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label }}>Quiet week so far — no streaks to celebrate yet.</Text>
         </View>
       ) : (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -663,7 +673,7 @@ export function FriendsScreen() {
             <View key={entry.user_id}>
               {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
               <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
-                <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: 14, marginBottom: 8, lineHeight: 19 }}>
+                <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, marginBottom: 8, lineHeight: 19 }}>
                   {entry.display_name}
                 </Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -673,7 +683,7 @@ export function FriendsScreen() {
                         slot={m.type === "steps_streak" ? "social.steps_streak" : m.type === "exercise_streak" ? "social.exercise_streak" : "social.book_streak"}
                         size={13}
                       />
-                      <Text style={{ color: theme.teal.fg, fontSize: 12, fontWeight: "700", marginLeft: 4 }}>
+                      <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.label, fontWeight: "700", marginLeft: 4 }}>
                         {m.count}d {m.label}
                       </Text>
                     </View>
@@ -699,7 +709,7 @@ export function FriendsScreen() {
             style={[styles.leaderboardCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
           >
             <Ionicons name={CATEGORY_ICON[cat]} size={26} color={theme.teal.solid} />
-            <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "800", marginTop: 6, textAlign: "center" }}>
+            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label, fontWeight: "800", marginTop: 6, textAlign: "center" }}>
               {CATEGORY_LABEL[cat]}
             </Text>
             <Ionicons name="chevron-forward" size={14} color={theme.textSoft} style={{ marginTop: 4 }} />
@@ -717,7 +727,7 @@ export function FriendsScreen() {
         style={[styles.challengeBtn, { backgroundColor: theme.purple.tint, borderColor: theme.ink }]}
       >
         <Ionicons name="trophy-outline" size={20} color={theme.purple.fg} />
-        <Text style={{ color: theme.purple.fg, fontWeight: "800", fontSize: 15, flex: 1, marginLeft: 10 }}>
+        <Text style={{ color: theme.purple.fg, fontWeight: "800", fontSize: FONT_SIZES.subheading, flex: 1, marginLeft: 10 }}>
           See Challenges
           {activeChallenges.length > 0 ? " (" + activeChallenges.length + " active)" : ""}
         </Text>
@@ -767,7 +777,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: FONT_SIZES.body,
     shadowColor: "rgba(60,40,20,0.08)",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -783,7 +793,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minWidth: 60,
   },
-  actionBtnText: { color: "#fff", fontWeight: "800", fontSize: 11, letterSpacing: 0.4 },
+  actionBtnText: { color: "#fff", fontWeight: "800", fontSize: FONT_SIZES.caption, letterSpacing: 0.4 },
   smallBtn: {
     borderWidth: 2,
     borderRadius: 12,

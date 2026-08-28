@@ -17,6 +17,7 @@ import { api } from "../api/client";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { toast } from "../lib/toast";
 import { todayStr, fmtDate, fmtDateRange } from "../utils/dateUtils";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,11 +186,13 @@ export function ExperimentScreen() {
 
   if (view === "list") {
     return (
-      <ScrollView
-        style={{ backgroundColor: theme.page }}
-        contentContainerStyle={s.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
-      >
+      <View style={{ flex: 1, backgroundColor: theme.page }}>
+        <ScreenBackground />
+        <ScrollView
+          style={{ flex: 1, backgroundColor: "transparent" }}
+          contentContainerStyle={s.content}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
+        >
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <Text style={{ fontSize: 9, fontWeight: "900", letterSpacing: 0.6, color: theme.textSoft }}>YOUR EXPERIMENTS</Text>
           <Pressable
@@ -262,7 +265,8 @@ export function ExperimentScreen() {
         )}
 
         <View style={{ height: 32 }} />
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   }
 
@@ -270,7 +274,9 @@ export function ExperimentScreen() {
 
   if (view === "new") {
     return (
-      <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+      <View style={{ flex: 1, backgroundColor: theme.page }}>
+        <ScreenBackground />
+        <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => setView("list")} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
           <Ionicons name="chevron-back" size={16} color={theme.teal.solid} />
           <Text style={{ color: theme.teal.solid, fontSize: 13, fontWeight: "700" }}>Back</Text>
@@ -333,14 +339,17 @@ export function ExperimentScreen() {
         </View>
 
         <View style={{ height: 32 }} />
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   }
 
   // ─── Results view ────────────────────────────────────────────────────────
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={s.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground />
+      <ScrollView style={{ flex: 1, backgroundColor: "transparent" }} contentContainerStyle={s.content}>
       <Pressable onPress={() => { setView("list"); setResults(null); }} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
         <Ionicons name="chevron-back" size={16} color={theme.teal.solid} />
         <Text style={{ color: theme.teal.solid, fontSize: 13, fontWeight: "700" }}>Back</Text>
@@ -430,7 +439,8 @@ export function ExperimentScreen() {
       )}
 
       <View style={{ height: 32 }} />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
