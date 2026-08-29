@@ -30,6 +30,11 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.google.android.gms.wearable.Wearable
 
+// Ring models used by the inner view classes in RippleWearBreathingActivity. They live at
+// file scope because Kotlin prohibits declaring a nested class inside an `inner class`.
+private data class RippleRing(var radius: Float, var alpha: Float)
+private data class CornerRing(val cx: Float, val cy: Float, var radius: Float, var alpha: Float)
+
 /**
  * Haptic-guided breathing for the wrist. Five paces, each with its own
  * timing pattern and animation character:
@@ -171,8 +176,6 @@ class RippleWearBreathingActivity : Activity() {
      */
     inner class AmbientRippleView(context: Context, private val accentColor: Int) : View(context) {
 
-        private data class RippleRing(var radius: Float, var alpha: Float)
-
         private val rings = mutableListOf<RippleRing>()
         private val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
@@ -305,8 +308,7 @@ class RippleWearBreathingActivity : Activity() {
             style = Paint.Style.FILL
         }
 
-        // Corner-ripple rings: list of (cx, cy, radius, alpha)
-        data class CornerRing(val cx: Float, val cy: Float, var radius: Float, var alpha: Float)
+        // Corner-ripple rings: list of (cx, cy, radius, alpha) — see CornerRing at file scope
         private val cornerRings = mutableListOf<CornerRing>()
         private val cornerRingPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
