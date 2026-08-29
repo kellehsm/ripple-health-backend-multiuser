@@ -653,8 +653,8 @@ export const api = {
   getExerciseSession: function (id: string) {
     return request('/exercise/sessions/' + id);
   },
-  finishExerciseSession: function (id: string) {
-    return request('/exercise/sessions/' + id, { method: 'PATCH', body: JSON.stringify({ ended_at: new Date().toISOString() }) });
+  finishExerciseSession: function (id: string, endedAt?: string) {
+    return request('/exercise/sessions/' + id, { method: 'PATCH', body: JSON.stringify({ ended_at: endedAt ?? new Date().toISOString() }) });
   },
   addExerciseEntry: function (sessionId: string, payload: {
     exercise_id: string;

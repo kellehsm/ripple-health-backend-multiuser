@@ -423,10 +423,10 @@ export function ExerciseScreen() {
     setLoggingDetected(true);
     Haptics.selectionAsync().catch(() => {});
     try {
-      const session = await api.startExerciseSession({ started_at: detected.start, ended_at: detected.end });
+      const session = await api.startExerciseSession({ started_at: detected.start });
       invalidateCache('exercise:main');
       setDetected(null);
-      navigation.navigate('ExerciseSession', { sessionId: session.id });
+      navigation.navigate('ExerciseSession', { sessionId: session.id, suggestedEndedAt: detected.end });
     } catch {
       toast('Could not log workout');
     } finally {

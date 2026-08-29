@@ -165,9 +165,10 @@ export function ExerciseSessionScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { sessionId, plannedExercises: initialPlan } = route.params as {
+  const { sessionId, plannedExercises: initialPlan, suggestedEndedAt } = route.params as {
     sessionId: string;
     plannedExercises?: PlanExercise[];
+    suggestedEndedAt?: string;
   };
   const ink = theme.ink;
 
@@ -420,9 +421,7 @@ export function ExerciseSessionScreen() {
         text: 'Finish', onPress: async () => {
           setFinishing(true);
           try {
-            // Retro-logged (detected-workout) sessions already have ended_at —
-            // the PATCH 404s in that case, which is fine.
-            await api.finishExerciseSession(sessionId).catch(() => {});
+            await api.finishExerciseSession(sessionId, suggestedEndedAt).catch(() => {});
             if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
             if (hrPollRef.current) { clearInterval(hrPollRef.current); hrPollRef.current = null; }
             const uniqueExercises = new Set(entries.map(e => e.exercise.id)).size;
