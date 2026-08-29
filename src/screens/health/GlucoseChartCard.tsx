@@ -3,7 +3,7 @@
  * Glucose chart card with scrubbing, annotations, TIR badge, and Dexcom sync.
  * Extracted from HealthScreen.tsx — no logic changes.
  */
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { View, Text, Pressable, TextInput, Animated } from "react-native";
 import Svg, {
   Polyline, Line, Text as SvgText, Rect, Circle,
@@ -25,6 +25,8 @@ import {
   getTimeTicks,
   type GlucoseReading, type GlucoseStatus,
 } from "./healthScreenShared";
+
+const AnimatedPolyline = Animated.createAnimatedComponent(Polyline);
 
 type Annotation = { id: string; annotated_at: string; label: string };
 
@@ -124,6 +126,23 @@ export const GlucoseChartCard = React.memo(function GlucoseChartCard({
   const { theme } = useTheme();
   const ink = theme.ink;
   const card = theme.card;
+
+  // Change 3: gap tooltip — derived from scrubInfo position vs gap rects
+  const gapTooltipVisible: boolean = useMemo(() => {
+    if (!scrubInfo) return false;
+    return dataGaps.some((g) => scrubInfo.px >= g.x1 && scrubInfo.px <= g.x2);
+  }, [scrubInfo, dataGaps]);
+
+  // Change 4: yesterday toggle state + animated opacity
+  const [showYesterday, setShowYesterday] = useState<boolean>(true);
+  const yesterdayOpacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.timing(yesterdayOpacity, {
+      toValue: showYesterday ? 1 : 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [showYesterday, yesterdayOpacity]);
 
   return (
     <Animated.View style={{ opacity: glucoseEntranceAnim }}>
@@ -259,9 +278,9 @@ export const GlucoseChartCard = React.memo(function GlucoseChartCard({
                 );
               })}
 
-              {/* Yesterday — dotted reference line */}
+              {/* Yesterday — dotted reference line (animated opacity for toggle) */}
               {yesterdayPoints.length > 0 ? (
-                <Polyline points={yesterdayPoints} fill="none" stroke={theme.textSoft} strokeWidth={2} strokeDasharray="4,4" opacity={0.65} />
+                <AnimatedPolyline points={yesterdayPoints} fill="none" stroke={theme.textSoft} strokeWidth={2} strokeDasharray="4,4" opacity={yesterdayOpacity as unknown as number} />
               ) : null}
 
               {/* Weekly average horizontal line */}
@@ -345,7 +364,7 @@ export const GlucoseChartCard = React.memo(function GlucoseChartCard({
                       r={5} fill={theme.berry.bar} stroke={ink} strokeWidth={1.5}
                     />
                   ) : null}
-                  {scrubInfo.yestVal !== null ? (
+                  {scrubInfo.yestVal !== null && showYesterday ? (
                     <Circle
                       cx={scrubInfo.px}
                       cy={PAD_TOP + chartInnerHeight - ((scrubInfo.yestVal - minVal) / (maxVal - minVal)) * chartInnerHeight}
@@ -355,6 +374,24 @@ export const GlucoseChartCard = React.memo(function GlucoseChartCard({
                 </>
               ) : null}
             </Svg>
+
+            {/* Gap tooltip */}
+            {gapTooltipVisible ? (
+              <View style={{
+                alignSelf: "flex-start",
+                marginTop: 4,
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: theme.amber.sub,
+                backgroundColor: theme.amber.bg,
+              }}>
+                <Text style={{ fontSize: 12, color: theme.amber.sub }}>
+                  No data — sensor may have been out of range.
+                </Text>
+              </View>
+            ) : null}
 
             {/* Scrub readout card */}
             {scrubInfo ? (
@@ -393,10 +430,16 @@ export const GlucoseChartCard = React.memo(function GlucoseChartCard({
           <View style={[styles.legendDot, { backgroundColor: theme.berry.bar, borderWidth: 1.5, borderColor: ink }]} />
           <Text style={{ color: theme.textSoft, fontSize: 11 }}>Today</Text>
         </View>
-        <View style={styles.legendItem}>
+        <Pressable
+          onPress={() => setShowYesterday((v) => !v)}
+          style={[styles.legendItem, { opacity: showYesterday ? 1 : 0.35 }]}
+          accessibilityLabel={showYesterday ? "Hide yesterday overlay" : "Show yesterday overlay"}
+          accessibilityRole="button"
+          hitSlop={6}
+        >
           <View style={[styles.legendDot, { backgroundColor: theme.textSoft, opacity: 0.4 }]} />
           <Text style={{ color: theme.textSoft, fontSize: 11 }}>Yesterday</Text>
-        </View>
+        </Pressable>
         {weekAvgGlucose !== null ? (
           <View style={styles.legendItem}>
             <View style={{ width: 14, height: 2, backgroundColor: theme.berry.sub ?? theme.berry.solid, opacity: 0.6, borderRadius: 1 }} />

@@ -176,10 +176,58 @@ export function WaterRing({ count, goal, color }: { count: number; goal: number;
 
 // ─── MiniDroplet ──────────────────────────────────────────────────────────────
 
-export function MiniDroplet({ count, goal, color }: { count: number; goal: number; color: string }) {
+export function MiniDroplet({
+  count,
+  goal,
+  color,
+  animatedFillRatio,
+}: {
+  count: number;
+  goal: number;
+  color: string;
+  animatedFillRatio?: Animated.Value;
+}) {
   const VW = 28, VH = 34;
   const W = 44, H = 54;
   const DROP = "M14,2 C10,7 3,16 3,24 C3,30 8,34 14,34 C20,34 25,30 25,24 C25,16 18,7 14,2Z";
+
+  if (animatedFillRatio) {
+    // Animated version — derive fillH and fillY from the animated ratio
+    const fillH = animatedFillRatio.interpolate({ inputRange: [0, 1], outputRange: [0, VH], extrapolate: "clamp" });
+    const fillY = animatedFillRatio.interpolate({ inputRange: [0, 1], outputRange: [VH, 0], extrapolate: "clamp" });
+    // AnimatedSvg Rect doesn't support Animated props directly, so we use a
+    // plain View overlay clipped to the droplet shape via borderRadius approximation.
+    // We render the static outline in SVG, then overlay an Animated.View for the fill.
+    return (
+      <View style={{ width: W, height: H, alignItems: "center", justifyContent: "center" }}>
+        <Svg width={W} height={H} viewBox={`0 0 ${VW} ${VH}`} style={{ position: "absolute" }}>
+          <Defs><ClipPath id="miniDropA"><Path d={DROP} /></ClipPath></Defs>
+          <Path d={DROP} fill={color} opacity={0.15} />
+          <Path d={DROP} fill="none" stroke={color} strokeWidth="2" opacity={0.5} />
+        </Svg>
+        {/* Animated fill overlay — clipped visually by the droplet outline */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: fillH.interpolate({ inputRange: [0, VH], outputRange: [0, H], extrapolate: "clamp" }),
+            backgroundColor: color,
+            opacity: 0.85,
+            // Rough droplet clip: bottom-heavy shape approximated by borderRadius
+            borderBottomLeftRadius: W * 0.45,
+            borderBottomRightRadius: W * 0.45,
+            borderTopLeftRadius: W * 0.3,
+            borderTopRightRadius: W * 0.3,
+          }}
+        />
+      </View>
+    );
+  }
+
+  // Static fallback
   const fillPct = goal > 0 ? Math.min(1, count / goal) : 0;
   const fillH = VH * fillPct;
   const fillY = VH - fillH;
