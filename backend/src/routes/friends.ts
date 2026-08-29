@@ -513,11 +513,11 @@ export default async function friendsRoutes(app: FastifyInstance) {
            ml.user_id,
            'mindfulness'::text AS activity_type,
            COALESCE(
-             REGEXP_REPLACE(ml.note, '^type:([^ ]+).*$', '\1'),
+             REGEXP_REPLACE(ml.note, '^type:([^ ]+).*$', '\\1'),
              'mindfulness'
            ) || ': ' ||
            COALESCE(
-             REGEXP_REPLACE(ml.note, '.*duration:([0-9]+)s.*', '\1'),
+             REGEXP_REPLACE(ml.note, '.*duration:([0-9]+)s.*', '\\1'),
              '0'
            )::int / 60 || ' min' AS description,
            ml.logged_at AS occurred_at
