@@ -5,7 +5,7 @@
  */
 import React, { useMemo } from "react";
 import { View, Text, Pressable, Animated } from "react-native";
-import Svg, { Line } from "react-native-svg";
+import Svg, { Line, Text as SvgText, Rect } from "react-native-svg";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { ShadowCard } from "../../components/ShadowCard";
 import { RangeSelector } from "../../components/RangeSelector";
@@ -154,26 +154,106 @@ export const HeartRateCard = React.memo(function HeartRateCard({
             </Pressable>
           </View>
         ) : (
-          <Svg
-            width={CHART_WIDTH}
-            height={CHART_HEIGHT}
-            style={{ marginTop: 12 }}
-            accessible
-            accessibilityRole="image"
-            accessibilityLabel={`Heart rate sparkline, latest ${restingBpm !== null ? restingBpm : "--"} bpm`}
-          >
-            {hrPointCoords.length > 1 && hrPointCoords.slice(0, -1).map((pt, i) => {
-              const next = hrPointCoords[i + 1];
-              const midBpm = (pt.bpm + next.bpm) / 2;
-              const color = zoneColor(midBpm);
-              return (
-                <React.Fragment key={i}>
-                  <Line x1={pt.x} y1={pt.y} x2={next.x} y2={next.y} stroke={ink} strokeWidth={3.5} strokeLinecap="round" />
-                  <Line x1={pt.x} y1={pt.y} x2={next.x} y2={next.y} stroke={color} strokeWidth={2} strokeLinecap="round" />
-                </React.Fragment>
-              );
-            })}
-          </Svg>
+          <>
+            <Svg
+              width={CHART_WIDTH}
+              height={CHART_HEIGHT}
+              style={{ marginTop: 8 }}
+              accessible
+              accessibilityRole="image"
+              accessibilityLabel={`Heart rate chart, latest ${restingBpm !== null ? restingBpm : "--"} bpm`}
+            >
+              {/* Y-axis grid lines + BPM labels */}
+              {[40, 60, 80, 100, 120, 140, 160].filter(v => v >= hrMin - 5 && v <= hrMax + 5).map(v => {
+                const gy = PAD_TOP + usableH - ((v - hrMin) / hrRange) * usableH;
+                if (gy < PAD_TOP || gy > PAD_TOP + usableH) return null;
+                return (
+                  <React.Fragment key={v}>
+                    <Line x1={PAD_LEFT} x2={CHART_WIDTH} y1={gy} y2={gy} stroke={theme.cardBorder} strokeWidth={0.5} strokeDasharray="3,4" opacity={0.6} />
+                    <SvgText x={PAD_LEFT - 4} y={gy + 3.5} fontSize={8} fill={theme.textSoft} textAnchor="end" opacity={0.75}>{v}</SvgText>
+                  </React.Fragment>
+                );
+              })}
+
+              {/* Zone background bands (subtle) */}
+              {(() => {
+                const bands = [
+                  { lo: 0,   hi: 60,  color: theme.teal.solid },
+                  { lo: 60,  hi: 100, color: theme.amber.solid },
+                  { lo: 100, hi: 140, color: coralTheme?.solid ?? "#FF6B35" },
+                  { lo: 140, hi: 220, color: theme.danger },
+                ];
+                return bands.map(({ lo, hi, color }) => {
+                  const clampLo = Math.max(lo, hrMin);
+                  const clampHi = Math.min(hi, hrMax);
+                  if (clampLo >= clampHi) return null;
+                  const y1 = PAD_TOP + usableH - ((clampHi - hrMin) / hrRange) * usableH;
+                  const y2 = PAD_TOP + usableH - ((clampLo - hrMin) / hrRange) * usableH;
+                  return (
+                    <Rect key={lo} x={PAD_LEFT} y={y1} width={usableW} height={y2 - y1}
+                      fill={color} opacity={0.06} />
+                  );
+                });
+              })()}
+
+              {/* X-axis time labels */}
+              {(() => {
+                const now = Date.now();
+                const windowStart = now - hrRangeHours * 3600 * 1000;
+                const windowMs = hrRangeHours * 3600 * 1000;
+                const tickCount = hrRangeHours <= 6 ? hrRangeHours : Math.ceil(hrRangeHours / 3);
+                return Array.from({ length: tickCount + 1 }, (_, i) => {
+                  const t = windowStart + (i / tickCount) * windowMs;
+                  const x = PAD_LEFT + (i / tickCount) * usableW;
+                  const d = new Date(t);
+                  const h = d.getHours();
+                  const label = `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "a" : "p"}`;
+                  return (
+                    <React.Fragment key={i}>
+                      <Line x1={x} x2={x} y1={PAD_TOP + usableH} y2={PAD_TOP + usableH + 3} stroke={theme.textSoft} strokeWidth={0.5} opacity={0.5} />
+                      <SvgText x={x} y={PAD_TOP + usableH + 11} fontSize={8} fill={theme.textSoft} textAnchor="middle" opacity={0.75}>{label}</SvgText>
+                    </React.Fragment>
+                  );
+                });
+              })()}
+
+              {/* Zone-colored polyline segments */}
+              {hrPointCoords.length > 1 && hrPointCoords.slice(0, -1).map((pt, i) => {
+                const next = hrPointCoords[i + 1];
+                const midBpm = (pt.bpm + next.bpm) / 2;
+                const color = zoneColor(midBpm);
+                return (
+                  <React.Fragment key={i}>
+                    <Line x1={pt.x} y1={pt.y} x2={next.x} y2={next.y} stroke={ink} strokeWidth={3} strokeLinecap="round" opacity={0.15} />
+                    <Line x1={pt.x} y1={pt.y} x2={next.x} y2={next.y} stroke={color} strokeWidth={2} strokeLinecap="round" />
+                  </React.Fragment>
+                );
+              })}
+
+              {/* Y-axis label */}
+              <SvgText
+                x={8} y={PAD_TOP + usableH / 2}
+                fontSize={8} fill={theme.textSoft} textAnchor="middle"
+                rotation="-90" originX={8} originY={PAD_TOP + usableH / 2}
+                opacity={0.6}
+              >bpm</SvgText>
+            </Svg>
+
+            {/* Zone legend */}
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+              {[
+                { label: "Resting", color: theme.teal.solid },
+                { label: "Fat burn", color: theme.amber.solid },
+                { label: "Cardio", color: coralTheme?.solid ?? "#FF6B35" },
+                { label: "Peak", color: theme.danger },
+              ].map(({ label, color }) => (
+                <View key={label} style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />
+                  <Text style={{ color: theme.textSoft, fontSize: 10 }}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </>
         )}
         <CardLoadingOverlay loading={hrLoading || refreshing} size="small" />
       </ShadowCard>
