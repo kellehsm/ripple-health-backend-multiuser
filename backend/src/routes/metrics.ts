@@ -74,7 +74,7 @@ export default async function metricsRoutes(app: FastifyInstance) {
       `SELECT COALESCE(SUM(ml.value), 0)::int AS count
        FROM metric_logs ml
        JOIN metrics m ON m.id = ml.metric_id
-       WHERE m.user_id = $1 AND m.name = 'water'
+       WHERE m.user_id = $1 AND lower(m.name) = 'water'
          AND ml.logged_at >= current_date AND ml.logged_at < current_date + interval '1 day'`,
       [user_id]
     );

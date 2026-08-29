@@ -124,7 +124,7 @@ class WearMessageListener : WearableListenerService() {
             .put("mood_label", label?.takeIf { it.isNotBlank() }
                 ?: when (score) { 2 -> "Low"; 3 -> "OK"; 4 -> "Good"; else -> "Neutral" })
             .toString()
-        return postJson("$API_BASE/mood-log", token, body) != null
+        return postJson("$API_BASE/journal", token, body) != null
     }
 
     private fun fetchOrCreateWaterMetric(token: String): String? {
@@ -139,9 +139,9 @@ class WearMessageListener : WearableListenerService() {
             }
         }
         val body = JSONObject()
-            .put("name", "Water")
-            .put("unit", "glass")
-            .put("category", "hydration")
+            .put("name", "water")
+            .put("unit", "glasses")
+            .put("color_key", "blue")
             .toString()
         val res = postJson("$API_BASE/metrics", token, body) ?: return null
         return try { JSONObject(res).optString("id").ifEmpty { null } } catch (_: Exception) { null }

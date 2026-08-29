@@ -148,6 +148,7 @@ function withWearOsTile(config) {
             data: [
               { $: { 'android:scheme': 'wear', 'android:host': '*', 'android:pathPrefix': '/ripple/log-water' } },
               { $: { 'android:scheme': 'wear', 'android:host': '*', 'android:pathPrefix': '/ripple/log-mood' } },
+              { $: { 'android:scheme': 'wear', 'android:host': '*', 'android:pathPrefix': '/ripple/breath-session' } },
             ],
           },
         ],
