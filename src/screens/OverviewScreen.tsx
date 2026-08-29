@@ -62,6 +62,7 @@ import { FastingTimerCard } from "./overview/FastingTimerCard";
 import { WellnessScoreCard } from "./overview/WellnessScoreCard";
 import { InsightsPreviewCard } from "./overview/InsightsPreviewCard";
 import { useOverviewData } from "./overview/useOverviewData";
+import { getChallenges, type Challenge } from "../api/friends";
 import {
   timeOfDayBucket,
   computeInsights,
@@ -252,6 +253,8 @@ export function OverviewScreen() {
   } = data;
 
   const [freezeStatus, setFreezeStatus] = useState<{ available: boolean; used_this_month: boolean; freeze_count_remaining: number } | null>(null);
+  const [friendDigest, setFriendDigest] = useState<{display_name: string; description: string; occurred_at: string}[]>([]);
+  const [activeChallenge, setActiveChallenge] = useState<{ title: string; end_date: string } | null>(null);
 
   const [showMoodModal, setShowMoodModal] = useState(false);
   const [showMoodSheet, setShowMoodSheet] = useState(false);
@@ -557,6 +560,19 @@ export function OverviewScreen() {
     // Fetch streak freeze status on focus
     api.getStreakFreezeStatus()
       .then(status => { if (!cancelled) setFreezeStatus(status); })
+      .catch(() => {});
+    // Fetch friend activity digest
+    api.getFriendActivityFeed()
+      .then((data: any[]) => { if (!cancelled) setFriendDigest(data.slice(0, 3)); })
+      .catch(() => {});
+    // Fetch active challenge
+    getChallenges()
+      .then((cs: Challenge[]) => {
+        if (cancelled) return;
+        const today = new Date().toISOString().slice(0, 10);
+        const active = cs.find(c => c.is_member && c.end_date >= today);
+        setActiveChallenge(active ? { title: active.title, end_date: active.end_date } : null);
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []));
@@ -1009,6 +1025,53 @@ export function OverviewScreen() {
           onLogMood={() => setShowMoodModal(true)}
           onNavigateExercise={() => navigation.getParent()?.navigate("Exercise")}
         />
+      )}
+
+      {/* ── Friend activity digest ── */}
+      {!loading && friendDigest.length > 0 && (
+        <View style={{ backgroundColor: theme.card, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, padding: 14, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <Text style={{ fontSize: 16 }}>👥</Text>
+            <Text style={{ color: theme.textStrong, fontSize: 14, fontWeight: '900', flex: 1 }}>Friends</Text>
+            <Pressable onPress={() => navigation.getParent()?.navigate('Friends')} accessibilityRole="button">
+              <Text style={{ color: theme.teal.solid, fontSize: 12, fontWeight: '700' }}>See all →</Text>
+            </Pressable>
+          </View>
+          {friendDigest.map((f, i) => {
+            const mins = Math.floor((Date.now() - new Date(f.occurred_at).getTime()) / 60000);
+            const ago = mins < 60 ? `${mins}m ago` : mins < 1440 ? `${Math.floor(mins/60)}h ago` : `${Math.floor(mins/1440)}d ago`;
+            return (
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: theme.teal.tint, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: theme.teal.fg, fontWeight: '800', fontSize: 12 }}>{f.display_name[0]?.toUpperCase()}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.textStrong, fontSize: 12, fontWeight: '700' }}>{f.display_name}</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 11 }} numberOfLines={1}>{f.description}</Text>
+                </View>
+                <Text style={{ color: theme.textSoft, fontSize: 10 }}>{ago}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* ── Active challenge chip ── */}
+      {!loading && activeChallenge && (
+        <Pressable
+          onPress={() => navigation.getParent()?.navigate('Challenges')}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.purple.tint, borderRadius: 16, borderWidth: 1.5, borderColor: theme.purple.solid ?? theme.ink, paddingHorizontal: 14, paddingVertical: 10 }}
+          accessibilityRole="button"
+        >
+          <Text style={{ fontSize: 18 }}>🏆</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.purple.fg ?? theme.textStrong, fontWeight: '800', fontSize: 13 }}>{activeChallenge.title}</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 11 }}>
+              {Math.ceil((new Date(activeChallenge.end_date).getTime() - Date.now()) / 86400000)} days left
+            </Text>
+          </View>
+          <Text style={{ color: theme.purple.fg ?? theme.textStrong, fontSize: 16 }}>›</Text>
+        </Pressable>
       )}
 
       {/* ── Fasting Timer ── */}

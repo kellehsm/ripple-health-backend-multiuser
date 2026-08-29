@@ -25,6 +25,20 @@ import { WeeklyDigestModal } from "../components/WeeklyDigestModal";
 import { SectionLabel } from "../components/SectionLabel";
 import { GhostRow } from "../components/GhostRow";
 import { FONT_SIZES } from "../theme/tokens";
+import { getLeaderboard, LeaderboardEntry } from "../api/friends";
+
+function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
+  const palettes = [
+    { bg: theme.teal?.tint ?? "#E0F7FA", fg: theme.teal?.fg ?? "#00695C" },
+    { bg: theme.purple?.tint ?? "#EDE7F6", fg: theme.purple?.fg ?? "#512DA8" },
+    { bg: theme.coral?.tint ?? "#FBE9E7", fg: theme.coral?.fg ?? "#BF360C" },
+    { bg: theme.amber?.tint ?? "#FFF8E1", fg: theme.amber?.fg ?? "#E65100" },
+    { bg: theme.blue?.tint ?? "#E3F2FD", fg: theme.blue?.fg ?? "#1565C0" },
+  ];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return palettes[h % palettes.length];
+}
 
 function SkeletonPulse({ style }: { style?: object }) {
   const opacity = useRef(new Animated.Value(0.4)).current;
@@ -164,6 +178,7 @@ export function InsightsScreen() {
   const [weeklyData, setWeeklyData] = useState<WeeklyDay[]>([]);
   const [digest, setDigest] = useState<any>(null);
   const [digestVisible, setDigestVisible] = useState(false);
+  const [stepsLeaderboard, setStepsLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   async function load(showRefresh = false) {
     if (!showRefresh) {
@@ -199,6 +214,7 @@ export function InsightsScreen() {
         setWeeklyData(dash.weekly_mood);
       }
       api.weeklyDigest().then(setDigest).catch(() => {});
+      getLeaderboard("steps").then(setStepsLeaderboard).catch(() => {});
     } catch (e: any) {
       if (!loadCancelledRef.current) setError("Couldn't load insights — pull to retry.");
     } finally {
@@ -399,6 +415,36 @@ export function InsightsScreen() {
                 ))}
               </View>
             )}
+          </View>
+        );
+      })()}
+
+      {/* Social Snapshot card */}
+      {activeGroup === 0 && (() => {
+        const me = stepsLeaderboard.find((e) => e.is_me);
+        const others = stepsLeaderboard.filter((e) => !e.is_me).slice(0, 3);
+        if (!me && others.length === 0) return null;
+        return (
+          <View style={{ backgroundColor: theme.purple.tint, borderRadius: 18, borderWidth: 2, borderColor: theme.purple.solid, padding: 14, marginBottom: 4 }}>
+            <Text style={{ fontSize: 11, fontWeight: "800", color: theme.purple.fg, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 6 }}>👥 Social Snapshot</Text>
+            {me && (
+              <Text style={{ fontSize: 14, fontWeight: "800", color: theme.purple.fg, marginBottom: 8 }}>
+                You rank #{me.rank} of {stepsLeaderboard.length} friends in steps this week
+              </Text>
+            )}
+            {others.map((entry) => {
+              const ac = avatarColor(entry.user_id, theme);
+              const initials = (entry.display_name || "?").charAt(0).toUpperCase();
+              return (
+                <View key={entry.user_id} style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: ac.bg, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: theme.purple.solid }}>
+                    <Text style={{ fontSize: 12, fontWeight: "800", color: ac.fg }}>{initials}</Text>
+                  </View>
+                  <Text style={{ flex: 1, fontSize: 13, color: theme.purple.fg, fontWeight: "600" }} numberOfLines={1}>{entry.display_name}</Text>
+                  <Text style={{ fontSize: 12, color: theme.purple.fg, fontWeight: "700" }}>{entry.value.toLocaleString()} steps</Text>
+                </View>
+              );
+            })}
           </View>
         );
       })()}

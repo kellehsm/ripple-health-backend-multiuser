@@ -18,10 +18,23 @@ import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
 import { EmptyState } from "../components/EmptyState";
-import { getChallenges, Challenge, SocialCategory } from "../api/friends";
+import { getChallenges, getLeaderboard, Challenge, SocialCategory, LeaderboardEntry } from "../api/friends";
 import { api } from "../api/client";
 import { todayStr, fmtDateRange } from "../utils/dateUtils";
 import { toast } from "../lib/toast";
+
+function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
+  const palettes = [
+    { bg: theme.teal?.tint ?? "#E0F7FA", fg: theme.teal?.fg ?? "#00695C" },
+    { bg: theme.purple?.tint ?? "#EDE7F6", fg: theme.purple?.fg ?? "#512DA8" },
+    { bg: theme.coral?.tint ?? "#FBE9E7", fg: theme.coral?.fg ?? "#BF360C" },
+    { bg: theme.amber?.tint ?? "#FFF8E1", fg: theme.amber?.fg ?? "#E65100" },
+    { bg: theme.blue?.tint ?? "#E3F2FD", fg: theme.blue?.fg ?? "#1565C0" },
+  ];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return palettes[h % palettes.length];
+}
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -61,6 +74,8 @@ export function ChallengesScreen() {
   const [reloadKey, setReloadKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const lastFetchRef = useRef(0);
+  const [leaderboards, setLeaderboards] = useState<Record<SocialCategory, LeaderboardEntry[]>>({} as Record<SocialCategory, LeaderboardEntry[]>);
+  const [expandedStandings, setExpandedStandings] = useState<Set<string>>(new Set());
 
   const [templates, setTemplates] = useState<ChallengeTemplate[]>([]);
   const templatesFetchedRef = useRef(false);
@@ -73,7 +88,20 @@ export function ChallengesScreen() {
       setLoadError(false);
       lastFetchRef.current = Date.now();
       getChallenges()
-        .then((data) => { if (!cancelled) setChallenges(Array.isArray(data) ? data : []); })
+        .then((data) => {
+          if (cancelled) return;
+          const list = Array.isArray(data) ? data : [];
+          setChallenges(list);
+          // Fetch leaderboards for all unique categories
+          const cats = [...new Set(list.map((c) => c.category))] as SocialCategory[];
+          cats.forEach((cat) => {
+            getLeaderboard(cat)
+              .then((entries) => {
+                if (!cancelled) setLeaderboards((prev) => ({ ...prev, [cat]: entries }));
+              })
+              .catch(() => {});
+          });
+        })
         .catch(() => { if (!cancelled) setLoadError(true); })
         .finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
       return () => { cancelled = true; };
@@ -130,6 +158,17 @@ export function ChallengesScreen() {
   function renderChallenge(challenge: Challenge) {
     const days = daysRemaining(challenge.end_date);
     const isPast = challenge.end_date < today;
+    const lb: LeaderboardEntry[] = leaderboards[challenge.category] ?? [];
+    const others = lb.filter((e) => !e.is_me);
+    const avatarParticipants = others.slice(0, 3);
+    const top3 = lb.slice(0, 3);
+    const rankColors = [
+      { bg: "#FFF9E6", fg: "#B8860B" }, // gold
+      { bg: "#F5F5F5", fg: "#757575" }, // silver
+      { bg: "#FBE9E7", fg: "#BF360C" }, // bronze
+    ];
+    const isExpanded = expandedStandings.has(challenge.id);
+
     return (
       <Pressable
         key={challenge.id}
@@ -150,6 +189,29 @@ export function ChallengesScreen() {
               {challenge.category.charAt(0).toUpperCase() + challenge.category.slice(1)}
             </Text>
           </View>
+          {/* Participant avatar circles */}
+          {avatarParticipants.length > 0 && (
+            <View style={{ flexDirection: "row", marginRight: 6 }}>
+              {avatarParticipants.map((p, i) => {
+                const ac = avatarColor(p.user_id, theme);
+                const initials = (p.display_name || "?").charAt(0).toUpperCase();
+                return (
+                  <View
+                    key={p.user_id}
+                    style={{
+                      width: 26, height: 26, borderRadius: 13,
+                      backgroundColor: ac.bg,
+                      alignItems: "center", justifyContent: "center",
+                      borderWidth: 1.5, borderColor: theme.card,
+                      marginLeft: i === 0 ? 0 : -8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: "800", color: ac.fg }}>{initials}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
           <Ionicons name="chevron-forward" size={18} color={theme.textSoft} />
         </View>
 
@@ -171,6 +233,68 @@ export function ChallengesScreen() {
             </Text>
           </View>
         </View>
+
+        {/* Live standings expandable */}
+        {top3.length > 0 && (
+          <>
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation?.();
+                Haptics.selectionAsync();
+                setExpandedStandings((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(challenge.id)) next.delete(challenge.id); else next.add(challenge.id);
+                  return next;
+                });
+              }}
+              style={{ flexDirection: "row", alignItems: "center", marginTop: 10, gap: 4 }}
+              hitSlop={6}
+            >
+              <Ionicons name={isExpanded ? "chevron-down" : "chevron-forward"} size={12} color={theme.purple.fg} />
+              <Text style={{ color: theme.purple.fg, fontSize: 11, fontWeight: "700" }}>Live standings</Text>
+            </Pressable>
+            {isExpanded && (
+              <View style={{ marginTop: 8, gap: 6 }}>
+                {top3.map((entry, i) => {
+                  const rc = rankColors[i] ?? rankColors[2];
+                  const goalVal = challenge.goal_value ?? 1;
+                  const progress = Math.min(1, goalVal > 0 ? entry.value / goalVal : 0);
+                  return (
+                    <View key={entry.user_id} style={{ gap: 4 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: rc.bg, alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ fontSize: 10, fontWeight: "800", color: rc.fg }}>{i + 1}</Text>
+                        </View>
+                        <Text style={{ flex: 1, fontSize: 12, color: entry.is_me ? theme.textStrong : theme.textSoft, fontWeight: entry.is_me ? "800" : "500" }} numberOfLines={1}>
+                          {entry.is_me ? "You" : entry.display_name}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: rc.fg, fontWeight: "700" }}>{entry.value.toLocaleString()}</Text>
+                      </View>
+                      <View style={{ height: 4, borderRadius: 2, backgroundColor: theme.cardBorder, overflow: "hidden" }}>
+                        <View style={{ height: 4, width: `${Math.round(progress * 100)}%`, backgroundColor: rc.fg, borderRadius: 2 }} />
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
+
+        {/* Invite friend button for non-joined challenges */}
+        {!challenge.is_member && (
+          <Pressable
+            onPress={(e) => {
+              e.stopPropagation?.();
+              Haptics.selectionAsync();
+              navigation.getParent()?.navigate("Friends");
+            }}
+            style={{ marginTop: 10, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4 }}
+            hitSlop={6}
+          >
+            <Text style={{ color: theme.purple.fg, fontSize: 12, fontWeight: "700" }}>Invite friend →</Text>
+          </Pressable>
+        )}
       </Pressable>
     );
   }

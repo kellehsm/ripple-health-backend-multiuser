@@ -82,6 +82,24 @@ function timeAgo(iso: string): string {
   return `${days}d ago`;
 }
 
+// --- Improvement 1: Colored initials avatars ---
+function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
+  const colors = [
+    { bg: theme.teal.tint, fg: theme.teal.fg },
+    { bg: theme.purple.tint, fg: theme.purple.fg },
+    { bg: (theme as any).amber?.tint ?? '#FEF3C7', fg: (theme as any).amber?.fg ?? '#92400E' },
+    { bg: (theme as any).coral?.tint ?? '#FFF0F0', fg: (theme as any).coral?.solid ?? '#C0392B' },
+    { bg: theme.blue?.tint ?? '#EFF6FF', fg: theme.blue?.fg ?? '#1E40AF' },
+  ];
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) & 0xffff;
+  return colors[hash % colors.length];
+}
+
+function getInitial(friend: Friend): string {
+  return (friend.username ?? friend.email ?? '?')[0].toUpperCase();
+}
+
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
   exercise: "barbell-outline",
@@ -157,8 +175,9 @@ export function FriendsScreen() {
   const [cheeringSent, setCheeringSent] = useState<string | null>(null);
 
   const [friendActivity, setFriendActivity] = useState<FriendActivity[]>([]);
-  const [friendActivityLoading, setFriendActivityLoading] = useState(true);
-  const [activityExpanded, setActivityExpanded] = useState(true);
+
+  // Improvement 7: unified inbox tray state
+  const [inboxExpanded, setInboxExpanded] = useState(true);
 
   // Feature tour refs
   const scrollRef = useRef<ScrollView>(null);
@@ -184,11 +203,9 @@ export function FriendsScreen() {
   // Fetch friend activity feed once on mount
   useEffect(() => {
     let cancelled = false;
-    setFriendActivityLoading(true);
     api.getFriendActivityFeed()
       .then(data => { if (!cancelled) setFriendActivity(Array.isArray(data) ? data.slice(0, 10) : []); })
-      .catch(() => { if (!cancelled) setFriendActivity([]); })
-      .finally(() => { if (!cancelled) setFriendActivityLoading(false); });
+      .catch(() => { if (!cancelled) setFriendActivity([]); });
     return () => { cancelled = true; };
   }, []);
 
@@ -238,7 +255,6 @@ export function FriendsScreen() {
             if (tourTimeoutRef.current) clearTimeout(tourTimeoutRef.current);
             tourTimeoutRef.current = setTimeout(() => {
               tourTimeoutRef.current = null;
-              // Mark seen only once the tour actually shows
               markTooltipSeen("friends-tour");
               setShowTour(true);
             }, 500);
@@ -390,6 +406,48 @@ export function FriendsScreen() {
   const localToday = todayStr();
   const activeChallenges = challenges.filter((c) => c.end_date >= localToday);
 
+  // Improvement 3: merged activity items
+  type MergedActivityItem = {
+    key: string;
+    user_id: string;
+    display_name: string;
+    text: string;
+    icon: string;
+    occurred_at: string | null;
+    isMilestone: boolean;
+    activityType?: FriendActivity["activity_type"];
+  };
+
+  const mergedActivity: MergedActivityItem[] = [
+    ...friendActivity.map(a => ({
+      key: a.id,
+      user_id: a.user_id,
+      display_name: a.display_name,
+      text: a.description,
+      icon: '',
+      occurred_at: a.occurred_at,
+      isMilestone: false,
+      activityType: a.activity_type,
+    })),
+    ...activityFeed.flatMap(entry =>
+      entry.milestones.map(m => ({
+        key: `${entry.user_id}-${m.type}`,
+        user_id: entry.user_id,
+        display_name: entry.display_name,
+        text: `${m.count}d ${m.label}`,
+        icon: '🏆',
+        occurred_at: null,
+        isMilestone: true,
+      }))
+    ),
+  ]
+    .sort((a, b) => {
+      if (!a.occurred_at) return 1;
+      if (!b.occurred_at) return -1;
+      return new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime();
+    })
+    .slice(0, 12);
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
     <ScreenBackground pageId="friends" />
@@ -424,38 +482,43 @@ export function FriendsScreen() {
         </View>
       )}
 
-      {/* Nudge banner */}
-      {nudges.length > 0 && (
-        <View style={[styles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, paddingHorizontal: 14, paddingVertical: 12, gap: 4 }]}>
-          {nudges.slice(0, 3).map((n, i) => (
-            <Text key={i} style={{ color: theme.teal.fg, fontSize: FONT_SIZES.label, fontWeight: "700" }}>
-              👋 {n.display_name} nudged you!
-            </Text>
-          ))}
-          {nudges.length > 3 && (
-            <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.label }}>+{nudges.length - 3} more</Text>
-          )}
-        </View>
+      {/* Improvement 7: Unified inbox tray (replaces separate nudge + cheer banners) */}
+      {(nudges.length > 0 || cheers.length > 0) && (
+        <Pressable
+          onPress={() => setInboxExpanded(v => !v)}
+          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+          accessibilityRole="button"
+        >
+          <SectionLabel text={`Inbox (${nudges.length + cheers.length})`} style={{ marginBottom: 0 }} />
+          <Ionicons name={inboxExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.textSoft} />
+        </Pressable>
       )}
-
-      {/* Cheer banner */}
-      {cheers.length > 0 && (
-        <View style={[styles.card, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid, paddingHorizontal: 14, paddingVertical: 12, gap: 4 }]}>
-          {cheers.slice(0, 3).map((c, i) => (
-            <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="flame" size={16} color={theme.teal.fg} />
-              <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.label, fontWeight: "700" }}>
-                {c.display_name} cheered your streak!
+      {inboxExpanded && (nudges.length > 0 || cheers.length > 0) && (
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          {nudges.map((n, i) => (
+            <View key={i} style={[styles.friendRow, { borderTopWidth: i === 0 ? 0 : 1, borderTopColor: theme.cardBorder }]}>
+              <View style={[styles.avatarCircle, { backgroundColor: theme.teal.tint }]}>
+                <Text style={{ fontSize: 16 }}>👋</Text>
+              </View>
+              <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, flex: 1 }}>
+                {n.display_name} nudged you
               </Text>
             </View>
           ))}
-          {cheers.length > 3 && (
-            <Text style={{ color: theme.teal.sub, fontSize: FONT_SIZES.label }}>+{cheers.length - 3} more</Text>
-          )}
+          {cheers.map((c, i) => (
+            <View key={i} style={[styles.friendRow, { borderTopWidth: 1, borderTopColor: theme.cardBorder }]}>
+              <View style={[styles.avatarCircle, { backgroundColor: theme.teal.tint }]}>
+                <Text style={{ fontSize: 16 }}>🔥</Text>
+              </View>
+              <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, flex: 1 }}>
+                {c.display_name} cheered your streak
+              </Text>
+            </View>
+          ))}
         </View>
       )}
 
-      {/* Social notification prefs banner */}
+      {/* Social notification prefs banner (settings warning, kept separate) */}
       {socialNotifPrefs && Object.values(socialNotifPrefs).some(v => !v) && (
         <View style={[styles.card, { backgroundColor: theme.amber.tint, borderColor: theme.amber.solid, paddingHorizontal: 14, paddingVertical: 10, flexDirection: "row", alignItems: "center", gap: 8 }]}>
           <Ionicons name="notifications-off-outline" size={16} color={theme.amber.fg} />
@@ -536,7 +599,6 @@ export function FriendsScreen() {
           </View>
         )}
       </ShadowCard>
-
       </View>
 
       {/* Add a Friend */}
@@ -569,6 +631,16 @@ export function FriendsScreen() {
       </ShadowCard>
       </View>
 
+      {/* Improvement 6: Elevated invite CTA — always shown below Add a Friend */}
+      <Pressable
+        onPress={handleInviteFriend}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 22, borderWidth: 1.5, borderColor: theme.cardBorder, backgroundColor: theme.card }}
+        accessibilityRole="button"
+      >
+        <Ionicons name="share-outline" size={16} color={theme.teal.solid} />
+        <Text style={{ color: theme.teal.solid, fontWeight: "700", fontSize: FONT_SIZES.body }}>Invite a friend to Ripple</Text>
+      </Pressable>
+
       {/* Friend Requests */}
       {requests.length > 0 && (
         <>
@@ -578,8 +650,11 @@ export function FriendsScreen() {
               <View key={req.connection_id}>
                 {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
                 <View style={styles.requestRow}>
-                  <View style={styles.avatarCircle}>
-                    <Ionicons name="person-outline" size={18} color={theme.teal.fg} />
+                  {/* Improvement 1: colored initial avatar for requests */}
+                  <View style={[styles.avatarCircle, { backgroundColor: avatarColor(req.from_email ?? '?', theme).bg }]}>
+                    <Text style={{ color: avatarColor(req.from_email ?? '?', theme).fg, fontWeight: "800", fontSize: 15 }}>
+                      {(req.from_username ?? req.from_email ?? '?')[0].toUpperCase()}
+                    </Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, lineHeight: 19 }}>
@@ -610,60 +685,6 @@ export function FriendsScreen() {
         </>
       )}
 
-      {/* Recent Activity */}
-      <Pressable
-        onPress={() => setActivityExpanded(e => !e)}
-        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}
-        accessibilityRole="button"
-        accessibilityLabel={activityExpanded ? "Collapse recent activity" : "Expand recent activity"}
-      >
-        <SectionLabel text="Recent Activity" style={{ marginBottom: 0 }} />
-        <Ionicons name={activityExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.textSoft} />
-      </Pressable>
-      {activityExpanded && (
-        friendActivityLoading ? (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            {[0, 1, 2].map(i => (
-              <View key={i} style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.cardBorder }} />
-                <View style={{ flex: 1, gap: 6 }}>
-                  <View style={{ width: "60%", height: 10, borderRadius: 5, backgroundColor: theme.cardBorder }} />
-                  <View style={{ width: "80%", height: 10, borderRadius: 5, backgroundColor: theme.cardBorder }} />
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : friendActivity.length === 0 ? (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 14 }]}>
-            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label }}>No recent activity from friends.</Text>
-          </View>
-        ) : (
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            {friendActivity.map((item, i) => {
-              const initial = item.display_name ? item.display_name[0].toUpperCase() : "?";
-              return (
-                <View key={item.id}>
-                  {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
-                  <View style={[styles.friendRow, { alignItems: "flex-start" }]}>
-                    <View style={[styles.avatarCircle, { backgroundColor: theme.teal.tint }]}>
-                      <Text style={{ color: theme.teal.fg, fontWeight: "800", fontSize: FONT_SIZES.body }}>{initial}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body }}>{item.display_name}</Text>
-                        <Ionicons name={activityIcon(item.activity_type)} size={13} color={theme.textSoft} />
-                      </View>
-                      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }}>{item.description}</Text>
-                    </View>
-                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption }}>{timeAgo(item.occurred_at)}</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )
-      )}
-
       {/* My Friends */}
       <SectionLabel text="My Friends" />
       {loading ? (
@@ -687,147 +708,218 @@ export function FriendsScreen() {
         <FriendsEmptyState onPress={handleInviteFriend} />
       ) : (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          {friends.map((friend, i) => (
-            <View key={friend.connection_id}>
-              {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
-              <View style={styles.friendRow}>
-                <View style={styles.avatarCircle}>
-                  <Ionicons name="person-outline" size={18} color={theme.teal.fg} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, lineHeight: 19 }}>
-                    {friend.username ? "@" + friend.username : friend.email}
-                  </Text>
-                  {friend.username && (
-                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }}>{friend.email}</Text>
-                  )}
-                  <View style={styles.sharingRow}>
-                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginRight: 6 }}>Sharing:</Text>
-                    {(["steps", "exercise", "hobbies", "books"] as SocialCategory[]).map((cat) =>
-                      friend.sharing?.[cat] ? (
-                        <View key={cat} style={[styles.sharingBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
-                          <Ionicons name={CATEGORY_ICON[cat]} size={11} color={theme.teal.fg} />
-                        </View>
-                      ) : null
-                    )}
-                    {!friend.sharing?.steps && !friend.sharing?.exercise && !friend.sharing?.hobbies && !friend.sharing?.books && (
-                      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontStyle: "italic" }}>nothing yet</Text>
-                    )}
+          {friends.map((friend, i) => {
+            // Improvement 1: colored initial avatar
+            const av = avatarColor(friend.user_id ?? friend.email ?? '?', theme);
+            return (
+              <View key={friend.connection_id}>
+                {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+                <View style={styles.friendRow}>
+                  <View style={[styles.avatarCircle, { backgroundColor: av.bg }]}>
+                    <Text style={{ color: av.fg, fontWeight: "800", fontSize: 15 }}>{getInitial(friend)}</Text>
                   </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, lineHeight: 19 }}>
+                      {friend.username ? "@" + friend.username : friend.email}
+                    </Text>
+                    {friend.username && (
+                      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }}>{friend.email}</Text>
+                    )}
+                    <View style={styles.sharingRow}>
+                      <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginRight: 6 }}>Sharing:</Text>
+                      {(["steps", "exercise", "hobbies", "books"] as SocialCategory[]).map((cat) =>
+                        friend.sharing?.[cat] ? (
+                          <View key={cat} style={[styles.sharingBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
+                            <Ionicons name={CATEGORY_ICON[cat]} size={11} color={theme.teal.fg} />
+                          </View>
+                        ) : null
+                      )}
+                      {!friend.sharing?.steps && !friend.sharing?.exercise && !friend.sharing?.hobbies && !friend.sharing?.books && (
+                        <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontStyle: "italic" }}>nothing yet</Text>
+                      )}
+                    </View>
+                    {/* Improvement 2 / 8: last active line */}
+                    {(() => {
+                      const lastAct = friendActivity
+                        .filter(a => a.user_id === friend.user_id)
+                        .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime())[0];
+                      return lastAct ? (
+                        <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginTop: 2 }}>
+                          Active {timeAgo(lastAct.occurred_at)}
+                        </Text>
+                      ) : null;
+                    })()}
+                  </View>
+                  <Pressable
+                    onPress={() => handleNudge(friend)}
+                    disabled={nudgingSent === friend.connection_id}
+                    accessibilityRole="button"
+                    accessibilityLabel="Send a nudge"
+                    style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  >
+                    {nudgingSent === friend.connection_id ? (
+                      <ActivityIndicator size="small" color={theme.teal.fg} />
+                    ) : (
+                      <ThemedIcon slot="social.nudge" size={16} />
+                    )}
+                  </Pressable>
+                  <Pressable
+                    onPress={() => handleCheer(friend)}
+                    disabled={cheeringSent === friend.user_id || cheersSentToday.has(friend.user_id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={cheersSentToday.has(friend.user_id) ? "Cheer sent" : "Send a cheer"}
+                    style={[
+                      styles.smallBtn,
+                      cheersSentToday.has(friend.user_id)
+                        ? { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }
+                        : { backgroundColor: theme.card, borderColor: theme.cardBorder },
+                    ]}
+                  >
+                    {cheeringSent === friend.user_id ? (
+                      <ActivityIndicator size="small" color={theme.teal.fg} />
+                    ) : (
+                      <Ionicons
+                        name={cheersSentToday.has(friend.user_id) ? "flame" : "flame-outline"}
+                        size={16}
+                        color={cheersSentToday.has(friend.user_id) ? theme.teal.fg : theme.textSoft}
+                      />
+                    )}
+                  </Pressable>
                 </View>
-                <Pressable
-                  onPress={() => handleNudge(friend)}
-                  disabled={nudgingSent === friend.connection_id}
-                  accessibilityRole="button"
-                  accessibilityLabel="Send a nudge"
-                  style={[styles.smallBtn, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-                >
-                  {nudgingSent === friend.connection_id ? (
-                    <ActivityIndicator size="small" color={theme.teal.fg} />
-                  ) : (
-                    <ThemedIcon slot="social.nudge" size={16} />
-                  )}
-                </Pressable>
-                <Pressable
-                  onPress={() => handleCheer(friend)}
-                  disabled={cheeringSent === friend.user_id || cheersSentToday.has(friend.user_id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={cheersSentToday.has(friend.user_id) ? "Cheer sent" : "Send a cheer"}
-                  style={[
-                    styles.smallBtn,
-                    cheersSentToday.has(friend.user_id)
-                      ? { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }
-                      : { backgroundColor: theme.card, borderColor: theme.cardBorder },
-                  ]}
-                >
-                  {cheeringSent === friend.user_id ? (
-                    <ActivityIndicator size="small" color={theme.teal.fg} />
-                  ) : (
-                    <Ionicons
-                      name={cheersSentToday.has(friend.user_id) ? "flame" : "flame-outline"}
-                      size={16}
-                      color={cheersSentToday.has(friend.user_id) ? theme.teal.fg : theme.textSoft}
-                    />
-                  )}
-                </Pressable>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Improvement 3: Merged "What's Happening" section */}
+      <SectionLabel text="What's Happening" />
+      {loading ? (
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+          {[0, 1, 2].map(i => (
+            <View key={i} style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme.cardBorder }} />
+              <View style={{ flex: 1, gap: 6 }}>
+                <View style={{ width: "60%", height: 10, borderRadius: 5, backgroundColor: theme.cardBorder }} />
+                <View style={{ width: "80%", height: 10, borderRadius: 5, backgroundColor: theme.cardBorder }} />
               </View>
             </View>
           ))}
         </View>
-      )}
-
-      {/* Friend Activity Feed */}
-      <SectionLabel text="Friend Activity" />
-      {activityFeed.length === 0 ? (
-        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 12 }]}>
-          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label }}>Quiet week so far — no streaks to celebrate yet.</Text>
+      ) : mergedActivity.length === 0 ? (
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 14 }]}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label }}>No recent activity from friends.</Text>
         </View>
       ) : (
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-          {activityFeed.map((entry, i) => (
-            <View key={entry.user_id}>
-              {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
-              <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
-                <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body, marginBottom: 8, lineHeight: 19 }}>
-                  {entry.display_name}
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {entry.milestones.map((m) => (
-                    <View key={m.type} style={[styles.feedBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
-                      <ThemedIcon
-                        slot={m.type === "steps_streak" ? "social.steps_streak" : m.type === "exercise_streak" ? "social.exercise_streak" : "social.book_streak"}
-                        size={13}
-                      />
-                      <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.label, fontWeight: "700", marginLeft: 4 }}>
-                        {m.count}d {m.label}
-                      </Text>
+          {mergedActivity.map((item, i) => {
+            const av = avatarColor(item.user_id ?? '?', theme);
+            const initial = item.display_name ? item.display_name[0].toUpperCase() : "?";
+            return (
+              <View key={item.key}>
+                {i > 0 && <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />}
+                <View style={[styles.friendRow, { alignItems: "flex-start" }]}>
+                  <View style={[styles.avatarCircle, { backgroundColor: av.bg }]}>
+                    <Text style={{ color: av.fg, fontWeight: "800", fontSize: 15 }}>{initial}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: FONT_SIZES.body }}>{item.display_name}</Text>
+                      {!item.isMilestone && item.activityType && (
+                        <Ionicons name={activityIcon(item.activityType)} size={13} color={theme.textSoft} />
+                      )}
+                      {item.isMilestone && <Text style={{ fontSize: 13 }}>{item.icon}</Text>}
                     </View>
-                  ))}
+                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: 2 }}>{item.text}</Text>
+                  </View>
+                  {item.occurred_at ? (
+                    <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption }}>{timeAgo(item.occurred_at)}</Text>
+                  ) : (
+                    <View style={[styles.feedBadge, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
+                      <Text style={{ color: theme.teal.fg, fontSize: FONT_SIZES.caption, fontWeight: "700" }}>streak</Text>
+                    </View>
+                  )}
                 </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
       )}
 
-      {/* Leaderboards */}
+      {/* Improvement 4: Leaderboard cards with friend count */}
       <View ref={leaderboardRef}>
       <SectionLabel text="Leaderboards" />
       <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginBottom: 8, lineHeight: 18 }}>
         Only steps, exercise, hobbies, and books are compared — all other data stays private.
       </Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {CATEGORIES.map((cat) => (
-          <Pressable
-            key={cat}
-            onPress={() => navigation.navigate("Leaderboard", { category: cat })}
-            style={[styles.leaderboardCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-          >
-            <Ionicons name={CATEGORY_ICON[cat]} size={26} color={theme.teal.solid} />
-            <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label, fontWeight: "800", marginTop: 6, textAlign: "center" }}>
-              {CATEGORY_LABEL[cat]}
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color={theme.textSoft} style={{ marginTop: 4 }} />
-          </Pressable>
-        ))}
+        {CATEGORIES.map((cat) => {
+          const sharingCount = friends.filter(f => f.sharing?.[cat]).length;
+          return (
+            <Pressable
+              key={cat}
+              onPress={() => navigation.navigate("Leaderboard", { category: cat })}
+              style={[styles.leaderboardCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+            >
+              <Ionicons name={CATEGORY_ICON[cat]} size={26} color={theme.teal.solid} />
+              <Text style={{ fontWeight: "800", fontSize: FONT_SIZES.label, marginTop: 6, textAlign: "center", color: theme.textStrong }}>
+                {CATEGORY_LABEL[cat]}
+              </Text>
+              {sharingCount > 0 && (
+                <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginTop: 2, textAlign: "center" }}>
+                  vs {sharingCount} friend{sharingCount !== 1 ? "s" : ""}
+                </Text>
+              )}
+              <Ionicons name="chevron-forward" size={14} color={theme.textSoft} style={{ marginTop: 4 }} />
+            </Pressable>
+          );
+        })}
+      </View>
       </View>
 
-      </View>
-
-      {/* Challenges */}
+      {/* Improvement 5: Inline active challenge cards */}
       <View ref={challengesRef}>
       <SectionLabel text="Challenges" />
-      <Pressable
-        onPress={() => navigation.navigate("Challenges")}
-        style={[styles.challengeBtn, { backgroundColor: theme.purple.tint, borderColor: theme.ink }]}
-      >
-        <Ionicons name="trophy-outline" size={20} color={theme.purple.fg} />
-        <Text style={{ color: theme.purple.fg, fontWeight: "800", fontSize: FONT_SIZES.subheading, flex: 1, marginLeft: 10 }}>
-          See Challenges
-          {activeChallenges.length > 0 ? " (" + activeChallenges.length + " active)" : ""}
-        </Text>
-        <Ionicons name="chevron-forward" size={18} color={theme.purple.fg} />
-      </Pressable>
+      {activeChallenges.length > 0 ? (
+        <>
+          {activeChallenges.slice(0, 3).map((c) => {
+            const daysLeft = Math.ceil((new Date(c.end_date).getTime() - Date.now()) / 86400000);
+            return (
+              <ShadowCard key={c.id} padding={14} accent={theme.purple.solid}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <Ionicons name="trophy-outline" size={18} color={theme.purple.fg} />
+                  <Text style={{ color: theme.textStrong, fontWeight: "800", fontSize: FONT_SIZES.body, flex: 1 }}>{c.name}</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption }}>
+                    {daysLeft > 0 ? `${daysLeft}d left` : "ends today"}
+                  </Text>
+                </View>
+                {(c as any).description ? (
+                  <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, marginBottom: 6 }} numberOfLines={2}>
+                    {(c as any).description}
+                  </Text>
+                ) : null}
+              </ShadowCard>
+            );
+          })}
+          <Pressable
+            onPress={() => navigation.navigate("Challenges")}
+            style={{ alignItems: "center", paddingVertical: 8 }}
+          >
+            <Text style={{ color: theme.purple.fg, fontWeight: "700", fontSize: FONT_SIZES.label }}>See all challenges →</Text>
+          </Pressable>
+        </>
+      ) : (
+        <Pressable
+          onPress={() => navigation.navigate("Challenges")}
+          style={[styles.challengeBtn, { backgroundColor: theme.purple.tint, borderColor: theme.ink }]}
+        >
+          <Ionicons name="trophy-outline" size={20} color={theme.purple.fg} />
+          <Text style={{ color: theme.purple.fg, fontWeight: "800", fontSize: FONT_SIZES.subheading, flex: 1, marginLeft: 10 }}>
+            See Challenges
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color={theme.purple.fg} />
+        </Pressable>
+      )}
       </View>
     </ScrollView>
 
