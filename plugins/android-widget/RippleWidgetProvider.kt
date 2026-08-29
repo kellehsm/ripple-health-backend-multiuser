@@ -907,20 +907,28 @@ open class RippleWidgetProvider : AppWidgetProvider() {
     }
 
     private fun fetchSleep(token: String): String {
-        // /sleep/stats returns yesterday_seconds — a single-number "last night" duration
+        // /sleep/stats is a heavyweight endpoint (multiple DB queries); use a
+        // dedicated connection with a longer timeout so it doesn't get clipped
+        // by the generic 3-second read-timeout used for lighter calls.
+        var c: HttpsURLConnection? = null
         return try {
-            val (code, body) = get(token, "/health-connect/sleep/stats")
-            if (code == 200) {
-                val secs = JSONObject(body).optDouble("yesterday_seconds", 0.0).toLong()
-                if (secs <= 0) "--" else {
-                    val h = secs / 3600
-                    val m = (secs % 3600) / 60
-                    if (h > 0) "${h}h ${m}m" else "${m}m"
-                }
-            } else "--"
+            c = URL("$API/health-connect/sleep/stats").openConnection() as HttpsURLConnection
+            c.connectTimeout = 8000
+            c.readTimeout = 8000
+            c.setRequestProperty("Authorization", "Bearer $token")
+            if (c.responseCode != 200) return "--"
+            val body = c.inputStream.bufferedReader().readText()
+            val secs = JSONObject(body).optDouble("yesterday_seconds", 0.0).toLong()
+            if (secs <= 0) "--" else {
+                val h = secs / 3600
+                val m = (secs % 3600) / 60
+                if (h > 0) "${h}h ${m}m" else "${m}m"
+            }
         } catch (e: Exception) {
             Log.w(TAG, "fetchSleep: ${e.message}")
             "--"
+        } finally {
+            try { c?.disconnect() } catch (_: Exception) {}
         }
     }
 

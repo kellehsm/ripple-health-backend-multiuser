@@ -47,7 +47,12 @@ function isWidgetAllowed(method: string, url: string): boolean {
   }
   if (method === "POST") {
     // Widget water logging: create water metric + append a log entry
-    return path === "/api/metrics" || /^\/api\/metrics\/[^/]+\/logs$/.test(path);
+    // Watch mood logging: journal entry (moment) from the Wear Log activity
+    return (
+      path === "/api/metrics" ||
+      /^\/api\/metrics\/[^/]+\/logs$/.test(path) ||
+      path === "/api/journal"
+    );
   }
   return false;
 }
