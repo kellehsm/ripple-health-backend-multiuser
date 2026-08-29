@@ -3,8 +3,8 @@
  * The 2×3 metric chip grid (Glucose, Steps, Sleep, Water, Heart, Mind).
  * Extracted from HealthScreen.tsx — no logic changes.
  */
-import React from "react";
-import { View, Text, Animated, Pressable, Image } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { View, Text, Animated, Pressable, Image, Easing } from "react-native";
 import type { Theme } from "../../theme/theme";
 import Svg, { Polyline, Rect } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
@@ -51,6 +51,7 @@ interface Props {
   stepsMetricId: string | null;
   weekStepsStart: number;
   stepsWeekTotal: number | null;
+  stepsWeekDays?: { date: string; count: number }[];
   sleepScore: number | null;
   sleepWeekDays: { date: string; seconds: number }[];
   sleepDisplay: string | null;
@@ -75,6 +76,7 @@ export function MetricChipRow({
   stepsMetricId,
   weekStepsStart,
   stepsWeekTotal,
+  stepsWeekDays = [],
   sleepScore,
   sleepWeekDays,
   sleepDisplay,
@@ -89,6 +91,39 @@ export function MetricChipRow({
   navigation,
 }: Props) {
   const { theme } = useTheme();
+
+  // Change 8 — Animated droplet fill
+  const dropletFill = useRef(new Animated.Value((waterCount ?? 0) / Math.max(1, waterGoal))).current;
+  useEffect(() => {
+    Animated.timing(dropletFill, {
+      toValue: (waterCount ?? 0) / Math.max(1, waterGoal),
+      duration: 400,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [waterCount, waterGoal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Change 10 — PB badge for Steps chip
+  const pbScale = useRef(new Animated.Value(0)).current;
+  const pbFiredRef = useRef(false);
+  const today = new Date().toISOString().slice(0, 10);
+  const todaySteps = stepsWeekDays.find(d => d.date === today)?.count ?? (stepsCount ?? 0);
+  const isPB =
+    stepsCount !== null &&
+    stepsCount > 0 &&
+    stepsWeekDays.length > 0 &&
+    stepsWeekDays.every(d => d.date === today || d.count <= todaySteps);
+  useEffect(() => {
+    if (isPB && !pbFiredRef.current) {
+      pbFiredRef.current = true;
+      pbScale.setValue(0);
+      Animated.sequence([
+        Animated.timing(pbScale, { toValue: 1.2, duration: 200, useNativeDriver: true }),
+        Animated.timing(pbScale, { toValue: 1, duration: 150, useNativeDriver: true }),
+      ]).start();
+    }
+    if (!isPB) pbFiredRef.current = false;
+  }, [isPB]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hrLast = hrReadings.length > 0 ? hrReadings[hrReadings.length - 1].bpm : null;
   const berryFg = (theme as any).berry?.fg ?? "#7A1F3C";
@@ -186,6 +221,7 @@ export function MetricChipRow({
         {!chipsHydrated && stepsCount === null ? (
           <MetricChipSkeleton borderColor={theme.teal.solid} backgroundColor={theme.teal.bg} />
         ) : (
+        <View style={{ position: "relative" }}>
         <MetricChip
           borderColor={theme.teal.solid}
           backgroundColor={theme.teal.bg}
@@ -207,14 +243,49 @@ export function MetricChipRow({
           <StepsRing steps={stepsCount} goal={stepGoal} color={theme.teal.solid} sub={theme.teal.sub} />
           <PopText value={stepsLabel} style={[chipStyles.val, { color: theme.teal.fg }]} numberOfLines={1} />
           <Text style={[chipStyles.sub, { color: theme.teal.sub }]} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>of {goalLabel}</Text>
-          {stepsWeekTotal !== null && (
-            <Text style={[chipStyles.sub, { color: theme.teal.sub, marginTop: 2 }]} numberOfLines={1} allowFontScaling maxFontSizeMultiplier={1.3}>
-              {stepsWeekTotal >= 1000
-                ? (stepsWeekTotal / 1000).toFixed(1) + "k wk"
-                : stepsWeekTotal + " wk"}
-            </Text>
-          )}
+          {(function () {
+            const BAR_W = 4, GAP = 2, MAX_H = 16;
+            const totalW = 7 * BAR_W + 6 * GAP;
+            if (stepsWeekDays.length === 0 && stepsWeekTotal === null) return null;
+            const bars = Array.from({ length: 7 }, (_, i) => {
+              const d = stepsWeekDays[i];
+              return d ? Math.min(1, d.count / Math.max(1, stepGoal)) : 0;
+            });
+            return (
+              <Svg width={totalW} height={MAX_H + 2}>
+                {bars.map((pct, bi) => {
+                  const h = Math.max(2, Math.round(pct * MAX_H));
+                  const barColor = pct === 0 ? theme.cardBorder : theme.teal.solid;
+                  return (
+                    <Rect key={bi} x={bi * (BAR_W + GAP)} y={MAX_H - h + 2} width={BAR_W} height={h}
+                      fill={barColor} opacity={pct > 0 ? 0.75 : 0.32} rx={1.5} />
+                  );
+                })}
+              </Svg>
+            );
+          })()}
         </MetricChip>
+        {/* Change 10 — PB badge */}
+        {isPB && (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: -6,
+              right: -6,
+              width: 24,
+              height: 24,
+              borderRadius: 12,
+              backgroundColor: theme.teal.solid,
+              alignItems: "center",
+              justifyContent: "center",
+              transform: [{ scale: pbScale }],
+            }}
+          >
+            <Text style={{ fontSize: 10 }}>🏆</Text>
+          </Animated.View>
+        )}
+        </View>
         )}
 
         {/* SLEEP chip — collapsed: duration + score ring + 7-night bars */}
@@ -296,7 +367,7 @@ export function MetricChipRow({
           {(theme as any).iconOverrides?.["metric.water"] ? (
             <ThemedIcon slot="metric.water" size={44} />
           ) : (
-            <MiniDroplet count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} />
+            <MiniDroplet count={waterCount ?? 0} goal={waterGoal} color={theme.blue.solid} animatedFillRatio={dropletFill} />
           )}
           <Animated.Text style={[chipStyles.sub, { color: theme.blue.sub, transform: [{ scale: waterCountScaleAnim }] }]}>
             {waterCount ?? 0}/{waterGoal}

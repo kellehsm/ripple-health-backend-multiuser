@@ -907,17 +907,40 @@ export function HealthScreen() {
       />
 
 
-      {lastRefreshed && (
-        <Text style={{ fontSize: 9, lineHeight: 13, fontWeight: "700", color: theme.textSoft, textAlign: "right", opacity: 0.7, marginTop: 6 }}>
-          Updated {Math.round((Date.now() - lastRefreshed.getTime()) / 60000) < 1
-            ? "just now"
-            : Math.round((Date.now() - lastRefreshed.getTime()) / 60000) + " min ago"}
-        </Text>
-      )}
-      {lastSyncMinutes !== null && (
-        <Text style={{ fontSize: 10, lineHeight: 14, color: theme.textSoft, textAlign: "right", opacity: 0.65, marginTop: 2 }}>
-          Health Connect synced {lastSyncMinutes < 1 ? "just now" : lastSyncMinutes + " min ago"}
-        </Text>
+      {/* Change 9 — Consolidated sync status pill */}
+      {(lastRefreshed || lastSyncMinutes !== null) && (
+        <Pressable
+          onPress={handleDexcomForceSync}
+          accessibilityRole="button"
+          accessibilityLabel="Sync status — tap to force Dexcom sync"
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            alignSelf: "flex-end",
+            marginRight: 16,
+            marginTop: 6,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: theme.cardBorder,
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+          }}
+        >
+          <Ionicons name="sync-outline" size={12} color={theme.textSoft} />
+          <Text style={{ fontSize: 10, fontWeight: "700", color: theme.textSoft, opacity: 0.75 }}>
+            {[
+              lastRefreshed
+                ? "Synced " + (Math.round((Date.now() - lastRefreshed.getTime()) / 60000) < 1
+                    ? "just now"
+                    : Math.round((Date.now() - lastRefreshed.getTime()) / 60000) + " min ago")
+                : null,
+              lastSyncMinutes !== null
+                ? "HC " + (lastSyncMinutes < 1 ? "just now" : lastSyncMinutes + " min ago")
+                : null,
+            ].filter(Boolean).join(" · ")}
+          </Text>
+        </Pressable>
       )}
 
       {/* Health Connect sync result toast — auto-dismisses after 4.5s */}
