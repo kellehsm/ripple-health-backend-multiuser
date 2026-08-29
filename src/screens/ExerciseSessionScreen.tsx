@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Animated, Dimensions,
-  LayoutAnimation, Platform, UIManager, TextInput,
+  LayoutAnimation, Platform, UIManager, NativeScrollEvent, NativeSyntheticEvent,
 } from 'react-native';
 import Svg, { Polyline, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -161,6 +161,81 @@ const HRSparkline = React.memo(function HRSparkline({ readings, color }: { readi
   );
 });
 
+const ITEM_H = 36;
+const VISIBLE = 3; // items visible at once (centre = selected)
+
+function DurationPicker({ hours, minutes, onHoursChange, onMinutesChange, ink, accentColor, textSoft }: {
+  hours: number; minutes: number;
+  onHoursChange: (h: number) => void;
+  onMinutesChange: (m: number) => void;
+  ink: string; accentColor: string; textSoft: string;
+}) {
+  const hoursList = Array.from({ length: 6 }, (_, i) => i);   // 0–5 h
+  const minsList  = Array.from({ length: 60 }, (_, i) => i);  // 0–59 m
+
+  const hourRef = useRef<ScrollView>(null);
+  const minRef  = useRef<ScrollView>(null);
+
+  // Scroll to initial position on mount
+  useEffect(() => {
+    setTimeout(() => {
+      hourRef.current?.scrollTo({ y: hours * ITEM_H, animated: false });
+      minRef.current?.scrollTo({ y: minutes * ITEM_H, animated: false });
+    }, 50);
+  }, []);
+
+  function onScrollEnd(list: number[], onChange: (v: number) => void) {
+    return (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+      const clamped = Math.max(0, Math.min(list.length - 1, idx));
+      onChange(list[clamped]);
+    };
+  }
+
+  function renderColumn(list: number[], selectedVal: number, ref: React.RefObject<ScrollView | null>, onChange: (v: number) => void, label: string) {
+    return (
+      <View style={{ alignItems: 'center', gap: 2 }}>
+        <ScrollView
+          ref={ref}
+          style={{ height: ITEM_H * VISIBLE, width: 52 }}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={ITEM_H}
+          decelerationRate="fast"
+          onMomentumScrollEnd={onScrollEnd(list, onChange)}
+          onScrollEndDrag={onScrollEnd(list, onChange)}
+          contentContainerStyle={{ paddingVertical: ITEM_H }}
+        >
+          {list.map(v => (
+            <View key={v} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{
+                fontSize: 22, fontWeight: '800',
+                color: v === selectedVal ? ink : textSoft,
+                opacity: v === selectedVal ? 1 : 0.35,
+              }}>
+                {String(v).padStart(2, '0')}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+        <Text style={{ fontSize: 10, fontWeight: '700', color: textSoft, letterSpacing: 0.5 }}>{label}</Text>
+        {/* Selection highlight bar */}
+        <View pointerEvents="none" style={{
+          position: 'absolute', top: ITEM_H, left: 0, right: 0, height: ITEM_H,
+          borderTopWidth: 1, borderBottomWidth: 1, borderColor: accentColor, opacity: 0.5,
+        }} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      {renderColumn(hoursList, hours, hourRef, onHoursChange, 'HRS')}
+      <Text style={{ fontSize: 22, fontWeight: '900', color: ink, marginBottom: 18 }}>:</Text>
+      {renderColumn(minsList, minutes, minRef, onMinutesChange, 'MIN')}
+    </View>
+  );
+}
+
 export function ExerciseSessionScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
@@ -190,13 +265,9 @@ export function ExerciseSessionScreen() {
   // Currently active exercise (most recently logged)
   const [activeExercise, setActiveExercise] = useState<ActiveExercise | null>(null);
 
-  // Retro session: editable duration in minutes (pre-filled from detected window)
-  const [retroDuration, setRetroDuration] = useState<string>(() => {
-    if (!suggestedEndedAt) return '';
-    // Use the session started_at from DB — approximate with 20 min if unavailable
-    // We know suggestedEndedAt is the end of the detected HR window
-    return '20';
-  });
+  // Retro session: hours + minutes scroll picker
+  const [retroHours, setRetroHours] = useState(0);
+  const [retroMins, setRetroMins] = useState(20); // default 20 min
 
   // Rest timer
   const [restSeconds, setRestSeconds] = useState<number | null>(null);
@@ -429,14 +500,14 @@ export function ExerciseSessionScreen() {
         text: 'Finish', onPress: async () => {
           setFinishing(true);
           try {
-            // For retro sessions use retroDuration (user-entered minutes) to set ended_at
+            // For retro sessions compute ended_at from started_at + picker duration
             let resolvedEndedAt: string | undefined = suggestedEndedAt;
             if (suggestedEndedAt) {
-              const mins = parseInt(retroDuration, 10);
-              if (!isNaN(mins) && mins > 0) {
+              const totalMins = retroHours * 60 + retroMins;
+              if (totalMins > 0) {
                 const session = await api.getExerciseSession(sessionId).catch(() => null);
                 if (session?.started_at) {
-                  resolvedEndedAt = new Date(new Date(session.started_at).getTime() + mins * 60000).toISOString();
+                  resolvedEndedAt = new Date(new Date(session.started_at).getTime() + totalMins * 60000).toISOString();
                 }
               }
             }
@@ -539,14 +610,15 @@ export function ExerciseSessionScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
             {suggestedEndedAt ? (
               <View>
-                <Text style={[styles.timerLabel, { color: theme.textSoft }]}>SESSION DURATION (MIN)</Text>
-                <TextInput
-                  value={retroDuration}
-                  onChangeText={setRetroDuration}
-                  keyboardType="number-pad"
-                  style={[styles.timer, { color: ink, borderBottomWidth: 1, borderBottomColor: theme.teal.solid, minWidth: 60 }]}
-                  accessibilityLabel="Session duration in minutes"
-                  maxLength={4}
+                <Text style={[styles.timerLabel, { color: theme.textSoft, marginBottom: 4 }]}>SESSION DURATION</Text>
+                <DurationPicker
+                  hours={retroHours}
+                  minutes={retroMins}
+                  onHoursChange={setRetroHours}
+                  onMinutesChange={setRetroMins}
+                  ink={ink}
+                  accentColor={theme.teal.solid}
+                  textSoft={theme.textSoft}
                 />
               </View>
             ) : (
