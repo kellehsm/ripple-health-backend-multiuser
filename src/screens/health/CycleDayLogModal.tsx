@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, Modal, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { api } from '../../api/client';
 import { fmtDate } from '../../utils/dateUtils';
@@ -113,10 +113,11 @@ export function CycleDayLogModal({
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={modalStyles.overlay}>
         <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: theme.ink }]}>
           <ModalHeader title={fmtDate(date)} onClose={onClose} />
-          <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 20 }}>
+          <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
             {/* Flow intensity */}
             <View>
               <Text style={[cycleStyles.label, { color: theme.textSoft }]}>Flow intensity</Text>
@@ -257,6 +258,7 @@ export function CycleDayLogModal({
           </ScrollView>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

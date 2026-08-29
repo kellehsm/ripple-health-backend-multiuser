@@ -135,7 +135,7 @@ export function MedicationRemindersScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 4 }}>
         Set daily reminder times for each medication. Times repeat every day.
       </Text>

@@ -457,6 +457,7 @@ export function FriendsScreen() {
       contentContainerStyle={[styles.content, tourPadding > 0 && { paddingBottom: tourPadding }]}
       onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
       scrollEventThrottle={16}
+      keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

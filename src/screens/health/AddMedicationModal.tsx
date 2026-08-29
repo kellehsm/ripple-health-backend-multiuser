@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Pressable, ScrollView, Modal, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, Modal, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { api } from '../../api/client';
 import { ColorCategory, MedPrescriber, Medication, modalStyles } from './shared';
 
@@ -121,6 +121,7 @@ export function AddMedicationModal({
 
   return (
     <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={modalStyles.overlay}>
         <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: ink }]}>
           <View style={modalStyles.header}>
@@ -283,6 +284,7 @@ export function AddMedicationModal({
           </ScrollView>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

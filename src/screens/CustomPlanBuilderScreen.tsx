@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
-  View, Text, TextInput, Pressable, ScrollView, StyleSheet, Modal, Alert, ActivityIndicator,
+  View, Text, TextInput, Pressable, ScrollView, StyleSheet, Modal, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -133,8 +133,13 @@ export function CustomPlanBuilderScreen() {
   }
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
     <View style={{ flex: 1, backgroundColor: theme.page }}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }} keyboardShouldPersistTaps="handled">
         <Text style={[styles.label, { color: theme.textSoft }]}>PLAN NAME</Text>
         <TextInput
           value={name}
@@ -257,6 +262,7 @@ export function CustomPlanBuilderScreen() {
 
       {/* Exercise picker modal */}
       <Modal visible={pickerFor !== null} animationType="slide" onRequestClose={() => setPickerFor(null)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={{ flex: 1, backgroundColor: theme.page }}>
           <View style={{ paddingTop: 56, paddingHorizontal: 16, paddingBottom: 8, flexDirection: "row", alignItems: "center", gap: 10 }}>
             <TextInput
@@ -302,8 +308,10 @@ export function CustomPlanBuilderScreen() {
             </ScrollView>
           )}
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

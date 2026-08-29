@@ -27,6 +27,7 @@
         "style": "dark",
         "translucent": false
       },
+      "softwareKeyboardLayoutMode": "pan",
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
