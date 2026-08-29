@@ -13,6 +13,8 @@ import {
   Modal,
   ScrollView,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -460,6 +462,7 @@ export function LogMealCard({
 
       {/* Servings default prompt */}
       <Modal visible={servingsPromptName != null} transparent animationType="fade" onRequestClose={onCloseServingsPrompt}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", padding: 24 }} onPress={onCloseServingsPrompt}>
           <Pressable onPress={function (e) { e.stopPropagation(); }} style={{ backgroundColor: card, borderRadius: 22, borderWidth: 2, borderColor: theme.cardBorder, padding: 16, gap: 10 }}>
             <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "800" }}>Default servings for {servingsPromptName}</Text>
@@ -485,6 +488,7 @@ export function LogMealCard({
             </View>
           </Pressable>
         </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );

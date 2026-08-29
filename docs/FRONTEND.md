@@ -319,6 +319,14 @@ These items require native rebuilds (`npm install` + EAS build) or are outside p
 - User-defined Finance categories — replaces built-in taxonomy (product decision)
 - Onboarding refactor (1,142-line file) — needs flow ordering decision
 
+### Keyboard avoidance (soft keyboard)
+
+- `app.json` `android.softwareKeyboardLayoutMode: "pan"` — Android pans the whole layout up when the keyboard opens, covering most cases globally.
+- Screens/modals with TextInputs below the fold wrap their root in `<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>`.
+- ScrollViews that contain TextInputs use `keyboardShouldPersistTaps="handled"` so tapping list results doesn't dismiss the keyboard.
+- Modal components with TextInputs wrap the overlay View in a KeyboardAvoidingView inside the Modal.
+- Screens already correctly handled: `LoginScreen`, `SignupScreen`, `HistoryScreen` (uses `keyboardDismissMode`), `GlobalSearchScreen`, `MindfulnessScreen` (parent ScrollView has `keyboardShouldPersistTaps`).
+
 ### Navigation notes
 
 - Tab swipe gestures and animated crossfade between tabs are **not supported** by `createBottomTabNavigator`. Tabs are lazily mounted by default; eager-mounting all 7 at startup would increase launch time with no benefit.

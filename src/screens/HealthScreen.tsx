@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { ScrollView, View, Text, Pressable, StyleSheet, Platform, Alert, RefreshControl, Animated } from "react-native";
+import { ScrollView, View, Text, Pressable, StyleSheet, Platform, Alert, RefreshControl, Animated, KeyboardAvoidingView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { useFocusEffect } from "@react-navigation/core";
@@ -838,6 +838,7 @@ export function HealthScreen() {
     : null;
 
   return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
     <View style={{ flex: 1 }}>
     <LinearGradient colors={[theme.page, theme.gradientEnd]} style={{ flex: 1 }}>
     <ScreenBackground pageId="health_tab" />
@@ -1059,6 +1060,7 @@ export function HealthScreen() {
       />
     ) : null}
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, Pressable, ScrollView, StyleSheet, Alert, Image, Animated, Dimensions,
-  LayoutAnimation, Platform, UIManager,
+  LayoutAnimation, Platform, UIManager, TextInput,
 } from 'react-native';
 import Svg, { Polyline, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -190,6 +190,14 @@ export function ExerciseSessionScreen() {
   // Currently active exercise (most recently logged)
   const [activeExercise, setActiveExercise] = useState<ActiveExercise | null>(null);
 
+  // Retro session: editable duration in minutes (pre-filled from detected window)
+  const [retroDuration, setRetroDuration] = useState<string>(() => {
+    if (!suggestedEndedAt) return '';
+    // Use the session started_at from DB — approximate with 20 min if unavailable
+    // We know suggestedEndedAt is the end of the detected HR window
+    return '20';
+  });
+
   // Rest timer
   const [restSeconds, setRestSeconds] = useState<number | null>(null);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -377,7 +385,7 @@ export function ExerciseSessionScreen() {
       });
       setLogTarget(null);
       await loadSession();
-      startRestTimer(60);
+      if (!suggestedEndedAt) startRestTimer(60);
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
       Alert.alert(
@@ -421,7 +429,18 @@ export function ExerciseSessionScreen() {
         text: 'Finish', onPress: async () => {
           setFinishing(true);
           try {
-            await api.finishExerciseSession(sessionId, suggestedEndedAt).catch(() => {});
+            // For retro sessions use retroDuration (user-entered minutes) to set ended_at
+            let resolvedEndedAt: string | undefined = suggestedEndedAt;
+            if (suggestedEndedAt) {
+              const mins = parseInt(retroDuration, 10);
+              if (!isNaN(mins) && mins > 0) {
+                const session = await api.getExerciseSession(sessionId).catch(() => null);
+                if (session?.started_at) {
+                  resolvedEndedAt = new Date(new Date(session.started_at).getTime() + mins * 60000).toISOString();
+                }
+              }
+            }
+            await api.finishExerciseSession(sessionId, resolvedEndedAt).catch(() => {});
             if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
             if (hrPollRef.current) { clearInterval(hrPollRef.current); hrPollRef.current = null; }
             const uniqueExercises = new Set(entries.map(e => e.exercise.id)).size;
@@ -518,10 +537,24 @@ export function ExerciseSessionScreen() {
       <View style={[styles.timerBar, { backgroundColor: theme.card, borderBottomColor: ink }]}>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
+            {suggestedEndedAt ? (
+              <View>
+                <Text style={[styles.timerLabel, { color: theme.textSoft }]}>SESSION DURATION (MIN)</Text>
+                <TextInput
+                  value={retroDuration}
+                  onChangeText={setRetroDuration}
+                  keyboardType="number-pad"
+                  style={[styles.timer, { color: ink, borderBottomWidth: 1, borderBottomColor: theme.teal.solid, minWidth: 60 }]}
+                  accessibilityLabel="Session duration in minutes"
+                  maxLength={4}
+                />
+              </View>
+            ) : (
             <View>
               <Text style={[styles.timerLabel, { color: theme.textSoft }]} allowFontScaling maxFontSizeMultiplier={1.3}>SESSION TIME</Text>
               <Text style={[styles.timer, { color: ink }]} allowFontScaling maxFontSizeMultiplier={1.2} accessibilityLabel={`Session time ${elapsed}`}>{elapsed}</Text>
             </View>
+            )}
             {liveHR ? (
               <View
                 style={{ paddingBottom: 4 }}
@@ -548,7 +581,20 @@ export function ExerciseSessionScreen() {
             <HRSparkline readings={sessionHR} color={theme.coral.solid} />
           )}
         </View>
-        {!started ? (
+        {suggestedEndedAt ? (
+          <Pressable
+            onPress={handleFinish}
+            disabled={finishing}
+            style={[styles.finishBtn, { backgroundColor: theme.coral.solid, borderColor: ink }]}
+            accessibilityRole="button"
+            accessibilityLabel="Finish logging workout"
+          >
+            {finishing
+              ? <LoadingIndicator color="#fff" size="small" />
+              : <Text style={styles.finishBtnText} allowFontScaling maxFontSizeMultiplier={1.2}>Finish</Text>
+            }
+          </Pressable>
+        ) : !started ? (
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -617,7 +663,7 @@ export function ExerciseSessionScreen() {
       )}
 
       {/* Rest timer banner */}
-      {restSeconds !== null && (
+      {!suggestedEndedAt && restSeconds !== null && (
         <View style={[styles.restBanner, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.restLabel, { color: theme.teal.sub }]}>REST</Text>

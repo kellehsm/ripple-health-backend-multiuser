@@ -6,6 +6,8 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
   useWindowDimensions
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
@@ -998,6 +1000,11 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
   const accent = theme[cfg.accentKey] as any;
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
     <View style={[styles.screen, { backgroundColor: theme.page }]}>
       <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={[styles.stepCard, { backgroundColor: theme.card, borderColor: ink }]}>
@@ -1026,6 +1033,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
         </Pressable>
       </View>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

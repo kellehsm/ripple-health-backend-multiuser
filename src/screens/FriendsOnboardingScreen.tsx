@@ -8,6 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Switch,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -106,6 +108,11 @@ export function FriendsOnboardingScreen() {
   const s = styles(theme);
 
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.page }}>
       <ScreenBackground />
       {/* Dots */}
@@ -259,6 +266,7 @@ export function FriendsOnboardingScreen() {
 
       </ScrollView>
     </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
