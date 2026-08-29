@@ -27,6 +27,7 @@ import { WorkoutPlannerModal, PlanExercise } from '../components/WorkoutPlannerM
 import { getCached, setCached, invalidateCache } from '../utils/staleCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UndoBanner } from '../components/UndoBanner';
+import { getChallenges, getLeaderboard, Challenge, LeaderboardEntry } from '../api/friends';
 
 interface DetectedWorkout {
   start: string;
@@ -260,6 +261,16 @@ function ExerciseEmptyState({ onPress }: { onPress: () => void }) {
   );
 }
 
+function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
+  const palettes = [
+    { bg: theme.teal.tint, fg: theme.teal.fg },
+    { bg: theme.purple.tint, fg: theme.purple.fg },
+    { bg: (theme as any).amber?.tint ?? '#FEF3C7', fg: (theme as any).amber?.fg ?? '#92400E' },
+  ];
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) & 0xffff;
+  return palettes[h % palettes.length];
+}
+
 export function ExerciseScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<any>();
@@ -283,6 +294,12 @@ export function ExerciseScreen() {
   const [undoSession, setUndoSession] = useState<{ session: ExerciseSession; timer: ReturnType<typeof setTimeout> } | null>(null);
   const undoSessionRef = React.useRef(undoSession);
   React.useEffect(() => { undoSessionRef.current = undoSession; }, [undoSession]);
+
+  // Social state
+  const [friendWorkouts, setFriendWorkouts] = useState<{ display_name: string; user_id: string; description: string; occurred_at: string; id?: string }[]>([]);
+  const [exerciseRival, setExerciseRival] = useState<LeaderboardEntry | null>(null);
+  const [myExerciseRank, setMyExerciseRank] = useState<number>(99);
+  const [exerciseChallenges, setExerciseChallenges] = useState<Challenge[]>([]);
 
   // Wizard gate — null = loading, false = show wizard, true = show main screen
   const [wizardDone, setWizardDone] = useState<boolean | null>(null);
@@ -365,6 +382,25 @@ export function ExerciseScreen() {
     }).catch(() => {
       if (!cancelled) setLoadError("Couldn't load workout data");
     }).finally(() => { if (!cancelled) { setLoading(false); setRefreshing(false); } });
+    // Social feeds — independent of main cache
+    api.getFriendActivityFeed()
+      .then((data: any[]) => setFriendWorkouts(
+        data.filter((d: any) => d.activity_type === 'exercise').slice(0, 4)
+      ))
+      .catch(() => {});
+    getLeaderboard('exercise').then((entries: LeaderboardEntry[]) => {
+      const me = entries.find(e => e.is_me);
+      if (!me) return;
+      setMyExerciseRank(me.rank);
+      const above = entries.find(e => e.rank === me.rank - 1);
+      const below = entries.find(e => e.rank === me.rank + 1);
+      setExerciseRival(above ?? below ?? null);
+    }).catch(() => {});
+    getChallenges().then((cs: Challenge[]) => {
+      const today = new Date().toISOString().slice(0, 10);
+      setExerciseChallenges(cs.filter(c => c.category === 'exercise' && c.end_date >= today && c.is_member).slice(0, 2));
+    }).catch(() => {});
+
     return () => { cancelled = true; };
   }, [prefsLoading, preferences.selectedModules, reloadKey]));
 
@@ -668,6 +704,56 @@ export function ExerciseScreen() {
         </View>
 
         <WeeklyStatsStrip sessions={sessions} theme={theme} />
+
+        {/* Friends active strip */}
+        {friendWorkouts.length > 0 && (
+          <View>
+            <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 6 }}>FRIENDS ACTIVE</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingRight: 4 }}>
+              {friendWorkouts.map(f => {
+                const av = avatarColor(f.user_id, theme);
+                const initial = f.display_name[0]?.toUpperCase() ?? '?';
+                const mins = Math.floor((Date.now() - new Date(f.occurred_at).getTime()) / 60000);
+                const ago = mins < 60 ? `${mins}m ago` : `${Math.floor(mins/60)}h ago`;
+                return (
+                  <View key={f.id ?? f.user_id} style={{ alignItems: 'center', gap: 4, width: 64 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: av.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: theme.teal.solid }}>
+                      <Text style={{ color: av.fg, fontWeight: '800', fontSize: 16 }}>{initial}</Text>
+                    </View>
+                    <Text style={{ color: theme.textStrong, fontSize: 10, fontWeight: '700', textAlign: 'center' }} numberOfLines={1}>{f.display_name.split(' ')[0]}</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 9, textAlign: 'center' }}>{ago}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Rival this week card */}
+        {exerciseRival && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.teal.tint, borderRadius: 14, borderWidth: 1.5, borderColor: theme.teal.solid, paddingHorizontal: 14, paddingVertical: 10 }}>
+            <Text style={{ fontSize: 20 }}>⚔️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: '900' }}>
+                {exerciseRival.rank < myExerciseRank ? `${exerciseRival.display_name} is ahead` : `You're ahead of ${exerciseRival.display_name}`}
+              </Text>
+              <Text style={{ color: theme.teal.sub, fontSize: 11, marginTop: 1 }}>
+                {Math.abs(exerciseRival.value)} sessions this week
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Active exercise challenges */}
+        {exerciseChallenges.map(c => (
+          <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.purple.tint, borderRadius: 14, borderWidth: 1.5, borderColor: (theme.purple as any).solid ?? theme.ink, paddingHorizontal: 14, paddingVertical: 10 }}>
+            <Ionicons name="trophy-outline" size={18} color={theme.purple.fg} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.purple.fg, fontSize: 13, fontWeight: '800' }}>{c.title}</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: 1 }}>{c.goal_description} · {Math.ceil((new Date(c.end_date).getTime() - Date.now()) / 86400000)}d left</Text>
+            </View>
+          </View>
+        ))}
 
         {/* Active workout program */}
         {activeProgram && (

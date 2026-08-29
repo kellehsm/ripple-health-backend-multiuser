@@ -7,6 +7,7 @@ import {
   ScrollView,
   View,
   Text,
+  Pressable,
   Animated
 } from "react-native";
 import { EmptyState } from "../components/EmptyState";
@@ -14,8 +15,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { RippleLoader } from "../components/RippleLoader";
 import * as Haptics from "expo-haptics";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
+import { getFriends, type Friend } from "../api/friends";
 import { ThemedIcon } from "../theme/iconRegistry";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
@@ -45,6 +47,8 @@ export function MindfulnessScreen() {
   const [introVisible, dismissIntro] = useFeatureIntro(mindfulnessIntro.key);
   const ink = theme.ink;
 
+  const navigation = useNavigation<any>();
+
   const [activeSection, setActiveSection] = useState<Section | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [sectionLoading, setSectionLoading] = useState(false);
@@ -53,6 +57,10 @@ export function MindfulnessScreen() {
   const [hubVisit, setHubVisit] = useState(0);
   const [totalSessions, setTotalSessions] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [mindfulFriendCount, setMindfulFriendCount] = useState(0);
+  const [friends, setFriendsState] = useState<Friend[]>([]);
+  const [lastSection, setLastSection] = useState<string | null>(null);
+  const [showNudgePrompt, setShowNudgePrompt] = useState(false);
   const reduceMotion = useReduceMotion();
   const contentFade = useRef(new Animated.Value(1)).current;
   const fadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,6 +71,20 @@ export function MindfulnessScreen() {
       fadeTimeoutRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    getFriends().then((fs: Friend[]) => {
+      setFriendsState(fs);
+      setMindfulFriendCount(fs.length);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (lastSection !== null && activeSection === null) {
+      if (friends.length > 0) setShowNudgePrompt(true);
+    }
+    setLastSection(activeSection ?? null);
+  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useFocusEffect(
     useCallback(() => {
@@ -160,7 +182,29 @@ export function MindfulnessScreen() {
               ) : (
                 <StatsHero theme={theme} ink={ink} refreshKey={hubVisit} />
               )}
+              {mindfulFriendCount > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.purple.tint, borderRadius: 14, borderWidth: 1.5, borderColor: theme.purple.solid ?? theme.ink, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 18 }}>🧘</Text>
+                  <Text style={{ color: theme.purple.fg ?? theme.textStrong, fontSize: 13, fontWeight: '700', flex: 1 }}>
+                    {mindfulFriendCount} friend{mindfulFriendCount !== 1 ? 's' : ''} on Ripple — practice together
+                  </Text>
+                </View>
+              )}
               <TileGrid theme={theme} ink={ink} onSelect={navigateTo} onQuickReset={startQuickReset} todayDone={todayDone} />
+              {showNudgePrompt && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.teal.tint, borderRadius: 14, borderWidth: 1.5, borderColor: theme.teal.solid, paddingHorizontal: 14, paddingVertical: 10 }}>
+                  <Text style={{ fontSize: 18 }}>👋</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: '700' }}>Nice session! Nudge a friend to try it?</Text>
+                  </View>
+                  <Pressable onPress={() => { setShowNudgePrompt(false); navigation.navigate('Friends'); }} style={{ borderRadius: 10, borderWidth: 1.5, borderColor: theme.teal.solid, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <Text style={{ color: theme.teal.fg, fontWeight: '700', fontSize: 12 }}>Nudge</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setShowNudgePrompt(false)} hitSlop={8}>
+                    <Text style={{ color: theme.textSoft, fontSize: 16 }}>×</Text>
+                  </Pressable>
+                </View>
+              )}
               <QuoteCard theme={theme} />
             </>
           )}

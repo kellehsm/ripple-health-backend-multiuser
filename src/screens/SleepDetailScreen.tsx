@@ -11,6 +11,7 @@ import { CardLoadingOverlay } from "../components/CardLoadingOverlay";
 import { Ionicons } from "@expo/vector-icons";
 import { formatDateLocal } from "../utils/dateUtils";
 import { FONT_SIZES } from "../theme/tokens";
+import { getFriends, getChallenges, Challenge } from "../api/friends";
 
 type SleepSession = {
   id: string;
@@ -75,6 +76,12 @@ function dayLabel(iso: string): string {
   return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
 }
 
+function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
+  const p = [{ bg: theme.teal.tint, fg: theme.teal.fg }, { bg: theme.purple.tint, fg: theme.purple.fg }, { bg: (theme as any).amber?.tint ?? '#FEF3C7', fg: (theme as any).amber?.fg ?? '#92400E' }];
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) & 0xffff;
+  return p[h % p.length];
+}
+
 // Compute a "consistency" streak: how many of the last N nights hit ≥ 7h
 function consistencyStreak(sessions: SleepSession[], targetHours = 7): number {
   const byDay = new Map<string, number>();
@@ -110,6 +117,8 @@ export function SleepDetailScreen() {
   const [loadingStats, setLoadingStats] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [scoreExplainerVisible, setScoreExplainerVisible] = useState(false);
+  const [sleepChallenge, setSleepChallenge] = useState<Challenge | null>(null);
+  const [friendCount, setFriendCount] = useState(0);
 
   // Compute a client-side sleep score (0-100) for the last session so
   // there's something concrete to tap. Blends duration, deep+REM balance,
@@ -165,6 +174,20 @@ export function SleepDetailScreen() {
   }, []);
 
   useEffect(() => { loadRange(rangeDays); }, [loadRange, rangeDays]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    getChallenges()
+      .then((challenges) => {
+        const active = challenges.filter((c) => c.is_member && c.end_date >= today);
+        const sleepOne = active.find((c) => c.title.toLowerCase().includes("sleep")) ?? active[0] ?? null;
+        setSleepChallenge(sleepOne);
+      })
+      .catch(() => {});
+    getFriends()
+      .then((friends) => setFriendCount(friends.length))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     api.sleepStats()
@@ -560,6 +583,22 @@ export function SleepDetailScreen() {
             );
           })}
         </ShadowCard>
+      )}
+
+      {/* Social benchmark card */}
+      {friendCount > 0 && (
+        <View style={{ backgroundColor: theme.card, borderRadius: 16, borderWidth: 1.5, borderColor: theme.cardBorder, padding: 14, gap: 6 }}>
+          <Text style={{ color: theme.textStrong, fontWeight: '800', fontSize: 14 }}>👥 Your friend group</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 13, lineHeight: 19 }}>
+            You have {friendCount} friend{friendCount !== 1 ? 's' : ''} on Ripple. Compare sleep patterns and take on wellness challenges together.
+          </Text>
+          {sleepChallenge && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <Text style={{ fontSize: 16 }}>🏆</Text>
+              <Text style={{ color: theme.purple?.fg ?? theme.textStrong, fontWeight: '700', fontSize: 13 }}>{sleepChallenge.title} · {Math.ceil((new Date(sleepChallenge.end_date).getTime() - Date.now()) / 86400000)}d left</Text>
+            </View>
+          )}
+        </View>
       )}
 
     </ScrollView>

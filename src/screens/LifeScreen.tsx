@@ -51,6 +51,7 @@ import { FeatureTour, TourStep } from "../components/FeatureTour";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { Swipeable } from "react-native-gesture-handler";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
+import { getLeaderboard, LeaderboardEntry } from "../api/friends";
 
 const LIFE_SECTIONS: SectionDef[] = [
   { id: 'books',       label: 'Books & Reading', description: 'Currently reading list and book search' },
@@ -132,6 +133,12 @@ type Progress = {
   total_pages: number | null;
   percent_complete: number | null;
 };
+
+function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
+  const p = [{ bg: theme.teal.tint, fg: theme.teal.fg }, { bg: theme.purple.tint, fg: theme.purple.fg }, { bg: (theme as any).amber?.tint ?? '#FEF3C7', fg: (theme as any).amber?.fg ?? '#92400E' }];
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) & 0xffff;
+  return p[h % p.length];
+}
 
 function LifeEmptyState({ onPress }: { onPress: () => void }) {
   const { theme } = useTheme();
@@ -241,6 +248,8 @@ export function LifeScreen() {
   const [createHobbyError, setCreateHobbyError] = useState<string | null>(null);
   const [logHobbyError, setLogHobbyError] = useState<string | null>(null);
   const [completedCount, setCompletedCount] = useState(0);
+  const [friendReading, setFriendReading] = useState<{display_name: string; user_id: string; description: string; occurred_at: string; id?: string}[]>([]);
+  const [hobbyLeaderboard, setHobbyLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   type UndoInfo =
     | { type: "book"; data: Book; timer: ReturnType<typeof setTimeout> }
@@ -352,6 +361,13 @@ export function LifeScreen() {
     loadBooks();
     loadHobbies();
     loadCompletedCount();
+    api.getFriendActivityFeed()
+      .then((data: any[]) => setFriendReading(
+        data.filter((d: any) => d.activity_type === 'metric' || d.description?.toLowerCase().includes('book'))
+          .slice(0, 4)
+      ))
+      .catch(() => {});
+    getLeaderboard('hobbies').then(setHobbyLeaderboard).catch(() => {});
     // Check whether a gratitude entry exists today by scanning journal entries.
     // We only show the prompt when there are no journal entries at all for today with text.
     api.journalToday().then((entries: any[]) => {
@@ -802,6 +818,39 @@ export function LifeScreen() {
           );
         })
       )}
+
+      {/* Friends reading feed */}
+      {friendReading.length > 0 && (
+        <View style={{ backgroundColor: theme.card, borderRadius: 16, borderWidth: 1.5, borderColor: theme.cardBorder, overflow: 'hidden' }}>
+          <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8 }}>
+            <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' }}>FRIENDS READING</Text>
+          </View>
+          {friendReading.map((f, i) => {
+            const av = avatarColor(f.user_id, theme);
+            return (
+              <View key={f.id ?? i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: theme.cardBorder }}>
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: av.bg, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: av.fg, fontWeight: '800', fontSize: 14 }}>{f.display_name[0]?.toUpperCase()}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.textStrong, fontWeight: '700', fontSize: 13 }}>{f.display_name}</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 12 }} numberOfLines={1}>{f.description}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Books leaderboard shortcut */}
+      <Pressable
+        onPress={() => navigation.navigate('Leaderboard', { category: 'books' })}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 4 }}
+        accessibilityRole="button"
+      >
+        <Ionicons name="trophy-outline" size={16} color={theme.teal.solid} />
+        <Text style={{ color: theme.teal.solid, fontWeight: '700', fontSize: 13, flex: 1 }}>See books leaderboard →</Text>
+      </Pressable>
       </>)}
 
       {/* Hobbies section — add form + individual cards */}
@@ -974,6 +1023,31 @@ export function LifeScreen() {
         })
       )}
 
+      {/* Shared hobby discovery banner */}
+      {(() => {
+        const friendsWithHobbies = hobbyLeaderboard.filter(e => !e.is_me && e.value > 0);
+        if (friendsWithHobbies.length === 0) return null;
+        return (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: theme.teal.tint, borderRadius: 12, borderWidth: 1, borderColor: theme.teal.solid, paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ fontSize: 16 }}>👥</Text>
+            <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: '700', flex: 1 }}>
+              {friendsWithHobbies.length} friend{friendsWithHobbies.length !== 1 ? 's' : ''} also logging hobbies this week
+            </Text>
+          </View>
+        );
+      })()}
+
+      {/* Hobbies leaderboard shortcut */}
+      <Pressable
+        onPress={() => navigation.navigate('Leaderboard', { category: 'hobbies' })}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 4 }}
+        accessibilityRole="button"
+      >
+        <Ionicons name="trophy-outline" size={16} color={theme.teal.solid} />
+        <Text style={{ color: theme.teal.solid, fontWeight: '700', fontSize: 13, flex: 1 }}>See hobbies leaderboard →</Text>
+      </Pressable>
+      </>)}
+
       {/* Gratitude prompt — shown when no journal text logged today */}
       {!hasGratitudeToday && (
         <ShadowCard size="card" bg={theme.berry.tint} accent={theme.berry.solid} cardId="mood_log_card">
@@ -1004,7 +1078,6 @@ export function LifeScreen() {
           </Pressable>
         </ShadowCard>
       )}
-      </>)}
     </ScrollView>
     </LinearGradient>
     {undoInfo && (

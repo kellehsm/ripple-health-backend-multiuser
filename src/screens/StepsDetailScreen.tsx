@@ -15,6 +15,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { WeekComparisonChart, ChartDayData } from "../components/WeekComparisonChart";
 import { DAY_NAMES } from "../utils/dateUtils";
+import { getChallenges, getLeaderboard, Challenge, LeaderboardEntry } from "../api/friends";
 
 type MonthWeek = {
   week_offset: number;
@@ -50,6 +51,16 @@ type BreakdownData = {
 };
 
 
+function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
+  const palettes = [
+    { bg: theme.teal.tint, fg: theme.teal.fg },
+    { bg: theme.purple.tint, fg: theme.purple.fg },
+    { bg: (theme as any).amber?.tint ?? '#FEF3C7', fg: (theme as any).amber?.fg ?? '#92400E' },
+  ];
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) & 0xffff;
+  return palettes[h % palettes.length];
+}
+
 function fmt(n: number): string {
   return n.toLocaleString();
 }
@@ -75,6 +86,8 @@ export function StepsDetailScreen() {
   const [monthlyData, setMonthlyData] = useState<MonthWeek[] | null>(null);
   const [monthToDateTotal, setMonthToDateTotal] = useState<number | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [stepsBoard, setStepsBoard] = useState<LeaderboardEntry[]>([]);
+  const [stepChallenge, setStepChallenge] = useState<Challenge | null>(null);
 
   // Widget deep links open this screen without route params — resolve the
   // steps metricId / week-start ourselves so the screen doesn't crash.
@@ -124,6 +137,14 @@ export function StepsDetailScreen() {
     if (!metricId) return;
     loadData(metricId, weekStartDay);
   }, [metricId, weekStartDay, loadData]);
+
+  useEffect(() => {
+    getLeaderboard('steps').then(setStepsBoard).catch(() => {});
+    getChallenges().then((cs: Challenge[]) => {
+      const today = new Date().toISOString().slice(0, 10);
+      setStepChallenge(cs.find(c => c.category === 'steps' && c.end_date >= today && c.is_member) ?? null);
+    }).catch(() => {});
+  }, []);
 
   function handleRefresh() {
     if (!metricId) return;
@@ -217,6 +238,17 @@ export function StepsDetailScreen() {
           </View>
         </View>
       </View>
+
+      {/* Step challenge banner */}
+      {stepChallenge && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.purple.tint, borderRadius: 14, borderWidth: 1.5, borderColor: (theme.purple as any).solid ?? theme.ink, paddingHorizontal: 14, paddingVertical: 10 }}>
+          <Text style={{ fontSize: 18 }}>🏆</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.purple.fg, fontSize: 13, fontWeight: '800' }}>{stepChallenge.title}</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 11 }}>{stepChallenge.goal_description} · {Math.ceil((new Date(stepChallenge.end_date).getTime() - Date.now()) / 86400000)}d left</Text>
+          </View>
+        </View>
+      )}
 
       {/* Bar chart */}
       <View style={s.card}>
@@ -336,6 +368,39 @@ export function StepsDetailScreen() {
           </Text>
         )}
       </View>
+
+      {/* Steps leaderboard */}
+      {stepsBoard.length > 0 && (() => {
+        const me = stepsBoard.find(e => e.is_me);
+        const showEntries = stepsBoard.slice(0, Math.min(5, stepsBoard.length));
+        return (
+          <View style={[s.card, { gap: 8 }]}>
+            <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' }}>STEPS LEADERBOARD · THIS WEEK</Text>
+            {showEntries.map(entry => {
+              const av = avatarColor(entry.user_id, theme);
+              return (
+                <View key={entry.user_id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: entry.is_me ? theme.teal.tint : theme.card, borderRadius: 12, borderWidth: entry.is_me ? 2 : 1, borderColor: entry.is_me ? theme.teal.solid : theme.cardBorder, paddingHorizontal: 12, paddingVertical: 8 }}>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '800', width: 20, textAlign: 'center' }}>#{entry.rank}</Text>
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: entry.is_me ? theme.teal.solid : av.bg, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: entry.is_me ? '#fff' : av.fg, fontWeight: '800', fontSize: 12 }}>{entry.display_name[0]?.toUpperCase()}</Text>
+                  </View>
+                  <Text style={{ flex: 1, color: entry.is_me ? theme.teal.fg : theme.textStrong, fontWeight: entry.is_me ? '800' : '600', fontSize: 13 }}>
+                    {entry.is_me ? 'You' : entry.display_name}
+                  </Text>
+                  <Text style={{ color: entry.is_me ? theme.teal.fg : theme.textSoft, fontSize: 13, fontWeight: '700' }}>
+                    {entry.value >= 1000 ? (entry.value / 1000).toFixed(1) + 'k' : entry.value}
+                  </Text>
+                </View>
+              );
+            })}
+            {me && me.rank > 5 && (
+              <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: 'center', paddingVertical: 4 }}>
+                You're #{me.rank} of {stepsBoard.length}
+              </Text>
+            )}
+          </View>
+        );
+      })()}
 
       {/* Monthly comparison — 4 recent weeks vs same weeks from prior month */}
       {monthlyData && monthlyData.length > 0 && (
