@@ -8,6 +8,7 @@ import { api } from "../api/client";
 import { RangeSelector } from "../components/RangeSelector";
 import { ShadowCard } from "../components/ShadowCard";
 import { CardLoadingOverlay } from "../components/CardLoadingOverlay";
+import { EmptyState } from "../components/EmptyState";
 import { Ionicons } from "@expo/vector-icons";
 import { formatDateLocal } from "../utils/dateUtils";
 import { FONT_SIZES } from "../theme/tokens";
@@ -73,7 +74,7 @@ function fmtMinsAsTime(mins: number | null): string {
 
 function dayLabel(iso: string): string {
   const d = new Date(iso.slice(0, 10) + "T00:00:00");
-  return ["S", "M", "T", "W", "T", "F", "S"][d.getDay()];
+  return ["Su", "M", "T", "W", "Th", "F", "Sa"][d.getDay()];
 }
 
 function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
@@ -115,6 +116,7 @@ export function SleepDetailScreen() {
   const [stats, setStats] = useState<StatsPayload | null>(null);
   const [loadingRange, setLoadingRange] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [scoreExplainerVisible, setScoreExplainerVisible] = useState(false);
   const [sleepChallenge, setSleepChallenge] = useState<Challenge | null>(null);
@@ -164,12 +166,15 @@ export function SleepDetailScreen() {
 
   const loadRange = useCallback(async (days: number) => {
     setLoadingRange(true);
+    setLoadError(null);
     try {
       const end = new Date();
       const start = new Date(end.getTime() - days * 86400_000);
       const data = await api.sleepRange(start.toISOString(), end.toISOString());
       setSessions(data.sessions);
-    } catch { /* leave state as-is on error */ }
+    } catch {
+      setLoadError("Couldn't load sleep data. Check your connection and try again.");
+    }
     finally { setLoadingRange(false); }
   }, []);
 
@@ -284,6 +289,19 @@ export function SleepDetailScreen() {
     return { debtH: current7h, trendH, priorHasData };
   }, [sessions]);
 
+  if (!loadingRange && loadError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.page, padding: 16 }}>
+        <EmptyState
+          slot="empty.warning"
+          title="Couldn't load sleep data"
+          subtitle="Check your connection and try again."
+          action={{ label: "Try again", onPress: () => loadRange(rangeDays) }}
+        />
+      </View>
+    );
+  }
+
   if (!loadingRange && sessions.length === 0) {
     return (
       <ScrollView
@@ -297,7 +315,7 @@ export function SleepDetailScreen() {
           <Ionicons name="moon-outline" size={44} color={theme.violet?.solid ?? "#7965B0"} />
           <Text style={{ color: theme.textStrong, fontSize: 16, fontWeight: "800" }}>No sleep data yet</Text>
           <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center", lineHeight: 19 }}>
-            Sync from Health Connect on the Health tab to see your nights here.
+            Sync sleep data to see your debt trend.
           </Text>
         </View>
       </ScrollView>

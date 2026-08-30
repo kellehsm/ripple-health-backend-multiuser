@@ -18,24 +18,20 @@ import { AnimatedProgressRing } from "../../components/AnimatedProgressRing";
 import { toast } from "../../lib/toast";
 import { CHIP_GAP, PopText, StepsRing, MiniDroplet, type GlucoseStatus, type HRReading } from "./healthScreenShared";
 
-function MindfulnessSidePanel({ side, theme }: { side: 'left' | 'right'; theme: Theme }) {
+function MindfulnessSidePanel({ theme }: { theme: Theme }) {
   const isCatTheme = theme.id === "cozy-cat";
-  const catImageLeft = require("../../../assets/themes/cat/greeting_morning.png");
-  const catImageRight = require("../../../assets/themes/cat/greeting_afternoon.png");
+  const catImage = require("../../../assets/themes/cat/greeting_morning.png");
 
   return (
-    <View style={{ width: 56, alignItems: "center", justifyContent: "center" }}>
+    <View style={{ width: 72, alignItems: "center", justifyContent: "center" }}>
       {isCatTheme ? (
         <Image
-          source={side === "left" ? catImageLeft : catImageRight}
-          style={[
-            { width: 52, height: 52 },
-            side === "right" ? { transform: [{ scaleX: -1 }] } : undefined,
-          ]}
+          source={catImage}
+          style={{ width: 68, height: 68 }}
           resizeMode="contain"
         />
       ) : (
-        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: theme.purple.tint, opacity: 0.5 }} />
+        <View style={{ width: 68, height: 68, borderRadius: 34, backgroundColor: theme.purple.tint, opacity: 0.5 }} />
       )}
     </View>
   );
@@ -146,9 +142,9 @@ export function MetricChipRow({
 
   return (
     <Animated.View style={{ opacity: chipEntranceAnim }}>
-      {/* Mindfulness bar with decorative side panels */}
+      {/* Mindfulness bar with single decorative cat on the left */}
       <View style={{ flexDirection: "row", alignItems: "center", marginBottom: CHIP_GAP }}>
-        <MindfulnessSidePanel side="left" theme={theme as Theme} />
+        <MindfulnessSidePanel theme={theme as Theme} />
         <Pressable
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -158,10 +154,10 @@ export function MetricChipRow({
           accessibilityLabel="Open Mindfulness hub"
           style={{
             flex: 1,
-            marginHorizontal: 8,
+            marginLeft: 6,
             borderRadius: 26,
             borderWidth: 2,
-            borderColor: theme.cardBorder,
+            borderColor: "rgba(255,255,255,0.15)",
             backgroundColor: theme.purple.solid,
             paddingVertical: 11,
             paddingHorizontal: 14,
@@ -171,11 +167,6 @@ export function MetricChipRow({
             overflow: "hidden",
           }}
         >
-          <Image
-            source={require("../../../assets/themes/cat/greeting_morning.png")}
-            style={{ width: 40, height: 40 }}
-            resizeMode="contain"
-          />
           <View style={{ flex: 1 }}>
             <Text style={{ color: onSolid(theme.purple.solid), fontSize: 16, fontWeight: "900", marginBottom: 1 }}>Mindfulness</Text>
             <Text style={{ color: onSolid(theme.purple.solid), fontSize: 12, opacity: 0.75 }}>
@@ -186,7 +177,6 @@ export function MetricChipRow({
           </View>
           <Ionicons name="chevron-forward" size={20} color={onSolid(theme.purple.solid)} style={{ opacity: 0.85 }} />
         </Pressable>
-        <MindfulnessSidePanel side="right" theme={theme as Theme} />
       </View>
 
       {/* Top row: 3 chips */}
@@ -389,10 +379,10 @@ export function MetricChipRow({
 
         {/* HEART RATE chip */}
         {!chipsHydrated && hrLast === null ? (
-          <MetricChipSkeleton borderColor={berrySub} backgroundColor={berryBg} />
+          <MetricChipSkeleton borderColor={berrySolid} backgroundColor={berryBg} />
         ) : (
         <MetricChip
-          borderColor={berrySub}
+          borderColor={berrySolid}
           backgroundColor={berryBg}
           label="HEART"
           accessibilityLabel={hrLast !== null ? `Heart rate ${hrLast} beats per minute` : "Heart rate, no data"}

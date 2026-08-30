@@ -78,6 +78,7 @@ export type OverviewData = {
   milestoneMessage: string | null;
   setMilestoneMessage: (v: string | null) => void;
   dashboardLayout: DashboardLayout;
+  loadError: boolean;
   userName: string | null;
   // Actions
   load: (force?: boolean) => Promise<void>;
@@ -122,6 +123,7 @@ export function useOverviewData(): OverviewData {
   const [milestoneMessage, setMilestoneMessage] = useState<string | null>(null);
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout>({ order: ["monthly_review","metric_chips","trends_nav","daily_summary","top_insight","timeline","insights","weekly_review","mood_pattern","cross_metric"], hidden: [] });
   const [userName, setUserName] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   const isFirstWeekOfMonth = new Date().getDate() <= 7;
 
@@ -290,12 +292,18 @@ export function useOverviewData(): OverviewData {
         stepsVal !== null ? checkMilestone("steps_daily", stepsVal) : null,
         mealStreak > 0 ? checkMilestone("meal_streak", mealStreak) : null,
         moodStreak > 0 ? checkMilestone("mood_streak", moodStreak) : null,
+        waterStreak > 0 ? checkMilestone("water_streak", waterStreak) : null,
+        exerciseStreak > 0 ? checkMilestone("exercise_streak", exerciseStreak) : null,
+        readingStreak > 0 ? checkMilestone("reading_streak", readingStreak) : null,
+        hobbyStreak > 0 ? checkMilestone("hobby_streak", hobbyStreak) : null,
+        mindfulStreak > 0 ? checkMilestone("mindfulness_streak", mindfulStreak) : null,
       ]);
       const winner = candidates.find(c => c?.isNew);
       if (winner) setMilestoneMessage(milestoneCopy(winner));
 
       api.crossMetric().then((cm: any) => { if (cm) setCrossMetricData(cm); }).catch(() => {});
     } catch {
+      setLoadError(true);
       toast(Msg.loadData, "error", 5000, { label: "Retry", onPress: () => { load(true); } });
     } finally {
       setLoading(false);
@@ -412,6 +420,7 @@ export function useOverviewData(): OverviewData {
     setMilestoneMessage,
     dashboardLayout,
     userName,
+    loadError,
     load,
     handleRefresh,
     handleSaveLayout,

@@ -71,7 +71,7 @@ function SkeletonCard() {
   );
 }
 
-const CATEGORY_ORDER: { label: string; types: string[] }[] = [
+const STATIC_CATEGORY_ORDER: { label: string; types: string[] }[] = [
   { label: "Streaks",      types: ["streak"] },
   { label: "Mood",         types: ["mood", "mindfulness"] },
   { label: "Sleep",        types: ["sleep"] },
@@ -87,6 +87,17 @@ const CATEGORY_ORDER: { label: string; types: string[] }[] = [
   { label: "Finance",      types: ["finance"] },
   { label: "Combined",     types: ["combined", "category_summary"] },
 ];
+
+function buildCategoryOrder(insights: Insight[]): { label: string; types: string[] }[] {
+  return [...STATIC_CATEGORY_ORDER].sort((a, b) => {
+    const countA = insights.filter(i => a.types.includes(i.type)).length;
+    const countB = insights.filter(i => b.types.includes(i.type)).length;
+    if (countA === 0 && countB === 0) return 0;
+    if (countA === 0) return 1;
+    if (countB === 0) return -1;
+    return countB - countA;
+  });
+}
 
 type WeeklyDayCorr = { date: string; avg_mood: number | null; sleep_hours: number; total_spent: number };
 
@@ -173,12 +184,26 @@ export function InsightsScreen() {
   const [replayVisible, setReplayVisible] = useState<boolean>(false);
   const [replayIdx, setReplayIdx] = useState(0);
   const [heroDot, setHeroDot] = useState(0);
+  const [heroModalInsight, setHeroModalInsight] = useState<Insight | null>(null);
 
   type WeeklyDay = { date: string; avg_mood: number | null; sleep_hours: number; total_spent: number };
   const [weeklyData, setWeeklyData] = useState<WeeklyDay[]>([]);
   const [digest, setDigest] = useState<any>(null);
   const [digestVisible, setDigestVisible] = useState(false);
   const [stepsLeaderboard, setStepsLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  // ── Skeleton → content crossfade ──────────────────────────────────────────
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const prevLoadingRef = useRef(true);
+  useEffect(function () {
+    if (prevLoadingRef.current && !loading) {
+      Animated.timing(contentOpacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+    }
+    if (loading) {
+      contentOpacity.setValue(0);
+    }
+    prevLoadingRef.current = loading;
+  }, [loading]);
 
   async function load(showRefresh = false) {
     if (!showRefresh) {
@@ -393,7 +418,13 @@ export function InsightsScreen() {
               {heroInsights.map((ins, i) => {
                 const accent = accentFor(ins.confidence);
                 return (
-                  <View key={ins.id} style={{ width: cardWidth, padding: 16, borderRadius: 18, backgroundColor: theme.card, borderWidth: 2, borderColor: accent, marginRight: 0 }}>
+                  <Pressable
+                    key={ins.id}
+                    style={({ pressed }) => ({ width: cardWidth, padding: 16, borderRadius: 18, backgroundColor: theme.card, borderWidth: 2, borderColor: accent, marginRight: 0, opacity: pressed ? 0.85 : 1 })}
+                    onPress={() => { Haptics.selectionAsync(); setHeroModalInsight(ins); }}
+                    accessibilityRole="button"
+                    accessibilityLabel={ins.title}
+                  >
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
                       <View style={{ backgroundColor: accent + "22", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
                         <Text style={{ fontSize: 10, fontWeight: "800", color: accent, textTransform: "uppercase", letterSpacing: 0.8 }}>{ins.type}</Text>
@@ -404,7 +435,8 @@ export function InsightsScreen() {
                     </View>
                     <Text style={{ fontSize: 17, fontWeight: "900", color: theme.textStrong, marginBottom: 6 }}>{ins.title}</Text>
                     <Text style={{ fontSize: 13, color: theme.textSoft, lineHeight: 19 }}>{ins.description.slice(0, 120)}{ins.description.length > 120 ? "…" : ""}</Text>
-                  </View>
+                    <Text style={{ fontSize: 11, color: accent, fontWeight: "700", marginTop: 6 }}>Tap to expand →</Text>
+                  </Pressable>
                 );
               })}
             </ScrollView>
@@ -495,13 +527,14 @@ export function InsightsScreen() {
       )}
 
       {loading && (
-        <View style={{ gap: 10 }}>
+        <Animated.View style={{ gap: 10, opacity: contentOpacity.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }}>
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
-        </View>
+        </Animated.View>
       )}
 
+      <Animated.View style={{ opacity: contentOpacity }}>
       {!loading && error && (
         <Text style={[styles.emptyText, { color: theme.coral.solid }]}>{error}</Text>
       )}
@@ -528,6 +561,7 @@ export function InsightsScreen() {
 
       {/* Grouped compact insight feed */}
       {!loading && !error && filtered.length > 0 && (() => {
+        const CATEGORY_ORDER = buildCategoryOrder(insights);
         const activeCategories = CATEGORY_ORDER
           .map(cat => ({
             ...cat,
@@ -755,6 +789,8 @@ export function InsightsScreen() {
         </Pressable>
       )}
 
+      </Animated.View>
+
       <Text style={[styles.footer, { color: theme.textSoft }]}>
         Insights are based on statistical patterns in your personal data only. They describe observations, never diagnoses. Always consult a healthcare professional for medical decisions.
       </Text>
@@ -768,6 +804,34 @@ export function InsightsScreen() {
     )}
     <FeatureIntroSheet intro={insightsIntro} visible={introVisible} onClose={dismissIntro} />
     <WeeklyDigestModal visible={digestVisible} onClose={() => setDigestVisible(false)} digest={digest} theme={theme} />
+    {/* Hero insight expand modal */}
+    <Modal visible={heroModalInsight !== null} animationType="slide" transparent onRequestClose={() => setHeroModalInsight(null)}>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+        <View style={{ backgroundColor: theme.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 2, borderColor: theme.cardBorder, padding: 20, paddingBottom: 36, maxHeight: "90%" }}>
+          <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: theme.cardBorder, alignSelf: "center", marginBottom: 16 }} />
+          {heroModalInsight && (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <InsightCard
+                insight={heroModalInsight}
+                onDismiss={async (id) => {
+                  await handleDismiss(id);
+                  setHeroModalInsight(null);
+                }}
+                onSnooze={async (id, days) => {
+                  await handleSnooze(id, days);
+                  setHeroModalInsight(null);
+                }}
+                onPin={handlePin}
+                isPinned={pinnedIds.has(heroModalInsight.id)}
+              />
+            </ScrollView>
+          )}
+          <Pressable onPress={() => setHeroModalInsight(null)} style={{ marginTop: 14, alignSelf: "center", borderWidth: 1, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 8, borderColor: theme.cardBorder }}>
+            <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: "700" }}>Close</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
     {/* Replay mode modal */}
     <Modal visible={replayVisible} animationType="slide" transparent onRequestClose={() => setReplayVisible(false)}>
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center", padding: 24 }}>

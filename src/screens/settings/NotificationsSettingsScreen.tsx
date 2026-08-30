@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { ScrollView, View, Text, Switch, Pressable, StyleSheet, Alert, Platform } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ScrollView, View, Text, Switch, Pressable, StyleSheet, Alert, Platform, TextInput } from "react-native";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { useTheme } from "../../theme/ThemeContext";
 import { FONT_SIZES, SPACING } from "../../theme/tokens";
 import { api } from "../../api/client";
 import { getMuteUntil, muteFor, clearMute, untilTomorrow7am, MUTE_PRESETS } from "../../lib/muteNotifications";
+import { ScreenBackground } from "../../components/ScreenBackground";
 import { useFocusEffect } from "@react-navigation/native";
 let notifee: any;
 let IntentLauncher: any;
@@ -17,7 +18,8 @@ type SmartNotifs = {
   glucose_threshold?: { enabled?: boolean; low_mg_dl?: number; high_mg_dl?: number };
   glucose_trend_alert?: { enabled?: boolean };
   evening_checkin?: { enabled?: boolean; hour?: number };
-  water_reminder?: { enabled?: boolean; start_hour?: number; goal?: number };
+  water_reminder?: { enabled?: boolean; start_hour?: number; goal?: number; daily_glass_goal?: number };
+  quiet_hours?: { enabled?: boolean; start: string; end: string };
   streak_protection?: { enabled?: boolean; hour?: number };
   mood_checkin?: { enabled?: boolean; hour?: number };
   book_reminder?: { enabled?: boolean; hour?: number };
@@ -106,6 +108,12 @@ export function NotificationsSettingsScreen() {
     Meals: false,
     Reminders: false,
   });
+  // Custom spending budget
+  const [customBudgetInput, setCustomBudgetInput] = useState("");
+  const [showCustomBudget, setShowCustomBudget] = useState(false);
+  // Quiet hours
+  const QUIET_HOUR_OPTIONS = [20, 21, 22, 23, 0];
+  const QUIET_END_OPTIONS = [5, 6, 7, 8, 9];
 
   useEffect(() => {
     api.getSettings().then((s) => {
@@ -177,7 +185,9 @@ export function NotificationsSettingsScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="settings_notifications" />
+    <ScrollView style={{ backgroundColor: "transparent" }} contentContainerStyle={styles.content}>
       {saving && <LoadingIndicator size="small" style={{ alignSelf: "flex-end" }} />}
 
       {/* Mute */}
@@ -239,6 +249,28 @@ export function NotificationsSettingsScreen() {
           </View>
         </>
       )}
+
+      {/* Quiet Hours schedule */}
+      <Text style={[styles.groupLabel, { color: theme.textSoft }]}>QUIET HOURS</Text>
+      <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        <Text style={[styles.desc, { color: theme.textSoft }]}>Automatically suppress all notifications during a nightly window.</Text>
+        <ToggleRow label="Enable quiet hours" value={sn.quiet_hours?.enabled === true}
+          onChange={(v) => save({ quiet_hours: { enabled: v, start: sn.quiet_hours?.start ?? "22:00", end: sn.quiet_hours?.end ?? "07:00" } })} theme={theme} />
+        {sn.quiet_hours?.enabled === true && (
+          <>
+            <Text style={[styles.subLabel, { color: theme.textStrong }]}>Start (evening)</Text>
+            <HourChips hours={QUIET_HOUR_OPTIONS}
+              current={parseInt(sn.quiet_hours?.start?.split(":")?.[0] ?? "22", 10)}
+              onSelect={(h) => save({ quiet_hours: { ...sn.quiet_hours, enabled: true, start: String(h).padStart(2, "0") + ":00", end: sn.quiet_hours?.end ?? "07:00" } })}
+              accentColor={theme.teal.sub} theme={theme} />
+            <Text style={[styles.subLabel, { color: theme.textStrong }]}>End (morning)</Text>
+            <HourChips hours={QUIET_END_OPTIONS}
+              current={parseInt(sn.quiet_hours?.end?.split(":")?.[0] ?? "7", 10)}
+              onSelect={(h) => save({ quiet_hours: { ...sn.quiet_hours, enabled: true, start: sn.quiet_hours?.start ?? "22:00", end: String(h).padStart(2, "0") + ":00" } })}
+              accentColor={theme.teal.sub} theme={theme} />
+          </>
+        )}
+      </View>
 
       {/* ── HEALTH section ─────────────────────────────────────────────────── */}
       <SectionHeader title="Health" isCollapsed={collapsed.Health} onToggle={() => toggleSection("Health")} />
@@ -407,6 +439,10 @@ export function NotificationsSettingsScreen() {
                   accentColor={theme.blue.sub} theme={theme} />
               </>
             )}
+            <Text style={[styles.subLabel, { color: theme.textStrong }]}>Daily glass goal</Text>
+            <HourChips hours={[6, 8, 10, 12]} current={sn.water_reminder?.daily_glass_goal ?? 8}
+              onSelect={(v) => save({ water_reminder: { ...sn.water_reminder, daily_glass_goal: v } })}
+              accentColor={theme.blue.sub} theme={theme} format={(v) => v + " glasses"} />
           </View>
 
           {/* Evening check-in */}
@@ -534,15 +570,59 @@ export function NotificationsSettingsScreen() {
             {sn.spending_alerts?.enabled === true && (
               <>
                 <Text style={[styles.subLabel, { color: theme.textStrong }]}>Daily budget ($)</Text>
-                <HourChips hours={[25, 50, 75, 100, 150, 200, 250]} current={sn.spending_alerts?.daily_budget ?? 100}
-                  onSelect={(v) => save({ spending_alerts: { ...sn.spending_alerts, daily_budget: v } })}
-                  accentColor={theme.teal.sub} theme={theme} format={(v) => "$" + v} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: "row", gap: 6, marginTop: 4 }}>
+                    {[25, 50, 75, 100, 150, 200, 250].map((v) => {
+                      const isSelected = !showCustomBudget && sn.spending_alerts?.daily_budget === v;
+                      return (
+                        <Pressable key={v} onPress={() => { setShowCustomBudget(false); save({ spending_alerts: { ...sn.spending_alerts, daily_budget: v } }); }}
+                          style={[styles.chip, { backgroundColor: isSelected ? theme.teal.sub : theme.page, borderColor: theme.ink }]}>
+                          <Text style={{ color: isSelected ? "#fff" : theme.textSoft, fontSize: 12 }}>${v}</Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Pressable onPress={() => { setShowCustomBudget(true); setCustomBudgetInput(""); }}
+                      style={[styles.chip, { backgroundColor: showCustomBudget ? theme.teal.sub : theme.page, borderColor: theme.ink }]}>
+                      <Text style={{ color: showCustomBudget ? "#fff" : theme.textSoft, fontSize: 12 }}>Custom</Text>
+                    </Pressable>
+                  </View>
+                </ScrollView>
+                {showCustomBudget && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
+                    <TextInput
+                      value={customBudgetInput}
+                      onChangeText={setCustomBudgetInput}
+                      keyboardType="numeric"
+                      placeholder="Enter amount"
+                      placeholderTextColor={theme.textSoft}
+                      style={{ flex: 1, borderWidth: 2, borderColor: theme.cardBorder, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, color: theme.textStrong, fontSize: 14, backgroundColor: theme.page }}
+                    />
+                    <Pressable
+                      onPress={() => {
+                        const parsed = parseFloat(customBudgetInput);
+                        if (!isNaN(parsed) && parsed > 0) {
+                          save({ spending_alerts: { ...sn.spending_alerts, daily_budget: parsed } });
+                          setShowCustomBudget(false);
+                        } else {
+                          Alert.alert("Invalid amount", "Please enter a number greater than 0.");
+                        }
+                      }}
+                      style={[styles.chip, { backgroundColor: theme.teal.sub, borderColor: theme.teal.sub, paddingHorizontal: 14 }]}
+                    >
+                      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>Set</Text>
+                    </Pressable>
+                  </View>
+                )}
+                {!showCustomBudget && sn.spending_alerts?.daily_budget != null && ![25, 50, 75, 100, 150, 200, 250].includes(sn.spending_alerts.daily_budget) && (
+                  <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4 }}>Current: ${sn.spending_alerts.daily_budget}</Text>
+                )}
               </>
             )}
           </View>
         </>
       )}
     </ScrollView>
+    </View>
   );
 }
 

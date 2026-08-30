@@ -34,7 +34,7 @@ export const MealSkippingVsGlucoseRule: InsightRule = {
          FROM glucose_readings
          WHERE user_id = $1
            AND recorded_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
-           AND EXTRACT(HOUR FROM recorded_at AT TIME ZONE 'America/New_York') BETWEEN 10 AND 12
+           AND EXTRACT(HOUR FROM recorded_at AT TIME ZONE 'America/New_York') BETWEEN 10 AND 13
          GROUP BY DATE(recorded_at AT TIME ZONE 'America/New_York')
          HAVING COUNT(*) >= 1
        )

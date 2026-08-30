@@ -18,6 +18,7 @@ import {
   FINANCE_TEMPLATE, HEALTH_TAB_TEMPLATE,
 } from "../../theme/pageTemplates";
 import { ThemePreviewFrame } from "./ThemePreviewFrame";
+import { ScreenBackground } from "../../components/ScreenBackground";
 
 // ─── Per-object items ─────────────────────────────────────────────────────────
 
@@ -609,7 +610,9 @@ export function AppearanceSettingsScreen() {
   const themeDefault = PALETTES[paletteId]?.defaultCardOpacity ?? 1.0;
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="settings_appearance" />
+    <ScrollView style={{ backgroundColor: "transparent" }} contentContainerStyle={styles.content}>
 
       {/* ── Live Preview ───────────────────────────────────────────── */}
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>LIVE PREVIEW</Text>
@@ -879,6 +882,7 @@ export function AppearanceSettingsScreen() {
       </Pressable>
 
     </ScrollView>
+    </View>
   );
 }
 

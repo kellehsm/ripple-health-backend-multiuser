@@ -9,6 +9,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { FONT_SIZES } from "../theme/tokens";
 import { api } from "../api/client";
 import { ScreenBackground } from "../components/ScreenBackground";
+import * as Haptics from "expo-haptics";
 
 type Msg = { role: "user" | "assistant"; content: string; ts?: number };
 
@@ -56,6 +57,7 @@ export function ChatScreen() {
         : "Couldn't get a response.";
       lastFailed.current = content;
       setMessages(messages); // drop the unanswered message; retry re-sends it
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setSendError(msg);
     } finally {
       setSending(false);
@@ -87,7 +89,7 @@ export function ChatScreen() {
                 {SUGGESTIONS.map(s => (
                   <Pressable
                     key={s}
-                    onPress={() => send(s)}
+                    onPress={() => { Haptics.selectionAsync(); send(s); }}
                     style={[styles.suggestion, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
                   >
                     <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.label }}>{s}</Text>
@@ -158,7 +160,7 @@ export function ChatScreen() {
             multiline
           />
           <Pressable
-            onPress={() => send()}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); send(); }}
             disabled={sending || !input.trim()}
             hitSlop={12}
             style={[styles.sendBtn, { backgroundColor: theme.teal.solid, opacity: sending || !input.trim() ? 0.4 : 1 }]}

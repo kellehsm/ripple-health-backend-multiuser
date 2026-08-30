@@ -232,7 +232,7 @@ export function GroundingSection({ theme, ink, onBack }: { theme: any; ink: stri
             { key: "stop",  label: "STOP Technique",                desc: "Stop · Take a breath · Observe · Proceed" },
           ] as const).map((t, idx) => (
             <Pressable key={t.key} onPress={() => selectTechnique(t.key)} accessibilityRole="button">
-              <ShadowCard size="card" bg={(theme.coral as any)?.tint} accent={(theme.coral as any)?.solid} rotate={idx % 2 === 0 ? -0.4 : 0.4}>
+              <ShadowCard size="card" bg={(theme.coral as any)?.tint} accent={(theme.coral as any)?.solid}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: (theme.coral as any)?.fg, fontSize: 15, fontWeight: "900" }}>{t.label}</Text>
                   <Text style={{ color: (theme.coral as any)?.sub, fontSize: 12, marginTop: 2 }}>{t.desc}</Text>

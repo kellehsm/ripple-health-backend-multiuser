@@ -18,6 +18,11 @@ export default async function settingsRoutes(app: FastifyInstance) {
       const { api_token, ...rest } = settings.hardcover;
       settings.hardcover = { ...rest, token_set: !!api_token };
     }
+    // Mask Google Drive refresh token: return a boolean instead of the value
+    if (settings.google_drive) {
+      const { refresh_token, ...rest } = settings.google_drive;
+      settings.google_drive = { ...rest, drive_connected: !!refresh_token };
+    }
     return settings;
   });
 

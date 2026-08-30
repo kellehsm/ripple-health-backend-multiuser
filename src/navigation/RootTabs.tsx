@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Pressable, View, Text, StyleSheet } from "react-native";
 import * as Haptics from "expo-haptics";
+import { WhatsNewModal } from "../components/WhatsNewModal";
+import { pendingChangelog, markChangelogSeen, type ChangelogEntry } from "../lib/whatsNew";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator, BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -113,11 +116,16 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const activeRouteName = state.routes[state.index]?.name ?? 'Home';
   const activeModule = ROUTE_TO_MODULE[activeRouteName] ?? 'home';
   const [medicationDue, setMedicationDue] = React.useState(false);
+  const lastMedFetchTime = React.useRef<number>(0);
 
   // Health-tab badge: any dose scheduled for today that hasn't been taken yet.
-  // Refetched on mount and whenever the active tab changes (cheap endpoint;
-  // same due logic as OverviewBlocks/MedicationList).
+  // Refetched on mount and whenever the active tab changes, throttled to at
+  // most once per 60 seconds to avoid hammering the endpoint on rapid tab
+  // switches.
   React.useEffect(() => {
+    const now = Date.now();
+    if (now - lastMedFetchTime.current < 60_000) return;
+    lastMedFetchTime.current = now;
     let cancelled = false;
     api.getMedications()
       .then((meds: any[]) => {
@@ -148,8 +156,23 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
+const WHATS_NEW_KEY = "ripple.whatsNew.lastShownVersion";
+
 function TabNavigator() {
   const { theme } = useTheme();
+  const [whatsNewBadge, setWhatsNewBadge] = useState(false);
+
+  // Check on mount and whenever returning to tabs whether there's an unread What's New
+  useEffect(() => {
+    let live = true;
+    const check = async () => {
+      const running = (await import("expo-constants").then(m => m.default.expoConfig?.version ?? "0.0.0")) as string;
+      const lastShown = (await AsyncStorage.getItem(WHATS_NEW_KEY)) ?? "";
+      if (live) setWhatsNewBadge(lastShown !== running);
+    };
+    check().catch(() => {});
+    return () => { live = false; };
+  }, []);
 
   return (
     <Tab.Navigator
@@ -208,7 +231,12 @@ function TabNavigator() {
                   accessibilityRole="button"
                   accessibilityLabel={btn.label.charAt(0) + btn.label.slice(1).toLowerCase()}
                 >
-                  <Text style={{ fontSize: 18 }}>{btn.emoji}</Text>
+                  <View style={{ position: "relative" }}>
+                    <Text style={{ fontSize: 18 }}>{btn.emoji}</Text>
+                    {btn.label === "SETTINGS" && whatsNewBadge && (
+                      <View style={{ position: "absolute", top: 0, right: -2, width: 7, height: 7, borderRadius: 4, backgroundColor: theme.coral?.solid ?? "#ef4444", borderWidth: 1, borderColor: theme.card }} />
+                    )}
+                  </View>
                   <Text style={{ fontSize: 9, fontWeight: "700", letterSpacing: 0.5, color: theme.ink, marginTop: 2 }}>
                     {btn.label}
                   </Text>
@@ -236,6 +264,16 @@ interface RootTabsProps {
 
 export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
   const { theme } = useTheme();
+  const [whatsNewEntry, setWhatsNewEntry] = useState<ChangelogEntry | null>(null);
+
+  useEffect(() => {
+    pendingChangelog().then((entry) => {
+      if (entry) {
+        setWhatsNewEntry(entry);
+        markChangelogSeen().catch(() => {});
+      }
+    }).catch(() => {});
+  }, []);
 
   return (
     <AppErrorBoundary>
@@ -312,6 +350,9 @@ export function RootTabs({ onNavigationStateChange }: RootTabsProps) {
         </Stack.Screen>
       </Stack.Navigator>
     </NavigationContainer>
+    {whatsNewEntry && (
+      <WhatsNewModal entry={whatsNewEntry} onClose={() => setWhatsNewEntry(null)} />
+    )}
     </AppErrorBoundary>
   );
 }

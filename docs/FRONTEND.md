@@ -338,3 +338,25 @@ These items require native rebuilds (`npm install` + EAS build) or are outside p
 - Single data point: gentle observation only ("glucose climbed after lunch today").
 - Repeated pattern: cite the count ("4 of the last 5 days").
 - Never phrase correlations as medical advice or causal claims.
+
+---
+
+## 2026-08-30 UX / Performance improvements
+
+### 1. Tappable hero carousel (InsightsScreen)
+Hero carousel cards in `InsightsScreen` now open a bottom-sheet modal (`heroModalInsight` state) on tap. The modal renders the full `InsightCard` with expand/dismiss/snooze/pin wired up. Each carousel card shows a "Tap to expand →" affordance label.
+
+### 2. Dynamic CATEGORY_ORDER (InsightsScreen)
+`STATIC_CATEGORY_ORDER` is the static fallback. `buildCategoryOrder(insights)` sorts a copy of it so categories with more active insights float to the top; empty categories sink to the bottom. The sort is stable: categories with equal non-zero counts keep their static relative order. Called inline at render time for the "All" filtered list.
+
+### 3. Daily digest insight nudge (OverviewScreen)
+`OverviewScreen` fetches `api.insightDigest()` inside the `useFocusEffect` block and stores the result in `insightNudge` state. If the nudge or top_insight has a `title`, a small violet chip appears below the `dashboardGreeting` text, navigating to the Insights tab on tap.
+
+### 4. Insight card synthesis sentence (InsightCard)
+When an `InsightCard` is expanded, a synthesis sentence is rendered above the `supportRows` table. It prefers the insight `description` field; falls back to a template built from the first two `supportRows` values if both parse as numbers. Style: `fontSize:14, fontStyle:"italic", opacity:0.85`.
+
+### 5. api.me() triple-call reduction (App.tsx + useOverviewData)
+`initAuth()` and `handleLoginSuccess()` in `App.tsx` now write the user's first name to `AsyncStorage` key `ripple_user_name` after a successful `api.me()` call. `useOverviewData` already reads that key first and only calls `api.me()` to refresh it — so on subsequent screens the AsyncStorage hit avoids a second network request.
+
+### 6. Cross-screen cache invalidation (MealsScreen, WaterDetailScreen)
+After any successful meal log (`handleLogMultipleFoods`, `actuallyLogQuickDrink`, `handleLogRecipe`, `doAddMeal`) in `MealsScreen`, `invalidateCache(\`overview:main:${todayStr()}\`)` is called so the next Overview focus loads fresh data. Same invalidation fires after a successful positive water log in `WaterDetailScreen.logAmount`.

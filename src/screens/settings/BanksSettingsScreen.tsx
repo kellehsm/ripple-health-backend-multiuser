@@ -8,6 +8,7 @@ import { usePlaidLink } from "../../lib/plaidLink";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { EmptyState } from "../../components/EmptyState";
 import { toast } from "../../lib/toast";
+import { ScreenBackground } from "../../components/ScreenBackground";
 import { formatDate } from "../../utils/dateUtils";
 
 type PlaidItem = {
@@ -99,7 +100,9 @@ export function BanksSettingsScreen() {
   };
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={s.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="settings_banks" />
+    <ScrollView style={{ backgroundColor: "transparent" }} contentContainerStyle={s.content}>
 
       {/* Connect button */}
       <Pressable
@@ -186,6 +189,7 @@ export function BanksSettingsScreen() {
         Bank connections are powered by Plaid. Ripple never stores your bank credentials.
       </Text>
     </ScrollView>
+    </View>
   );
 }
 

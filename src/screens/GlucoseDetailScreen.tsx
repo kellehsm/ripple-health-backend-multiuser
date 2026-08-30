@@ -90,15 +90,19 @@ export function GlucoseDetailScreen() {
   const [loading30d, setLoading30d] = useState(true);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load24h = useCallback(async () => {
     setLoading24h(true);
+    setLoadError(null);
     try {
       const now = new Date();
       const start = new Date(now.getTime() - 24 * 3600 * 1000);
       const data = await api.glucoseRange(start.toISOString(), now.toISOString());
       setReadings24h(Array.isArray(data) ? data : []);
-    } catch (_) {}
+    } catch (_) {
+      setLoadError("Couldn't load glucose data. Check your connection and try again.");
+    }
     finally { setLoading24h(false); }
   }, []);
 
@@ -186,6 +190,19 @@ export function GlucoseDetailScreen() {
   const cv30 = computeVariability(readings30d);
 
   const loadingAny = loading24h || loading30d;
+
+  if (!loadingAny && loadError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.page, padding: 16 }}>
+        <EmptyState
+          slot="empty.warning"
+          title="Couldn't load glucose data"
+          subtitle="Check your connection and try again."
+          action={{ label: "Try again", onPress: () => { load24h(); load30d(); } }}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>

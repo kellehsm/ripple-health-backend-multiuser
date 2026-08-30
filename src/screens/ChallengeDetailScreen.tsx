@@ -219,10 +219,10 @@ export function ChallengeDetailScreen() {
       <SectionLabel text="Participants" style={{ marginTop: 4, marginBottom: -4 }} />
       {participants.length === 0 ? (
         <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center" }]}>
-          <ThemedIcon slot="ui.medal" size={28} />
-          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: "800", marginTop: SPACING.xs }}>No participants yet</Text>
+          <Ionicons name="people-outline" size={28} color={theme.textSoft} />
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, fontWeight: "800", marginTop: SPACING.xs }}>You're first here!</Text>
           <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, marginTop: SPACING.xs, textAlign: "center" }}>
-            Be the first to join — invite friends to make it a race.
+            Invite a friend to join this challenge.
           </Text>
         </View>
       ) : (

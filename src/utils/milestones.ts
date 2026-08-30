@@ -5,7 +5,11 @@ export type MilestoneKey =
   | "meal_streak"
   | "mood_streak"
   | "water_streak"
-  | "step_goal_streak";
+  | "step_goal_streak"
+  | "exercise_streak"
+  | "reading_streak"
+  | "hobby_streak"
+  | "mindfulness_streak";
 
 export type MilestoneResult = {
   isNew: boolean;
@@ -32,7 +36,17 @@ export async function checkMilestone(
   return { isNew: false, prev, current, key };
 }
 
+const ROUND_MILESTONE_COPY: Partial<Record<number, string>> = {
+  7:   "7 days — you've built a real habit 🌿",
+  30:  "A full month! That's real dedication 🌊",
+  100: "100 days. Legendary. 🏆",
+};
+
 export function milestoneCopy(result: MilestoneResult): string {
+  // Special round-number milestones override generic copy for all streak types
+  if (result.key !== "steps_daily" && ROUND_MILESTONE_COPY[result.current]) {
+    return ROUND_MILESTONE_COPY[result.current]!;
+  }
   switch (result.key) {
     case "steps_daily":
       return `New personal best! ${result.current.toLocaleString()} steps today`;
@@ -44,5 +58,13 @@ export function milestoneCopy(result: MilestoneResult): string {
       return `New record! ${result.current}-day water logging streak`;
     case "step_goal_streak":
       return `New record! ${result.current}-day step goal streak`;
+    case "exercise_streak":
+      return `New record! ${result.current}-day exercise streak`;
+    case "reading_streak":
+      return `New record! ${result.current}-day reading streak`;
+    case "hobby_streak":
+      return `New record! ${result.current}-day hobbies streak`;
+    case "mindfulness_streak":
+      return `New record! ${result.current}-day mindfulness streak`;
   }
 }

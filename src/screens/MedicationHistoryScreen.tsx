@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, RefreshControl, Pressable } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
 import { ThemedIcon, resolveIcon } from '../theme/iconRegistry';
@@ -8,6 +9,7 @@ import { LoadingIndicator } from '../components/LoadingIndicator';
 import { SectionLabel } from '../components/SectionLabel';
 import { formatDateWithTime, addDays, todayStr } from '../utils/dateUtils';
 import { ScreenBackground } from '../components/ScreenBackground';
+import { EmptyState } from '../components/EmptyState';
 
 interface DoseStats {
   is_prn: boolean;
@@ -65,6 +67,7 @@ export function MedicationHistoryScreen() {
   const [stats, setStats] = useState<DoseStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<{ day: string; count: number } | null>(null);
   const lastFetchRef = useRef(0);
 
   const fetchData = useCallback((force = false) => {
@@ -159,15 +162,25 @@ export function MedicationHistoryScreen() {
                   {weeks.map((week, wi) => (
                     <View key={wi} style={{ gap: 3, flex: 1 }}>
                       {week.map((day) => {
-                        const taken = (countByDay[day] ?? 0) > 0;
+                        const count = countByDay[day] ?? 0;
+                        const taken = count > 0;
+                        const isSelected = selectedCell?.day === day;
                         return (
-                          <View
+                          <Pressable
                             key={day}
+                            onPress={() => {
+                              Haptics.selectionAsync();
+                              setSelectedCell(prev => prev?.day === day ? null : { day, count });
+                            }}
+                            accessibilityLabel={`${day}: ${count > 0 ? `${count} dose${count !== 1 ? 's' : ''} taken` : 'no doses'}`}
+                            accessibilityRole="button"
                             style={{
                               aspectRatio: 1,
                               borderRadius: 3,
                               backgroundColor: taken ? theme.teal.solid : theme.cardBorder,
                               opacity: taken ? 1 : 0.35,
+                              borderWidth: isSelected ? 1.5 : 0,
+                              borderColor: isSelected ? theme.teal.fg : 'transparent',
                             }}
                           />
                         );
@@ -175,6 +188,17 @@ export function MedicationHistoryScreen() {
                     </View>
                   ))}
                 </View>
+                {selectedCell && (
+                  <View style={{ marginTop: 6, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '800', color: theme.teal.fg }}>
+                      {new Date(selectedCell.day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {' — '}
+                      {selectedCell.count > 0
+                        ? `${selectedCell.count} dose${selectedCell.count !== 1 ? 's' : ''} taken`
+                        : 'no doses recorded'}
+                    </Text>
+                  </View>
+                )}
                 <SectionLabel text="Doses · last 12 weeks" style={{ marginTop: 5 }} />
               </View>
             );
@@ -185,10 +209,11 @@ export function MedicationHistoryScreen() {
       <SectionLabel text="Change history" />
 
       {history.length === 0 ? (
-        <View style={styles.empty}>
-          <ThemedIcon slot="medHistory.list" size={32} />
-          <Text style={[styles.emptyText, { color: theme.textSoft }]}>No changes recorded yet.</Text>
-        </View>
+        <EmptyState
+          icon="💊"
+          title="No dose history yet"
+          subtitle="Medication changes will appear here over time."
+        />
       ) : (
         <View style={styles.timeline}>
           {history.map((entry, i) => (

@@ -17,24 +17,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
 import { ShadowCard } from "../components/ShadowCard";
+import { SectionLabel } from "../components/SectionLabel";
 import { EmptyState } from "../components/EmptyState";
 import { getChallenges, getLeaderboard, Challenge, SocialCategory, LeaderboardEntry } from "../api/friends";
 import { api } from "../api/client";
 import { todayStr, fmtDateRange } from "../utils/dateUtils";
 import { toast } from "../lib/toast";
-
-function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
-  const palettes = [
-    { bg: theme.teal?.tint ?? "#E0F7FA", fg: theme.teal?.fg ?? "#00695C" },
-    { bg: theme.purple?.tint ?? "#EDE7F6", fg: theme.purple?.fg ?? "#512DA8" },
-    { bg: theme.coral?.tint ?? "#FBE9E7", fg: theme.coral?.fg ?? "#BF360C" },
-    { bg: theme.amber?.tint ?? "#FFF8E1", fg: theme.amber?.fg ?? "#E65100" },
-    { bg: theme.blue?.tint ?? "#E3F2FD", fg: theme.blue?.fg ?? "#1565C0" },
-  ];
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return palettes[h % palettes.length];
-}
+import { avatarColor } from "../utils/avatarColor";
 
 const CATEGORY_ICON: Record<SocialCategory, keyof typeof Ionicons.glyphMap> = {
   steps: "footsteps-outline",
@@ -124,7 +113,7 @@ export function ChallengesScreen() {
   }
 
   function handleTemplatePress(tmpl: ChallengeTemplate) {
-    Haptics.selectionAsync();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Alert.alert(
       "Start " + tmpl.title + "?",
       tmpl.description,
@@ -316,7 +305,7 @@ export function ChallengesScreen() {
         {/* Quick Start templates */}
         {templates.length > 0 && (
           <>
-            <Text style={[styles.groupLabel, { color: theme.textSoft }]}>QUICK START</Text>
+            <SectionLabel text="Quick Start" />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -390,19 +379,19 @@ export function ChallengesScreen() {
           <>
             {active.length > 0 && (
               <>
-                <Text style={[styles.groupLabel, { color: theme.textSoft }]}>ACTIVE</Text>
+                <SectionLabel text="Active" />
                 {active.map(renderChallenge)}
               </>
             )}
             {upcoming.length > 0 && (
               <>
-                <Text style={[styles.groupLabel, { color: theme.textSoft }]}>UPCOMING</Text>
+                <SectionLabel text="Upcoming" />
                 {upcoming.map(renderChallenge)}
               </>
             )}
             {past.length > 0 && (
               <>
-                <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PAST</Text>
+                <SectionLabel text="Past" />
                 {past.map(renderChallenge)}
               </>
             )}

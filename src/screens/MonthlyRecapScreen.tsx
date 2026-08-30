@@ -8,6 +8,8 @@ import { api } from "../api/client";
 import { ScreenBackground } from "../components/ScreenBackground";
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from "react-native-svg";
 import { ShadowCard } from "../components/ShadowCard";
+import * as Haptics from "expo-haptics";
+import { SectionLabel } from "../components/SectionLabel";
 import { scoreColor, scoreLabel } from "../components/DailySummaryCard";
 
 type Review = Awaited<ReturnType<typeof api.monthlyReview>>;
@@ -94,12 +96,15 @@ export function MonthlyRecapScreen() {
   const { theme } = useTheme();
   const [review, setReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [narrative, setNarrative] = useState<string | null>(null);
   const [narrativeLoading, setNarrativeLoading] = useState(false);
   const viewShotRef = useRef<ViewShotRef>(null);
 
-  useEffect(() => {
+  function loadReview() {
+    setLoading(true);
+    setLoadError(null);
     api.monthlyReview()
       .then((r) => {
         setReview(r);
@@ -110,9 +115,11 @@ export function MonthlyRecapScreen() {
           .catch(() => setNarrative(null))
           .finally(() => setNarrativeLoading(false));
       })
-      .catch(() => setReview(null))
+      .catch(() => { setReview(null); setLoadError("Couldn't load your monthly recap. Check your connection and try again."); })
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { loadReview(); }, []);
 
   function handleRefresh() {
     setRefreshing(true);
@@ -162,10 +169,18 @@ export function MonthlyRecapScreen() {
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator color={theme.teal.solid} />
         </View>
-      ) : !review ? (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 8 }}>
-          <Ionicons name="calendar-outline" size={30} color={theme.textSoft} />
-          <Text style={{ color: theme.textSoft, fontSize: 13 }}>Couldn't load your monthly recap.</Text>
+      ) : loadError ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 12, padding: 24 }}>
+          <Ionicons name="cloud-offline-outline" size={36} color={theme.textSoft} />
+          <Text style={{ color: theme.textStrong, fontSize: 15, fontWeight: "800", textAlign: "center" }}>Couldn't load your monthly recap</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 13, textAlign: "center", lineHeight: 19 }}>Check your connection and try again.</Text>
+          <Pressable
+            onPress={loadReview}
+            accessibilityRole="button"
+            style={{ borderWidth: 2, borderColor: theme.ink, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 24, backgroundColor: theme.teal.solid }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "900", letterSpacing: 0.5 }}>Try again</Text>
+          </Pressable>
         </View>
       ) : (
         <ViewShot ref={viewShotRef} options={{ format: "png", quality: 0.95, result: "tmpfile" }}>
@@ -176,7 +191,7 @@ export function MonthlyRecapScreen() {
               <Text style={{ fontSize: 12, color: theme.textSoft }}>Your month in review</Text>
             </View>
             <Pressable
-              onPress={shareAsImage}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); shareAsImage(); }}
               style={[styles.shareBtn, { backgroundColor: theme.teal.solid }]}
               accessibilityRole="button"
               accessibilityLabel="Share recap as image"
@@ -187,7 +202,7 @@ export function MonthlyRecapScreen() {
           </View>
 
           {(narrativeLoading || narrative) ? (
-            <ShadowCard size="card" bg={theme.card} accent={theme.purple.solid} rotate={0.2} cardId="recap_narrative">
+            <ShadowCard size="card" bg={theme.card} accent={theme.purple.solid} cardId="recap_narrative">
               <Text style={[styles.sectionTitle, { color: theme.textSoft }]}>YOUR MONTH IN WORDS</Text>
               <View style={{ marginTop: 8 }}>
                 {narrativeLoading ? (
@@ -199,7 +214,7 @@ export function MonthlyRecapScreen() {
             </ShadowCard>
           ) : null}
 
-          <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} rotate={-0.3} cardId="recap_score">
+          <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} cardId="recap_score">
             <Text style={[styles.sectionTitle, { color: theme.teal.fg }]}>AVERAGE WELLNESS SCORE</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginTop: 6 }}>
               <View style={styles.scoreBadge}>
@@ -234,14 +249,14 @@ export function MonthlyRecapScreen() {
               <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
                 {review.best_day ? (
                   <View style={[styles.dayCell, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                    <Text style={[styles.cellLabel, { color: theme.textSoft }]}>BEST DAY</Text>
+                    <SectionLabel text="Best Day" style={{ marginBottom: 2 }} />
                     <Text style={{ fontSize: 16, fontWeight: "900", color: theme.success }}>{review.best_day.score}</Text>
                     <Text style={{ fontSize: 10, color: theme.textSoft }}>{dayLabel(review.best_day.date)}</Text>
                   </View>
                 ) : null}
                 {review.worst_day ? (
                   <View style={[styles.dayCell, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-                    <Text style={[styles.cellLabel, { color: theme.textSoft }]}>TOUGHEST DAY</Text>
+                    <SectionLabel text="Toughest Day" style={{ marginBottom: 2 }} />
                     <Text style={{ fontSize: 16, fontWeight: "900", color: theme.textStrong }}>{review.worst_day.score}</Text>
                     <Text style={{ fontSize: 10, color: theme.textSoft }}>{dayLabel(review.worst_day.date)}</Text>
                   </View>
@@ -251,7 +266,7 @@ export function MonthlyRecapScreen() {
           </ShadowCard>
 
           {review.scores ? (
-            <ShadowCard size="card" bg={theme.card} accent={theme.purple.solid} rotate={0.3} cardId="recap_domains">
+            <ShadowCard size="card" bg={theme.card} accent={theme.purple.solid} cardId="recap_domains">
               <Text style={[styles.sectionTitle, { color: theme.textSoft }]}>BY DOMAIN · VS PRIOR MONTH</Text>
               <View style={{ marginTop: 8 }}>
                 {DOMAIN_ROWS.map((d, i) => (
@@ -268,11 +283,11 @@ export function MonthlyRecapScreen() {
             </ShadowCard>
           ) : null}
 
-          <ShadowCard size="card" bg={theme.card} accent={theme.coral.solid} rotate={-0.2} cardId="recap_totals">
+          <ShadowCard size="card" bg={theme.card} accent={theme.coral.solid} cardId="recap_totals">
             <Text style={[styles.sectionTitle, { color: theme.textSoft }]}>TOTALS</Text>
             <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
               <View style={[styles.dayCell, { backgroundColor: theme.page, borderColor: theme.cardBorder }]}>
-                <Text style={[styles.cellLabel, { color: theme.textSoft }]}>STEPS</Text>
+                <SectionLabel text="Steps" style={{ marginBottom: 2 }} />
                 <Text style={{ fontSize: 16, fontWeight: "900", color: theme.teal.solid }}>
                   {review.steps.total ? review.steps.total.toLocaleString() : "—"}
                 </Text>
@@ -281,7 +296,7 @@ export function MonthlyRecapScreen() {
                 ) : null}
               </View>
               <View style={[styles.dayCell, { backgroundColor: theme.page, borderColor: theme.cardBorder }]}>
-                <Text style={[styles.cellLabel, { color: theme.textSoft }]}>SPENDING</Text>
+                <SectionLabel text="Spending" style={{ marginBottom: 2 }} />
                 <Text style={{ fontSize: 16, fontWeight: "900", color: theme.purple.solid }}>
                   {review.spending.total != null
                     ? `$${review.spending.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}`

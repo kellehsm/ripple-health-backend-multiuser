@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Linking, Platform, ToastAndroid, Alert, View, StyleSheet, Text, Pressable, AppState as RNAppState } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { processSyncQueue } from "./src/utils/syncQueue";
 import { subscribeNetwork } from "./src/utils/networkState";
 import { StatusBar } from "expo-status-bar";
@@ -338,6 +339,10 @@ export default function App() {
       handleNotificationAction(initial.notification?.data, initial.pressAction?.id);
     });
 
+    // Re-schedule any fasting milestone notifications that are still in the
+    // future (may have been cleared after a device reboot).
+    import("./src/lib/fastingTimer").then((m) => m.ensureFastingNotifications()).catch(() => {});
+
     // Deep-link cold-start
     Linking.getInitialURL().then(handleUrl);
 
@@ -378,6 +383,11 @@ export default function App() {
     try {
       const user = await api.me();
       if (!user) throw new Error("no user");
+      // Cache user name so useOverviewData doesn't need to re-fetch it
+      if (user.name) {
+        const first = user.name.split(" ")[0];
+        if (first) AsyncStorage.setItem("ripple_user_name", first).catch(() => {});
+      }
       applyLockState();
       setAppState(user.onboarding_completed ? "app" : "onboarding");
     } catch (err: any) {
@@ -396,6 +406,10 @@ export default function App() {
   async function handleLoginSuccess() {
     try {
       const user = await api.me();
+      if (user?.name) {
+        const first = user.name.split(" ")[0];
+        if (first) AsyncStorage.setItem("ripple_user_name", first).catch(() => {});
+      }
       markUnlocked();
       setBiometricLocked(false);
       setAppState(user?.onboarding_completed ? "app" : "onboarding");

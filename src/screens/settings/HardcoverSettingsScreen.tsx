@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LoadingIndicator } from "../../components/LoadingIndicator";
 import { useTheme } from "../../theme/ThemeContext";
 import { api } from "../../api/client";
+import { ScreenBackground } from "../../components/ScreenBackground";
 
 export function HardcoverSettingsScreen() {
   const { theme } = useTheme();
@@ -102,8 +103,9 @@ export function HardcoverSettingsScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="settings_hardcover" />
+    <ScrollView style={{ backgroundColor: "transparent" }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
       {/* About */}
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>

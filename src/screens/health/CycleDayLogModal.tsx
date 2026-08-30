@@ -115,7 +115,7 @@ export function CycleDayLogModal({
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={modalStyles.overlay}>
-        <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: theme.ink }]}>
+        <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: theme.ink }]} accessibilityViewIsModal={true}>
           <ModalHeader title={fmtDate(date)} onClose={onClose} />
           <ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 20 }} keyboardShouldPersistTaps="handled">
             {/* Flow intensity */}

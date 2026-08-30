@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable, Image, Alert, RefreshControl } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, View, Text, ScrollView, StyleSheet, Pressable, Image, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { toast } from '../lib/toast';
 import Svg, { Polyline, Line, Text as SvgText, Rect, Defs, LinearGradient as SvgLinearGradient, Stop, Polygon } from 'react-native-svg';
@@ -12,6 +12,7 @@ import { LoadingIndicator } from '../components/LoadingIndicator';
 import { ShadowCard } from '../components/ShadowCard';
 import { formatDuration, entryLabel, suggestNextWeight } from '../utils/exerciseFormatters';
 import { ScreenBackground } from '../components/ScreenBackground';
+import * as Haptics from 'expo-haptics';
 
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
@@ -201,6 +202,17 @@ export function ExerciseDetailScreen() {
   const [loadError, setLoadError] = useState(false);
   const [showInstructions, setShowInstructions] = useState<string | null>(null);
 
+  // ── Stagger entrance for stat cards ───────────────────────────────────────
+  const entryAnims = useRef<Animated.Value[]>([]);
+  useEffect(function () {
+    if (!session) return;
+    const count = session.entries.length + 3; // header + HR + entries
+    entryAnims.current = Array.from({ length: count }, function () { return new Animated.Value(0); });
+    Animated.stagger(40, entryAnims.current.map(function (v) {
+      return Animated.timing(v, { toValue: 1, duration: 280, useNativeDriver: true });
+    })).start();
+  }, [session?.id]);
+
   useFocusEffect(useCallback(() => {
     let cancelled = false;
     setLoading(true);
@@ -258,6 +270,7 @@ export function ExerciseDetailScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.teal.solid} colors={[theme.teal.solid]} />}
       >
       {/* Header stats */}
+      <Animated.View style={{ opacity: entryAnims.current[0] ?? 1, transform: [{ translateY: (entryAnims.current[0] ?? new Animated.Value(1)).interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
       <View style={[styles.headerCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <View style={styles.statRow}>
           <View style={styles.stat}>
@@ -297,17 +310,21 @@ export function ExerciseDetailScreen() {
           </View>
         )}
       </View>
+      </Animated.View>
 
       {/* Zone bar */}
       {hasZones && (
+        <Animated.View style={{ opacity: entryAnims.current[1] ?? 1, transform: [{ translateY: (entryAnims.current[1] ?? new Animated.Value(1)).interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>TIME IN ZONE</Text>
           <ZoneBar summary={session.hr_summary!} theme={theme} />
         </View>
+        </Animated.View>
       )}
 
       {/* HR chart */}
       {session.hr_samples.length >= 2 && (
+        <Animated.View style={{ opacity: entryAnims.current[2] ?? 1, transform: [{ translateY: (entryAnims.current[2] ?? new Animated.Value(1)).interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
         <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
           <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>HEART RATE</Text>
           <HRChart samples={session.hr_samples} theme={theme} />
@@ -317,6 +334,7 @@ export function ExerciseDetailScreen() {
             </Text>
           )}
         </View>
+        </Animated.View>
       )}
 
       {/* Exercise list */}
@@ -330,8 +348,9 @@ export function ExerciseDetailScreen() {
           </Text>
         </View>
       ) : (
-        session.entries.map((entry) => (
-          <View key={entry.id} style={[styles.exerciseCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+        session.entries.map((entry, entryIdx) => (
+          <Animated.View key={entry.id} style={{ opacity: entryAnims.current[3 + entryIdx] ?? 1, transform: [{ translateY: (entryAnims.current[3 + entryIdx] ?? new Animated.Value(1)).interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }}>
+          <View style={[styles.exerciseCard, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <CyclingImage
               images={entry.exercise.images ?? []}
               style={styles.exerciseImage}
@@ -378,11 +397,12 @@ export function ExerciseDetailScreen() {
               </View>
             </View>
           </View>
+          </Animated.View>
         ))
       )}
 
       <Pressable
-        onPress={handleDeleteSession}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleDeleteSession(); }}
         style={({ pressed }) => ({
           flexDirection: "row",
           alignItems: "center",
