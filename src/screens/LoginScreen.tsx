@@ -14,10 +14,11 @@ import {
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { LoginLogo } from "../components/LoginLogo";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { setToken } from "../lib/auth";
 import { useTheme } from "../theme/ThemeContext";
 import { FONT_SIZES } from "../theme/tokens";
+import * as Haptics from "expo-haptics";
 import { ShadowCard } from "../components/ShadowCard";
 
 interface Props {
@@ -103,6 +104,7 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !password) {
       setError("Email and password are required.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       triggerShake();
       return;
     }
@@ -113,12 +115,12 @@ export function LoginScreen({ onLoginSuccess, onShowSignup }: Props) {
       await setToken(res.token);
       onLoginSuccess();
     } catch (err: any) {
-      const msg = err?.message ?? "";
-      if (msg.includes("401") || msg.includes("Invalid")) {
+      if (err instanceof ApiError && err.status === 401) {
         setError("Incorrect email or password.");
       } else {
         setError("Couldn't connect. Check your network and try again.");
       }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       triggerShake();
     } finally {
       setLoading(false);

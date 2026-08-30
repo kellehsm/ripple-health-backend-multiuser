@@ -34,8 +34,6 @@ export const ForecastNextDayRule: InsightRule = {
   tier: "daily",
   version: 1,
   actionable: false,
-  primaryMetric: "mood_score",
-
   async run(): Promise<InsightResult | null> { return null; },
 
   async runWithContext(ctx): Promise<InsightResult | null> {
@@ -44,12 +42,15 @@ export const ForecastNextDayRule: InsightRule = {
     const moodCol = ctx.frame.col("mood_score");
     const sleepCol = ctx.frame.col("sleep_min");
     let series: number[] = [], metric = "", label = "", unit = "";
+    let primaryMetric: string;
     if (moodCol.length >= 14) {
       series = moodCol.slice(-21);
       metric = "mood"; label = "mood"; unit = "/5";
+      primaryMetric = "mood_score";
     } else if (sleepCol.length >= 14) {
       series = sleepCol.slice(-21);
       metric = "sleep"; label = "sleep"; unit = " min";
+      primaryMetric = "sleep_duration_minutes";
     } else {
       return null;
     }
@@ -76,6 +77,7 @@ export const ForecastNextDayRule: InsightRule = {
 
     return {
       title: `Tomorrow's ${label} is trending ${direction} your usual`,
+      primaryMetric,
       description:
         `Based on the past ${series.length} days, tomorrow's ${label} is projected at about ${forecastStr} ` +
         `(likely range ${rangeLo}–${rangeHi}). Your 60-day median is ${baselineVal.toFixed(1)}${unit}.`,

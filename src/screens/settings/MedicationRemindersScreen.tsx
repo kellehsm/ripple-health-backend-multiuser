@@ -17,6 +17,8 @@ import { ShadowCard } from "../../components/ShadowCard";
 import { toast } from "../../lib/toast";
 import { api } from "../../api/client";
 import { scheduleMedicationReminders } from "../../lib/smartNotifications";
+import { ScreenBackground } from "../../components/ScreenBackground";
+import * as Haptics from "expo-haptics";
 
 const STORAGE_KEY = "med_reminders";
 
@@ -86,6 +88,7 @@ export function MedicationRemindersScreen() {
   }
 
   function removeTime(medId: string, time: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setReminders((prev) => ({
       ...prev,
       [medId]: (prev[medId] ?? []).filter((t) => t !== time),
@@ -118,7 +121,9 @@ export function MedicationRemindersScreen() {
 
   if (meds.length === 0) {
     return (
-      <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+      <View style={{ flex: 1, backgroundColor: theme.page }}>
+        <ScreenBackground pageId="settings_medication_reminders" />
+      <ScrollView style={{ backgroundColor: "transparent" }} contentContainerStyle={styles.content}>
         <ShadowCard padding={20}>
           <View style={{ alignItems: "center", gap: 12 }}>
             <Ionicons name="medkit-outline" size={40} color={theme.teal.solid} />
@@ -131,11 +136,14 @@ export function MedicationRemindersScreen() {
           </View>
         </ShadowCard>
       </ScrollView>
+      </View>
     );
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="settings_medication_reminders" />
+    <ScrollView style={{ backgroundColor: "transparent" }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 4 }}>
         Set daily reminder times for each medication. Times repeat every day.
       </Text>
@@ -197,6 +205,7 @@ export function MedicationRemindersScreen() {
         )}
       </Pressable>
     </ScrollView>
+    </View>
   );
 }
 

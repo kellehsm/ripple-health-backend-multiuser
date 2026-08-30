@@ -131,7 +131,7 @@ function BookShelf({
   return (
     <View style={{ borderWidth: 2, borderColor: ink, borderRadius: 18, overflow: "hidden", backgroundColor: theme.card, marginBottom: 4 }}>
       <View style={{ paddingHorizontal: SHELF_PAD, paddingTop: 10, paddingBottom: 6, flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ fontSize: 9, fontWeight: "900", letterSpacing: 0.8, color: theme.textSoft }}>📚 YOUR SHELF</Text>
+        <SectionLabel text="📚 Your Shelf" style={{ flex: 1 }} />
         <Text style={{ fontSize: 9, color: theme.textSoft, flex: 1, textAlign: "right" }}>
           {readingBooks.length} reading · {completedBooks.length} finished
         </Text>

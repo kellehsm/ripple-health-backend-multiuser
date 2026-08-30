@@ -74,8 +74,8 @@ export const MindfulnessVsSleepRule: InsightRule = {
       : `Sleep quality tends to be ${direction} on mindfulness days`;
 
     const description = useDuration
-      ? `Over the last 60 days, on the ${mindfulnessDays.length} days with a mindfulness session you averaged ${(avgDurationWith / 60).toFixed(1)} h of sleep, compared to ${(avgDurationWithout / 60).toFixed(1)} h on the ${noMindfulnessDays.length} days without — a difference of ${durationDiffMins} minutes.`
-      : `Over the last 60 days, on the ${mindfulnessDays.length} days with a mindfulness session your sleep quality averaged ${avgQualityWith.toFixed(1)}/5, compared to ${avgQualityWithout.toFixed(1)}/5 on the ${noMindfulnessDays.length} days without.`;
+      ? `Over the last ${LOOKBACK_DAYS} days, on the ${mindfulnessDays.length} days with a mindfulness session you averaged ${(avgDurationWith / 60).toFixed(1)} h of sleep, compared to ${(avgDurationWithout / 60).toFixed(1)} h on the ${noMindfulnessDays.length} days without — a difference of ${durationDiffMins} minutes.`
+      : `Over the last ${LOOKBACK_DAYS} days, on the ${mindfulnessDays.length} days with a mindfulness session your sleep quality averaged ${avgQualityWith.toFixed(1)}/5, compared to ${avgQualityWithout.toFixed(1)}/5 on the ${noMindfulnessDays.length} days without.`;
 
     return {
       title,

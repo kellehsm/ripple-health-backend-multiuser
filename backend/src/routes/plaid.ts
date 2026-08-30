@@ -270,7 +270,7 @@ export default async function plaidRoutes(app: FastifyInstance) {
 
     const { user_id, access_token, cursor } = rows[0];
     await syncTransactionsForItem(user_id, item_id, decryptCredential(access_token), cursor).catch((err: any) => {
-      console.error("[plaid] webhook sync error", { item_id, error: err?.message ?? String(err) });
+      req.log.error({ item_id, err: err?.message ?? String(err) }, "[plaid] webhook sync error");
     });
 
     return reply.send({ ok: true });

@@ -8,6 +8,7 @@ import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
 import { toast } from "../lib/toast";
 import { onSolid } from "../theme/colorUtils";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 const FOCUS_OPTIONS = [
   { key: "full_body", label: "Full body" },
@@ -139,6 +140,7 @@ export function CustomPlanBuilderScreen() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="custom_plan_builder" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }} keyboardShouldPersistTaps="handled">
         <Text style={[styles.label, { color: theme.textSoft }]}>PLAN NAME</Text>
         <TextInput

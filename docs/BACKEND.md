@@ -143,11 +143,12 @@ All jobs are scheduled via `node-cron` in `server.ts` after the HTTP server star
 | Substance tracking | `substance_logs` |
 | AI / insights | `user_insights`, `insight_feedback`, `weekly_narratives`, `monthly_narratives`, `user_baselines`, `insight_rule_runs` (one row per evaluated rule per run — `fired` boolean; enables hit-rate computation as `SUM(fired)/COUNT(*)`), `insight_engine_state`, `insight_global_priors` |
 | Social | `friends`, `challenges`, `social_notifications` |
+| Streaks | `streak_freezes` — one row per freeze used: `user_id`, `freeze_month` (first day of month), `applied_to_date` (missed day covered), `streak_type` (e.g. `'mindfulness'`, `'logging'`, `'exercise'`); unique on `(user_id, freeze_month, streak_type)`; queried by `summary.ts` streak endpoint to check/grant/apply freezes |
 | Misc | `sync_log`, `chart_annotations`, `experiments`, `error_reports`, `media_assets`, `hobbies` (completed_at added mig 037), `tab_preferences`, `mindfulness_sessions`, `cycle_entries` |
 
 ### Migration workflow
 
-Migrations live in `backend/migrations/NNN_*.sql` (currently 001–049). They are applied **manually** — the DATABASE_URL password contains special characters that break psql URL parsing, so use the explicit form:
+Migrations live in `backend/migrations/NNN_*.sql` (currently 001–052). They are applied **manually** — the DATABASE_URL password contains special characters that break psql URL parsing, so use the explicit form:
 
 ```bash
 sudo -u postgres psql wellness_multiuser < backend/migrations/NNN_name.sql
@@ -157,7 +158,7 @@ sudo -u postgres psql wellness_multiuser_dev < backend/migrations/NNN_name.sql
 
 There is no auto-migration runner; check the highest numbered file to find the current schema version.
 
-### Migrations 042–049 (audit-fix pass)
+### Migrations 042–052 (audit-fix pass)
 
 | # | File | Summary |
 |---|------|---------|
@@ -169,6 +170,9 @@ There is no auto-migration runner; check the highest numbered file to find the c
 | 047 | `047_weather_daily.sql` | Adds `weather_daily` table — daily weather per user (temp, rain, daylight, cloud cover) for weather insight rules |
 | 048 | `048_monthly_narratives.sql` | Adds `monthly_narratives` table — cached LLM-generated monthly narrative per user per month |
 | 049 | `049_composite_user_time_indexes.sql` | Composite `(user_id, time_col)` indexes on several tables lacking covering indexes for range queries |
+| 050 | `050_metrics_unique_user_name.sql` | De-dupes existing `metrics` rows (repointing logs to the lowest-id keeper) then adds a `UNIQUE INDEX` on `(user_id, name)` — enforces at DB level that each user can only have one metric per name |
+| 051 | `051_hobby_and_dose_log_indexes.sql` | Adds `idx_hobby_logs_hobby_id (hobby_id, logged_at DESC)` and `idx_dose_logs_med_date (medication_id, log_date, status)` — covering indexes for hobby-streak and medication-adherence queries |
+| 052 | `052_streak_freezes.sql` | Adds `streak_freezes` table — records one streak freeze used per user per month per streak type; unique index on `(user_id, freeze_month, streak_type)` prevents double-use |
 
 ---
 
@@ -286,6 +290,7 @@ All vars from `backend/.env.example`:
 | `ADMIN_SECRET` | Secret for admin-only endpoints |
 | `CRED_ENCRYPTION_KEY` | AES-256-GCM key for stored credentials (Dexcom password, Hardcover token, Plaid token) — **fatal if absent in production** (startup exits); in dev, logs a warning and credentials remain plaintext |
 | `DEMO_LOGIN_ENABLED` | Set `true` to enable the shortcut demo login (prod: off; password also scrambled separately) |
+| `DEMO_PASSWORD` | Password accepted for the demo login shortcut; fallback `"Ripple2026"`. Only active when `DEMO_LOGIN_ENABLED=1` **and** `NODE_ENV !== 'production'` (`auth.ts` line 23) |
 | `ANTHROPIC_API_KEY` | Enables AI chat and insights narrative; chat returns 503 if absent |
 | `PASSIO_API_KEY` | Passio nutrition API |
 | `USDA_FDC_API_KEY` | USDA FoodData Central API |
@@ -303,6 +308,7 @@ All vars from `backend/.env.example`:
 | `DEXCOM_REDIRECT_URI` | Dexcom OAuth redirect URI |
 | `DEXCOM_API_BASE` | Dexcom API base URL (`https://sandbox-api.dexcom.com` or prod) |
 | `DEXCOM_SHARE_ACCOUNT_ID` | Dexcom Share account username (email); read by `jobs/dexcom-share-sync.ts` |
+| `DEXCOM_SHARE_ACCOUNT_NAME` | Dexcom Share display/account name used when logging in via `loginWithName`; read by `jobs/dexcom-share-sync.ts` alongside `DEXCOM_SHARE_ACCOUNT_ID` |
 | `DEXCOM_SHARE_PASSWORD` | Dexcom Share account password; stored encrypted in `user_settings` after first sync |
 | `DEXCOM_SHARE_REGION` | `us` or `ous` (outside US) for Share endpoint selection |
 | `DEXCOM_SHARE_DISABLED` | Set `1` or `true` to skip the Share polling cron entirely |

@@ -43,6 +43,7 @@ import { todayStr } from "../utils/dateUtils";
 import { computeTIR, weekGlucoseAvg, interpolateGlucose, glucoseY as glucoseYBase, eventX as eventXBase } from "../utils/glucoseMetrics";
 import { QuickLogSheet, type QuickLogKind } from "../components/QuickLogSheet";
 import { ScreenBackground } from "../components/ScreenBackground";
+import { EmptyState } from "../components/EmptyState";
 import { ThemedIcon, moodScoreEmoji } from '../theme/iconRegistry';
 import { WeeklyDigestModal } from "../components/WeeklyDigestModal";
 import {
@@ -249,12 +250,14 @@ export function OverviewScreen() {
     monthlyReviewDismissed, setMonthlyReviewDismissed,
     milestoneMessage, setMilestoneMessage,
     dashboardLayout, userName,
+    loadError,
     load, handleRefresh, handleSaveLayout, handlePin,
   } = data;
 
   const [freezeStatus, setFreezeStatus] = useState<{ available: boolean; used_this_month: boolean; freeze_count_remaining: number } | null>(null);
   const [friendDigest, setFriendDigest] = useState<{display_name: string; description: string; occurred_at: string}[]>([]);
   const [activeChallenge, setActiveChallenge] = useState<{ title: string; end_date: string } | null>(null);
+  const [insightNudge, setInsightNudge] = useState<{ title: string } | null>(null);
 
   const [showMoodModal, setShowMoodModal] = useState(false);
   const [showMoodSheet, setShowMoodSheet] = useState(false);
@@ -572,6 +575,14 @@ export function OverviewScreen() {
         const today = new Date().toISOString().slice(0, 10);
         const active = cs.find(c => c.is_member && c.end_date >= today);
         setActiveChallenge(active ? { title: active.title, end_date: active.end_date } : null);
+      })
+      .catch(() => {});
+    // Fetch insight digest nudge
+    api.insightDigest()
+      .then((res) => {
+        if (cancelled) return;
+        const nudge = res?.nudge ?? res?.top_insight ?? null;
+        setInsightNudge(nudge && nudge.title ? { title: nudge.title } : null);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -945,6 +956,19 @@ export function OverviewScreen() {
     }
   }
 
+  if (!loading && loadError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.page, padding: 16 }}>
+        <EmptyState
+          slot="empty.warning"
+          title="Couldn't load your dashboard"
+          subtitle="Check your connection and try again."
+          action={{ label: "Try again", onPress: () => load(true) }}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1 }}>
     <LinearGradient colors={[theme.page, theme.gradientEnd]} style={{ flex: 1 }}>
@@ -1108,6 +1132,18 @@ export function OverviewScreen() {
       <Animated.View style={{ opacity: contentOpacity }}>
         {!loading && (
           <Text style={{ fontSize: 13, fontWeight: "600", color: theme.textSoft, marginBottom: 8 }}>{dashboardGreeting}</Text>
+        )}
+        {!loading && insightNudge && (
+          <Pressable
+            onPress={() => navigation.getParent()?.navigate("Insights")}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: theme.violet.tint, borderRadius: 12, borderWidth: 1, borderColor: theme.violet.solid, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="See today's insight"
+          >
+            <Ionicons name="bulb-outline" size={14} color={theme.violet.fg} />
+            <Text style={{ flex: 1, fontSize: 12, color: theme.violet.fg, fontWeight: "600" }} numberOfLines={1}>{insightNudge.title}</Text>
+            <Text style={{ fontSize: 12, color: theme.violet.fg, fontWeight: "700" }}>→ See insight</Text>
+          </Pressable>
         )}
 
         {/* ── Pinned Insights ── */}

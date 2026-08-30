@@ -13,6 +13,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Easing,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -31,7 +32,13 @@ import { api } from "../api/client";
 import { CountUpText } from "../components/CountUpText";
 import { useReduceMotion } from "../hooks/useReduceMotion";
 import { UndoBanner } from "../components/UndoBanner";
+import { MilestoneBanner } from "../components/MilestoneBanner";
 import { ScreenBackground } from "../components/ScreenBackground";
+import { ConfettiBurst } from "../components/ConfettiBurst";
+import { checkMilestone, milestoneCopy } from "../utils/milestones";
+import * as Haptics from "expo-haptics";
+import { invalidateCache } from "../utils/staleCache";
+import { todayStr } from "../utils/dateUtils";
 
 const WATER_GOAL_KEY = "ripple_water_goal";
 const DEFAULT_WATER_GOAL = 8;
@@ -65,59 +72,160 @@ function formatTime(iso: string) {
 const DROP_W = 140;
 const DROP_H = 190;
 
-// SVG droplet path — a rounded teardrop shape
+// SVG droplet path — rounded teardrop, pointed top at (70,10), base centred at (70,140)
 const DROPLET_PATH =
   "M70 10 C70 10 20 70 20 115 a50 50 0 0 0 100 0 C120 70 70 10 70 10 Z";
+
+// Inner fill extents within the 140×190 viewBox
+const INNER_TOP = 42;   // y-coord of the fill rect top when 100% full
+const INNER_H   = 133;  // total fillable span (y=42 → y=175)
 
 function HeroDroplet({
   count,
   goal,
   color,
   reduceMotion,
+  onGoalReached,
 }: {
   count: number;
   goal: number;
   color: string;
   reduceMotion: boolean;
+  onGoalReached?: () => void;
 }) {
-  const fillPct = goal > 0 ? Math.min(1, count / goal) : 0;
-  // Wave animation
-  const waveAnim = useRef(new Animated.Value(0)).current;
-  const waveLoop = useRef<Animated.CompositeAnimation | null>(null);
+  const targetPct = goal > 0 ? Math.min(1, count / goal) : 0;
+
+  // ── Animated fill level ────────────────────────────────────────────────────
+  // react-native-svg can't accept Animated.Value on SVG props, so we run a JS
+  // addListener and sync the animated value into React state that SVG reads.
+  const fillAnim = useRef(new Animated.Value(targetPct)).current;
+  const [fillY, setFillY] = useState(() => INNER_TOP + INNER_H * (1 - targetPct));
+
+  const prevCount = useRef(count);
+  const prevGoal  = useRef(goal);
 
   useEffect(() => {
+    const countChanged = count !== prevCount.current;
+    const goalChanged  = goal  !== prevGoal.current;
+    prevCount.current = count;
+    prevGoal.current  = goal;
+    if (!countChanged && !goalChanged) return;
+
+    fillAnim.stopAnimation();
+
     if (reduceMotion) {
-      waveAnim.setValue(0);
+      fillAnim.setValue(targetPct);
+      setFillY(INNER_TOP + INNER_H * (1 - targetPct));
       return;
     }
+
+    if (countChanged && count > 0) {
+      // Spring with natural overshoot when a glass is logged
+      Animated.spring(fillAnim, {
+        toValue: targetPct,
+        tension: 50,
+        friction: 7,
+        overshootClamping: false,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      // Smooth ease-out for goal changes / removals
+      Animated.timing(fillAnim, {
+        toValue: targetPct,
+        duration: 400,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [count, goal, targetPct, reduceMotion]);
+
+  // Sync Animated.Value → state so SVG Rect reads it each frame
+  useEffect(() => {
+    const id = fillAnim.addListener(({ value }) => {
+      setFillY(INNER_TOP + INNER_H * (1 - Math.min(1, Math.max(0, value))));
+    });
+    return () => fillAnim.removeListener(id);
+  }, [fillAnim]);
+
+  // ── Scale-bounce wrapper on every +glass ──────────────────────────────────
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const prevCountForBounce = useRef(count);
+
+  useEffect(() => {
+    if (reduceMotion) { prevCountForBounce.current = count; return; }
+    if (count > prevCountForBounce.current) {
+      Animated.sequence([
+        Animated.spring(scaleAnim, {
+          toValue: 1.09,
+          tension: 120,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 80,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+    prevCountForBounce.current = count;
+  }, [count, reduceMotion]);
+
+  // ── Goal-reached confetti burst ────────────────────────────────────────────
+  const [confettiKey, setConfettiKey] = useState(0);
+  const wasAtGoal = useRef(false);
+
+  useEffect(() => {
+    const atGoal = goal > 0 && count >= goal;
+    if (atGoal && !wasAtGoal.current) {
+      setConfettiKey((k) => k + 1);
+      onGoalReached?.();
+    }
+    wasAtGoal.current = atGoal;
+  }, [count, goal]);
+
+  // ── Oscillating wave surface (cx synced via listener) ─────────────────────
+  const waveAnim = useRef(new Animated.Value(0)).current;
+  const waveLoop = useRef<Animated.CompositeAnimation | null>(null);
+  const [waveCx, setWaveCx] = useState(70);
+
+  useEffect(() => {
+    if (reduceMotion) { waveAnim.setValue(0); return; }
     waveLoop.current = Animated.loop(
       Animated.timing(waveAnim, {
         toValue: 1,
         duration: 2400,
         useNativeDriver: false,
+        easing: Easing.linear,
       })
     );
     waveLoop.current.start();
     return () => waveLoop.current?.stop();
   }, [reduceMotion]);
 
-  // The fill rect top position (in SVG coords within a 140×190 box)
-  // The droplet inner area spans roughly y=40 to y=175 (135px tall)
-  const innerTop = 42;
-  const innerH = 133;
-  const fillHeight = innerH * fillPct;
-  const fillY = innerTop + (innerH - fillHeight);
+  useEffect(() => {
+    const id = waveAnim.addListener(({ value }) => {
+      setWaveCx(70 + Math.sin(value * Math.PI * 2) * 14);
+    });
+    return () => waveAnim.removeListener(id);
+  }, [waveAnim]);
 
-  // Wave: shift x of wave ellipse for surface movement
-  const waveX = waveAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 28],
-  });
-
-  const waveOpacity = fillPct > 0 ? 1 : 0;
+  const showWave = !reduceMotion && targetPct > 0 && targetPct < 1;
 
   return (
-    <View style={{ width: DROP_W, height: DROP_H, alignItems: "center", justifyContent: "center" }}>
+    <Animated.View
+      style={{
+        width: DROP_W,
+        height: DROP_H,
+        alignItems: "center",
+        justifyContent: "center",
+        transform: [{ scale: scaleAnim }],
+      }}
+    >
+      {/* Confetti burst anchored to centre of the droplet */}
+      <ConfettiBurst burstKey={confettiKey} />
+
       <Svg
         width={DROP_W}
         height={DROP_H}
@@ -126,48 +234,76 @@ function HeroDroplet({
         accessibilityLabel={`Water intake ${count} of ${goal} glasses`}
       >
         <Defs>
-          <ClipPath id="dropClip">
+          <ClipPath id="heroDropClip">
             <Path d={DROPLET_PATH} />
           </ClipPath>
         </Defs>
 
-        {/* Filled liquid */}
-        {fillPct > 0 && (
-          <G clipPath="url(#dropClip)">
+        {/* Faint background tint so outline reads even when empty */}
+        <G clipPath="url(#heroDropClip)">
+          <Rect x={0} y={0} width={DROP_W} height={DROP_H} fill={color} opacity={0.10} />
+        </G>
+
+        {/* Animated liquid fill — y position updated each frame via state */}
+        {targetPct > 0 && (
+          <G clipPath="url(#heroDropClip)">
             <Rect
               x={0}
               y={fillY}
               width={DROP_W}
               height={DROP_H - fillY + 10}
               fill={color}
-              opacity={0.85}
+              opacity={0.82}
             />
           </G>
         )}
 
-        {/* Droplet outline */}
+        {/* Wave surface ellipse oscillates horizontally */}
+        {showWave && (
+          <G clipPath="url(#heroDropClip)">
+            <Ellipse
+              cx={waveCx}
+              cy={fillY}
+              rx={48}
+              ry={7}
+              fill={color}
+              opacity={0.40}
+            />
+          </G>
+        )}
+
+        {/* Droplet outline on top */}
         <Path
           d={DROPLET_PATH}
           fill="none"
           stroke={color}
           strokeWidth={3}
         />
-
-        {/* Wave surface ellipse (animated via JS — Animated.Value drives style, not SVG directly) */}
-        {!reduceMotion && fillPct > 0 && fillPct < 1 && (
-          <G clipPath="url(#dropClip)" opacity={waveOpacity}>
-            <Ellipse
-              cx={70}
-              cy={fillY}
-              rx={45}
-              ry={6}
-              fill={color}
-              opacity={0.45}
-            />
-          </G>
-        )}
       </Svg>
-    </View>
+
+      {/* Count label centred in the droplet bulge */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: 44,
+          alignSelf: "center",
+          alignItems: "center",
+        }}
+        pointerEvents="none"
+      >
+        <Text
+          style={{
+            fontSize: 22,
+            fontWeight: "800",
+            color: targetPct >= 0.5 ? "#fff" : color,
+            letterSpacing: 0.5,
+          }}
+        >
+          {count}
+          <Text style={{ fontSize: 14, fontWeight: "600" }}>/{goal}</Text>
+        </Text>
+      </View>
+    </Animated.View>
   );
 }
 
@@ -262,8 +398,15 @@ export function WaterDetailScreen() {
   const [streak, setStreak] = useState(0);
   const [bestDayMonth, setBestDayMonth] = useState(0);
   const [undoRemove, setUndoRemove] = useState<{ timer: ReturnType<typeof setTimeout> } | null>(null);
+  const [goalReachedFired, setGoalReachedFired] = useState(false);
+  const [milestoneMessage, setMilestoneMessage] = useState<string | null>(null);
 
   const count = todayLogs.reduce((s, l) => s + Number(l.value), 0);
+
+  // Reset goal-reached flag if count drops below goal
+  useEffect(() => {
+    if (count < goal && goalReachedFired) setGoalReachedFired(false);
+  }, [count, goal]);
 
   // load goal from AsyncStorage
   useEffect(() => {
@@ -271,6 +414,14 @@ export function WaterDetailScreen() {
       if (v) setGoal(Number(v));
     });
   }, []);
+
+  async function checkWaterGoalStreakMilestone(s: number) {
+    if (s <= 0) return;
+    const result = await checkMilestone("water_streak", s);
+    if (result.isNew) {
+      setMilestoneMessage(milestoneCopy(result));
+    }
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -308,6 +459,7 @@ export function WaterDetailScreen() {
           for (let i = 5; i >= 0 && days[i] >= goal; i--) s++;
           setStreak(s);
           setBestDayMonth(Math.max(...days));
+          await checkWaterGoalStreakMilestone(s);
         }
       } catch (_) {
         // fallback: use logs array for 7-day from overall logs
@@ -322,6 +474,7 @@ export function WaterDetailScreen() {
         if (days[6] >= goal) { s = 1; for (let i = 5; i >= 0 && days[i] >= goal; i--) s++; }
         setStreak(s);
         setBestDayMonth(Math.max(...days));
+        await checkWaterGoalStreakMilestone(s);
       }
 
       // Stats
@@ -349,6 +502,7 @@ export function WaterDetailScreen() {
   const logAmount = useCallback(async (delta: number) => {
     if (!metricId) return;
     if (delta < 0) {
+      Haptics.selectionAsync();
       // Delayed-commit undo pattern for remove-one-glass
       if (undoRemove) {
         clearTimeout(undoRemove.timer);
@@ -367,6 +521,7 @@ export function WaterDetailScreen() {
           const logs: Array<{ logged_at: string; value: number }> = await api.todaysWaterCount(metricId);
           setTodayLogs(Array.isArray(logs) ? logs.filter((l) => isTodayLog(l.logged_at)) : []);
         } catch (_) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           Alert.alert("Oops", "Couldn't update water log. Please try again.");
           const logs: Array<{ logged_at: string; value: number }> = await api.todaysWaterCount(metricId).catch(() => []);
           setTodayLogs(Array.isArray(logs) ? logs.filter((l) => isTodayLog(l.logged_at)) : []);
@@ -377,12 +532,19 @@ export function WaterDetailScreen() {
     }
 
     // Positive log
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newCount = count + delta;
+    if (newCount >= goal && !goalReachedFired) {
+      setGoalReachedFired(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
     const optimisticLog = { logged_at: new Date().toISOString(), value: delta };
     setTodayLogs((prev) => [...prev, optimisticLog]);
     setRippleTrigger((t) => t + 1);
 
     try {
       await api.logMetricValue(metricId, delta, new Date().toISOString());
+      invalidateCache(`overview:main:${todayStr()}`);
       // Refresh to get server-authoritative state
       const logs: Array<{ logged_at: string; value: number }> = await api.todaysWaterCount(metricId);
       setTodayLogs(Array.isArray(logs) ? logs.filter((l) => isTodayLog(l.logged_at)) : []);
@@ -391,7 +553,7 @@ export function WaterDetailScreen() {
       setTodayLogs((prev) => prev.filter((l) => l !== optimisticLog));
       Alert.alert("Oops", "Couldn't update water log. Please try again.");
     }
-  }, [metricId, undoRemove]);
+  }, [metricId, undoRemove, count, goal, goalReachedFired]);
 
   const handleUndoRemove = useCallback(() => {
     if (!undoRemove) return;
@@ -420,7 +582,6 @@ export function WaterDetailScreen() {
 
   // Day initials for 7-day strip
   const dayInitials = ["S", "M", "T", "W", "T", "F", "S"];
-  const todayDOW = new Date().getDay();
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const daysAgo = 6 - i;
@@ -627,7 +788,15 @@ export function WaterDetailScreen() {
         )}
         {/* Hero */}
         <View style={s.heroWrap}>
-          <HeroDroplet count={count} goal={goal} color={blue.solid} reduceMotion={reduceMotion} />
+          <HeroDroplet
+            count={count}
+            goal={goal}
+            color={blue.solid}
+            reduceMotion={reduceMotion}
+            onGoalReached={() => {
+              // Extra haptic already fired in logAmount; banner handled by HeroDroplet confetti
+            }}
+          />
           <View style={s.countRow}>
             <CountUpText value={count} style={s.countNum} duration={400} />
             <Text style={s.countOf}> of {goal} glasses</Text>
@@ -754,6 +923,13 @@ export function WaterDetailScreen() {
           message="Glass removed"
           onUndo={handleUndoRemove}
           theme={theme}
+        />
+      )}
+
+      {milestoneMessage && (
+        <MilestoneBanner
+          message={milestoneMessage}
+          onDismiss={() => setMilestoneMessage(null)}
         />
       )}
 

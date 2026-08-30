@@ -25,6 +25,7 @@ export interface UserCapabilities {
   has_glucose: boolean;
   has_medications: boolean;
   medication_slots_count: number; // 0 if no active slots
+  has_challenges: boolean;
 }
 
 export type RuleTier = "daily" | "semiweekly" | "weekly";

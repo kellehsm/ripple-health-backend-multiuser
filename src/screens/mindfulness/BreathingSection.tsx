@@ -494,7 +494,7 @@ export function BreathingSection({ theme, ink, onBack, quickReset }: { theme: an
             const rotation = idx % 2 === 0 ? -0.4 : 0.4;
             return (
               <Pressable key={key} onPress={() => handlePatternSelect(key)} accessibilityRole="button" accessibilityLabel={p.label}>
-                <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid} rotate={rotation}>
+                <ShadowCard size="card" bg={theme.teal.tint} accent={theme.teal.solid}>
                   <View style={{ flex: 1, gap: 4 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                       <Text style={{ color: theme.teal.fg, fontSize: 16, fontWeight: "900" }}>{p.label}</Text>

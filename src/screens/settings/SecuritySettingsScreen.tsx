@@ -3,6 +3,7 @@ import { ScrollView, View, Text, Switch, StyleSheet, Alert } from "react-native"
 import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../../theme/ThemeContext";
 import { isBiometricLockEnabled, setBiometricLockEnabled, authenticateWithBiometrics } from "../../lib/biometricLock";
+import { ScreenBackground } from "../../components/ScreenBackground";
 
 export function SecuritySettingsScreen() {
   const { theme } = useTheme();
@@ -31,7 +32,9 @@ export function SecuritySettingsScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="settings_security" />
+    <ScrollView style={{ backgroundColor: "transparent" }} contentContainerStyle={styles.content}>
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>APP LOCK</Text>
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
         <Text style={[styles.desc, { color: theme.textSoft }]}>
@@ -46,6 +49,7 @@ export function SecuritySettingsScreen() {
         </View>
       </View>
     </ScrollView>
+    </View>
   );
 }
 

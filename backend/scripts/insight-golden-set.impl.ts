@@ -355,5 +355,94 @@ function falsy(name: string, cond: any) {
   eq("mealStreak: last 3 days ≥3 meals → streak=3", mealStreak, 3, 0);
 }
 
+// ---- Wave 4: mindfulnessVsSleep (sleep duration and quality split) ----
+{
+  // Fires: clear difference between mindfulness vs no-mindfulness sleep duration.
+  const withMindfulnessDuration    = [460, 450, 470, 455, 465, 440, 458, 462, 448, 455]; // ~456 min
+  const withoutMindfulnessDuration = [410, 405, 415, 408, 412, 400, 410, 418, 405, 412]; // ~410 min
+  const tDur = welchTTest(withMindfulnessDuration, withoutMindfulnessDuration);
+  truthy("mindfulnessVsSleep.fires: pValue significant for duration gap", tDur.pValue < 0.01);
+  truthy("mindfulnessVsSleep.fires: mindfulness days longer sleep", tDur.meanA > tDur.meanB);
+  truthy("mindfulnessVsSleep.fires: duration difference >= 10 min",
+    Math.abs(tDur.meanA - tDur.meanB) >= 10);
+
+  // Silent: only 4 mindfulness days (< min 8 required) → rule returns null.
+  const fewMindfulnessDays = 4;
+  const fewNoMindfulnessDays = 16;
+  falsy("mindfulnessVsSleep.silent: insufficient mindfulness days",
+    fewMindfulnessDays >= 8 && fewNoMindfulnessDays >= 8);
+}
+
+// ---- Wave 4: mealSkippingVsGlucose (breakfast skip vs mid-morning glucose) ----
+{
+  // Fires: skipping breakfast associates with higher mid-morning glucose.
+  const skippedGlucose = [128, 135, 122, 140, 130, 125, 138, 132, 127, 134]; // ~131 mg/dL
+  const hadBreakfast   = [108, 115, 110, 112, 105, 118, 110, 107, 114, 111]; // ~111 mg/dL
+  const t = welchTTest(skippedGlucose, hadBreakfast);
+  truthy("mealSkippingVsGlucose.fires: pValue significant", t.pValue < 0.01);
+  truthy("mealSkippingVsGlucose.fires: skipped days higher glucose", t.meanA > t.meanB);
+  truthy("mealSkippingVsGlucose.fires: difference >= 5 mg/dL",
+    Math.abs(t.meanA - t.meanB) >= 5);
+
+  // Silent: only 3 skipped-breakfast days (< min 5 required) → rule returns null.
+  const tooFewSkipped = 3;
+  falsy("mealSkippingVsGlucose.silent: < 5 skipped days",
+    tooFewSkipped >= 5);
+}
+
+// ---- Wave 4: waterVsNextDayGlucose (low-water vs fasting glucose next morning) ----
+{
+  // Fires: low-water days predict higher next-morning fasting glucose.
+  const lowWaterFasting  = [115, 120, 112, 118, 122, 114, 119, 116, 121, 117]; // ~117 mg/dL
+  const highWaterFasting = [100, 104,  98, 102, 106, 100, 103,  99, 105, 101]; // ~102 mg/dL
+  const t = welchTTest(lowWaterFasting, highWaterFasting);
+  truthy("waterVsNextDayGlucose.fires: pValue significant", t.pValue < 0.01);
+  truthy("waterVsNextDayGlucose.fires: low-water days higher fasting glucose", t.meanA > t.meanB);
+  truthy("waterVsNextDayGlucose.fires: difference >= 5 mg/dL",
+    Math.abs(t.meanA - t.meanB) >= 5);
+
+  // Silent: only 14 paired rows (< min 21 required) → rule returns null.
+  const tooFewRows = 14;
+  falsy("waterVsNextDayGlucose.silent: < 21 paired days",
+    tooFewRows >= 21);
+}
+
+// ---- Wave 4: sleepDebtAccumulation (7-day rolling debt vs threshold) ----
+{
+  // Fires: cumulative 7-day sleep debt exceeds 4-hour threshold.
+  // Each night: target 480 min, actual sleep well below target.
+  const sleepMinutes = [360, 350, 370, 340, 355, 345, 360]; // all well under 480
+  const TARGET_MIN = 480;
+  const DEBT_THRESHOLD_MIN = 240; // 4 hours
+  const debtMinutes = sleepMinutes.reduce((sum, m) => sum + Math.max(0, TARGET_MIN - m), 0);
+  truthy("sleepDebtAccumulation.fires: debt exceeds threshold",
+    debtMinutes > DEBT_THRESHOLD_MIN);
+
+  // Silent: all 7 nights at or above target — no debt.
+  const goodSleep = [490, 480, 500, 485, 495, 480, 490];
+  const noDebt = goodSleep.reduce((sum, m) => sum + Math.max(0, TARGET_MIN - m), 0);
+  falsy("sleepDebtAccumulation.silent: no debt when sleep meets target",
+    noDebt > DEBT_THRESHOLD_MIN);
+}
+
+// ---- Wave 4: challengeActivityBoost (challenge vs non-challenge weekly steps) ----
+{
+  // Fires: ≥ 500-step difference between challenge and non-challenge weeks.
+  const challengeWeekSteps   = [9500, 10200, 9800, 11000, 9700]; // avg ~10040
+  const noChallengeWeekSteps = [7200, 6800, 7500, 7100, 6900, 7300, 7000, 7400]; // avg ~7150
+  const avgChallenge   = challengeWeekSteps.reduce((s, v) => s + v, 0) / challengeWeekSteps.length;
+  const avgNoChallenge = noChallengeWeekSteps.reduce((s, v) => s + v, 0) / noChallengeWeekSteps.length;
+  const diff = avgChallenge - avgNoChallenge;
+  truthy("challengeActivityBoost.fires: challenge weeks have higher steps", diff > 0);
+  truthy("challengeActivityBoost.fires: difference >= 500 steps", diff >= 500);
+  truthy("challengeActivityBoost.fires: has 2+ challenge weeks and 4+ non-challenge weeks",
+    challengeWeekSteps.length >= 2 && noChallengeWeekSteps.length >= 4);
+
+  // Silent: only 1 challenge week (< min 2 required) → rule returns null.
+  const tooFewChallengeWeeks = 1;
+  falsy("challengeActivityBoost.silent: < 2 challenge weeks",
+    tooFewChallengeWeeks >= 2);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

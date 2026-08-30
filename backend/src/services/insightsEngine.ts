@@ -417,14 +417,13 @@ export async function runInsightsForUser(
     } catch { /* table may not exist yet — proceed normally */ }
   }
 
-  const eligibleRules = ALL_RULES.filter(rule => {
+  const eligibleRulesPreCaps = ALL_RULES.filter(rule => {
     if (archived.has(rule.id)) return false;
     if (rule.minDays && accountAgeDays < rule.minDays) return false;
     const tier: RuleTier = rule.tier ?? "semiweekly";
     if (skipHeavyTiers && (tier === "semiweekly" || tier === "weekly")) return false;
     return tierRunsToday(tier, now, !!opts.force);
   });
-  skipped = ALL_RULES.length - eligibleRules.length;
 
   // Pre-flight: fetch a single capability summary so rules can skip DB queries
   // when the user doesn't have the required data types.
@@ -435,6 +434,7 @@ export async function runInsightsForUser(
     has_glucose: boolean;
     has_medications: boolean;
     medication_slots_count: string;
+    has_challenges: boolean;
   }>(
     `SELECT
        EXISTS(SELECT 1 FROM substance_logs WHERE user_id=$1 LIMIT 1)           AS has_substances,
@@ -444,7 +444,8 @@ export async function runInsightsForUser(
        EXISTS(SELECT 1 FROM medications WHERE user_id=$1 AND active=true LIMIT 1) AS has_medications,
        (SELECT COUNT(*) FROM medication_schedule_slots mss
         JOIN medications m ON m.id = mss.medication_id
-        WHERE m.user_id=$1 AND m.active=true)                                  AS medication_slots_count`,
+        WHERE m.user_id=$1 AND m.active=true)                                  AS medication_slots_count,
+       EXISTS(SELECT 1 FROM challenge_participants WHERE user_id=$1 LIMIT 1)   AS has_challenges`,
     [userId]
   );
 
@@ -455,7 +456,16 @@ export async function runInsightsForUser(
     has_glucose:            caps?.has_glucose            ?? false,
     has_medications:        caps?.has_medications        ?? false,
     medication_slots_count: parseInt(caps?.medication_slots_count ?? "0"),
+    has_challenges:         caps?.has_challenges         ?? false,
   };
+
+  // Post-capability filter: skip rules whose required data is provably absent,
+  // avoiding the extra DB round-trip the rule's queries would incur.
+  const eligibleRules = eligibleRulesPreCaps.filter(rule => {
+    if (rule.id === "challenge_activity_boost" && !capabilities.has_challenges) return false;
+    return true;
+  });
+  skipped = ALL_RULES.length - eligibleRules.length;
 
   // Build the day-frame ONCE for this user — new-style rules read from it
   // instead of re-issuing overlapping queries.

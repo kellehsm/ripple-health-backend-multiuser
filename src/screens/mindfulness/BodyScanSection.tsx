@@ -200,7 +200,7 @@ export function BodyScanSection({ theme, ink, onBack }: { theme: any; ink: strin
           </Text>
           {SCAN_DURATIONS.map((mins, idx) => (
             <Pressable key={mins} onPress={() => { Haptics.selectionAsync(); setWaiting(mins); }} accessibilityRole="button">
-              <ShadowCard size="card" bg={group.tint ?? theme.card} accent={sleepSolid} rotate={idx % 2 === 0 ? -0.4 : 0.4}>
+              <ShadowCard size="card" bg={group.tint ?? theme.card} accent={sleepSolid}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: group.fg ?? theme.textStrong, fontSize: 16, fontWeight: "900" }}>{mins} minutes</Text>
                   <Text style={{ color: group.sub ?? theme.textSoft, fontSize: 12, marginTop: 2 }}>

@@ -10,6 +10,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ShadowCard } from "../components/ShadowCard";
 import { formatDate } from "../utils/dateUtils";
 import { ScreenBackground } from "../components/ScreenBackground";
+import * as Haptics from "expo-haptics";
 
 
 type FilterMode = "glucose" | "meals" | "mood" | "spending";
@@ -107,7 +108,7 @@ export function HistoryScreen() {
         {MODES.map(m => (
           <Pressable
             key={m}
-            onPress={() => { setMode(m); setResults([]); setHasSearched(false); setSearchError(null); }}
+            onPress={() => { Haptics.selectionAsync(); setMode(m); setResults([]); setHasSearched(false); setSearchError(null); }}
             accessibilityRole="tab"
             accessibilityState={{ selected: mode === m }}
             style={[styles.modeChip, {

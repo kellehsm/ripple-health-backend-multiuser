@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { EmptyState } from '../components/EmptyState';
 import { FeatureIntroSheet } from '../components/FeatureIntroSheet';
 import { useFeatureIntro } from '../onboarding/useFeatureIntro';
 import { findIntro } from '../onboarding/featureIntros';
@@ -25,6 +27,7 @@ const HEALTH_SECTIONS: SectionDef[] = [
 
 export function HealthTabScreen() {
   const { theme } = useTheme();
+  const navigation = useNavigation<any>();
   const { preferences } = useTabPreferences();
   const healthIntro = findIntro("health")!;
   const [introVisible, dismissIntro] = useFeatureIntro(healthIntro.key);
@@ -78,9 +81,12 @@ export function HealthTabScreen() {
     return (
       <View style={emptyBg}>
         <ScreenBackground pageId="health_tab" />
-        <Text style={emptyText}>
-          No health modules enabled. Go to Settings → Customize Tabs to turn them on.
-        </Text>
+        <EmptyState
+          icon="❤️"
+          title="Your health dashboard is quiet"
+          subtitle="Turn on modules in Settings to start tracking what matters to you."
+          action={{ label: "Open Settings", onPress: () => navigation.navigate("SettingsCustomizeTabs") }}
+        />
       </View>
     );
   }

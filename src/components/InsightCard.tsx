@@ -547,6 +547,29 @@ export const InsightCard = React.memo(function InsightCard({ insight, onDismiss,
           <Text style={[styles.supportNote, { color: theme.textSoft }]}>
             This pattern was observed across {insight.times_observed} data points. Confidence is based on sample size and effect size — not a medical finding.
           </Text>
+          {/* Synthesis sentence */}
+          {(() => {
+            let synthesis: string | null = null;
+            if (insight.description && insight.description.length > 0) {
+              synthesis = insight.description;
+            } else if (supportRows.length >= 2) {
+              const a = supportRows[0];
+              const b = supportRows[1];
+              const av = parseFloat(a.value);
+              const bv = parseFloat(b.value);
+              if (!isNaN(av) && !isNaN(bv)) {
+                const higher = av >= bv ? a : b;
+                const lower = av >= bv ? b : a;
+                synthesis = `On days with ${higher.label.toLowerCase()}, the value averaged ${higher.value} vs ${lower.value} — a notable difference.`;
+              }
+            }
+            if (!synthesis) return null;
+            return (
+              <Text style={{ fontSize: 14, fontStyle: "italic", opacity: 0.85, color: theme.textStrong, marginBottom: 10, lineHeight: 20 }}>
+                {synthesis}
+              </Text>
+            );
+          })()}
           <View style={styles.dataGrid}>
             {supportRows.map(row => (
               <View key={row.label} style={[styles.dataRow, { borderBottomColor: ink + "1A" }]}>

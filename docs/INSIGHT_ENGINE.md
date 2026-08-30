@@ -273,7 +273,13 @@ request; cached in `monthly_narratives`. Never called from the nightly job.
 | SleepExerciseInteractionRule | sleep_exercise_interaction | Sleep × exercise interaction (both good = super-additive mood) | sleep_logs, exercise_logs, mood_logs | Wave 3 |
 | MealTimingSleepRule | meal_timing_sleep | Eating window closing time predicts sleep latency | meal_logs, sleep_logs | Wave 3 |
 
-**Total: 101 rules.**
+| MindfulnessVsSleepRule | mindfulness_vs_sleep | Mindfulness sessions correlate with longer or better-quality sleep | mindfulness_logs, sleep_logs | Wave 4 |
+| MealSkippingVsGlucoseRule | meal_skipping_vs_glucose | Skipping breakfast predicts higher mid-morning glucose | meal_logs, glucose_readings | Wave 4 |
+| WaterVsNextDayGlucoseRule | water_vs_next_day_glucose | Low-water days predict higher next-morning fasting glucose | water_logs, glucose_readings | Wave 4 |
+| SleepDebtAccumulationRule | sleep_debt_accumulation | 7-day rolling sleep deficit exceeds 4-hour threshold | sleep_logs | Wave 4 |
+| ChallengeActivityBoostRule | challenge_activity_boost | Average daily steps are higher during challenge weeks than non-challenge weeks | activity_logs, challenge_participants | Wave 4 |
+
+**Total: 106 rules.**
 
 ---
 
@@ -373,10 +379,6 @@ Items not yet built. Add new ideas here as they arise; move items to §Shipped w
   to 30d baseline; fire when trending down ≥10%.
 - **Protein intake vs muscle-recovery rule** — correlate grams of protein logged on
   workout days vs next-day resting HR / reported soreness.
-- **Sleep debt accumulation rule** — rolling 7-day sleep deficit vs target; fires when
-  cumulative debt exceeds a threshold.
-- **Hydration × glucose rule** — test whether low-water days predict higher next-day
-  fasting glucose; currently no dedicated rule.
 - **Spending category trend** — like TrendStepsRule but for each spend category
   (dining, groceries, entertainment) separately.
 - **Experiment auto-enrolment suggestions** — when a rule fires ≥3 nights in a row
@@ -417,6 +419,10 @@ extensions for energy_level and glucose_cv_pct; golden-set assertions; experimen
 **Wave 3:** WeatherRainActivity, WeatherTempSleep, WeatherDaylightMood, BestDayRecipe,
 SleepExerciseInteraction, MealTimingSleep.
 
+**Wave 4:** MindfulnessVsSleep, MealSkippingVsGlucose, WaterVsNextDayGlucose,
+SleepDebtAccumulation, ChallengeActivityBoost; challenge pre-flight skip added to
+capability filter; golden-set assertions for all five rules.
+
 **Engine architecture:** Day-frame cache, rule tiers, versioning + shadow mode, A/B
 variant harness, actionable/clinical-risk metadata, incremental watermarked recomputation,
 transactional runs, per-rule observability (`insight_rule_runs`).
@@ -432,5 +438,5 @@ outcome follow-up insights, micro-nudges (1/day, 14d per-rule cooldown).
 **Presentation / UX:** Sparklines, LLM explain endpoint, timeline screen, digest endpoint,
 inline confidence explainer, pinning/bookmarks, category-level meta-summary cards.
 
-**Trust / safety:** Diagnostic-language linter, golden-set regression (58 assertions),
+**Trust / safety:** Diagnostic-language linter, golden-set regression (77 assertions),
 rule sunset policy, `/insights/:id/debug` explainability dump.

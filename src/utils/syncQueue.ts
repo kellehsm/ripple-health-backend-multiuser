@@ -98,10 +98,15 @@ export async function processSyncQueue(): Promise<{ processed: number; remaining
   }
 
   if (!res.ok) {
-    for (const item of items) {
-      db.runSync(`UPDATE sync_queue SET attempts = attempts + 1 WHERE id = ?`, [item.id]);
+    // 429 Too Many Requests and 503 Service Unavailable are temporary outages,
+    // not per-item failures — don't burn retry budget on items that couldn't
+    // even be evaluated by the server.
+    if (res.status !== 429 && res.status !== 503) {
+      for (const item of items) {
+        db.runSync(`UPDATE sync_queue SET attempts = attempts + 1 WHERE id = ?`, [item.id]);
+      }
+      dropExhaustedItems();
     }
-    dropExhaustedItems();
     return { processed: 0, remaining: getPendingQueueCount() };
   }
 

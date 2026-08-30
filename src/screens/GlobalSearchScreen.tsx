@@ -31,6 +31,7 @@ async function saveRecentSearch(q: string): Promise<string[]> {
   } catch { return []; }
 }
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { useTheme } from "../theme/ThemeContext";
@@ -132,8 +133,12 @@ export function GlobalSearchScreen() {
 
       {!results && !loading && !searchError && (
         <View style={styles.emptyState}>
+          <Ionicons name="search-outline" size={36} color={theme.textSoft} style={{ marginBottom: 8 }} />
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.subheading, fontWeight: "800", textAlign: "center", marginBottom: 4 }}>
+            Search your story
+          </Text>
           <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.body, textAlign: "center" }}>
-            Type to search across all your logged data
+            Meals, mood, sleep, spending, books — all in one place.
           </Text>
           {recent.length > 0 && (
             <View style={{ marginTop: 20, width: "100%", paddingHorizontal: 24 }}>
@@ -142,7 +147,7 @@ export function GlobalSearchScreen() {
                 {recent.map((q) => (
                   <Pressable
                     key={q}
-                    onPress={() => { setQuery(q); runSearch(q); }}
+                    onPress={() => { Haptics.selectionAsync(); setQuery(q); runSearch(q); }}
                     style={{
                       borderWidth: 1.5,
                       borderColor: theme.cardBorder,
@@ -179,8 +184,12 @@ export function GlobalSearchScreen() {
 
       {results && totalHits === 0 && !loading && (
         <View style={styles.emptyState}>
-          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.body, textAlign: "center" }}>
+          <Ionicons name="search-outline" size={36} color={theme.textSoft} style={{ marginBottom: 8 }} />
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.subheading, fontWeight: "800", textAlign: "center", marginBottom: 4 }}>
             No results for "{query}"
+          </Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.body, textAlign: "center" }}>
+            Try a different search, or browse the tabs above.
           </Text>
         </View>
       )}
@@ -282,7 +291,7 @@ function Section({ title, icon, count, children, theme }: { title: string; icon:
 function Row({ title, sub, theme, onPress }: { title: string; sub: string; theme: any; onPress?: () => void }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={onPress ? () => { Haptics.selectionAsync(); onPress(); } : undefined}
       disabled={!onPress}
       accessibilityRole={onPress ? "button" : undefined}
       style={({ pressed }) => [

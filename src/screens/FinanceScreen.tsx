@@ -15,6 +15,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useTheme } from "../theme/ThemeContext";
 import { coloredShadow, layeredShadow } from "../theme/styleUtils";
 import { ShadowCard } from "../components/ShadowCard";
+import { SectionLabel } from "../components/SectionLabel";
 import { IconBadge } from "../components/IconBadge";
 import { api } from "../api/client";
 import { LoadingIndicator } from "../components/LoadingIndicator";
@@ -598,12 +599,14 @@ export function FinanceScreen() {
           accessibilityRole="button"
           accessibilityLabel="Spending total — tap to add expense"
         >
-        <ShadowCard size="hero" bg={theme.purple.tint} accent={theme.purple.solid} rotate={0.6} cardId="spending_total">
+        <ShadowCard size="hero" bg={theme.purple.tint} accent={theme.purple.solid} cardId="spending_total">
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
             <View>
-              <Text style={[s.label, { color: theme.purple.sub }]}>
-                {view === "day" ? "SPENT TODAY" : "SPENT THIS WEEK"}
-              </Text>
+              <SectionLabel
+                text={view === "day" ? "Spent Today" : "Spent This Week"}
+                color={theme.purple.sub}
+                style={{ marginBottom: 2 }}
+              />
               <Text style={[s.totalAmt, { color: theme.purple.fg }]}>{formatAmount(total)}</Text>
               <Text style={[s.sublabel, { color: theme.purple.sub }]}>
                 {filtered.length} transaction{filtered.length !== 1 ? "s" : ""}
@@ -681,7 +684,7 @@ export function FinanceScreen() {
           const projPct  = Math.min(1, budget > 0 ? projected / budget : 0);
           const barColor = projPct > 1.1 ? theme.red.solid : projPct > 0.9 ? theme.amber.solid : theme.teal.solid;
           return (
-            <ShadowCard size="card" rotate={-0.3}>
+            <ShadowCard size="card">
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
                 <Ionicons name="trending-up-outline" size={16} color={theme.purple.solid} />
                 <Text style={[s.cardTitle, { color: theme.textStrong }]}>Month forecast</Text>
@@ -836,7 +839,7 @@ export function FinanceScreen() {
               )}
               {/* Legend: less → more */}
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginTop: 10, gap: 4 }}>
-                <Text style={{ fontSize: 9, fontWeight: "600", color: theme.textSoft }}>Less</Text>
+                <Text style={{ fontSize: 9, fontWeight: "600", color: theme.textSoft }}>Low spend</Text>
                 {Array.from({ length: LEGEND_STEPS }, (_, i) => {
                   const stepAlpha = Math.round(0x14 + (i / (LEGEND_STEPS - 1)) * (0xFF - 0x14));
                   const stepHex = stepAlpha.toString(16).padStart(2, "0");
@@ -850,7 +853,7 @@ export function FinanceScreen() {
                     />
                   );
                 })}
-                <Text style={{ fontSize: 9, fontWeight: "600", color: theme.textSoft }}>More</Text>
+                <Text style={{ fontSize: 9, fontWeight: "600", color: theme.textSoft }}>High spend</Text>
               </View>
             </ShadowCard>
           );

@@ -194,7 +194,7 @@ export function LogMealCard({
   return (
     <>
       <View ref={tourLogRef}>
-        <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} rotate={-0.5} cardId="meal_log">
+        <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} cardId="meal_log">
           <Text style={[styles.cardTitle, { color: theme.textStrong }]} allowFontScaling maxFontSizeMultiplier={1.4} accessibilityRole="header">Log a meal</Text>
 
           {/* Quick drinks row */}

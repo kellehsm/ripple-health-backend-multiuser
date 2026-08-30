@@ -35,10 +35,35 @@ const MESSAGES: Record<string, string[]> = {
     "Settling in…",
     "One deep breath…",
   ],
+  exercise: [
+    "Warming up…",
+    "Loading your sessions…",
+    "Checking your form…",
+  ],
+  life: [
+    "Flipping the pages…",
+    "Loading your story…",
+    "Gathering your habits…",
+  ],
+  sleep: [
+    "Checking last night…",
+    "Counting your hours…",
+    "Reading your patterns…",
+  ],
+  finance: [
+    "Counting the coins…",
+    "Loading your spending…",
+    "Crunching the numbers…",
+  ],
+  trends: [
+    "Spotting patterns…",
+    "Connecting the dots…",
+    "Reading the data…",
+  ],
   generic: [
     "Just a moment…",
     "Almost there…",
-    "Loading…",
+    "Pulling things together…",
   ],
 };
 

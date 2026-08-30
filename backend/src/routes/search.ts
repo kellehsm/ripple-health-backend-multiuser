@@ -111,10 +111,11 @@ export default async function searchRoutes(app: FastifyInstance) {
   // Single query across meals, journal entries, books, and hobbies. Returns
   // results grouped by type, max 20 per type.
 
-  app.get("/global", async (req) => {
+  app.get("/global", async (req, reply) => {
     const user_id = req.user_id;
     const { q } = req.query as any;
     if (!q || String(q).trim().length < 2) return { meals: [], mood: [], journal: [], books: [], hobbies: [] };
+    if (String(q).trim().length > 200) return reply.code(400).send({ error: "Query too long" });
 
     const term = "%" + String(q).trim() + "%";
 

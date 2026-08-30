@@ -27,6 +27,7 @@ import { CountUpText } from "../components/CountUpText";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import { EmptyState } from "../components/EmptyState";
 import { useReduceMotion } from "../hooks/useReduceMotion";
+import { ScreenBackground } from "../components/ScreenBackground";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 type HRReading = { recorded_at: string; bpm: number };
@@ -142,15 +143,19 @@ export function HeartRateDetailScreen() {
   const [insightLine, setInsightLine] = useState<string | null>(null);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadChart = useCallback(async (hours: number) => {
     setLoadingChart(true);
+    setLoadError(null);
     try {
       const now = new Date();
       const start = new Date(now.getTime() - hours * 3600 * 1000);
       const data = await api.heartRateRange(start.toISOString(), now.toISOString());
       setReadings(Array.isArray(data) ? data : []);
-    } catch (_) {}
+    } catch (_) {
+      setLoadError("Couldn't load heart rate data. Check your connection and try again.");
+    }
     finally { setLoadingChart(false); }
   }, []);
 
@@ -273,22 +278,36 @@ export function HeartRateDetailScreen() {
   const zones = hrStats?.zones;
   const zoneTotalCount = zones?.total ?? 0;
 
+  if (!loadingChart && !loadingStats && loadError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.page, padding: 16 }}>
+        <EmptyState
+          slot="empty.warning"
+          title="Couldn't load heart rate data"
+          subtitle="Check your connection and try again."
+          action={{ label: "Try again", onPress: () => { loadChart(rangeHours); loadStats(); loadDaily(); } }}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="heart_rate_detail" />
       <ScrollView
         style={{ flex: 1, backgroundColor: "transparent" }}
         contentContainerStyle={s.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.red.sub} />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={theme.berry.sub} />
         }
       >
         {/* ── Headline stats card ─────────────────────────────────────────── */}
-        <ShadowCard size="card" accent={theme.red.sub} padding={16}>
+        <ShadowCard size="card" accent={theme.berry.sub} padding={16}>
           <View style={s.statsRow}>
             <View style={s.stat}>
               <CountUpText
                 value={resting}
-                style={[s.statVal, { color: theme.red.sub }]}
+                style={[s.statVal, { color: theme.berry.sub }]}
                 duration={reduceMotion ? 0 : 500}
               />
               <Text style={[s.statLbl, { color: theme.textSoft }]}>Resting</Text>
@@ -335,7 +354,7 @@ export function HeartRateDetailScreen() {
               {hrStats.today_max && (
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>TODAY HIGH</Text>
-                  <Text style={{ color: theme.red.sub, fontSize: 18, fontWeight: "900", letterSpacing: -0.5 }}>
+                  <Text style={{ color: theme.berry.sub, fontSize: 18, fontWeight: "900", letterSpacing: -0.5 }}>
                     {hrStats.today_max.bpm} <Text style={{ fontSize: 11, fontWeight: "500" }}>bpm</Text>
                   </Text>
                   <Text style={{ color: theme.textSoft, fontSize: 11 }}>{fmtTime(hrStats.today_max.recorded_at)}</Text>
@@ -359,11 +378,11 @@ export function HeartRateDetailScreen() {
         )}
 
         {/* ── Intraday chart ──────────────────────────────────────────────── */}
-        <ShadowCard size="card" accent={theme.red.sub} padding={16}>
+        <ShadowCard size="card" accent={theme.berry.sub} padding={16}>
           <View style={s.rowBetween}>
             <Text style={[s.sectionTitle, { color: theme.textStrong }]}>Heart Rate</Text>
             {peak !== null && (
-              <Text style={{ color: theme.red.sub, fontSize: 12 }}>peak {peak} bpm</Text>
+              <Text style={{ color: theme.berry.sub, fontSize: 12 }}>peak {peak} bpm</Text>
             )}
           </View>
 
@@ -373,7 +392,7 @@ export function HeartRateDetailScreen() {
                 key={hrs}
                 onPress={() => setRangeHours(hrs)}
                 style={[s.rangeBtn, {
-                  backgroundColor: rangeHours === hrs ? theme.red.sub : theme.card,
+                  backgroundColor: rangeHours === hrs ? theme.berry.sub : theme.card,
                   borderColor: ink,
                 }]}
               >
@@ -385,7 +404,7 @@ export function HeartRateDetailScreen() {
           </View>
 
           {loadingChart ? (
-            <LoadingIndicator style={{ marginVertical: 30 }} color={theme.red.sub} />
+            <LoadingIndicator style={{ marginVertical: 30 }} color={theme.berry.sub} />
           ) : readings.length === 0 ? (
             <EmptyState slot="empty.heart" title="No readings in this window" subtitle="Sync from Health Connect on the Health tab to see your heart rate here." />
           ) : (
@@ -417,8 +436,8 @@ export function HeartRateDetailScreen() {
                   <>
                     <Defs>
                       <SvgLinearGradient id="hrDetailFill" x1="0" y1="0" x2="0" y2="1">
-                        <Stop offset="0" stopColor={theme.red.sub} stopOpacity="0.30" />
-                        <Stop offset="1" stopColor={theme.red.sub} stopOpacity="0.02" />
+                        <Stop offset="0" stopColor={theme.berry.sub} stopOpacity="0.30" />
+                        <Stop offset="1" stopColor={theme.berry.sub} stopOpacity="0.02" />
                       </SvgLinearGradient>
                     </Defs>
                     <Polygon
@@ -428,23 +447,24 @@ export function HeartRateDetailScreen() {
                   </>
                 );
               })()}
-              <Polyline points={chartPoints} fill="none" stroke={theme.red.sub} strokeWidth={2} />
+              <Polyline points={chartPoints} fill="none" stroke={theme.berry.sub} strokeWidth={2} />
             </Svg>
           )}
         </ShadowCard>
 
         {/* ── 30-day resting HR trend ─────────────────────────────────────── */}
-        <ShadowCard size="card" accent={theme.red.sub} padding={16}>
+        <ShadowCard size="card" accent={theme.berry.sub} padding={16}>
           <Text style={[s.sectionTitle, { color: theme.textStrong }]}>Resting HR Trend (30d)</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 11, marginTop: -4, marginBottom: 4 }}>Resting heart rate · bpm</Text>
 
           {/* Week-over-week callout */}
           {thisWeekRest != null && (
             <View style={{ marginBottom: 10 }}>
               <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700" }}>
                 Resting HR this week avg{" "}
-                <Text style={{ color: theme.red.sub }}>{thisWeekRest}</Text>
+                <Text style={{ color: theme.berry.sub }}>{thisWeekRest}</Text>
                 {weekDelta != null && (
-                  <Text style={{ color: weekDelta <= 0 ? theme.teal.solid : theme.red.sub }}>
+                  <Text style={{ color: weekDelta <= 0 ? theme.teal.solid : theme.berry.sub }}>
                     {" · "}{weekDelta <= 0 ? "↓" : "↑"}{Math.abs(weekDelta)} vs last week
                   </Text>
                 )}
@@ -453,7 +473,7 @@ export function HeartRateDetailScreen() {
           )}
 
           {loadingStats ? (
-            <LoadingIndicator color={theme.red.sub} style={{ marginVertical: 20 }} />
+            <LoadingIndicator color={theme.berry.sub} style={{ marginVertical: 20 }} />
           ) : trend.length === 0 ? (
             <EmptyState slot="empty.trend" title="No 30-day data yet" subtitle="Sync more readings to see your resting HR trend." />
           ) : (
@@ -475,15 +495,15 @@ export function HeartRateDetailScreen() {
                 {trend.map((r, i) => {
                   const x = TREND_PAD_L + (i / Math.max(trend.length - 1, 1)) * trendInnerW;
                   const y = TREND_PAD_T + trendInnerH - ((r.resting_bpm - trendMin) / trendRange) * trendInnerH;
-                  return <Circle key={r.date} cx={x} cy={y} r={2.5} fill={theme.red.sub} opacity={0.5} />;
+                  return <Circle key={r.date} cx={x} cy={y} r={2.5} fill={theme.berry.sub} opacity={0.5} />;
                 })}
                 {/* Resting HR line */}
                 {trend.length >= 2 && (
-                  <Polyline points={trendLinePoints} fill="none" stroke={theme.red.sub} strokeWidth={1.5} opacity={0.6} />
+                  <Polyline points={trendLinePoints} fill="none" stroke={theme.berry.sub} strokeWidth={1.5} opacity={0.6} />
                 )}
                 {/* 7-day rolling avg line */}
                 {rollingLinePoints.length >= 2 && (
-                  <Polyline points={rollingLinePoints.join(" ")} fill="none" stroke={theme.red.sub} strokeWidth={2.5} />
+                  <Polyline points={rollingLinePoints.join(" ")} fill="none" stroke={theme.berry.sub} strokeWidth={2.5} />
                 )}
                 {/* X labels: first, mid, last */}
                 {trend.length > 0 && (
@@ -502,11 +522,11 @@ export function HeartRateDetailScreen() {
               </Svg>
               <View style={{ flexDirection: "row", gap: 16, marginTop: 4 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <View style={{ width: 16, height: 2, backgroundColor: theme.red.sub, opacity: 0.5 }} />
+                  <View style={{ width: 16, height: 2, backgroundColor: theme.berry.sub, opacity: 0.5 }} />
                   <Text style={{ color: theme.textSoft, fontSize: 10 }}>Daily resting</Text>
                 </View>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <View style={{ width: 16, height: 2.5, backgroundColor: theme.red.sub }} />
+                  <View style={{ width: 16, height: 2.5, backgroundColor: theme.berry.sub }} />
                   <Text style={{ color: theme.textSoft, fontSize: 10 }}>7-day rolling avg</Text>
                 </View>
               </View>
@@ -515,7 +535,7 @@ export function HeartRateDetailScreen() {
         </ShadowCard>
 
         {/* ── Heart rate zones ────────────────────────────────────────────── */}
-        <ShadowCard size="card" accent={theme.red.sub} padding={16}>
+        <ShadowCard size="card" accent={theme.berry.sub} padding={16}>
           <View style={s.rowBetween}>
             <Text style={[s.sectionTitle, { color: theme.textStrong }]}>Zones Today</Text>
             {zones && (
@@ -526,7 +546,7 @@ export function HeartRateDetailScreen() {
           </View>
 
           {loadingStats ? (
-            <LoadingIndicator color={theme.red.sub} style={{ marginVertical: 16 }} />
+            <LoadingIndicator color={theme.berry.sub} style={{ marginVertical: 16 }} />
           ) : !zones || zones.total === 0 ? (
             <EmptyState slot="empty.heart" title="No readings today" subtitle="Zones appear once today's readings are synced." />
           ) : (
@@ -566,11 +586,11 @@ export function HeartRateDetailScreen() {
         </ShadowCard>
 
         {/* ── 7-day history table ─────────────────────────────────────────── */}
-        <ShadowCard size="card" accent={theme.red.sub} padding={16}>
+        <ShadowCard size="card" accent={theme.berry.sub} padding={16}>
           <Text style={[s.sectionTitle, { color: theme.textStrong }]}>7-Day History</Text>
 
           {loadingDaily ? (
-            <LoadingIndicator color={theme.red.sub} style={{ marginVertical: 16 }} />
+            <LoadingIndicator color={theme.berry.sub} style={{ marginVertical: 16 }} />
           ) : dailyRows.length === 0 ? (
             <EmptyState slot="empty.trend" title="No history yet" subtitle="Daily resting and average rates will appear here as you sync." />
           ) : (
@@ -591,12 +611,12 @@ export function HeartRateDetailScreen() {
                     style={[s.tableRow, { borderTopWidth: 0.5, borderTopColor: theme.cardBorder, paddingVertical: 9 }]}
                   >
                     <View style={s.colDate}>
-                      <Text style={{ color: isToday ? theme.red.sub : theme.textStrong, fontSize: 13, fontWeight: "500" }}>
+                      <Text style={{ color: isToday ? theme.berry.sub : theme.textStrong, fontSize: 13, fontWeight: "500" }}>
                         {dayLabel(row.date)}
                       </Text>
                       <Text style={{ color: theme.textSoft, fontSize: 11 }}>{shortDate(row.date)}</Text>
                     </View>
-                    <Text style={[s.colVal, { color: theme.red.sub, fontWeight: "600" }]}>{fmtBpm(row.resting_bpm)}</Text>
+                    <Text style={[s.colVal, { color: theme.berry.sub, fontWeight: "600" }]}>{fmtBpm(row.resting_bpm)}</Text>
                     <Text style={[s.colVal, { color: theme.textStrong }]}>{fmtBpm(row.avg_bpm)}</Text>
                     <Text style={[s.colVal, { color: theme.textStrong }]}>{fmtBpm(row.peak_bpm)}</Text>
                     <Text style={[s.colCount, { color: theme.textSoft }]}>{row.reading_count}</Text>

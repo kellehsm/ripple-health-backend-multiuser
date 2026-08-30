@@ -11,6 +11,7 @@ export function InsightsTrendsScreen({ route }: any) {
   const { theme } = useTheme();
   const initialTab: "insights" | "trends" = route?.params?.tab ?? "insights";
   const [tab, setTab] = useState<"insights" | "trends">(initialTab);
+  const [trendsEverShown, setTrendsEverShown] = useState(initialTab === "trends");
 
   const TAB_META: Record<"insights" | "trends", { label: string; icon: keyof typeof Ionicons.glyphMap }> = {
     insights: { label: "Insights", icon: "bulb-outline" },
@@ -23,7 +24,10 @@ export function InsightsTrendsScreen({ route }: any) {
     return (
       <Pressable
         key={id}
-        onPress={() => setTab(id)}
+        onPress={() => {
+          setTab(id);
+          if (id === "trends") setTrendsEverShown(true);
+        }}
         accessibilityRole="tab"
         accessibilityState={{ selected: tab === id }}
         style={{
@@ -54,13 +58,17 @@ export function InsightsTrendsScreen({ route }: any) {
         {tabBtn("trends")}
       </View>
 
-      {/* Both screens stay mounted; only visibility changes to preserve scroll position */}
+      {/* InsightsScreen is always mounted. TrendsScreen is lazy-mounted on first
+          visit to avoid a cold-start double-fetch; once mounted it stays mounted
+          so tab switches are instant and scroll position is preserved. */}
       <View style={{ flex: 1, display: tab === "insights" ? "flex" : "none" }}>
         <InsightsScreen />
       </View>
-      <View style={{ flex: 1, display: tab === "trends" ? "flex" : "none" }}>
-        <TrendsScreen />
-      </View>
+      {trendsEverShown && (
+        <View style={{ flex: 1, display: tab === "trends" ? "flex" : "none" }}>
+          <TrendsScreen />
+        </View>
+      )}
     </View>
   );
 }

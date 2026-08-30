@@ -123,7 +123,7 @@ export function AddMedicationModal({
     <Modal transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={modalStyles.overlay}>
-        <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: ink }]}>
+        <View style={[modalStyles.sheet, { backgroundColor: theme.card, borderColor: ink }]} accessibilityViewIsModal={true}>
           <View style={modalStyles.header}>
             <Text style={[modalStyles.title, { color: theme.textStrong }]}>
               {isEdit ? 'Edit Medication' : 'Add Medication'}

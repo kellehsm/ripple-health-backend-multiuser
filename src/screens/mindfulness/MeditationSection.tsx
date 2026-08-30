@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { View, Text, Pressable } from "react-native";
+import { Animated, View, Text, Pressable } from "react-native";
 import * as Haptics from "expo-haptics";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
@@ -251,6 +251,17 @@ export function MeditationSection({ theme, ink, onBack }: { theme: any; ink: str
   const done = duration !== null && remaining === 0 && !running;
   const inGrace = gracePendingDuration !== null;
 
+  // ── Done view spring entrance ──────────────────────────────────────────────
+  const doneAnim = useRef(new Animated.Value(0)).current;
+  const prevDoneRef = useRef(false);
+  useEffect(function () {
+    if (done && !prevDoneRef.current) {
+      doneAnim.setValue(0);
+      Animated.spring(doneAnim, { toValue: 1, tension: 80, friction: 10, useNativeDriver: true }).start();
+    }
+    prevDoneRef.current = done;
+  }, [done]);
+
   return (
     <>
       <Pressable
@@ -334,7 +345,7 @@ export function MeditationSection({ theme, ink, onBack }: { theme: any; ink: str
         <>
           <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 10 }}>Choose a session type.</Text>
           <Pressable onPress={() => setMode("guided")} accessibilityRole="button">
-            <ShadowCard size="card" bg={(theme.purple as any)?.tint} accent={(theme.purple as any)?.solid} rotate={-0.4}>
+            <ShadowCard size="card" bg={(theme.purple as any)?.tint} accent={(theme.purple as any)?.solid}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
                 <ThemedIcon slot="ui.music" size={32} />
                 <View style={{ flex: 1 }}>
@@ -346,7 +357,7 @@ export function MeditationSection({ theme, ink, onBack }: { theme: any; ink: str
             </ShadowCard>
           </Pressable>
           <Pressable onPress={() => setMode("unguided")} accessibilityRole="button">
-            <ShadowCard size="card" bg={(theme.purple as any)?.tint} accent={(theme.purple as any)?.solid} rotate={0.4}>
+            <ShadowCard size="card" bg={(theme.purple as any)?.tint} accent={(theme.purple as any)?.solid}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
                 <ThemedIcon slot="ui.mute" size={32} />
                 <View style={{ flex: 1 }}>
@@ -387,7 +398,11 @@ export function MeditationSection({ theme, ink, onBack }: { theme: any; ink: str
           </View>
         </>
       ) : done ? (
-        <View style={{ alignItems: "center", gap: 16, paddingVertical: 24 }}>
+        <Animated.View style={{
+          alignItems: "center", gap: 16, paddingVertical: 24,
+          opacity: doneAnim,
+          transform: [{ scale: doneAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }],
+        }}>
           <ThemedIcon slot="ui.celebrate" size={48} />
           <Text style={{ color: theme.textStrong, fontSize: 20, fontWeight: "900" }}>Session complete</Text>
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>{duration} min · {mode === "guided" ? "Guided" : "Unguided"}</Text>
@@ -398,7 +413,7 @@ export function MeditationSection({ theme, ink, onBack }: { theme: any; ink: str
           >
             <Text style={{ color: ink, fontSize: 13, fontWeight: "800" }}>DONE</Text>
           </Pressable>
-        </View>
+        </Animated.View>
       ) : (
         <View style={{ alignItems: "center", gap: 20, paddingVertical: 16 }}>
           <Text style={{ color: theme.textSoft, fontSize: 13 }}>{duration} min · {mode === "guided" ? "Guided" : "Unguided"}</Text>

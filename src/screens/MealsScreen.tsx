@@ -34,6 +34,7 @@ import { FoodReportModal } from "./meals/FoodReportModal";
 import { BarcodeScannerModal } from "../components/BarcodeScannerModal";
 import { PhotoScannerModal } from "../components/PhotoScannerModal";
 import { invalidateBarcodeCache } from "../utils/barcodeCache";
+import { invalidateCache } from "../utils/staleCache";
 import { RecipeBuilderModal, Recipe } from "../components/RecipeBuilderModal";
 import { toast } from "../lib/toast";
 import { UndoBanner } from "../components/UndoBanner";
@@ -50,7 +51,7 @@ import {
   type SubstanceTotals,
 } from "../types/substances";
 import { type MacroValues } from "../components/MacroEditForm";
-import { formatDateLocal } from "../utils/dateUtils";
+import { formatDateLocal, todayStr } from "../utils/dateUtils";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -135,6 +136,15 @@ export function MealsScreen() {
   const chipScales = useRef<Map<string, Animated.Value>>(new Map());
   const recipeScales = useRef<Map<string, Animated.Value>>(new Map());
   const [hiddenFrequent, setHiddenFrequent] = useState<Set<string>>(new Set());
+  const macroScale = useRef(new Animated.Value(1)).current;
+
+  function triggerMacroScaleBounce() {
+    macroScale.setValue(1);
+    Animated.sequence([
+      Animated.timing(macroScale, { toValue: 1.08, duration: 120, useNativeDriver: true }),
+      Animated.timing(macroScale, { toValue: 1.0,  duration: 100, useNativeDriver: true }),
+    ]).start();
+  }
 
   const MEALS_TOUR: TourStep[] = [
     { ref: tourLogRef,     title: "Log a Meal",   body: "Search thousands of foods, scan a barcode, or pick from your saved usuals. Tap a meal type first to categorise it." },
@@ -348,6 +358,7 @@ export function MealsScreen() {
       })
       .catch(function (e: Error) {
         if (seq !== foodSearchSeqRef.current) return;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         setSearchError(e.message || "Food search failed");
       })
       .finally(function () {
@@ -387,7 +398,9 @@ export function MealsScreen() {
       toast(successCount === foods.length
         ? "Logged " + successCount + " item" + (successCount === 1 ? "" : "s")
         : "Logged " + successCount + " of " + foods.length + " — some failed");
+      invalidateCache(`overview:main:${todayStr()}`);
       loadMeals();
+      triggerMacroScaleBounce();
     } else {
       toast("Couldn't log those items. Try again.", "error");
     }
@@ -517,7 +530,9 @@ export function MealsScreen() {
           return;
         }
         toast(drink.name + " logged.");
+        invalidateCache(`overview:main:${todayStr()}`);
         loadMeals();
+        triggerMacroScaleBounce();
       })
       .catch(function () { toast("Couldn't log that drink. Try again.", "error"); });
   }
@@ -556,7 +571,9 @@ export function MealsScreen() {
           return;
         }
         toast("Meal logged.");
+        invalidateCache(`overview:main:${todayStr()}`);
         loadMeals();
+        triggerMacroScaleBounce();
       })
       .catch(function () { toast("Couldn't log that recipe. Try again.", "error"); });
   }
@@ -633,6 +650,7 @@ export function MealsScreen() {
           return;
         }
         toast("Meal logged.");
+        invalidateCache(`overview:main:${todayStr()}`);
         setTimeout(function () {
           Alert.alert(
             "Add another?",
@@ -644,11 +662,12 @@ export function MealsScreen() {
           );
         }, 250);
         loadMeals();
+        triggerMacroScaleBounce();
         const h = new Date().getHours();
         const periodKey = h >= 4 && h < 11 ? "breakfast" : h >= 11 && h < 15 ? "lunch" : h >= 17 && h < 23 ? "dinner" : null;
         if (periodKey) notifee.cancelNotification(`meal-reminder-${periodKey}`).catch(() => {});
       })
-      .catch(function () { setSearchError("Your meal wasn't saved. Try again — nothing was lost."); });
+      .catch(function () { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); setSearchError("Your meal wasn't saved. Try again — nothing was lost."); });
   }
 
   function handleOpenEdit(meal: Meal) {
@@ -891,13 +910,15 @@ export function MealsScreen() {
       </View>
 
       {totals !== null && (
-        <MacrosSummary
-          theme={theme}
-          totals={totals}
-          foodReport={foodReport}
-          cardTitleStyle={styles.cardTitle}
-          onOpenFoodReport={function () { setShowFoodReport(true); }}
-        />
+        <Animated.View style={{ transform: [{ scale: macroScale }] }}>
+          <MacrosSummary
+            theme={theme}
+            totals={totals}
+            foodReport={foodReport}
+            cardTitleStyle={styles.cardTitle}
+            onOpenFoodReport={function () { setShowFoodReport(true); }}
+          />
+        </Animated.View>
       )}
 
       <LogMealCard

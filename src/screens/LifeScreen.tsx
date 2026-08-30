@@ -6,6 +6,7 @@ import { FeatureIntroSheet } from "../components/FeatureIntroSheet";
 import { useFeatureIntro } from "../onboarding/useFeatureIntro";
 import { findIntro } from "../onboarding/featureIntros";
 import {
+  Animated,
   ScrollView,
   View,
   Text,
@@ -52,6 +53,7 @@ import { ScreenBackground } from "../components/ScreenBackground";
 import { Swipeable } from "react-native-gesture-handler";
 import { getCached, setCached, invalidateCache } from "../utils/staleCache";
 import { getLeaderboard, LeaderboardEntry } from "../api/friends";
+import { avatarColor } from "../utils/avatarColor";
 
 const LIFE_SECTIONS: SectionDef[] = [
   { id: 'books',       label: 'Books & Reading', description: 'Currently reading list and book search' },
@@ -134,11 +136,6 @@ type Progress = {
   percent_complete: number | null;
 };
 
-function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
-  const p = [{ bg: theme.teal.tint, fg: theme.teal.fg }, { bg: theme.purple.tint, fg: theme.purple.fg }, { bg: (theme as any).amber?.tint ?? '#FEF3C7', fg: (theme as any).amber?.fg ?? '#92400E' }];
-  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) & 0xffff;
-  return p[h % p.length];
-}
 
 function LifeEmptyState({ onPress }: { onPress: () => void }) {
   const { theme } = useTheme();
@@ -250,6 +247,32 @@ export function LifeScreen() {
   const [completedCount, setCompletedCount] = useState(0);
   const [friendReading, setFriendReading] = useState<{display_name: string; user_id: string; description: string; occurred_at: string; id?: string}[]>([]);
   const [hobbyLeaderboard, setHobbyLeaderboard] = useState<LeaderboardEntry[]>([]);
+
+  // ── Stagger entrance animations ────────────────────────────────────────────
+  const bookAnims = useRef<Animated.Value[]>([]);
+  const hobbyAnims = useRef<Animated.Value[]>([]);
+
+  useEffect(function () {
+    if (loadingBooks || books.length === 0) return;
+    if (bookAnims.current.length !== books.length) {
+      bookAnims.current = books.map(function () { return new Animated.Value(0); });
+    }
+    bookAnims.current.forEach(function (v) { v.setValue(0); });
+    Animated.stagger(40, bookAnims.current.map(function (v) {
+      return Animated.timing(v, { toValue: 1, duration: 280, useNativeDriver: true });
+    })).start();
+  }, [loadingBooks, books.length]);
+
+  useEffect(function () {
+    if (loadingHobbies || hobbies.length === 0) return;
+    if (hobbyAnims.current.length !== hobbies.length) {
+      hobbyAnims.current = hobbies.map(function () { return new Animated.Value(0); });
+    }
+    hobbyAnims.current.forEach(function (v) { v.setValue(0); });
+    Animated.stagger(40, hobbyAnims.current.map(function (v) {
+      return Animated.timing(v, { toValue: 1, duration: 280, useNativeDriver: true });
+    })).start();
+  }, [loadingHobbies, hobbies.length]);
 
   type UndoInfo =
     | { type: "book"; data: Book; timer: ReturnType<typeof setTimeout> }
@@ -733,14 +756,19 @@ export function LifeScreen() {
           </Pressable>
         </View>
       ) : (
-        books.map((book) => {
+        books.map((book, bookIdx) => {
           const prog = progress[book.id];
           const pagesTotal = prog?.pages_read_total ?? 0;
           const totalPages = prog?.total_pages ?? null;
           const pct = prog?.percent_complete ?? null;
+          const bookAnim = bookAnims.current[bookIdx] ?? new Animated.Value(1);
 
           return (
-            <ShadowCard key={book.id} bg={theme.coral.tint}>
+            <Animated.View key={book.id} style={{
+              opacity: bookAnim,
+              transform: [{ translateY: bookAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+            }}>
+            <ShadowCard bg={theme.coral.tint}>
               <View style={styles.bookRow}>
                 {book.cover_url ? (
                   <Image source={{ uri: book.cover_url }} style={styles.coverThumb} />
@@ -815,6 +843,7 @@ export function LifeScreen() {
                 </View>
               </View>
             </ShadowCard>
+            </Animated.View>
           );
         })
       )}
@@ -856,7 +885,7 @@ export function LifeScreen() {
       {/* Hobbies section — add form + individual cards */}
       {!hiddenSections.includes('hobbies') && (<>
       <View ref={tourHobbiesRef}>
-      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} rotate={-0.4} cardId="hobbies_card">
+      <ShadowCard size="card" bg={theme.coral.tint} accent={theme.coral.solid} cardId="hobbies_card">
         <Text style={[styles.cardTitle, { color: theme.textStrong }]}>Hobbies</Text>
         <View style={styles.searchRow}>
           <TextInput
@@ -924,11 +953,15 @@ export function LifeScreen() {
       ) : hobbies.length === 0 ? (
         <LifeEmptyState onPress={() => hobbyInputRef.current?.focus()} />
       ) : (
-        hobbies.map(function (hobby) {
+        hobbies.map(function (hobby, hobbyIdx) {
           const stats = hobbyStats[hobby.id];
+          const hobbyAnim = hobbyAnims.current[hobbyIdx] ?? new Animated.Value(1);
           return (
+            <Animated.View key={hobby.id} style={{
+              opacity: hobbyAnim,
+              transform: [{ translateY: hobbyAnim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+            }}>
             <Swipeable
-              key={hobby.id}
               ref={(r) => { hobbySwipeableRefs.current[hobby.id] = r; }}
               renderRightActions={() => (
                 <Pressable
@@ -1019,6 +1052,7 @@ export function LifeScreen() {
               </View>
             </View>
             </Swipeable>
+            </Animated.View>
           );
         })
       )}

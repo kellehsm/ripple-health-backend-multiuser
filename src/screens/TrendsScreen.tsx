@@ -67,7 +67,7 @@ function splitAvg(xs: number[], ys: number[]): [number | null, number | null] {
 
 function ScatterPlot({
   xs, ys, dotColor, lineColor, xLabel, yLabel,
-}: { xs: number[]; ys: number[]; dotColor: string; lineColor: string; xLabel?: string; yLabel?: string }) {
+}: { xs: number[]; ys: number[]; dotColor: string; lineColor: string; xLabel?: string; yLabel?: string; }) {
   const xMin = Math.min(...xs), xMax = Math.max(...xs);
   const yMin = Math.min(...ys), yMax = Math.max(...ys);
   if (xMax - xMin < 0.001 || yMax - yMin < 0.001) return null;
@@ -139,22 +139,31 @@ function ScatterPlot({
             <Line x1={scrub.cx} y1={PAD} x2={scrub.cx} y2={PAD + H} stroke={dotColor} strokeWidth={1.5} opacity={0.6} strokeDasharray="3,3" />
             <Circle cx={scrub.cx} cy={py(scrub.yv)} r={6} fill={dotColor} opacity={1} />
             <Rect
-              x={Math.min(scrub.cx + 6, CHART_W - 86)}
+              x={Math.min(scrub.cx + 6, CHART_W - 90)}
               y={labelY - 12}
-              width={80}
-              height={22}
+              width={84}
+              height={32}
               rx={5}
               fill={dotColor}
               opacity={0.9}
             />
             <SvgText
-              x={Math.min(scrub.cx + 10, CHART_W - 82)}
+              x={Math.min(scrub.cx + 10, CHART_W - 86)}
               y={labelY + 3}
-              fontSize={10}
+              fontSize={9}
               fill="#fff"
               fontWeight="700"
             >
-              {scrub.xv.toFixed(1)} → {scrub.yv.toFixed(1)}
+              {xLabel ? `${xLabel}: ` : ""}{scrub.xv.toFixed(1)}
+            </SvgText>
+            <SvgText
+              x={Math.min(scrub.cx + 10, CHART_W - 86)}
+              y={labelY + 14}
+              fontSize={9}
+              fill="#fff"
+              fontWeight="700"
+            >
+              {yLabel ? `${yLabel}: ` : ""}{scrub.yv.toFixed(1)}
             </SvgText>
           </>
         )}
@@ -197,9 +206,10 @@ type CardProps = {
   dotColor: string;
   lineColor: string;
   theme: any;
+  windowDays?: number;
 };
 
-function CorrCard({ title, xLabel, yLabel, xs, ys, insight, dotColor, lineColor, theme }: CardProps) {
+function CorrCard({ title, xLabel, yLabel, xs, ys, insight, dotColor, lineColor, theme, windowDays }: CardProps) {
   const s = useMemo(() => makeStyles(theme.ink, theme.card), [theme.ink, theme.card]);
   // Filter out any NaN / null that slipped through
   const clean: [number, number][] = [];
@@ -214,7 +224,12 @@ function CorrCard({ title, xLabel, yLabel, xs, ys, insight, dotColor, lineColor,
   return (
     <ShadowCard size="card" accent={dotColor}>
       <View style={s.cardHead}>
-        <Text style={[s.cardTitle, { color: theme.textStrong }]}>{title}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.cardTitle, { color: theme.textStrong }]}>{title}</Text>
+          {windowDays != null && (
+            <Text style={[s.cardSubtitle, { color: theme.textSoft }]}>{windowDays}-day window</Text>
+          )}
+        </View>
         {!isNaN(r) && (
           <DefinedTerm term="pearson_r">
             <View style={[s.badge, { backgroundColor: badge.bg }]}>
@@ -236,7 +251,7 @@ function CorrCard({ title, xLabel, yLabel, xs, ys, insight, dotColor, lineColor,
             <Text style={[s.axisLbl, { color: theme.textSoft }]}>{xLabel} →</Text>
             <Text style={[s.axisLbl, { color: theme.textSoft }]}>↑ {yLabel}</Text>
           </View>
-          <ScatterPlot xs={cxs} ys={cys} dotColor={dotColor} lineColor={lineColor} />
+          <ScatterPlot xs={cxs} ys={cys} dotColor={dotColor} lineColor={lineColor} xLabel={xLabel} yLabel={yLabel} />
           <Text style={[s.insight, { color: theme.textSoft }]}>{insight}</Text>
         </>
       )}
@@ -339,6 +354,7 @@ export function TrendsScreen() {
   const [days, setDays] = useState(30);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rows, setRows] = useState<DayRow[]>([]);
   const [showTooltip, setShowTooltip] = useState(false);
   const [ctxObs, setCtxObs] = useState<CtxObs[]>([]);
@@ -358,6 +374,7 @@ export function TrendsScreen() {
 
   const load = useCallback(async (n: number, isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
+    setLoadError(null);
     try {
       const end = new Date().toISOString().slice(0, 10);
       const start = new Date(Date.now() - (n - 1) * 86400000).toISOString().slice(0, 10);
@@ -410,6 +427,7 @@ export function TrendsScreen() {
       setCtxObs(obs);
     } catch (e) {
       if (__DEV__) console.error("TrendsScreen load error", e);
+      setLoadError("Couldn't load trend data. Check your connection and try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -481,7 +499,20 @@ export function TrendsScreen() {
         <Text style={[s.periodNote, { color: theme.textSoft }]}>window</Text>
       </View>
 
-      {loading ? (
+      {!loading && loadError ? (
+        <View style={s.empty}>
+          <ThemedIcon slot="ui.chart" size={32} style={{ marginBottom: 12 } as any} />
+          <Text style={[s.emptyTxt, { color: theme.textStrong, fontWeight: "800" }]}>Couldn't load trend data</Text>
+          <Text style={[s.emptyTxt, { color: theme.textSoft, fontSize: 13 }]}>Check your connection and try again.</Text>
+          <Pressable
+            onPress={() => load(days)}
+            accessibilityRole="button"
+            style={{ marginTop: 12, borderWidth: 2, borderColor: theme.ink, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 24, backgroundColor: theme.teal.solid }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "900", letterSpacing: 0.5 }}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : loading ? (
         <TrendsSkeleton />
       ) : rows.length === 0 ? (
         <View style={s.empty}>
@@ -502,6 +533,7 @@ export function TrendsScreen() {
             lineColor={theme.amber.sub}
             insight={insightMood(smXs, smYs, "More sleep", "less sleep")}
             theme={theme}
+            windowDays={days}
           />
 
           <CorrCard
@@ -514,6 +546,7 @@ export function TrendsScreen() {
             lineColor={theme.purple.sub}
             insight={insightMood(spXs, spYs, "Higher-spend days", "lower-spend days")}
             theme={theme}
+            windowDays={days}
           />
 
           {gmRows.length >= 3 && (
@@ -527,6 +560,7 @@ export function TrendsScreen() {
               lineColor={theme.berry.sub}
               insight={insightMood(gmXs, gmYs, "Higher-glucose days", "lower-glucose days")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -541,6 +575,7 @@ export function TrendsScreen() {
               lineColor={theme.teal.sub}
               insight={insightMetric(sgXs, sgYs, "more sleep", "less sleep", "Avg glucose")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -555,6 +590,7 @@ export function TrendsScreen() {
               lineColor={theme.coral.sub}
               insight={insightMetric(cgXs, cgYs, "higher-caffeine days", "lower-caffeine days", "Avg glucose")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -569,6 +605,7 @@ export function TrendsScreen() {
               lineColor={theme.purple.solid}
               insight={insightMetric(asXs, asYs, "drinking days", "non-drinking days", "Sleep hours")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -583,6 +620,7 @@ export function TrendsScreen() {
               lineColor={theme.coral.sub}
               insight={insightMood(cmXs, cmYs, "Higher-caffeine days", "lower-caffeine days")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -597,6 +635,7 @@ export function TrendsScreen() {
               lineColor={theme.teal.sub}
               insight={insightMood(stmXs, stmYs, "Higher-step days", "lower-step days")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -611,6 +650,7 @@ export function TrendsScreen() {
               lineColor={theme.coral.sub}
               insight={insightMood(exmXs, exmYs, "Days you exercised", "rest days")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -625,6 +665,7 @@ export function TrendsScreen() {
               lineColor={theme.amber.sub}
               insight={insightMetric(stsXs, stsYs, "higher-step days", "lower-step days", "Sleep")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -639,6 +680,7 @@ export function TrendsScreen() {
               lineColor={theme.purple.sub}
               insight={insightMetric(exsXs, exsYs, "days you exercised", "rest days", "Sleep")}
               theme={theme}
+              windowDays={days}
             />
           )}
 
@@ -738,7 +780,7 @@ export function TrendsScreen() {
                       <Text style={[s.axisLbl, { color: theme.textSoft }]}>{xOpt.label} ({xOpt.unit}) →</Text>
                       <Text style={[s.axisLbl, { color: theme.textSoft }]}>↑ {yOpt.label} ({yOpt.unit})</Text>
                     </View>
-                    <ScatterPlot xs={cxs} ys={cys} dotColor={dotColor} lineColor={dotColor} />
+                    <ScatterPlot xs={cxs} ys={cys} dotColor={dotColor} lineColor={dotColor} xLabel={xOpt.label} yLabel={yOpt.label} />
                     <Text style={[s.insight, { color: theme.textSoft, marginTop: 6 }]}>
                       {insightMetric(cxs, cys, `higher ${xOpt.label.toLowerCase()} days`, `lower ${xOpt.label.toLowerCase()} days`, yOpt.label)}
                     </Text>

@@ -33,7 +33,7 @@ Ripple Wellness is an Expo React Native app (TypeScript) backed by a Fastify/Pos
 | 21 | Search | `search.ts` | GlobalSearch |
 | 22 | Demo Mode | `auth.ts` | Login |
 | 23 | Admin | `admin.ts` | *(no screen — API only)* |
-| 24 | Settings & Preferences | `settings.ts`, `tab-preferences.ts`, `experiments.ts`, `hints.ts`, `programs.ts`, `media.ts` | Settings and sub-screens |
+| 24 | Settings & Preferences | `settings.ts`, `tab-preferences.ts`, `hints.ts`, `media.ts`, `error-reports.ts` | Settings, 15 sub-screens, HelpScreen |
 | 25 | Offline Sync Queue | `sync.ts` | *(no dedicated screen — mobile utility)* |
 
 ---
@@ -63,7 +63,7 @@ Ripple Wellness is an Expo React Native app (TypeScript) backed by a Fastify/Pos
 
 ## 2. Overview / Dashboard
 
-**What it does:** Single-round-trip batch endpoint (`/api/dashboard`) aggregates ~15 sub-calls for the Overview screen. `summary.ts` provides streak counts, weekly/monthly digests, pattern detection, "what changed", and AI-generated monthly narratives.
+**What it does:** Single-round-trip batch endpoint (`/api/dashboard`) aggregates ~15 sub-calls for the Overview screen. `summary.ts` provides streak counts, weekly/monthly digests, pattern detection, "what changed", and AI-generated monthly narratives. The Overview screen includes a **Wellness Score Card** (animated ring with sparkline history), a **Fasting Timer Card** (start/stop timer; notification labels at 12h/16h/24h shown in UI; scheduling recently shipped), a **Quick Log Sheet** (bottom sheet for logging water, mood, steps, glucose, meals, or sleep from the metric chips row), milestone banners (triggered by streak achievements), and a **What's New modal** accessible manually from Settings (auto-trigger on app update recently shipped).
 
 **Screens:** `src/screens/OverviewScreen.tsx`, `src/screens/HistoryScreen.tsx`, `src/screens/MonthlyRecapScreen.tsx`, `src/screens/TrendsScreen.tsx`, `src/screens/InsightsTrendsScreen.tsx`
 
@@ -221,7 +221,9 @@ Key routes: `GET /api/medications`, `POST /api/medications`, `GET /api/medicatio
 
 **What it does:** Step counts synced from Health Connect. Exercise library + session logging with set/rep/weight entries, progressive overload tracking, and a Workout Setup Wizard that generates a personalized program. Includes AI-suggested next workout.
 
-**Screens:** `src/screens/ExerciseScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/ExerciseSessionScreen.tsx`, `src/screens/WorkoutSetupWizard.tsx`, `src/screens/StepsDetailScreen.tsx` — steps detail now shows This week / Last week / Month-to-date / Daily avg panels; the Day by Day list ends with a weekly Total row (this week vs last week with diff). HealthScreen step chip shows the current week total.
+**Screens:** `src/screens/ExerciseScreen.tsx`, `src/screens/ExerciseDetailScreen.tsx`, `src/screens/ExerciseSessionScreen.tsx`, `src/screens/WorkoutSetupWizard.tsx`, `src/screens/CustomPlanBuilderScreen.tsx`, `src/screens/StepsDetailScreen.tsx`
+
+**Custom Plan Builder** (`CustomPlanBuilderScreen.tsx`, route `"CustomPlanBuilder"`): lets users manually build a multi-day workout program from scratch — add/remove days, set a focus label per day, pick exercises from the library, and configure sets/reps/weight. Saves the program via the programs API. — steps detail now shows This week / Last week / Month-to-date / Daily avg panels; the Day by Day list ends with a weekly Total row (this week vs last week with diff). HealthScreen step chip shows the current week total.
 
 **API:** `exercise.ts` (12 routes), `programs.ts` (11 routes), `health-connect.ts` (`/steps` GET+POST)
 
@@ -300,9 +302,9 @@ Key routes: `POST /api/plaid/create-link-token`, `POST /api/plaid/exchange-token
 
 ## 12. Mindfulness
 
-**What it does:** Log mindfulness sessions (meditation, body scan, gratitude, soundscapes). Provides cumulative stats and a journal view of past sessions. Guided body-scan and soundscape sections exist in the UI.
+**What it does:** Log mindfulness sessions (meditation, body scan, gratitude, soundscapes). Provides cumulative stats and a journal view of past sessions. Seven guided sections: breathing exercises, grounding techniques, guided meditation, gratitude prompts, journaling, body scan, and soundscapes.
 
-**Screens:** `src/screens/MindfulnessScreen.tsx`, `src/screens/mindfulness/BodyScanSection.tsx`, `src/screens/mindfulness/GratitudeHistory.tsx`, `src/screens/mindfulness/SoundscapesSection.tsx`, `src/screens/mindfulness/StatsHero.tsx`
+**Screens:** `src/screens/MindfulnessScreen.tsx`, `src/screens/mindfulness/BreathingSection.tsx`, `src/screens/mindfulness/GroundingSection.tsx`, `src/screens/mindfulness/MeditationSection.tsx`, `src/screens/mindfulness/GratitudeSection.tsx`, `src/screens/mindfulness/JournalSection.tsx`, `src/screens/mindfulness/BodyScanSection.tsx`, `src/screens/mindfulness/SoundscapesSection.tsx`, `src/screens/mindfulness/GratitudeHistory.tsx`, `src/screens/mindfulness/StatsHero.tsx`
 
 **HealthScreen entry point:** the full-width mindfulness bar is back (restored 2026-08-24, above the chip grid) and the MIND chip is gone. The five remaining MetricChips are laid out 3-over-2: glucose/steps/sleep on top, water/heart centered beneath so each sits under a gap of the top row (`src/screens/health/MetricChipRow.tsx`).
 
@@ -315,7 +317,7 @@ Key routes: `POST /api/plaid/create-link-token`, `POST /api/plaid/exchange-token
 
 **Data:** `daily_summary` JSONB (mindfulness fields) — no dedicated table confirmed in schema
 
-**Status:** Shipped (partial — soundscapes UI is native audio; guided content may be static)
+**Status:** Shipped (soundscapes UI is native audio; content fetched dynamically from `api.mediaList()` — not static)
 
 ---
 
@@ -442,10 +444,10 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 | GET | `/api/export/all` | `export.ts` |
 | GET | `/api/export/weekly-digest.pdf` | `export.ts` |
 | GET | `/api/export/trends.csv` | `export.ts` |
-| GET | `/api/google-drive/status` | `google-drive.ts` |
-| POST | `/api/google-drive/backup` | `google-drive.ts` |
-| POST | `/api/google-drive/restore` | `google-drive.ts` |
-| GET | `/api/google-drive/list-backups` | `google-drive.ts` |
+| GET | `/api/settings/google-drive/status` | `google-drive.ts` |
+| POST | `/api/settings/google-drive/backup` | `google-drive.ts` |
+| POST | `/api/settings/google-drive/restore` | `google-drive.ts` |
+| GET | `/api/settings/google-drive/list-backups` | `google-drive.ts` |
 
 **External deps:** Google Drive API, pdfkit (or similar PDF lib)
 
@@ -523,7 +525,27 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 
 **What it does:** User settings stored in `users.settings` JSONB. Tab preferences (which tabs are visible, order). Feature hints dismissed tracking. Media uploads (profile images, card image splitter). Error reporting. Customizable dashboard blocks.
 
-**Screens:** `src/screens/SettingsScreen.tsx`, `src/screens/TabPreferencesScreen.tsx`, `src/screens/CustomizeDashboardScreen.tsx`, `src/screens/CardImageSplitterScreen.tsx`, `src/screens/settings/` (11 sub-screens including `FeatureGuideScreen.tsx`)
+**Screens:** `src/screens/SettingsScreen.tsx`, `src/screens/TabPreferencesScreen.tsx`, `src/screens/CustomizeDashboardScreen.tsx`, `src/screens/CardImageSplitterScreen.tsx`, `src/screens/HelpScreen.tsx`, `src/screens/settings/` (15 sub-screens listed below)
+
+**Settings sub-screens:**
+| Screen | Route | What it does |
+|--------|-------|-------------|
+| `AppearanceSettingsScreen.tsx` | `"SettingsAppearance"` | **Theme Studio** — select color palettes, theme families, adjust card opacity/glass blur |
+| `SecuritySettingsScreen.tsx` | `"SettingsSecurity"` | **App Lock** — toggle biometric unlock (fingerprint / face ID); requires auth after 5 min background |
+| `NotificationsSettingsScreen.tsx` | `"SettingsNotifications"` | Smart notification toggles per category, health notification toggles, mute-until controls, weekly recap nudge |
+| `TrackingSettingsScreen.tsx` | `"SettingsTracking"` | **Always-on tracking** — Android foreground service that keeps Health Connect sync alive continuously |
+| `PreferencesSettingsScreen.tsx` | `"SettingsPreferences"` | Week start day (per-section: finance, exercise, steps, etc.) |
+| `SocialSettingsScreen.tsx` | `"SettingsSocial"` | Friend sharing preferences and social notification opt-ins |
+| `FeatureGuideScreen.tsx` | `"SettingsFeatureGuide"` | Guided walkthroughs of app features |
+| `HealthConnectSettingsScreen.tsx` | `"SettingsHealthConnect"` | Grant/revoke Health Connect permissions; Samsung Health setup card |
+| `DexcomSettingsScreen.tsx` | `"SettingsDexcom"` | Dexcom Share credential setup |
+| `MedicationRemindersScreen.tsx` | `"MedicationReminders"` | Medication dose reminders |
+| `ExportBackupSettingsScreen.tsx` | `"SettingsExportBackup"` | Export & backup (see section 19) |
+| `BanksSettingsScreen.tsx` | `"SettingsBanks"` | Connected Plaid bank accounts |
+| `HardcoverSettingsScreen.tsx` | `"SettingsHardcover"` | Hardcover API token setup |
+| `WeatherLocationSettingsScreen.tsx` | `"SettingsWeatherLocation"` | Set lat/lon for weather sync |
+
+**Help & FAQ** (`src/screens/HelpScreen.tsx`, route `"Help"`): collapsible FAQ sections covering all major feature areas.
 
 **Feature Guide subscreen:** Feature Guide entries have been moved out of SettingsScreen into a dedicated subscreen `src/screens/settings/FeatureGuideScreen.tsx` (route `"SettingsFeatureGuide"`). SettingsScreen now shows a single "Feature Guide" row that navigates to it.
 
@@ -534,10 +556,10 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 |--------|------|------|
 | GET/PUT | `/api/settings` | `settings.ts` |
 | PATCH | `/api/settings/...` | `settings.ts` |
-| GET/PUT | `/api/tab-preferences` | `tab-preferences.ts` |
+| GET/PUT | `/api/user/tab-preferences` | `tab-preferences.ts` |
 | GET/POST | `/api/hints/:key` | `hints.ts` |
 | POST | `/api/media/upload` | `media.ts` |
-| POST | `/api/error-reports` | `error-reports.ts` |
+| POST | `/api/errors` | `error-reports.ts` |
 
 **Data:** `users.settings` JSONB, `feature_hints_dismissed`, `media_assets` (migration 035)
 
@@ -565,7 +587,7 @@ Key routes: `GET /api/insights`, `POST /api/insights/:id/feedback`, `POST /api/i
 Items carried forward from `FEATURE_IDEAS.md` that are **not** yet shipped:
 
 ### Health Intelligence
-- **Sleep debt counter** — running tally of sleep hours owed vs. baseline *(recovery-outlook debt line now on sleep card — full counter TBD)*
+- **Sleep debt counter** — ✅ shipped (`SleepDetailScreen.tsx`): rolling 7-day sleep debt bar graph, deficit hours, color-coded by severity (green < 2h, yellow < 5h, red ≥ 5h), empty state when no data
 - **Heart rate zones** — ✅ shipped (time-in-zones on HeartRateDetailScreen)
 - **Resting HR trend chart** — ✅ shipped (30-day trend + 7-day rolling avg on HeartRateDetailScreen)
 - **Glucose variability index** — coefficient of variation alongside average
@@ -576,7 +598,7 @@ Items carried forward from `FEATURE_IDEAS.md` that are **not** yet shipped:
 
 ### Meals
 - **Quick-log from history** — one-tap repeat of a recent meal
-- **Fasting timer** — widget button, milestone notifications at 12h/16h/24h
+- *(Fasting timer — ✅ shipped; `FastingTimerCard` on Overview; milestone notification labels (12h/16h/24h) shown in UI; notification scheduling recently shipped — see section 2)*
 - **Meal photo log** — attach photo to entry; gallery in history
 - **Net carb toggle** — total carbs minus fiber display option
 - **Calorie goal with macro split** — daily target + progress ring

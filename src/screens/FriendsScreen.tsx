@@ -55,6 +55,7 @@ import {
 } from "../api/friends";
 import { api } from "../api/client";
 import { todayStr } from "../utils/dateUtils";
+import { avatarColor } from "../utils/avatarColor";
 
 type FriendActivity = {
   id: string;
@@ -80,20 +81,6 @@ function timeAgo(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return `${days}d ago`;
-}
-
-// --- Improvement 1: Colored initials avatars ---
-function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
-  const colors = [
-    { bg: theme.teal.tint, fg: theme.teal.fg },
-    { bg: theme.purple.tint, fg: theme.purple.fg },
-    { bg: (theme as any).amber?.tint ?? '#FEF3C7', fg: (theme as any).amber?.fg ?? '#92400E' },
-    { bg: (theme as any).coral?.tint ?? '#FFF0F0', fg: (theme as any).coral?.solid ?? '#C0392B' },
-    { bg: theme.blue?.tint ?? '#EFF6FF', fg: theme.blue?.fg ?? '#1E40AF' },
-  ];
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) & 0xffff;
-  return colors[hash % colors.length];
 }
 
 function getInitial(friend: Friend): string {
@@ -542,9 +529,7 @@ export function FriendsScreen() {
         {username && !editingUsername ? (
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.caption, fontWeight: "700", letterSpacing: 0.4, marginBottom: 4 }}>
-                YOUR USERNAME
-              </Text>
+              <SectionLabel text="Your Username" style={{ marginBottom: 4 }} />
               <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.heading, fontWeight: "800", lineHeight: 24 }}>
                 @{username}
               </Text>

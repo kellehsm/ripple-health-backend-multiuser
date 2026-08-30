@@ -107,6 +107,17 @@ export function SettingsScreen() {
       if (!v) { setBackupNudge(true); return; }
       setBackupNudge((Date.now() - parseInt(v)) / 86400000 > 30);
     }).catch(() => {});
+    // Auto-show What's New when app version changes
+    const currentVersion = Constants.expoConfig?.version ?? null;
+    if (currentVersion) {
+      AsyncStorage.getItem("whats_new_last_version").then(lastVersion => {
+        if (cancelled) return;
+        if (lastVersion !== currentVersion) {
+          setShowWhatsNew(true);
+          AsyncStorage.setItem("whats_new_last_version", currentVersion).catch(() => {});
+        }
+      }).catch(() => {});
+    }
     return () => { cancelled = true; };
   }, []));
 
@@ -215,7 +226,7 @@ export function SettingsScreen() {
       )}
 
       {/* Appearance */}
-      {matches("Theme", "Appearance", "Customize Tabs", "Tabs", "bottom bar", "colour", "color", "Watch", "Wear", "tiles") && (
+      {matches("Theme", "Appearance", "Customize Tabs", "Tabs", "bottom bar", "colour", "color") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>APPEARANCE</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -228,18 +239,26 @@ export function SettingsScreen() {
             {matches("Customize Tabs", "Tabs", "bottom bar") && (
               <MenuRow title="Customize Tabs" subtitle="Choose which tabs appear in the bottom bar" onPress={() => nav("SettingsCustomizeTabs")} theme={theme} />
             )}
-            {matches("Customize Tabs", "Tabs", "bottom bar") && matches("Watch", "Wear", "tiles") && (
-              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-            )}
-            {matches("Watch", "Wear", "tiles") && (
-              <MenuRow title="Watch Tiles (preview)" subtitle="Wear OS tile concepts — glance, log & breathe" onPress={() => nav("WatchTiles")} theme={theme} />
-            )}
-            {matches("Watch", "Wear", "tiles") && matches("Ask", "chat", "data", "AI", "assistant") && (
-              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
-            )}
-            {matches("Ask", "chat", "data", "AI", "assistant") && (
-              <MenuRow title="Ask My Data" subtitle="Chat with an assistant about your tracked metrics" onPress={() => nav("Chat")} theme={theme} />
-            )}
+          </View>
+        </>
+      )}
+
+      {/* AI & Insights */}
+      {matches("Ask", "chat", "data", "AI", "assistant", "insights") && (
+        <>
+          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>AI & INSIGHTS</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <MenuRow title="Ask My Data" subtitle="Chat with an assistant about your tracked metrics" onPress={() => nav("Chat")} theme={theme} />
+          </View>
+        </>
+      )}
+
+      {/* Integrations */}
+      {matches("Watch", "Wear", "tiles", "Integrations", "wearable", "widget") && (
+        <>
+          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>INTEGRATIONS</Text>
+          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            <MenuRow title="Watch Tiles (preview)" subtitle="Wear OS tile concepts — glance, log & breathe" onPress={() => nav("WatchTiles")} theme={theme} />
           </View>
         </>
       )}
@@ -357,8 +376,8 @@ export function SettingsScreen() {
         </>
       )}
 
-      {/* Notifications */}
-      {matches("Notifications", "reminders", "mute", "schedules", "Always-on Tracking", "background sync", "persistent") && (
+      {/* Notifications (includes Quiet Mode) */}
+      {matches("Notifications", "reminders", "mute", "quiet", "silence", "do not disturb", "schedules", "Always-on Tracking", "background sync", "persistent") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>NOTIFICATIONS</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -372,39 +391,39 @@ export function SettingsScreen() {
               <MenuRow title="Always-on Tracking" subtitle="Persistent notification & background sync" onPress={() => nav("SettingsTracking")} theme={theme} />
             )}
           </View>
-        </>
-      )}
 
-      {/* Quiet Mode */}
-      {(!searching || matches("Quiet mode", "quiet", "mute", "silence", "do not disturb")) && (
-        <>
-          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>QUIET MODE</Text>
-          {muteUntil !== null && (
-            <Pressable
-              onPress={handleClearMute}
-              style={[styles.quietBanner, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}
-            >
-              <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700", flex: 1 }}>
-                Quiet mode active until {fmtMuteTime(muteUntil)} — Tap to cancel
-              </Text>
-              <Ionicons name="close" size={16} color={theme.teal.fg} />
-            </Pressable>
+          {/* Quiet Mode — nested inside Notifications */}
+          {(!searching || matches("Quiet mode", "quiet", "mute", "silence", "do not disturb")) && (
+            <>
+              <Text style={[styles.groupLabel, { color: theme.textSoft, marginTop: 8 }]}>QUIET MODE</Text>
+              {muteUntil !== null && (
+                <Pressable
+                  onPress={handleClearMute}
+                  style={[styles.quietBanner, { backgroundColor: theme.teal.tint, borderColor: theme.teal.solid }]}
+                >
+                  <Text style={{ color: theme.teal.fg, fontSize: 13, fontWeight: "700", flex: 1 }}>
+                    Quiet mode active until {fmtMuteTime(muteUntil)} — Tap to cancel
+                  </Text>
+                  <Ionicons name="close" size={16} color={theme.teal.fg} />
+                </Pressable>
+              )}
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {QUIET_PRESETS.map((preset) => (
+                  <Pressable
+                    key={preset.id}
+                    onPress={() => void handlePreset(preset)}
+                    style={[styles.quietPreset, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
+                  >
+                    <Text style={{ fontSize: 22 }}>{preset.emoji}</Text>
+                    <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", marginTop: 4 }}>{preset.label}</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "600", marginTop: 2, textAlign: "center" }}>
+                      {preset.id === 'meeting' ? "1 hour · Silent" : preset.id === 'cinema' ? "2.5 hrs · Silent" : "Custom · Vibrate only"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
           )}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            {QUIET_PRESETS.map((preset) => (
-              <Pressable
-                key={preset.id}
-                onPress={() => void handlePreset(preset)}
-                style={[styles.quietPreset, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}
-              >
-                <Text style={{ fontSize: 22 }}>{preset.emoji}</Text>
-                <Text style={{ color: theme.textStrong, fontSize: 13, fontWeight: "700", marginTop: 4 }}>{preset.label}</Text>
-                <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: "600", marginTop: 2, textAlign: "center" }}>
-                  {preset.id === 'meeting' ? "1 hour · Silent" : preset.id === 'cinema' ? "2.5 hrs · Silent" : "Custom · Vibrate only"}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
         </>
       )}
 
@@ -464,26 +483,22 @@ export function SettingsScreen() {
         </>
       )}
 
-      {/* Feature Guide */}
-      {matches("Feature Guide", "onboarding", "walkthrough", "learn", "tour") && (
-        <>
-          <Text style={[styles.groupLabel, { color: theme.textSoft }]}>FEATURE GUIDE</Text>
-          <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <MenuRow
-              title="Feature Guide"
-              subtitle="Interactive tours for every Ripple feature"
-              onPress={() => nav("SettingsFeatureGuide")}
-              theme={theme}
-            />
-          </View>
-        </>
-      )}
-
-      {/* Help */}
-      {matches("Help", "FAQ", "bug", "Report a Bug", "Contact", "developer", "email") && (
+      {/* Help (includes Feature Guide) */}
+      {matches("Help", "FAQ", "bug", "Report a Bug", "Contact", "developer", "email", "Feature Guide", "onboarding", "walkthrough", "learn", "tour") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>HELP</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
+            {matches("Feature Guide", "onboarding", "walkthrough", "learn", "tour") && (
+              <MenuRow
+                title="Feature Guide"
+                subtitle="Interactive tours for every Ripple feature"
+                onPress={() => nav("SettingsFeatureGuide")}
+                theme={theme}
+              />
+            )}
+            {matches("Feature Guide", "onboarding", "walkthrough", "learn", "tour") && matches("Help", "FAQ") && (
+              <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+            )}
             {matches("Help", "FAQ") && (
               <MenuRow title="Help & FAQ" onPress={() => nav("Help")} theme={theme} />
             )}

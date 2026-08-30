@@ -9,6 +9,7 @@ import { onSolid } from "../../theme/colorUtils";
 import { api } from "../../api/client";
 import { requestHealthPermissions, syncHealthData, resetHCInitialized } from "../../lib/healthConnect";
 import { startForegroundService, stopForegroundService, isForegroundServiceRunning } from "../../lib/foregroundService";
+import { ScreenBackground } from "../../components/ScreenBackground";
 
 type HCSettings = {
   auto_sync_enabled?: boolean;
@@ -190,7 +191,9 @@ export function HealthConnectSettingsScreen() {
   }
 
   return (
-    <ScrollView style={{ backgroundColor: theme.page }} contentContainerStyle={styles.content}>
+    <View style={{ flex: 1, backgroundColor: theme.page }}>
+      <ScreenBackground pageId="settings_health_connect" />
+    <ScrollView style={{ backgroundColor: "transparent" }} contentContainerStyle={styles.content}>
 
       <Text style={[styles.groupLabel, { color: theme.textSoft }]}>PERMISSIONS</Text>
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -342,6 +345,7 @@ export function HealthConnectSettingsScreen() {
         )}
       </View>
     </ScrollView>
+    </View>
   );
 }
 

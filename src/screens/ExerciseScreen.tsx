@@ -28,6 +28,7 @@ import { getCached, setCached, invalidateCache } from '../utils/staleCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { UndoBanner } from '../components/UndoBanner';
 import { getChallenges, getLeaderboard, Challenge, LeaderboardEntry } from '../api/friends';
+import { avatarColor } from '../utils/avatarColor';
 
 interface DetectedWorkout {
   start: string;
@@ -261,15 +262,6 @@ function ExerciseEmptyState({ onPress }: { onPress: () => void }) {
   );
 }
 
-function avatarColor(seed: string, theme: any): { bg: string; fg: string } {
-  const palettes = [
-    { bg: theme.teal.tint, fg: theme.teal.fg },
-    { bg: theme.purple.tint, fg: theme.purple.fg },
-    { bg: (theme as any).amber?.tint ?? '#FEF3C7', fg: (theme as any).amber?.fg ?? '#92400E' },
-  ];
-  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) & 0xffff;
-  return palettes[h % palettes.length];
-}
 
 export function ExerciseScreen() {
   const { theme } = useTheme();

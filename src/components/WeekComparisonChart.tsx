@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, Dimensions } from "react-native";
+import { Animated, Dimensions, Text, View } from "react-native";
 import { isReducedMotion } from "../lib/motion";
 import Svg, { G, Rect, Text as SvgText, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 
@@ -103,6 +103,17 @@ export const WeekComparisonChart = React.memo(function WeekComparisonChart({ day
 
   const thisWeekTotal = days.reduce((s, d) => s + (d.is_future ? 0 : d.this_total), 0);
   const lastWeekTotal = days.reduce((s, d) => s + d.last_total, 0);
+
+  const allZero = days.every((d) => d.this_total === 0) && days.every((d) => d.last_total === 0);
+  if (allZero) {
+    return (
+      <View style={{ width: chartW, height: CHART_H, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: textColor, fontSize: 13, opacity: 0.5, textAlign: "center" }}>
+          No data yet for this week
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <Svg

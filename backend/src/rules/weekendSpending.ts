@@ -12,10 +12,10 @@ export const WeekendSpendingRule: InsightRule = {
       `SELECT
          logged_at::date AS date,
          SUM(amount) AS total,
-         EXTRACT(DOW FROM logged_at) AS dow
+         EXTRACT(DOW FROM logged_at AT TIME ZONE 'America/New_York') AS dow
        FROM spending_entries
        WHERE user_id = $1 AND logged_at >= CURRENT_DATE - ${LOOKBACK_DAYS}
-       GROUP BY logged_at::date, EXTRACT(DOW FROM logged_at)
+       GROUP BY logged_at::date, EXTRACT(DOW FROM logged_at AT TIME ZONE 'America/New_York')
        ORDER BY date DESC`,
       [userId]
     );

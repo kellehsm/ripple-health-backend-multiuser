@@ -16,6 +16,9 @@ import { ExerciseSearchModal } from '../components/ExerciseSearchModal';
 import { PlanExercise } from '../components/WorkoutPlannerModal';
 import { fireRestTimerDone } from '../lib/smartNotifications';
 import { ScreenBackground } from '../components/ScreenBackground';
+import { SectionLabel } from '../components/SectionLabel';
+import { EmptyState } from '../components/EmptyState';
+import { ConfettiBurst } from '../components/ConfettiBurst';
 
 const IMAGE_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/';
 
@@ -293,6 +296,7 @@ export function ExerciseSessionScreen() {
   const [celebrating, setCelebrating] = useState(false);
   const [celebStats, setCelebStats] = useState<{ exercises: number; sets: number; duration: string; peakHR: number | null } | null>(null);
   const celebOpacity = useRef(new Animated.Value(0)).current;
+  const [celebBurstKey, setCelebBurstKey] = useState(0);
 
   const loadSession = useCallback(async () => {
     try {
@@ -522,8 +526,9 @@ export function ExerciseSessionScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             celebOpacity.setValue(0);
             Animated.timing(celebOpacity, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+            setCelebBurstKey(k => k + 1);
             setTimeout(() => {
-              Animated.timing(celebOpacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+              Animated.timing(celebOpacity, { toValue: 0, duration: 450, useNativeDriver: true }).start(() => {
                 setCelebrating(false);
                 navigation.replace('ExerciseDetail', { sessionId });
               });
@@ -551,6 +556,7 @@ export function ExerciseSessionScreen() {
   if (celebrating && celebStats) {
     return (
       <Animated.View style={[styles.celebContainer, { backgroundColor: theme.teal.tint, opacity: celebOpacity }]}>
+        <ConfettiBurst burstKey={celebBurstKey} />
         <ThemedIcon slot="ui.gym" size={64} style={styles.celebEmoji as any} />
         <Text style={[styles.celebTitle, { color: theme.teal.sub }]}>Workout complete!</Text>
         <View style={styles.celebStats}>
@@ -610,7 +616,7 @@ export function ExerciseSessionScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
             {suggestedEndedAt ? (
               <View>
-                <Text style={[styles.timerLabel, { color: theme.textSoft, marginBottom: 4 }]}>SESSION DURATION</Text>
+                <SectionLabel text="Session Duration" style={{ marginBottom: 4 }} />
                 <DurationPicker
                   hours={retroHours}
                   minutes={retroMins}
@@ -623,7 +629,7 @@ export function ExerciseSessionScreen() {
               </View>
             ) : (
             <View>
-              <Text style={[styles.timerLabel, { color: theme.textSoft }]} allowFontScaling maxFontSizeMultiplier={1.3}>SESSION TIME</Text>
+              <SectionLabel text="Session Time" />
               <Text style={[styles.timer, { color: ink }]} allowFontScaling maxFontSizeMultiplier={1.2} accessibilityLabel={`Session time ${elapsed}`}>{elapsed}</Text>
             </View>
             )}
@@ -632,7 +638,7 @@ export function ExerciseSessionScreen() {
                 style={{ paddingBottom: 4 }}
                 accessibilityLabel={`Heart rate ${liveHR} beats per minute${peakHR ? `, peak ${peakHR}` : ""}`}
               >
-                <Text style={[styles.timerLabel, { color: theme.textSoft }]}>HEART RATE</Text>
+                <SectionLabel text="Heart Rate" />
                 <Text style={[styles.liveHRBig, { color: theme.coral.solid }]} allowFontScaling maxFontSizeMultiplier={1.3}>
                   ♥ {liveHR} <Text style={{ fontSize: 14 }}>bpm</Text>
                 </Text>
@@ -642,7 +648,7 @@ export function ExerciseSessionScreen() {
               </View>
             ) : hrHintVisible ? (
               <View style={{ paddingBottom: 4, maxWidth: 180 }} accessibilityLabel="No live heart rate available. Enable Health Connect to see live BPM.">
-                <Text style={[styles.timerLabel, { color: theme.textSoft }]}>HEART RATE</Text>
+                <SectionLabel text="Heart Rate" />
                 <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>
                   Not syncing — enable Health Connect for live BPM
                 </Text>
@@ -797,7 +803,7 @@ export function ExerciseSessionScreen() {
         {/* Planned exercises section */}
         {planned.length > 0 && (
           <>
-            <Text style={[styles.sectionLabel, { color: theme.textSoft }]}>YOUR PLAN</Text>
+            <SectionLabel text="Your Plan" />
             {planned.map((ex, i) => (
               <Pressable
                 key={`${ex.id}-${i}`}
@@ -832,7 +838,7 @@ export function ExerciseSessionScreen() {
         ) : entries.length > 0 ? (
           <>
             {planned.length > 0 && (
-              <Text style={[styles.sectionLabel, { color: theme.textSoft, marginTop: 4 }]}>LOGGED</Text>
+              <SectionLabel text="Logged" style={{ marginTop: 4 }} />
             )}
             <Text style={{ color: theme.textSoft, fontSize: 11, marginBottom: 2, textAlign: "right" }}>Hold a set to delete</Text>
             {entries.map((entry) => (
@@ -864,11 +870,11 @@ export function ExerciseSessionScreen() {
             ))}
           </>
         ) : planned.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: theme.textSoft }]}>
-              Tap "+ Add exercise" below to log your first set.
-            </Text>
-          </View>
+          <EmptyState
+            icon="🏋️"
+            title="No exercises yet"
+            subtitle="Tap + to log your first set."
+          />
         ) : null}
       </ScrollView>
 
