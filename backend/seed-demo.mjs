@@ -17,9 +17,9 @@ const q = (sql, params) => pool.query(sql, params);
 
 const USER_ID = "c51b97ef-10fc-4369-873a-972b657bcfcf";
 
-// 3.5 months ending today (Aug 9 2026)
+// ~4.5 months ending today (Aug 31 2026)
 const START = new Date("2026-04-22T00:00:00-05:00");
-const END   = new Date("2026-08-09T23:59:00-05:00");
+const END   = new Date("2026-08-31T23:59:00-05:00");
 
 function rand(min, max) { return Math.random() * (max - min) + min; }
 function randInt(min, max) { return Math.round(rand(min, max)); }
@@ -101,7 +101,8 @@ const bookList = [
   { title: "The Power of Now", author: "Eckhart Tolle", total_pages: 236, started_at: "2026-04-29", finished_at: "2026-05-18", status: "finished", rating: 4 },
   { title: "Deep Work", author: "Cal Newport", total_pages: 296, started_at: "2026-05-19", finished_at: "2026-06-10", status: "finished", rating: 4 },
   { title: "Why We Sleep", author: "Matthew Walker", total_pages: 368, started_at: "2026-06-11", finished_at: "2026-07-02", status: "finished", rating: 5 },
-  { title: "Outlive", author: "Peter Attia", total_pages: 496, started_at: "2026-07-03", finished_at: null, status: "reading", rating: null },
+  { title: "Outlive", author: "Peter Attia", total_pages: 496, started_at: "2026-07-03", finished_at: "2026-08-01", status: "finished", rating: 5 },
+  { title: "The Comfort Crisis", author: "Michael Easter", total_pages: 352, started_at: "2026-08-02", finished_at: null, status: "reading", rating: null },
 ];
 
 const bookIds = [];
