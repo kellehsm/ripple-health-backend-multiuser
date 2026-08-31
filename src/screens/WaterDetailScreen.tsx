@@ -26,6 +26,9 @@ import {
   AccessibilityInfo,
 } from "react-native";
 import Svg, { Path, Ellipse, ClipPath, Rect, Defs, G } from "react-native-svg";
+
+const AnimatedRect    = Animated.createAnimatedComponent(Rect);
+const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTheme } from "../theme/ThemeContext";
 import { api } from "../api/client";
@@ -96,10 +99,15 @@ function HeroDroplet({
   const targetPct = goal > 0 ? Math.min(1, count / goal) : 0;
 
   // ── Animated fill level ────────────────────────────────────────────────────
-  // react-native-svg can't accept Animated.Value on SVG props, so we run a JS
-  // addListener and sync the animated value into React state that SVG reads.
+  // AnimatedRect accepts Animated.Value directly — no addListener needed.
   const fillAnim = useRef(new Animated.Value(targetPct)).current;
-  const [fillY, setFillY] = useState(() => INNER_TOP + INNER_H * (1 - targetPct));
+
+  // Interpolated y position: pct 0 → bottom of fill area; pct 1 → top
+  const fillY = fillAnim.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [INNER_TOP + INNER_H, INNER_TOP],
+    extrapolate: "clamp",
+  });
 
   const prevCount = useRef(count);
   const prevGoal  = useRef(goal);
@@ -115,12 +123,10 @@ function HeroDroplet({
 
     if (reduceMotion) {
       fillAnim.setValue(targetPct);
-      setFillY(INNER_TOP + INNER_H * (1 - targetPct));
       return;
     }
 
     if (countChanged && count > 0) {
-      // Spring with natural overshoot when a glass is logged
       Animated.spring(fillAnim, {
         toValue: targetPct,
         tension: 50,
@@ -129,7 +135,6 @@ function HeroDroplet({
         useNativeDriver: false,
       }).start();
     } else {
-      // Smooth ease-out for goal changes / removals
       Animated.timing(fillAnim, {
         toValue: targetPct,
         duration: 400,
@@ -138,14 +143,6 @@ function HeroDroplet({
       }).start();
     }
   }, [count, goal, targetPct, reduceMotion]);
-
-  // Sync Animated.Value → state so SVG Rect reads it each frame
-  useEffect(() => {
-    const id = fillAnim.addListener(({ value }) => {
-      setFillY(INNER_TOP + INNER_H * (1 - Math.min(1, Math.max(0, value))));
-    });
-    return () => fillAnim.removeListener(id);
-  }, [fillAnim]);
 
   // ── Scale-bounce wrapper on every +glass ──────────────────────────────────
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -185,31 +182,28 @@ function HeroDroplet({
     wasAtGoal.current = atGoal;
   }, [count, goal]);
 
-  // ── Oscillating wave surface (cx synced via listener) ─────────────────────
+  // ── Oscillating wave surface — AnimatedEllipse accepts Animated.Value directly
   const waveAnim = useRef(new Animated.Value(0)).current;
   const waveLoop = useRef<Animated.CompositeAnimation | null>(null);
-  const [waveCx, setWaveCx] = useState(70);
+
+  // Simple back-and-forth (0→1→0) gives a smooth left/right oscillation
+  const waveCx = waveAnim.interpolate({
+    inputRange:  [0, 1],
+    outputRange: [56, 84],
+    extrapolate: "clamp",
+  });
 
   useEffect(() => {
     if (reduceMotion) { waveAnim.setValue(0); return; }
     waveLoop.current = Animated.loop(
-      Animated.timing(waveAnim, {
-        toValue: 1,
-        duration: 2400,
-        useNativeDriver: false,
-        easing: Easing.linear,
-      })
+      Animated.sequence([
+        Animated.timing(waveAnim, { toValue: 1, duration: 1200, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
+        Animated.timing(waveAnim, { toValue: 0, duration: 1200, useNativeDriver: false, easing: Easing.inOut(Easing.sin) }),
+      ])
     );
     waveLoop.current.start();
     return () => waveLoop.current?.stop();
   }, [reduceMotion]);
-
-  useEffect(() => {
-    const id = waveAnim.addListener(({ value }) => {
-      setWaveCx(70 + Math.sin(value * Math.PI * 2) * 14);
-    });
-    return () => waveAnim.removeListener(id);
-  }, [waveAnim]);
 
   const showWave = !reduceMotion && targetPct > 0 && targetPct < 1;
 
@@ -244,14 +238,14 @@ function HeroDroplet({
           <Rect x={0} y={0} width={DROP_W} height={DROP_H} fill={color} opacity={0.10} />
         </G>
 
-        {/* Animated liquid fill — y position updated each frame via state */}
+        {/* Animated liquid fill — AnimatedRect accepts Animated.Value on y */}
         {targetPct > 0 && (
           <G clipPath="url(#heroDropClip)">
-            <Rect
+            <AnimatedRect
               x={0}
               y={fillY}
               width={DROP_W}
-              height={DROP_H - fillY + 10}
+              height={DROP_H + 10}
               fill={color}
               opacity={0.82}
             />
@@ -261,7 +255,7 @@ function HeroDroplet({
         {/* Wave surface ellipse oscillates horizontally */}
         {showWave && (
           <G clipPath="url(#heroDropClip)">
-            <Ellipse
+            <AnimatedEllipse
               cx={waveCx}
               cy={fillY}
               rx={48}
