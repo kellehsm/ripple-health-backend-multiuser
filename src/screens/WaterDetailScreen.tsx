@@ -240,32 +240,30 @@ function HeroDroplet({
           <Rect x={0} y={0} width={DROP_W} height={DROP_H} fill={color} opacity={0.10} />
         </G>
 
-        {/* Animated liquid fill — AnimatedRect accepts Animated.Value on y */}
+        {/* Animated liquid fill — clipPath applied directly (G clipPath doesn't apply to animated children) */}
         {targetPct > 0 && (
-          <G clipPath="url(#heroDropClip)">
-            <AnimatedRect
-              x={0}
-              y={fillY}
-              width={DROP_W}
-              height={DROP_H + 10}
-              fill={color}
-              opacity={0.82}
-            />
-          </G>
+          <AnimatedRect
+            clipPath="url(#heroDropClip)"
+            x={0}
+            y={fillY}
+            width={DROP_W}
+            height={DROP_H + 10}
+            fill={color}
+            opacity={0.82}
+          />
         )}
 
         {/* Wave surface ellipse oscillates horizontally */}
         {showWave && (
-          <G clipPath="url(#heroDropClip)">
-            <AnimatedEllipse
-              cx={waveCx}
-              cy={fillY}
-              rx={48}
-              ry={7}
-              fill={color}
-              opacity={0.40}
-            />
-          </G>
+          <AnimatedEllipse
+            clipPath="url(#heroDropClip)"
+            cx={waveCx}
+            cy={fillY}
+            rx={48}
+            ry={7}
+            fill={color}
+            opacity={0.40}
+          />
         )}
 
         {/* Droplet outline on top */}
