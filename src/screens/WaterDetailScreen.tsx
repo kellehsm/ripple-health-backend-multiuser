@@ -76,12 +76,14 @@ const DROP_W = 140;
 const DROP_H = 190;
 
 // SVG droplet path — rounded teardrop, pointed top at (70,10), base centred at (70,140)
+// True teardrop: pointed tip at (70,8), rounded belly centred at (70,128) r=52
+// Left cubic curves the body out naturally; right side mirrors it.
 const DROPLET_PATH =
-  "M70 10 C70 10 20 70 20 115 a50 50 0 0 0 100 0 C120 70 70 10 70 10 Z";
+  "M70 8 C 45 40, 18 80, 18 128 A 52 52 0 0 0 122 128 C 122 80, 95 40, 70 8 Z";
 
 // Inner fill extents within the 140×190 viewBox
-const INNER_TOP = 42;   // y-coord of the fill rect top when 100% full
-const INNER_H   = 133;  // total fillable span (y=42 → y=175)
+const INNER_TOP = 30;   // y-coord of the fill rect top when 100% full
+const INNER_H   = 148;  // total fillable span (y=30 → y=178)
 
 function HeroDroplet({
   count,
