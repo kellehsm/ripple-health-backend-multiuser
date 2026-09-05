@@ -239,6 +239,8 @@ Convention for async errors: screens use `try/catch` + local state for user-visi
 
 Builds run **locally on the user's machine**, not on EAS servers — but Claude may run them **when the user asks**. `eas.json` still exists (profiles: development/preview/production, autoIncrement on preview+production); since builds are local, `app.json android.versionCode` is authoritative.
 
+**Production build format:** `eas.json` production profile uses `buildType: "aab"` (Android App Bundle) — required by Google Play Store for new app submissions. Preview profile remains `"apk"` for sideloading during testing.
+
 Current: `app.json version: "1.5.0"`, `versionCode: 22`. Bundle IDs: `com.kellehs.wellness` (iOS + Android).
 
 ### Build policy (enforce strictly)

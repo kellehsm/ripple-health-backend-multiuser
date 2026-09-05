@@ -56,6 +56,7 @@ import friendsRoutes from "./routes/friends.js";
 import challengesRoutes from "./routes/challenges.js";
 import socialNotificationsRoutes from "./routes/social-notifications.js";
 import hardcoverRoutes from "./routes/hardcover.js";
+import privacyRoute from "./routes/privacy.js";
 import { requireAuth, rateLimitKey } from "./middleware/auth.js";
 import { createDownloadToken } from "./lib/downloadTokens.js";
 import { backupToGoogleDrive } from "./jobs/google-drive-backup.js";
@@ -102,7 +103,7 @@ app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, 
 });
 
 // Routes that don't need authentication (auth itself + OAuth callbacks)
-const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google", "/api/plaid/webhook", "/api/medications/import/template", "/admin/media"];
+const PUBLIC_PREFIXES = ["/health", "/api/auth", "/auth/dexcom", "/auth/google", "/api/plaid/webhook", "/api/medications/import/template", "/admin/media", "/privacy"];
 
 function isPublic(url: string): boolean {
   return PUBLIC_PREFIXES.some((p) => url === p || url.startsWith(p + "/") || url.startsWith(p + "?"));
@@ -217,6 +218,9 @@ async function main() {
   await app.register(challengesRoutes, { prefix: "/api/challenges" });
   await app.register(socialNotificationsRoutes, { prefix: "/api/social-notifications" });
   await app.register(hardcoverRoutes, { prefix: "/api/hardcover" });
+
+  // Public legal pages — no auth required
+  await app.register(privacyRoute, { prefix: "/privacy" });
 
   // Mints a short-lived (5 min), single-use token for URL-based downloads (?dl=...).
   // Keeps the long-lived JWT out of URLs, browser history, and server access logs.
