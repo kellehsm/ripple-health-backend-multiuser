@@ -45,6 +45,7 @@
 | Prefix | File | Purpose |
 |--------|------|---------|
 | `GET /health` | server.ts | Liveness probe — returns `{ ok: true }` |
+| `GET /privacy` | routes/privacy.ts | Public Privacy Policy HTML page (no auth required) — linked from Play Store and in-app |
 | `GET /admin/media` | server.ts / admin/media-admin.html | Static single-page media management tool |
 | `/api/auth` | routes/auth.ts | Register, login, logout, change password, widget token |
 | `/api/admin` | routes/admin.ts | Admin-only operations (ADMIN_SECRET required) |

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TextInput,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   useWindowDimensions
 } from "react-native";
@@ -124,6 +125,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
   const [dexcomNeedsAccountId, setDexcomNeedsAccountId] = useState(false);
   const [dexcomConnecting, setDexcomConnecting] = useState(false);
   const [batteryRestricted, setBatteryRestricted] = useState<boolean | null>(null);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
 
   function advance() {
     if (step === "walkthrough") setStep("theme");
@@ -133,7 +135,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     else if (step === "drive") { setDriveError(null); setStep("dexcom"); }
     else if (step === "dexcom") { setDexcomError(null); setStep("notifications"); }
     else if (step === "notifications") setStep("battery");
-    else onComplete();
+    else setShowDisclaimer(true);
   }
 
   function nextPage() {
@@ -1033,6 +1035,40 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
         </Pressable>
       </View>
     </View>
+
+    <Modal visible={showDisclaimer} transparent animationType="fade">
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", alignItems: "center", padding: 24 }}>
+        <View style={{ backgroundColor: theme.card, borderRadius: 26, borderWidth: 2, borderColor: ink, padding: 24, gap: 14, maxWidth: 420, width: "100%" }}>
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.title, fontWeight: "900", letterSpacing: -0.5 }}>
+            Before you start
+          </Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase" }}>
+            Health disclaimer
+          </Text>
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, lineHeight: 22 }}>
+            Ripple is a personal wellness tracking tool, not a medical device or diagnostic service.
+          </Text>
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, lineHeight: 22 }}>
+            Insights and correlations shown in the app are based on patterns in your own data only — they are observations, never diagnoses or medical advice.
+          </Text>
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, lineHeight: 22 }}>
+            Always consult a qualified healthcare professional before making any health decisions based on tracked metrics.
+          </Text>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, fontWeight: "700", letterSpacing: 0.6, textTransform: "uppercase", marginTop: 4 }}>
+            Privacy
+          </Text>
+          <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, lineHeight: 22 }}>
+            Your data is stored on your own server and is never sold to third parties. Review our Privacy Policy at any time in Settings.
+          </Text>
+          <Pressable
+            onPress={() => { setShowDisclaimer(false); onComplete(); }}
+            style={{ backgroundColor: theme.teal.solid, borderRadius: 20, borderWidth: 2, borderColor: ink, paddingVertical: 14, alignItems: "center", marginTop: 4 }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: FONT_SIZES.subheading }}>I Understand — Let's go</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
     </KeyboardAvoidingView>
   );
 }

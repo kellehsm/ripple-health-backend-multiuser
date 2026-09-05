@@ -484,7 +484,7 @@ export function SettingsScreen() {
       )}
 
       {/* Help (includes Feature Guide) */}
-      {matches("Help", "FAQ", "bug", "Report a Bug", "Contact", "developer", "email", "Feature Guide", "onboarding", "walkthrough", "learn", "tour") && (
+      {matches("Help", "FAQ", "bug", "Report a Bug", "Contact", "developer", "email", "Feature Guide", "onboarding", "walkthrough", "learn", "tour", "Privacy Policy", "privacy", "terms") && (
         <>
           <Text style={[styles.groupLabel, { color: theme.textSoft }]}>HELP</Text>
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
@@ -535,6 +535,17 @@ export function SettingsScreen() {
                 onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=Ripple Wellness`)}
                 theme={theme}
               />
+            )}
+            {matches("Privacy Policy", "privacy", "terms", "legal") && (
+              <>
+                <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
+                <MenuRow
+                  title="Privacy Policy"
+                  subtitle="How Ripple handles your data"
+                  onPress={() => void Linking.openURL("https://app.kels.gg/privacy")}
+                  theme={theme}
+                />
+              </>
             )}
             {matches("What's new", "changelog", "release notes", "version") && (
               <>
