@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, View, Text, Pressable, Switch, StyleSheet, Alert, Linking, TextInput } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
@@ -86,21 +86,41 @@ export function SettingsScreen() {
   const [backupNudge, setBackupNudge] = useState(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [syncStatusFailed, setSyncStatusFailed] = useState(false);
+  const [syncStatusTimedOut, setSyncStatusTimedOut] = useState(false);
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [journeyError, setJourneyError] = useState(false);
 
   // Cancel legacy expo-notifications on every Settings open
   useFocusEffect(useCallback(() => {
     let cancelled = false;
     Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
     setJourneyLoading(true);
+    setJourneyError(false);
     api.journey()
-      .then((j) => { if (!cancelled) setJourney(j); })
-      .catch(() => {})
+      .then((j) => { if (!cancelled) { setJourney(j); setJourneyError(false); } })
+      .catch(() => { if (!cancelled) setJourneyError(true); })
       .finally(() => { if (!cancelled) setJourneyLoading(false); });
     getMuteUntil().then((v) => { if (!cancelled) setMuteUntil(v); }).catch(() => {});
     setSyncStatusFailed(false);
+    setSyncStatusTimedOut(false);
+    setSyncStatus(null);
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    syncTimeoutRef.current = setTimeout(() => {
+      if (!cancelled) setSyncStatusTimedOut(true);
+    }, 10000);
     api.syncStatus()
-      .then((s: any) => { if (!cancelled) setSyncStatus(s); })
-      .catch(() => { if (!cancelled) { setSyncStatus(null); setSyncStatusFailed(true); } });
+      .then((s: any) => {
+        if (!cancelled) {
+          setSyncStatus(s);
+          if (syncTimeoutRef.current) { clearTimeout(syncTimeoutRef.current); syncTimeoutRef.current = null; }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSyncStatus(null); setSyncStatusFailed(true);
+          if (syncTimeoutRef.current) { clearTimeout(syncTimeoutRef.current); syncTimeoutRef.current = null; }
+        }
+      });
     AsyncStorage.getItem("fasting_timer_enabled").then((v) => { if (!cancelled) setFastingEnabled(v === "1"); }).catch(() => {});
     AsyncStorage.getItem("last_json_backup").then(v => {
       if (cancelled) return;
@@ -118,7 +138,10 @@ export function SettingsScreen() {
         }
       }).catch(() => {});
     }
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (syncTimeoutRef.current) { clearTimeout(syncTimeoutRef.current); syncTimeoutRef.current = null; }
+    };
   }, []));
 
   async function handleFastingToggle(value: boolean) {
@@ -201,6 +224,20 @@ export function SettingsScreen() {
           <View style={[styles.journeyCard, { backgroundColor: theme.teal.tint, borderColor: theme.ink }]}>
             <LoadingIndicator size="small" color={theme.teal.fg} />
           </View>
+        ) : journeyError ? (
+          <Pressable
+            onPress={() => {
+              setJourneyLoading(true);
+              setJourneyError(false);
+              api.journey()
+                .then((j) => { setJourney(j); setJourneyError(false); })
+                .catch(() => setJourneyError(true))
+                .finally(() => setJourneyLoading(false));
+            }}
+            style={[styles.journeyCard, { backgroundColor: theme.teal.tint, borderColor: theme.ink, alignItems: "center", justifyContent: "center" }]}
+          >
+            <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, textAlign: "center" }}>Couldn't load — tap to retry</Text>
+          </Pressable>
         ) : journey ? (
           <View style={[styles.journeyCard, { backgroundColor: theme.teal.tint, borderColor: theme.ink }]}>
             <Text style={[styles.journeyTitle, { color: theme.teal.fg }]}>Your journey so far</Text>
@@ -270,6 +307,8 @@ export function SettingsScreen() {
           <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.cardBorder, paddingHorizontal: 14, paddingVertical: 4 }]}>
             {syncStatusFailed ? (
               <StatusRow label="Backend" detail="unreachable" tone="err" theme={theme} />
+            ) : syncStatusTimedOut ? (
+              <StatusRow label="Backend" detail="Sync status unavailable" tone="err" theme={theme} />
             ) : !syncStatus ? (
               <StatusRow label="Backend" detail="checking…" tone="warn" theme={theme} />
             ) : (
@@ -370,7 +409,7 @@ export function SettingsScreen() {
               <View style={[styles.divider, { backgroundColor: theme.cardBorder }]} />
             )}
             {matches("Import Medications", "CSV", "medication") && (
-              <MenuRow title="Import Medications from CSV" onPress={() => nav("MedicationImport")} theme={theme} />
+              <MenuRow title="Import Medications from CSV" subtitle="Add medications from a spreadsheet export" onPress={() => nav("MedicationImport")} theme={theme} />
             )}
           </View>
         </>
@@ -580,6 +619,26 @@ export function SettingsScreen() {
             />
           </View>
         </>
+      )}
+      {searching && !matches("Theme", "Appearance", "Customize Tabs", "Tabs", "bottom bar", "colour", "color")
+        && !matches("Ask", "chat", "data", "AI", "assistant", "insights")
+        && !matches("Watch", "Wear", "tiles", "Integrations", "wearable", "widget")
+        && !matches("System status", "status", "sync", "backend", "server", "online", "Dexcom", "Health Connect")
+        && !matches("Data Sources", "Health Connect", "Sync", "permissions", "Dexcom", "CGM", "Connected Banks", "Plaid", "transactions", "Hardcover", "books", "reading", "Weather", "location", "weather data", "rain")
+        && !matches("Health", "Fasting Timer", "fasting", "Medication Reminders", "Import Medications", "CSV")
+        && !matches("Notifications", "reminders", "mute", "quiet", "silence", "do not disturb", "schedules", "Always-on Tracking", "background sync", "persistent")
+        && !matches("Security", "App Lock", "Biometric", "unlock")
+        && !matches("Preferences", "Week start", "home screen", "start day")
+        && !matches("Friend Sharing", "friends", "social", "notifications", "sharing")
+        && !matches("History", "log", "past", "entries")
+        && !matches("Export", "Backup", "PDF", "JSON", "Google Drive", "report")
+        && !matches("Help", "FAQ", "bug", "Report a Bug", "Contact", "developer", "email", "Feature Guide", "onboarding", "walkthrough", "learn", "tour", "Privacy Policy", "privacy", "terms")
+        && !matches("Account", "Sign out", "logout", "sign in") && (
+        <View style={{ alignItems: "center", paddingTop: 32 }}>
+          <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.body, textAlign: "center" }}>
+            No results for "{search}"
+          </Text>
+        </View>
       )}
       {showWhatsNew && (
         <WhatsNewModal entry={CHANGELOG[0] ?? null} onClose={() => setShowWhatsNew(false)} />

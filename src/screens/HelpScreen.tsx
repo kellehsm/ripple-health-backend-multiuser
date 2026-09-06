@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ScrollView, View, Text, Pressable, StyleSheet } from "react-native";
+import { ScrollView, View, Text, Pressable, StyleSheet, LayoutAnimation, Linking } from "react-native";
 import { ScreenBackground } from "../components/ScreenBackground";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -121,6 +121,7 @@ export function HelpScreen() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   function toggle(key: string) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
@@ -171,6 +172,12 @@ export function HelpScreen() {
           </View>
         </View>
       ))}
+      <View style={{ alignItems: "center", paddingVertical: 24, flexDirection: "row", justifyContent: "center", flexWrap: "wrap" }}>
+        <Text style={[styles.intro, { color: theme.textSoft, marginBottom: 0 }]}>Still need help? </Text>
+        <Pressable onPress={() => Linking.openURL('mailto:support@kels.gg')}>
+          <Text style={[styles.intro, { color: theme.accent ?? theme.teal?.solid, marginBottom: 0, textDecorationLine: "underline" }]}>Contact support</Text>
+        </Pressable>
+      </View>
       </ScrollView>
     </View>
   );
@@ -211,7 +218,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    minHeight: 44,
   },
   question: { fontSize: FONT_SIZES.label, fontWeight: "600", lineHeight: 18 },
   answer: { fontSize: FONT_SIZES.label, lineHeight: 19, paddingHorizontal: 14, paddingBottom: 12, paddingTop: 2 },

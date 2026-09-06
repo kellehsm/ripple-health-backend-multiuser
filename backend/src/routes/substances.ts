@@ -145,7 +145,7 @@ export default async function substancesRoutes(app: FastifyInstance) {
       volume_ml = null,
       source_db = "manual",
       logged_at = null,
-    } = req.body;
+    } = req.body as any;
 
     if (!substance_type) return { error: "substance_type required" };
 
@@ -162,7 +162,7 @@ export default async function substancesRoutes(app: FastifyInstance) {
   // GET /api/substances?date=YYYY-MM-DD
   app.get<{ Querystring: any }>("/", async (req) => {
     const user_id = req.user_id;
-    const { date } = req.query;
+    const { date } = req.query as any;
 
     const rows = date
       ? await query<any>(
@@ -197,7 +197,7 @@ export default async function substancesRoutes(app: FastifyInstance) {
   // GET /api/substances/summary?start=D1&end=D2
   app.get<{ Querystring: any }>("/summary", async (req) => {
     const user_id = req.user_id;
-    const { start, end } = req.query;
+    const { start, end } = req.query as any;
 
     const rows = await query<any>(
       `SELECT

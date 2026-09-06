@@ -87,6 +87,8 @@ export function eligibleUsersSql(capability: keyof UserCapabilities): string {
     case "medication_slots_count":
       // Not currently used as a gate here, but keep the switch exhaustive.
       return `(SELECT COUNT(*) FROM users)`;
+    default:
+      return `(SELECT COUNT(*) FROM users)`;
   }
 }
 

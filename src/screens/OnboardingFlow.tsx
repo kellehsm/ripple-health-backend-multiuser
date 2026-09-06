@@ -9,7 +9,8 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  useWindowDimensions
+  useWindowDimensions,
+  Linking,
 } from "react-native";
 import { LoadingIndicator } from "../components/LoadingIndicator";
 import * as WebBrowser from "expo-web-browser";
@@ -124,6 +125,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
   const [dexcomError, setDexcomError] = useState<string | null>(null);
   const [dexcomNeedsAccountId, setDexcomNeedsAccountId] = useState(false);
   const [dexcomConnecting, setDexcomConnecting] = useState(false);
+  const [showDexcomPassword, setShowDexcomPassword] = useState(false);
   const [batteryRestricted, setBatteryRestricted] = useState<boolean | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
 
@@ -869,14 +871,25 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           )}
 
           <Text style={[styles.inputLabel, { color: ink }]}>Share Password</Text>
-          <TextInput
-            style={[styles.input, { backgroundColor: theme.card, borderColor: theme.cardBorder, color: theme.textStrong }]}
-            value={dexcomPassword}
-            onChangeText={setDexcomPassword}
-            placeholder="Dexcom Share password"
-            placeholderTextColor={theme.textSoft}
-            secureTextEntry
-          />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <TextInput
+              style={[styles.input, { backgroundColor: theme.card, borderColor: theme.cardBorder, color: theme.textStrong, flex: 1 }]}
+              value={dexcomPassword}
+              onChangeText={setDexcomPassword}
+              placeholder="Dexcom Share password"
+              placeholderTextColor={theme.textSoft}
+              secureTextEntry={!showDexcomPassword}
+            />
+            <Pressable
+              onPress={() => setShowDexcomPassword((v) => !v)}
+              style={{ paddingHorizontal: 10, paddingVertical: 12 }}
+              accessibilityLabel={showDexcomPassword ? "Hide password" : "Show password"}
+            >
+              <Text style={{ color: theme.textSoft, fontSize: FONT_SIZES.label, fontWeight: "700" }}>
+                {showDexcomPassword ? "Hide" : "Show"}
+              </Text>
+            </Pressable>
+          </View>
 
           <View style={styles.regionToggle}>
             {(["us", "ous"] as const).map((r) => (
@@ -1013,6 +1026,9 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
           <View style={[styles.stepEmojiBlock, { backgroundColor: accent.bg, borderColor: ink }]}>
             <Text style={styles.stepEmoji}>{cfg.emoji}</Text>
           </View>
+          <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", marginBottom: 4 }}>
+            Step {(["health", "drive", "dexcom", "notifications", "battery"] as const).indexOf(step as any) + 1} of 5
+          </Text>
           <Text style={[styles.stepTitle, { color: theme.textStrong }]}>{cfg.title}</Text>
           {cfg.body}
         </View>
@@ -1058,13 +1074,15 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             Privacy
           </Text>
           <Text style={{ color: theme.textStrong, fontSize: FONT_SIZES.body, lineHeight: 22 }}>
-            Your data is stored on your own server and is never sold to third parties. Review our Privacy Policy at any time in Settings.
+            Your data is stored on your own server and is never sold to third parties. Review our{" "}
+            <Text onPress={() => Linking.openURL('https://app.kels.gg/privacy')} style={{ textDecorationLine: "underline" }}>Privacy Policy</Text>
+            {" "}at any time in Settings.
           </Text>
           <Pressable
             onPress={() => { setShowDisclaimer(false); onComplete(); }}
             style={{ backgroundColor: theme.teal.solid, borderRadius: 20, borderWidth: 2, borderColor: ink, paddingVertical: 14, alignItems: "center", marginTop: 4 }}
           >
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: FONT_SIZES.subheading }}>I Understand — Let's go</Text>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: FONT_SIZES.subheading }}>I understand — let's go</Text>
           </Pressable>
         </View>
       </View>

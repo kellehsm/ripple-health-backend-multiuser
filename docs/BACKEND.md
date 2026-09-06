@@ -174,6 +174,7 @@ There is no auto-migration runner; check the highest numbered file to find the c
 | 050 | `050_metrics_unique_user_name.sql` | De-dupes existing `metrics` rows (repointing logs to the lowest-id keeper) then adds a `UNIQUE INDEX` on `(user_id, name)` — enforces at DB level that each user can only have one metric per name |
 | 051 | `051_hobby_and_dose_log_indexes.sql` | Adds `idx_hobby_logs_hobby_id (hobby_id, logged_at DESC)` and `idx_dose_logs_med_date (medication_id, log_date, status)` — covering indexes for hobby-streak and medication-adherence queries |
 | 052 | `052_streak_freezes.sql` | Adds `streak_freezes` table — records one streak freeze used per user per month per streak type; unique index on `(user_id, freeze_month, streak_type)` prevents double-use |
+| 053 | `053_feature_hints_dismissed.sql` | Adds `feature_hints_dismissed` table — records which UI hint keys each user has dismissed; unique index on `(user_id, hint_key)` prevents duplicate rows |
 
 ---
 
@@ -218,6 +219,72 @@ Note: `/root/wellness-app-multiuser` is a **git worktree** of the dev repo, trac
 6. Verify: `curl https://app.kels.gg/health` must return `{"ok":true}`.
 
 **NEVER merge to master or restart prod without explicit user approval.**
+
+---
+
+## 5b. ECS / AWS Infrastructure (Phase 2 target)
+
+ECS Fargate service provisioned in `us-east-1` as the migration target from the VPS backend.
+
+### Resources
+
+| Resource | ID / ARN |
+|---|---|
+| ECS Cluster | `arn:aws:ecs:us-east-1:042396230124:cluster/ripple-cluster` |
+| ECS Service | `arn:aws:ecs:us-east-1:042396230124:service/ripple-cluster/ripple-backend-svc` |
+| Task Definition | `arn:aws:ecs:us-east-1:042396230124:task-definition/ripple-backend:1` |
+| ECR Image | `042396230124.dkr.ecr.us-east-1.amazonaws.com/ripple-backend:latest` |
+| ALB DNS | `ripple-alb-1050729078.us-east-1.elb.amazonaws.com` (port 80 → container 4001) |
+| ALB ARN | `arn:aws:elasticloadbalancing:us-east-1:042396230124:loadbalancer/app/ripple-alb/1d1700b7825c03ec` |
+| Target Group | `arn:aws:elasticloadbalancing:us-east-1:042396230124:targetgroup/ripple-tg/a2ceb7d89256f52e` |
+| ECS Task SG | `sg-0f708042cafade4dd` (inbound 4001 from ALB SG + 0.0.0.0/0) |
+| ALB SG | `sg-0b5045b9f10520be3` (inbound 80 from 0.0.0.0/0) |
+| RDS SG | `sg-046fbf229cc584e7b` (inbound 5432 from ECS Task SG) |
+| RDS Endpoint | `ripple-postgres.cs1kokoyc3c1.us-east-1.rds.amazonaws.com:5432` db `wellness_multiuser` |
+| VPC | `vpc-08f3a3091b46b9cd0` |
+| Task Execution Role | `arn:aws:iam::042396230124:role/ripple-ecs-task-execution-role` (ECR + CloudWatch + Secrets Manager) |
+| CloudWatch Logs | `/ecs/ripple-backend` |
+
+### Secrets (Secrets Manager)
+
+All 16 app secrets stored under `ripple/prod/*`. `DATABASE_URL` points to RDS with `?sslmode=no-verify` (RDS uses Amazon CA; pg v8 requires explicit no-verify to skip chain validation).
+
+### Database migrations on ECS
+
+Run migrations as a one-off ECS task using the `run-migrations.mjs` script baked into the image:
+
+```bash
+aws ecs run-task \
+  --cluster ripple-cluster \
+  --task-definition ripple-backend:1 \
+  --launch-type FARGATE \
+  --network-configuration "awsvpcConfiguration={subnets=[subnet-0d0fb17d7171470db],securityGroups=[sg-0f708042cafade4dd],assignPublicIp=ENABLED}" \
+  --overrides '{"containerOverrides":[{"name":"ripple-backend","command":["node","run-migrations.mjs"]}]}' \
+  --profile ripple-deploy --region us-east-1
+```
+
+Then check logs in CloudWatch log group `/ecs/ripple-backend`.
+
+### Deploying a new image
+
+```bash
+# In backend/
+aws ecr get-login-password --region us-east-1 --profile ripple-deploy | \
+  docker login --username AWS --password-stdin 042396230124.dkr.ecr.us-east-1.amazonaws.com
+docker build -t ripple-backend:latest .
+docker tag ripple-backend:latest 042396230124.dkr.ecr.us-east-1.amazonaws.com/ripple-backend:latest
+docker push 042396230124.dkr.ecr.us-east-1.amazonaws.com/ripple-backend:latest
+
+# Force new ECS deployment
+aws ecs update-service --cluster ripple-cluster --service ripple-backend-svc \
+  --force-new-deployment --profile ripple-deploy --region us-east-1
+```
+
+### Known issues / pending
+
+- Migration 024 index failure (`column "user_id"`) — non-critical performance index, safe to skip
+- `plaid_items` not found in credential sweep on startup — non-fatal logged error; Plaid tables may need a migration
+- Background job startup errors (Dexcom, Weather) are logged but non-fatal — server stays up; these clear once data exists
 
 ---
 
