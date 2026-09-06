@@ -175,7 +175,7 @@ export function HelpScreen() {
       <View style={{ alignItems: "center", paddingVertical: 24, flexDirection: "row", justifyContent: "center", flexWrap: "wrap" }}>
         <Text style={[styles.intro, { color: theme.textSoft, marginBottom: 0 }]}>Still need help? </Text>
         <Pressable onPress={() => Linking.openURL('mailto:support@kels.gg')}>
-          <Text style={[styles.intro, { color: theme.accent ?? theme.teal?.solid, marginBottom: 0, textDecorationLine: "underline" }]}>Contact support</Text>
+          <Text style={[styles.intro, { color: (theme as any).accent ?? theme.teal?.solid, marginBottom: 0, textDecorationLine: "underline" }]}>Contact support</Text>
         </Pressable>
       </View>
       </ScrollView>

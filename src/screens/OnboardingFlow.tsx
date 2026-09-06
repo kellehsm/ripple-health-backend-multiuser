@@ -23,11 +23,14 @@ import { getUserId } from "../lib/auth";
 import { requestHealthPermissions } from "../lib/healthConnect";
 import { PALETTES, PALETTE_GROUPS } from "../theme/palettes";
 import { TabPreferencesScreen } from "./TabPreferencesScreen";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
+import { TileConfig, TileKey } from "../hooks/useHealthTileConfig";
 WebBrowser.maybeCompleteAuthSession();
 
 type AccentKey = "teal" | "coral" | "blue" | "amber" | "purple" | "berry" | "violet" | "red";
 
-type Step = "walkthrough" | "theme" | "tabs" | "health" | "drive" | "dexcom" | "notifications" | "battery";
+type Step = "walkthrough" | "theme" | "tabs" | "health" | "drive" | "dexcom" | "notifications" | "battery" | "tiles";
 
 // ── Walkthrough page definitions ──────────────────────────────────────────────
 
@@ -128,6 +131,10 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
   const [showDexcomPassword, setShowDexcomPassword] = useState(false);
   const [batteryRestricted, setBatteryRestricted] = useState<boolean | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [selectedTiles, setSelectedTiles] = useState<TileConfig>({
+    mindfulness: true, glucose: true, steps: true, sleep: true,
+    water: true, heart: true, sleep_card: true, glucose_chart: true, heart_chart: true,
+  });
 
   function advance() {
     if (step === "walkthrough") setStep("theme");
@@ -137,6 +144,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     else if (step === "drive") { setDriveError(null); setStep("dexcom"); }
     else if (step === "dexcom") { setDexcomError(null); setStep("notifications"); }
     else if (step === "notifications") setStep("battery");
+    else if (step === "battery") setStep("tiles");
     else setShowDisclaimer(true);
   }
 
@@ -803,7 +811,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     }
   }
 
-  const stepCfg: Record<Exclude<Step, "walkthrough" | "theme" | "tabs">, StepCfg> = {
+  const stepCfg: Record<Exclude<Step, "walkthrough" | "theme" | "tabs" | "tiles">, StepCfg> = {
     drive: {
       emoji: "🗂️",
       accentKey: "teal",
@@ -1011,7 +1019,89 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     },
   };
 
-  const cfg = stepCfg[step as Exclude<Step, "walkthrough" | "theme" | "tabs">];
+  // ── Tile picker step ──────────────────────────────────────────────────────────
+
+  if (step === "tiles") {
+    const TILE_OPTIONS: { key: TileKey; label: string; emoji: string; desc: string }[] = [
+      { key: "mindfulness", label: "Mindfulness", emoji: "🧘", desc: "Breathing, grounding & gratitude sessions" },
+      { key: "glucose", label: "Glucose", emoji: "🩸", desc: "Live CGM readings from Dexcom" },
+      { key: "steps", label: "Steps", emoji: "🏃", desc: "Daily step count and weekly trends" },
+      { key: "sleep", label: "Sleep", emoji: "🌙", desc: "Sleep duration and quality score" },
+      { key: "water", label: "Water", emoji: "💧", desc: "Hydration tracker with goal progress" },
+      { key: "heart", label: "Heart Rate", emoji: "❤️", desc: "Resting BPM from Health Connect" },
+      { key: "glucose_chart", label: "Glucose Chart", emoji: "📈", desc: "Full glucose chart with annotations" },
+      { key: "heart_chart", label: "Heart Rate Chart", emoji: "📉", desc: "Heart rate chart over time" },
+    ];
+
+    return (
+      <View style={[styles.screen, { backgroundColor: theme.page }]}>
+        <ScrollView contentContainerStyle={{ padding: 24, paddingTop: 48, paddingBottom: 48 }}>
+          <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", marginBottom: 4 }}>Step 6 of 6</Text>
+          <Text style={[styles.stepTitle, { color: theme.textStrong, textAlign: "center", marginBottom: 6 }]}>
+            What do you want to track?
+          </Text>
+          <Text style={{ color: theme.textSoft, fontSize: 14, textAlign: "center", marginBottom: 24, lineHeight: 20 }}>
+            Choose which tiles appear on your Health screen. You can always change this in Settings.
+          </Text>
+
+          {TILE_OPTIONS.map(({ key, label, emoji, desc }) => {
+            const on = selectedTiles[key];
+            return (
+              <Pressable
+                key={key}
+                onPress={() => setSelectedTiles(prev => ({ ...prev, [key]: !prev[key] }))}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: on ? theme.teal.tint : theme.card,
+                  borderColor: on ? theme.teal.solid : theme.cardBorder,
+                  borderWidth: 2,
+                  borderRadius: 16,
+                  padding: 14,
+                  marginBottom: 10,
+                  gap: 12,
+                }}
+              >
+                <Text style={{ fontSize: 26 }}>{emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: theme.textStrong, fontWeight: "700", fontSize: 15 }}>{label}</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 1 }}>{desc}</Text>
+                </View>
+                <View style={{
+                  width: 24, height: 24, borderRadius: 12,
+                  backgroundColor: on ? theme.teal.solid : "transparent",
+                  borderWidth: 2, borderColor: on ? theme.teal.solid : theme.cardBorder,
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  {on && <Ionicons name="checkmark" size={14} color="#fff" />}
+                </View>
+              </Pressable>
+            );
+          })}
+
+          <Pressable
+            onPress={async () => {
+              await AsyncStorage.setItem("health_tile_config_v1", JSON.stringify(selectedTiles)).catch(() => {});
+              advance();
+            }}
+            style={{
+              backgroundColor: theme.teal.solid,
+              borderRadius: 20,
+              borderWidth: 2,
+              borderColor: ink,
+              paddingVertical: 14,
+              alignItems: "center",
+              marginTop: 8,
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: FONT_SIZES.subheading }}>Continue</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  const cfg = stepCfg[step as Exclude<Step, "walkthrough" | "theme" | "tabs" | "tiles">];
   const accent = theme[cfg.accentKey] as any;
 
   return (
@@ -1027,7 +1117,7 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
             <Text style={styles.stepEmoji}>{cfg.emoji}</Text>
           </View>
           <Text style={{ color: theme.textSoft, fontSize: 12, textAlign: "center", marginBottom: 4 }}>
-            Step {(["health", "drive", "dexcom", "notifications", "battery"] as const).indexOf(step as any) + 1} of 5
+            Step {(["health", "drive", "dexcom", "notifications", "battery", "tiles"] as const).indexOf(step as any) + 1} of 6
           </Text>
           <Text style={[styles.stepTitle, { color: theme.textStrong }]}>{cfg.title}</Text>
           {cfg.body}

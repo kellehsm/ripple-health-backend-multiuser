@@ -32,6 +32,8 @@ import { syncWidgetAndWatch } from "../lib/widgetSync";
 import { MetricChipRow } from "./health/MetricChipRow";
 import { GlucoseChartCard } from "./health/GlucoseChartCard";
 import { HeartRateCard } from "./health/HeartRateCard";
+import { useHealthTileConfig } from "../hooks/useHealthTileConfig";
+import { HealthTileConfigModal } from "../components/HealthTileConfigModal";
 import {
   buildPoints, formatSleepDuration, sumTodayLogs,
   SectionDivider,
@@ -90,6 +92,8 @@ export function HealthScreen() {
   const [showGoalNudge, setShowGoalNudge] = useState(false);
   const [mindStats, setMindStats] = useState<{ streak: number; week_minutes: number; total_sessions: number } | null>(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const { config, setTile } = useHealthTileConfig();
+  const [showTileConfig, setShowTileConfig] = useState(false);
 
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const waterFlashAnim = useRef(new Animated.Value(0)).current;
@@ -880,7 +884,18 @@ export function HealthScreen() {
         </View>
       )}
 
-      <SectionDivider label="METRICS · TODAY" />
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: -4 }}>
+        <SectionDivider label="METRICS · TODAY" />
+        <Pressable
+          onPress={() => setShowTileConfig(true)}
+          hitSlop={10}
+          accessibilityLabel="Customize health tiles"
+          accessibilityRole="button"
+          style={{ padding: 4 }}
+        >
+          <Ionicons name="options-outline" size={20} color={theme.textSoft} />
+        </Pressable>
+      </View>
 
       {/* ── Metric chip row ── */}
       <MetricChipRow
@@ -905,6 +920,7 @@ export function HealthScreen() {
         mindStats={mindStats}
         onLogWater={handleLogWater}
         navigation={navigation}
+        tileConfig={config}
       />
 
 
@@ -968,7 +984,9 @@ export function HealthScreen() {
         </View>
       )}
 
-      <View onLayout={(e) => { sectionYRef.current.sleep = e.nativeEvent.layout.y; }} />
+      {config.sleep_card && (
+        <View onLayout={(e) => { sectionYRef.current.sleep = e.nativeEvent.layout.y; }} />
+      )}
 
       {/* Glucose alert banner — deduplicated so each unique alert shows once */}
       {status && status.alerts && status.alerts.length > 0 ? (
@@ -988,66 +1006,72 @@ export function HealthScreen() {
         })()
       ) : null}
 
-      <View onLayout={(e) => { sectionYRef.current.glucose = e.nativeEvent.layout.y; }}>
-      <SectionDivider label="GLUCOSE" />
-      </View>
+      {config.glucose_chart && (
+        <>
+          <View onLayout={(e) => { sectionYRef.current.glucose = e.nativeEvent.layout.y; }}>
+          <SectionDivider label="GLUCOSE" />
+          </View>
 
-      {/* Glucose chart card */}
-      <GlucoseChartCard
-        glucoseEntranceAnim={glucoseEntranceAnim}
-        chartFadeAnim={chartFadeAnim}
-        loading={loading}
-        refreshing={refreshing}
-        todayReadings={todayReadings}
-        yesterdayReadings={yesterdayReadings}
-        todayPoints={todayPoints}
-        yesterdayPoints={yesterdayPoints}
-        dataGaps={dataGaps}
-        minVal={minVal}
-        maxVal={maxVal}
-        gridValues={gridValues}
-        highY={highY}
-        lowY={lowY}
-        chartInnerHeight={chartInnerHeight}
-        windowStart={windowStart}
-        now={now}
-        weekAvgGlucose={weekAvgGlucose}
-        tirPct={tirPct}
-        peak={peak}
-        status={status}
-        rangeHours={rangeHours}
-        setRangeHours={setRangeHours}
-        annotations={annotations}
-        setAnnotations={setAnnotations}
-        annotationModalVisible={annotationModalVisible}
-        setAnnotationModalVisible={setAnnotationModalVisible}
-        annotationLabel={annotationLabel}
-        setAnnotationLabel={setAnnotationLabel}
-        annotationSaving={annotationSaving}
-        setAnnotationSaving={setAnnotationSaving}
-        activeAnnotation={activeAnnotation}
-        setActiveAnnotation={setActiveAnnotation}
-        scrubInfo={scrubInfo}
-        panGesture={panGesture}
-        dexcomSyncing={dexcomSyncing}
-        dexcomSyncMsg={dexcomSyncMsg}
-        onDexcomForceSync={handleDexcomForceSync}
-        navigation={navigation}
-        styles={styles}
-      />
+          {/* Glucose chart card */}
+          <GlucoseChartCard
+            glucoseEntranceAnim={glucoseEntranceAnim}
+            chartFadeAnim={chartFadeAnim}
+            loading={loading}
+            refreshing={refreshing}
+            todayReadings={todayReadings}
+            yesterdayReadings={yesterdayReadings}
+            todayPoints={todayPoints}
+            yesterdayPoints={yesterdayPoints}
+            dataGaps={dataGaps}
+            minVal={minVal}
+            maxVal={maxVal}
+            gridValues={gridValues}
+            highY={highY}
+            lowY={lowY}
+            chartInnerHeight={chartInnerHeight}
+            windowStart={windowStart}
+            now={now}
+            weekAvgGlucose={weekAvgGlucose}
+            tirPct={tirPct}
+            peak={peak}
+            status={status}
+            rangeHours={rangeHours}
+            setRangeHours={setRangeHours}
+            annotations={annotations}
+            setAnnotations={setAnnotations}
+            annotationModalVisible={annotationModalVisible}
+            setAnnotationModalVisible={setAnnotationModalVisible}
+            annotationLabel={annotationLabel}
+            setAnnotationLabel={setAnnotationLabel}
+            annotationSaving={annotationSaving}
+            setAnnotationSaving={setAnnotationSaving}
+            activeAnnotation={activeAnnotation}
+            setActiveAnnotation={setActiveAnnotation}
+            scrubInfo={scrubInfo}
+            panGesture={panGesture}
+            dexcomSyncing={dexcomSyncing}
+            dexcomSyncMsg={dexcomSyncMsg}
+            onDexcomForceSync={handleDexcomForceSync}
+            navigation={navigation}
+            styles={styles}
+          />
+        </>
+      )}
 
-      {/* Heart Rate chart card */}
-      <HeartRateCard
-        bottomCardsEntranceAnim={bottomCardsEntranceAnim}
-        hrReadings={hrReadings}
-        hr7DayReadings={hr7DayReadings}
-        hrRangeHours={hrRangeHours}
-        setHrRangeHours={setHrRangeHours}
-        hrLoading={hrLoading}
-        refreshing={refreshing}
-        navigation={navigation}
-        styles={styles}
-      />
+      {config.heart_chart && (
+        /* Heart Rate chart card */
+        <HeartRateCard
+          bottomCardsEntranceAnim={bottomCardsEntranceAnim}
+          hrReadings={hrReadings}
+          hr7DayReadings={hr7DayReadings}
+          hrRangeHours={hrRangeHours}
+          setHrRangeHours={setHrRangeHours}
+          hrLoading={hrLoading}
+          refreshing={refreshing}
+          navigation={navigation}
+          styles={styles}
+        />
+      )}
 
       </Animated.View>
     </ScrollView>
@@ -1059,6 +1083,12 @@ export function HealthScreen() {
         onRetry={() => { load(rangeHours); setStaleBannerMessage(null); }}
       />
     ) : null}
+    <HealthTileConfigModal
+      visible={showTileConfig}
+      config={config}
+      onToggle={setTile}
+      onClose={() => setShowTileConfig(false)}
+    />
     </View>
     </KeyboardAvoidingView>
   );
