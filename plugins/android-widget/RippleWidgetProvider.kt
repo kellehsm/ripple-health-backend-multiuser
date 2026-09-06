@@ -765,8 +765,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
     private fun get(token: String, path: String): Pair<Int, String> {
         val conn = URL("$API$path").openConnection() as HttpsURLConnection
         try {
-            conn.connectTimeout = 3000
-            conn.readTimeout = 3000
+            conn.connectTimeout = 8000
+            conn.readTimeout = 8000
             conn.setRequestProperty("Authorization", "Bearer $token")
             val code = conn.responseCode
             val body = if (code in 200..299) conn.inputStream.bufferedReader().readText() else ""
@@ -913,8 +913,8 @@ open class RippleWidgetProvider : AppWidgetProvider() {
         var c: HttpsURLConnection? = null
         return try {
             c = URL("$API/health-connect/sleep/stats").openConnection() as HttpsURLConnection
-            c.connectTimeout = 8000
-            c.readTimeout = 8000
+            c.connectTimeout = 12000
+            c.readTimeout = 12000
             c.setRequestProperty("Authorization", "Bearer $token")
             if (c.responseCode != 200) return "--"
             val body = c.inputStream.bufferedReader().readText()

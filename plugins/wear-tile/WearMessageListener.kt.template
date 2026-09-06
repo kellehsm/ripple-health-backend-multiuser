@@ -50,7 +50,20 @@ class WearMessageListener : WearableListenerService() {
                     return@execute
                 }
                 val ok = when (path) {
-                    "/ripple/log-water" -> logWater(token)
+                    "/ripple/log-water" -> {
+                        val success = logWater(token)
+                        if (success) {
+                            // Push the updated water count back so the watch tile
+                            // refreshes immediately rather than waiting up to 30 min
+                            // for the next widget refresh cycle. Only water is sent
+                            // so all other cached fields on the watch are preserved.
+                            val newWater = fetchWaterDisplay(token)
+                            if (newWater != null) {
+                                WearDataBridge.pushSingleMetric(this, water = newWater)
+                            }
+                        }
+                        success
+                    }
                     "/ripple/log-mood"  -> {
                         // New payload: "score,label" UTF-8. Legacy payload was a
                         // single raw score byte — keep parsing it for old watches.
@@ -100,6 +113,46 @@ class WearMessageListener : WearableListenerService() {
         val metricId = fetchOrCreateWaterMetric(token) ?: return false
         val body = JSONObject().put("value", 1).toString()
         return postJson("$API_BASE/metrics/$metricId/logs", token, body) != null
+    }
+
+    /** Fetches the current water count and goal, returns "N/goal" string or null on failure. */
+    private fun fetchWaterDisplay(token: String): String? {
+        return try {
+            val today = java.time.LocalDate.now().toString()
+            val metricsArr = getJsonArray("$API_BASE/metrics", token) ?: return null
+            var metricId: String? = null
+            var goal = 8
+            for (i in 0 until metricsArr.length()) {
+                val m = metricsArr.optJSONObject(i) ?: continue
+                if (m.optString("name").equals("Water", ignoreCase = true)) {
+                    metricId = m.optString("id").ifEmpty { null }
+                    goal = m.optInt("goal", 8).takeIf { it > 0 } ?: 8
+                    break
+                }
+            }
+            if (metricId == null) return null
+            var c: java.net.HttpURLConnection? = null
+            val count = try {
+                c = java.net.URL("$API_BASE/metrics/$metricId/logs?date=$today")
+                    .openConnection() as java.net.HttpURLConnection
+                c.setRequestProperty("Authorization", "Bearer $token")
+                c.connectTimeout = 8000
+                c.readTimeout = 8000
+                if (c.responseCode != 200) 0
+                else {
+                    val arr = JSONArray(java.io.BufferedReader(java.io.InputStreamReader(c.inputStream)).readText())
+                    var sum = 0
+                    for (i in 0 until arr.length()) sum += arr.optJSONObject(i)?.optInt("value", 0) ?: 0
+                    sum
+                }
+            } finally {
+                try { c?.disconnect() } catch (_: Exception) {}
+            }
+            "$count/$goal"
+        } catch (e: Exception) {
+            Log.w(TAG, "fetchWaterDisplay: ${e.message}")
+            null
+        }
     }
 
     /**

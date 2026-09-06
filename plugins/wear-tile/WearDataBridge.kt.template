@@ -18,6 +18,30 @@ object WearDataBridge {
     private const val PATH = "/ripple/metrics"
     private const val TAG = "WearDataBridge"
 
+    /**
+     * Pushes a single updated metric without touching any other cached fields.
+     * Used by WearMessageListener after a watch-initiated log so the watch tile
+     * reflects the new value immediately instead of waiting for the next full
+     * widget refresh cycle (~30 min).
+     *
+     * Only the fields explicitly passed are written to the DataMap; missing keys
+     * produce null from DataMapItem.getString() which WearCache.write() skips,
+     * leaving all other cached fields intact on the watch.
+     */
+    fun pushSingleMetric(context: Context, water: String? = null) {
+        try {
+            val req = PutDataMapRequest.create(PATH).apply {
+                if (water != null) dataMap.putString("water", water)
+                dataMap.putLong("nonce", System.currentTimeMillis())
+            }
+            Wearable.getDataClient(context.applicationContext)
+                .putDataItem(req.asPutDataRequest().setUrgent())
+                .addOnFailureListener { e -> Log.w(TAG, "pushSingleMetric failed", e) }
+        } catch (e: Exception) {
+            Log.w(TAG, "pushSingleMetric threw", e)
+        }
+    }
+
     /** Small helper: after handling a watch-initiated log, phone-side code
      *  broadcasts just the status flip so the Log tile flashes ✓ or ✗ for
      *  the user. Uses the same Data Layer path so the wear listener picks

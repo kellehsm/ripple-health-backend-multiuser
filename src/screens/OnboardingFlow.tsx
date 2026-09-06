@@ -43,13 +43,13 @@ const WALK_PAGES: Array<{
   {
     emoji: "🏠",
     label: "HOME",
-    desc: "Your daily command centre — mood check-ins, live glucose, steps, and water at a glance with a personalised AI summary of your day.",
+    desc: "Your daily command centre — mood check-ins, live glucose, steps, and water at a glance. Customise which tiles appear and get a personalised AI summary of your day.",
     accentKey: "berry",
   },
   {
     emoji: "❤️",
     label: "HEALTH",
-    desc: "Live glucose from your Dexcom CGM, steps, sleep, and heart rate — synced from Health Connect. Medications and cycle live here too.",
+    desc: "Live glucose, steps, sleep, heart rate, and water — synced from Dexcom and Health Connect. Choose which tiles to show, tap any tile to drill into the detail screen.",
     accentKey: "teal",
   },
   {
@@ -97,14 +97,20 @@ const WALK_PAGES: Array<{
   {
     emoji: "✋",
     label: "GESTURES",
-    desc: "Long-hold any chip to log in one tap. Double-tap an insight to pin it. Every screen has shortcuts built in — worth exploring.",
+    desc: "Long-hold any chip to log in one tap. Tap the options icon on the Health screen to customise which tiles appear. Double-tap an insight to pin it.",
     accentKey: "amber",
   },
   {
     emoji: "🔄",
     label: "REFRESH",
-    desc: "Pull down on any screen to refresh your data. You'll see the Ripple icon spin while it syncs — everything updates in the background automatically too.",
+    desc: "Pull down to refresh. Data syncs automatically in the background — glucose every 5 min, steps and sleep from Health Connect, and straight to your Wear OS watch tile.",
     accentKey: "coral",
+  },
+  {
+    emoji: "⌚",
+    label: "WATCH",
+    desc: "Ripple mirrors your metrics to a Wear OS tile — glucose, steps, water, heart rate, and sleep at a glance on your wrist. Log water or mood directly from the watch.",
+    accentKey: "teal",
   },
 ];
 
@@ -650,6 +656,82 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
     );
   }
 
+  function MindfulnessPreview() {
+    return (
+      <View style={styles.preview}>
+        {/* Session type chips */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {[
+            { label: "Box Breathing", emoji: "📦", color: theme.purple.solid },
+            { label: "Body Scan", emoji: "🌊", color: theme.blue.solid },
+            { label: "Grounding", emoji: "🌿", color: theme.teal.solid },
+            { label: "Gratitude", emoji: "🙏", color: theme.amber.solid },
+          ].map((s) => (
+            <View key={s.label} style={[styles.macroChip, { borderColor: s.color, backgroundColor: theme.card, flexDirection: "row", gap: 4 }]}>
+              <Text style={{ fontSize: 14 }}>{s.emoji}</Text>
+              <Text style={{ fontSize: FONT_SIZES.caption, color: ink, fontWeight: "700" }}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+        {/* Streak card */}
+        <View style={[styles.bookCard, { backgroundColor: theme.card, borderColor: theme.cardBorder, alignItems: "center", paddingVertical: 12 }]}>
+          <Text style={{ fontSize: 28, fontWeight: "900", color: theme.purple.solid }}>7 🔥</Text>
+          <Text style={{ fontSize: FONT_SIZES.label, color: theme.textSoft, marginTop: 2 }}>day streak · 42 min this week</Text>
+        </View>
+        {/* Correlation insight */}
+        <View style={[styles.insightCard, { backgroundColor: theme.purple.tint, borderColor: theme.purple.solid }]}>
+          <Text style={{ fontSize: 16 }}>😴</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.insightTitle, { color: theme.purple.solid }]}>Better sleep after sessions</Text>
+            <Text style={[styles.insightText, { color: ink }]}>On days you meditate, sleep score averages 12 pts higher</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  function WatchPreview() {
+    return (
+      <View style={styles.preview}>
+        {/* Watch face mock */}
+        <View style={{ alignItems: "center" }}>
+          <View style={{
+            width: 160, height: 160, borderRadius: 80,
+            backgroundColor: theme.card, borderColor: ink, borderWidth: 2,
+            alignItems: "center", justifyContent: "center",
+            shadowColor: ink, shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
+          }}>
+            {/* Center glucose */}
+            <Text style={{ fontSize: 32, fontWeight: "900", color: theme.teal.fg }}>118</Text>
+            <Text style={{ fontSize: 10, color: theme.textSoft, fontWeight: "700", letterSpacing: 0.5 }}>mg/dL · stable</Text>
+          </View>
+        </View>
+        {/* Metric grid below the face */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+          {[
+            { label: "STEPS", value: "6,240", color: theme.teal.solid },
+            { label: "WATER", value: "6 / 8", color: theme.blue.solid },
+            { label: "HEART", value: "64 bpm", color: theme.coral.solid },
+            { label: "SLEEP", value: "7h 15m", color: theme.amber.solid },
+          ].map((m) => (
+            <View key={m.label} style={[styles.macroChip, { borderColor: m.color, backgroundColor: theme.card, minWidth: 80 }]}>
+              <Text style={{ fontSize: FONT_SIZES.body, fontWeight: "800", color: ink }}>{m.value}</Text>
+              <Text style={{ fontSize: FONT_SIZES.caption, color: theme.textSoft }}>{m.label}</Text>
+            </View>
+          ))}
+        </View>
+        {/* Log buttons */}
+        <View style={[styles.insightCard, { backgroundColor: theme.teal.bg, borderColor: theme.teal.sub }]}>
+          <Text style={{ fontSize: 16 }}>⌚</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.insightTitle, { color: theme.teal.sub }]}>Log from your wrist</Text>
+            <Text style={[styles.insightText, { color: ink }]}>Tap to log water or mood — syncs back to the app instantly</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   // ── Walkthrough screen ────────────────────────────────────────────────────────
 
   if (step === "walkthrough") {
@@ -659,12 +741,13 @@ export function OnboardingFlow({ onComplete, replayMode }: { onComplete: () => v
       <MealsPreview key="meals" />,
       <HobbiesPreview key="hobbies" />,
       <InsightsPreview key="insights" />,
-      null,                            // MINDFULNESS — no bespoke preview
+      <MindfulnessPreview key="mindfulness" />,
       <FinancePreview key="finance" />,
       <ExercisePreview key="exercise" />,
       <FriendsPreview key="friends" />,
       <GesturesPreview key="gestures" />,
       <RefreshPreview key="refresh" />,
+      <WatchPreview key="watch" />,
     ];
 
     return (
