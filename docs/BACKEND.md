@@ -186,104 +186,102 @@ There is no auto-migration runner; check the highest numbered file to find the c
 |--|------------|-----|
 | Directory | `/root/wellness-app-multiuser` | `/root/wellness-app-multiuser-dev` |
 | Git branch | `master` | `dev` |
-| Backend port | 4001 | 4002 |
-| Database | `wellness_multiuser` | `wellness_multiuser_dev` |
-| Screen session | `wellness-prod` | `wellness-dev` |
-| Log file | `/tmp/prod-backend.log` | `/tmp/dev-backend.log` |
-| Public URL | `https://app.kels.gg` (Caddy → 4001) | `http://129.121.125.214:4002` |
+| Backend | ECS Fargate (port 4001 in container) | VPS screen session `wellness-dev` (port 4002) |
+| Database | RDS PostgreSQL `wellness_multiuser` | Local Postgres `wellness_multiuser_dev` |
+| Log location | CloudWatch `/ecs/ripple-backend` | `/tmp/dev-backend.log` |
+| Public URL | `https://app.kels.gg` (Route 53 → ALB → ECS) | `http://129.121.125.214:4002` |
 
 Note: `/root/wellness-app-multiuser` is a **git worktree** of the dev repo, tracking `master`. Never `git checkout master` inside the dev directory — use the worktree directory for all master-branch operations.
 
 ### Deploy procedure
 
-1. Do all work in `/root/wellness-app-multiuser-dev` on the `dev` branch.
-2. Commit and push `dev` to **both** remotes:
-   - `origin` = `kellehsm/ripple-health-backend-multiuser`
-   - `frontend` = `kellehsm/ripple-health-multiuser`
-3. Merge into master (no-ff merge-commit style):
-   ```bash
-   cd /root/wellness-app-multiuser
-   git merge dev -m "Merge dev: <description>"
-   git push origin master
-   git push frontend master
-   ```
-4. Apply any new migrations to prod DB:
-   ```bash
-   sudo -u postgres psql wellness_multiuser < backend/migrations/NNN_name.sql
-   ```
-5. Restart prod backend:
-   ```bash
-   screen -S wellness-prod -X quit
-   screen -dmS wellness-prod bash -c 'cd /root/wellness-app-multiuser/backend && npm run dev 2>&1 | tee /tmp/prod-backend.log'
-   ```
-6. Verify: `curl https://app.kels.gg/health` must return `{"ok":true}`.
+**Backend changes** (any change to `backend/`):
 
-**NEVER merge to master or restart prod without explicit user approval.**
+1. Do all work in `/root/wellness-app-multiuser-dev` on `dev`. Commit and get approval.
+2. Merge into master:
+   ```bash
+   cd /root/wellness-app-multiuser && git merge dev
+   ```
+3. Run the deploy script from the repo root:
+   ```bash
+   # No migrations:
+   ./scripts/deploy-backend.sh
+
+   # With migrations (runs them first, then deploys):
+   ./scripts/deploy-backend.sh --migrate
+
+   # Migrations only (no image rebuild):
+   ./scripts/deploy-backend.sh --migrate-only
+   ```
+   The script: logs in to ECR → builds the Docker image → pushes → forces a new ECS deployment → waits for stability → hits `/health` to confirm. Takes ~2–3 minutes total.
+
+**Frontend-only changes** (JS/TS under `src/`, `app/`, assets — no `backend/` changes):
+
+No deploy script needed. Commit, merge to master, push to `frontend` remote. Done.
+
+**NEVER run the deploy script or merge to master without explicit user approval.**
 
 ---
 
-## 5b. ECS / AWS Infrastructure (Phase 2 target)
+## 5b. ECS / AWS Infrastructure
 
-ECS Fargate service provisioned in `us-east-1` as the migration target from the VPS backend.
+Production backend runs on AWS ECS Fargate in `us-east-1`, behind an ALB, with RDS PostgreSQL.
 
-### Resources
+### AWS resources
 
-| Resource | ID / ARN |
+| Resource | ID / Value |
 |---|---|
-| ECS Cluster | `arn:aws:ecs:us-east-1:042396230124:cluster/ripple-cluster` |
-| ECS Service | `arn:aws:ecs:us-east-1:042396230124:service/ripple-cluster/ripple-backend-svc` |
-| Task Definition | `arn:aws:ecs:us-east-1:042396230124:task-definition/ripple-backend:1` |
+| ECS Cluster | `ripple-cluster` |
+| ECS Service | `ripple-backend-svc` |
 | ECR Image | `042396230124.dkr.ecr.us-east-1.amazonaws.com/ripple-backend:latest` |
-| ALB DNS | `ripple-alb-1050729078.us-east-1.elb.amazonaws.com` (port 80 → container 4001) |
+| ALB | `ripple-alb-1050729078.us-east-1.elb.amazonaws.com` |
 | ALB ARN | `arn:aws:elasticloadbalancing:us-east-1:042396230124:loadbalancer/app/ripple-alb/1d1700b7825c03ec` |
+| ALB Listeners | Port 80 (HTTP), Port 443 (HTTPS, ACM cert) |
 | Target Group | `arn:aws:elasticloadbalancing:us-east-1:042396230124:targetgroup/ripple-tg/a2ceb7d89256f52e` |
-| ECS Task SG | `sg-0f708042cafade4dd` (inbound 4001 from ALB SG + 0.0.0.0/0) |
-| ALB SG | `sg-0b5045b9f10520be3` (inbound 80 from 0.0.0.0/0) |
-| RDS SG | `sg-046fbf229cc584e7b` (inbound 5432 from ECS Task SG) |
+| ECS Task SG | `sg-0f708042cafade4dd` |
+| ALB SG | `sg-0b5045b9f10520be3` |
+| RDS SG | `sg-046fbf229cc584e7b` |
 | RDS Endpoint | `ripple-postgres.cs1kokoyc3c1.us-east-1.rds.amazonaws.com:5432` db `wellness_multiuser` |
 | VPC | `vpc-08f3a3091b46b9cd0` |
-| Task Execution Role | `arn:aws:iam::042396230124:role/ripple-ecs-task-execution-role` (ECR + CloudWatch + Secrets Manager) |
+| Subnet | `subnet-0d0fb17d7171470db` |
+| Task Execution Role | `arn:aws:iam::042396230124:role/ripple-ecs-task-execution-role` |
 | CloudWatch Logs | `/ecs/ripple-backend` |
+| ACM Cert | `arn:aws:acm:us-east-1:042396230124:certificate/7d8e23d0-1f5c-4159-8f9a-aafffa128711` |
+| Route 53 Zone | `Z08543523CT7FZRHXNDMN` (kels.gg) |
+| DNS | `app.kels.gg` → ALIAS → ALB |
+| IAM deploy user | `ripple-deploy` (profile name in `~/.aws/credentials`) |
 
 ### Secrets (Secrets Manager)
 
-All 16 app secrets stored under `ripple/prod/*`. `DATABASE_URL` points to RDS with `?sslmode=no-verify` (RDS uses Amazon CA; pg v8 requires explicit no-verify to skip chain validation).
+All 17 app secrets stored under `ripple/prod/*`. `DATABASE_URL` points to RDS with `?sslmode=no-verify` (RDS uses Amazon CA; pg v8 requires explicit `no-verify` to skip chain validation).
 
-### Database migrations on ECS
-
-Run migrations as a one-off ECS task using the `run-migrations.mjs` script baked into the image:
+### Viewing logs
 
 ```bash
-aws ecs run-task \
+# Tail live ECS logs (last 5 min, follow)
+AWS_PROFILE=ripple-deploy aws logs tail /ecs/ripple-backend --follow --region us-east-1
+```
+
+### Running migrations manually
+
+The deploy script handles this via `--migrate`, but if you need to run manually:
+
+```bash
+AWS_PROFILE=ripple-deploy aws ecs run-task \
   --cluster ripple-cluster \
-  --task-definition ripple-backend:1 \
+  --task-definition ripple-backend \
   --launch-type FARGATE \
   --network-configuration "awsvpcConfiguration={subnets=[subnet-0d0fb17d7171470db],securityGroups=[sg-0f708042cafade4dd],assignPublicIp=ENABLED}" \
   --overrides '{"containerOverrides":[{"name":"ripple-backend","command":["node","run-migrations.mjs"]}]}' \
-  --profile ripple-deploy --region us-east-1
+  --region us-east-1
 ```
 
-Then check logs in CloudWatch log group `/ecs/ripple-backend`.
+Then check CloudWatch log group `/ecs/ripple-backend` for output.
 
-### Deploying a new image
-
-```bash
-# In backend/
-aws ecr get-login-password --region us-east-1 --profile ripple-deploy | \
-  docker login --username AWS --password-stdin 042396230124.dkr.ecr.us-east-1.amazonaws.com
-docker build -t ripple-backend:latest .
-docker tag ripple-backend:latest 042396230124.dkr.ecr.us-east-1.amazonaws.com/ripple-backend:latest
-docker push 042396230124.dkr.ecr.us-east-1.amazonaws.com/ripple-backend:latest
-
-# Force new ECS deployment
-aws ecs update-service --cluster ripple-cluster --service ripple-backend-svc \
-  --force-new-deployment --profile ripple-deploy --region us-east-1
-```
-
-### Known issues / pending
+### Known issues
 
 - Migration 024 index failure (`column "user_id"`) — non-critical performance index, safe to skip
-- `plaid_items` not found in credential sweep on startup — non-fatal logged error; Plaid tables may need a migration
+- `plaid_items` not found in credential sweep on startup — non-fatal logged error
 - Background job startup errors (Dexcom, Weather) are logged but non-fatal — server stays up; these clear once data exists
 
 ---
