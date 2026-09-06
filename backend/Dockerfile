@@ -24,6 +24,14 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Copy compiled output from builder
 COPY --from=builder /app/dist ./dist
 
+# Copy database schema, migrations, and migration runner for one-off migration runs
+COPY schema.sql ./schema.sql
+COPY migrations ./migrations
+COPY run-migrations.mjs ./run-migrations.mjs
+
+# Pre-create the media-uploads directory and give ownership to node user
+RUN mkdir -p /app/media-uploads && chown node:node /app/media-uploads
+
 # Use non-root node user (built into alpine node images)
 USER node
 
