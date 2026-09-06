@@ -3,7 +3,7 @@
 Expo/React Native (TypeScript) + Fastify/Postgres wellness app. This file is shared by both checkouts — **check your current directory to know where you are**:
 
 - `/root/wellness-app-multiuser-dev` — **dev repo** (`dev` branch). ALL development happens here.
-- `/root/wellness-app-multiuser` — **PRODUCTION worktree** (`master`). Never develop here; it only receives merges from dev (which deploys the files) and hosts the running prod backend.
+- `/root/wellness-app-multiuser` — **PRODUCTION worktree** (`master`). Never develop here; it only receives merges from dev. Production backend runs on **AWS ECS** (not this VPS) — see `docs/BACKEND.md` § 5b for infrastructure details.
 
 ## Master docs — read the right one before working
 
@@ -32,7 +32,7 @@ If a task changes nothing a doc describes, no update is needed — but check bef
 ## Hard rules
 
 - **Never commit without showing the diff and getting explicit approval.**
-- **Never merge to master, push to production, or restart the prod backend without explicit approval.** (Deploy procedure: `docs/BACKEND.md`.)
+- **Never merge to master, push to production, or run the deploy script without explicit approval.** Production is on AWS ECS — deploy procedure: `docs/BACKEND.md` § 5. Script: `./scripts/deploy-backend.sh` (add `--migrate` if there are new migrations). Never restart a VPS process for prod — that's no longer how prod runs.
 - **Never start a build unprompted — but run a LOCAL build whenever the user asks for one.** "do a build" / "build now" / "local build" is sufficient authorization to run `eas build --platform android --profile preview --local`. Remote EAS builds stay off-limits (limited credits) unless the user names remote explicitly. Batch native changes; JS-only changes need no build. Bump `app.json` version + `android.versionCode` + `package.json` before any build; merge dev→master first.
 - **Never use `sed -i`** — it truncated a source file to 0 bytes in this repo. Use the Edit tool.
 - Push frontend changes to the `frontend` remote, backend changes to `origin`, both if both changed.
